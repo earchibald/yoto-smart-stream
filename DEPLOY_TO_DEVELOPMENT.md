@@ -1,14 +1,18 @@
 # Quick Deployment to Railway Development Environment
 
+## Overview
+
+**Current Workflow**: PR work deploys **only to the development Railway environment**. Staging and production deployments are not configured yet (there's no `develop` branch for staging to use).
+
 ## Prerequisites Checklist
 
 Before deploying to Railway development, ensure:
 
 - [x] Railway CLI installed (`npm i -g @railway/cli`)
 - [x] Production server code is ready (on branch `copilot/build-server-and-setup-railway`)
-- [ ] `RAILWAY_TOKEN` configured as GitHub Secret or in environment
+- [ ] `RAILWAY_TOKEN_DEV` configured as GitHub Secret
 - [ ] `YOTO_CLIENT_ID` configured as GitHub Secret (optional for basic deployment)
-- [ ] Railway project linked
+- [ ] Railway project has a `development` environment configured
 
 ## Deployment Options
 
@@ -58,9 +62,6 @@ If you have the Railway token:
 # Export the token
 export RAILWAY_TOKEN="your_token_here"
 
-# Link to the project (first time only)
-railway link
-
 # Deploy to development
 railway up -e development
 
@@ -73,8 +74,11 @@ railway variables set DEBUG="true" -e development
 ## Current Deployment Status
 
 **Branch**: `copilot/build-server-and-setup-railway`  
+**Target Environment**: `development` (Railway)
 **Status**: Ready for deployment  
 **Entry Point**: `uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT`
+
+**Note**: This PR only deploys to development. Staging/production workflows exist but are not used yet (no `develop` branch for staging trigger).
 
 ## Required Environment Variables in Railway
 
@@ -115,13 +119,13 @@ open https://yoto-smart-stream-development.up.railway.app/docs
 
 ## Troubleshooting
 
-### No RAILWAY_TOKEN Available
+### No RAILWAY_TOKEN_DEV Available
 
-**Issue**: Cannot deploy because RAILWAY_TOKEN is not set.
+**Issue**: Cannot deploy because RAILWAY_TOKEN_DEV is not set.
 
 **Solutions**:
-1. Add `RAILWAY_TOKEN` to GitHub Secrets (for GitHub Actions deployment)
-2. Set `RAILWAY_TOKEN` in Codespaces secrets (for Codespace deployment)
+1. Add `RAILWAY_TOKEN_DEV` to GitHub Secrets (for GitHub Actions deployment)
+2. Set `RAILWAY_TOKEN` in environment (for Codespace/local deployment)
 3. Run `railway login` for interactive authentication (local only)
 
 ### Environment Doesn't Exist
@@ -155,4 +159,4 @@ open https://yoto-smart-stream-development.up.railway.app/docs
 
 ---
 
-**Note**: This branch (`copilot/build-server-and-setup-railway`) is not configured for automatic deployment. Deployment must be triggered manually or by merging to a branch with auto-deployment configured (e.g., `develop`).
+**Note**: This branch (`copilot/build-server-and-setup-railway`) is configured to deploy to the `development` Railway environment only. The workflow is triggered manually via GitHub Actions. Staging and production deployments are not configured yet.

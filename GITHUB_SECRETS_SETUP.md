@@ -2,18 +2,22 @@
 
 This guide explains exactly what secrets to configure and where, to enable automated Railway deployments.
 
+## Simplified Workflow for Development
+
+**Current Focus**: PR work deploys only to the `development` Railway environment. Staging and production workflows are not needed yet (there's no `develop` branch for staging).
+
 ## Required GitHub Secrets
 
 You need to add these secrets to your GitHub repository:
 
-### 1. RAILWAY_TOKEN (Required for deployment)
+### 1. RAILWAY_TOKEN_DEV (Required for development deployment)
 
-**What it is**: An API token that allows GitHub Actions to deploy to Railway on your behalf.
+**What it is**: An API token that allows GitHub Actions to deploy to Railway development environment on your behalf.
 
 **How to get it**:
 1. Go to https://railway.app/account/tokens
 2. Click "Create Token"
-3. Give it a name like "GitHub Actions Deployment"
+3. Give it a name like "GitHub Actions Development"
 4. Copy the token (you'll only see it once!)
 
 **Where to add it**:
@@ -21,7 +25,7 @@ You need to add these secrets to your GitHub repository:
 2. Click **Settings** (top navigation)
 3. In the left sidebar, click **Secrets and variables** → **Actions**
 4. Click **New repository secret**
-5. Name: `RAILWAY_TOKEN`
+5. Name: `RAILWAY_TOKEN_DEV` (exact name required)
 6. Value: Paste the token from Railway
 7. Click **Add secret**
 
@@ -56,16 +60,16 @@ Left sidebar → Secrets and variables → Actions
 ### Step 3: Add Secrets
 ```
 Click "New repository secret"
-Enter name: RAILWAY_TOKEN
+Enter name: RAILWAY_TOKEN_DEV
 Paste value from Railway
 Click "Add secret"
 
-Repeat for YOTO_CLIENT_ID
+Repeat for YOTO_CLIENT_ID (optional)
 ```
 
 ## After Adding Secrets
 
-Once both secrets are added, you can deploy using any of these methods:
+Once `RAILWAY_TOKEN_DEV` is added, you can deploy using any of these methods:
 
 ### Method 1: Via GitHub Actions UI (Easiest)
 
@@ -100,8 +104,8 @@ After adding secrets, verify they're configured:
 
 1. Go to: Repository → Settings → Secrets and variables → Actions
 2. You should see:
-   - ✅ `RAILWAY_TOKEN`
-   - ✅ `YOTO_CLIENT_ID` (if you added it)
+   - ✅ `RAILWAY_TOKEN_DEV` (required)
+   - ✅ `YOTO_CLIENT_ID` (optional)
 
 The values are hidden for security, but you should see the secret names listed.
 
@@ -109,9 +113,9 @@ The values are hidden for security, but you should see the secret names listed.
 
 ### "Secret not found" error in workflow
 
-**Problem**: Workflow runs but can't find `RAILWAY_TOKEN`.
+**Problem**: Workflow runs but can't find `RAILWAY_TOKEN_DEV`.
 
-**Solution**: Make sure you named it exactly `RAILWAY_TOKEN` (all caps, with underscore).
+**Solution**: Make sure you named it exactly `RAILWAY_TOKEN_DEV` (all caps, with underscores).
 
 ### Token doesn't work
 
@@ -140,19 +144,22 @@ Both are needed for full functionality:
 
 ## Summary
 
-**Quick checklist to enable deployment:**
+**Quick checklist to enable development deployment:**
 
 - [ ] Get Railway token from https://railway.app/account/tokens
-- [ ] Add `RAILWAY_TOKEN` to repository secrets
+- [ ] Add `RAILWAY_TOKEN_DEV` to repository secrets
 - [ ] (Optional) Get Yoto Client ID from https://yoto.dev/
 - [ ] (Optional) Add `YOTO_CLIENT_ID` to repository secrets
 - [ ] Go to Actions tab and run "Railway Development (Shared Environment)" workflow
 - [ ] Monitor deployment progress in Actions tab
 
+**Important**: Use `RAILWAY_TOKEN_DEV` for development deployments. Future staging/production deployments would use `RAILWAY_TOKEN_STAGING` and `RAILWAY_TOKEN_PROD` respectively, but those are not needed yet.
+
 **Still confused?** 
 - Repository secrets location: https://github.com/earchibald/yoto-smart-stream/settings/secrets/actions
 - You need **repository-level** secrets, not Codespace secrets, for GitHub Actions to work
+- The secret must be named exactly: `RAILWAY_TOKEN_DEV`
 
 ---
 
-Once secrets are configured, GitHub Actions will have access to deploy to Railway automatically!
+Once secrets are configured, GitHub Actions will have access to deploy to Railway development environment automatically!
