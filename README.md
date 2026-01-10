@@ -1,156 +1,246 @@
-# yoto-smart-stream
+# Yoto Smart Stream
 
-A service package to stream audio to a yoto device, monitor events from that device with MQTT and change what it is doing in response, with a web UI to configure, upload, record and manage audio and card scripts. Should support "Choose Your Own Adventure" style as one option.
+A service to stream audio to Yoto devices, monitor events via MQTT, and manage interactive audio experiences with a web UI. Includes support for "Choose Your Own Adventure" style interactive stories.
 
-## 📚 Documentation
+## 🎯 Features
 
-This repository contains comprehensive documentation for the Yoto Smart Stream project, including API references, MQTT service documentation, and web UI wireframe proposals.
+- **Audio Streaming**: Stream custom audio content to Yoto players
+- **Real-time Monitoring**: Track player events via MQTT (play/pause, button presses, battery status)
+- **Interactive Cards**: Create Choose Your Own Adventure style experiences using physical button controls
+- **Web UI**: Manage your audio library, configure cards, and write interactive scripts
+- **Card Management**: Upload, organize, and configure custom Yoto cards
+- **Multi-format Support**: Automatic audio conversion to Yoto-compatible formats
 
-### API & Integration Documentation
+## 📋 Prerequisites
 
-- **[YOTO_API_REFERENCE.md](YOTO_API_REFERENCE.md)** - Comprehensive Yoto API documentation
-  - Authentication and OAuth2 Device Flow
-  - REST API endpoints for devices, content, and configuration
-  - MQTT real-time communication
-  - Code examples in Python and Node.js
-  - Useful libraries and official resources
-
-- **[Yoto MQTT Event Service Reference](docs/yoto-mqtt-reference.md)** - Deep dive into MQTT implementation
-  - Architecture and core components
-  - Authentication and token management
-  - MQTT connection setup and lifecycle
-  - Topic structure and message formats
-  - Command reference for player control
-  - Event handling and state management
-  - Integration patterns and examples
-  - Security, performance, and debugging best practices
-
-### Web UI Wireframe Documents
-
-- **[WIREFRAME_SUMMARY.md](./WIREFRAME_SUMMARY.md)** - Start here! Overview of all wireframe documentation
-- **[WIREFRAMES.md](./WIREFRAMES.md)** - Detailed wireframes for 7 core pages (31KB, 516 lines)
-  - Dashboard, Library, Script Editor, CYOA Builder, Device Monitor, Upload/Recording, Settings
-- **[UI_COMPONENTS.md](./UI_COMPONENTS.md)** - Reusable component library (16KB, 602 lines)
-  - 20 detailed UI components with props and layouts
-- **[USER_JOURNEYS.md](./USER_JOURNEYS.md)** - User flows and interaction patterns (20KB, 850 lines)
-  - 3 user personas, 5 complete user journeys, interaction patterns, accessibility
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture and data flows (30KB, 857 lines)
-  - System diagrams, database schema, API endpoints, MQTT structure, deployment
-
-## 🎯 Key Features
-
-### 1. Audio Management
-- Upload audio files via drag-and-drop
-- Record audio directly in the browser
-- Organize and search audio library
-- Create playlists and card scripts
-
-### 2. Device Monitoring (MQTT)
-- Real-time device status tracking
-- Live event streams from devices
-- Remote device control
-- Multi-device management
-
-### 3. Interactive Story Builder (CYOA)
-- Visual node-based editor
-- Branching narrative paths
-- MQTT button mapping
-- Audio integration at decision points
-
-### 4. Web Interface
-- Responsive design (mobile, tablet, desktop)
-- Real-time updates via WebSocket
-- Intuitive user flows
-- Comprehensive analytics
+- Python 3.9 or higher
+- A Yoto player and Yoto account
+- Yoto API client ID (get from [yoto.dev](https://yoto.dev/get-started/start-here/))
 
 ## 🚀 Quick Start
 
-### Explore the Wireframes
+### 1. Clone the Repository
 
-1. Start with [WIREFRAME_SUMMARY.md](./WIREFRAME_SUMMARY.md) for an overview
-2. Review [WIREFRAMES.md](./WIREFRAMES.md) to see all page layouts
-3. Check [USER_JOURNEYS.md](./USER_JOURNEYS.md) for user flows
-4. Read [ARCHITECTURE.md](./ARCHITECTURE.md) for technical details
+```bash
+git clone https://github.com/earchibald/yoto-smart-stream.git
+cd yoto-smart-stream
+```
 
-### Implementation
+### 2. Set Up Environment
 
-The wireframes are implementation-agnostic but include technology recommendations:
-- **Frontend**: React/Vue/Svelte with TypeScript
-- **Backend**: Node.js or Python with REST API
-- **Real-time**: WebSocket for MQTT events
-- **Database**: PostgreSQL + Redis
-- **MQTT Broker**: Mosquitto or RabbitMQ
+```bash
+# Copy environment template
+cp .env.example .env
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for complete technology stack recommendations.
+# Edit .env and add your Yoto client ID
+# YOTO_CLIENT_ID=your_client_id_here
+```
 
-## 📖 What's Included
+### 3. Install Dependencies
 
-### Page Wireframes
-- Dashboard with device status and quick actions
-- Audio library with grid/list views
-- Card script editor with playlist support
-- CYOA story builder with visual flow editor
-- Device monitoring with live MQTT events
-- Upload modal and recording interface
-- Settings and configuration pages
+```bash
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-### UI Components (20 total)
-DeviceCard, AudioFileCard, NodeEditor, MQTTEventLog, FileUploader, AudioRecorder, FlowCanvas, ScriptTreeView, StatusIndicator, ProgressBar, PlaybackControls, Modal, Sidebar, SearchBar, FilterPanel, NotificationToast, StatCard, TabPanel, ContextMenu, EmptyState
+# Install dependencies
+pip install -r requirements.txt
+```
 
-### User Journeys (5 scenarios)
-1. First-time user setup
-2. Creating a simple playlist
-3. Building a CYOA story
-4. Monitoring device activity
-5. Recording audio directly
+### 4. Authenticate with Yoto API
 
-### Architecture Coverage
-- System architecture diagrams
-- Data flow illustrations
-- Database schema (7 tables)
-- API endpoints (30+ endpoints)
-- MQTT topic structure
-- Security considerations
-- Scalability patterns
-- Deployment architecture
+```bash
+# Run the simple client example to authenticate
+python examples/simple_client.py
+```
 
-## 🎨 Design Principles
+Follow the prompts to authenticate. Your refresh token will be saved for future use.
 
-1. **Clarity**: Clear labels and intuitive workflows
-2. **Real-time Feedback**: Live updates via MQTT
-3. **Flexibility**: Support simple and complex use cases
-4. **Accessibility**: WCAG 2.1 Level AA compliance
-5. **Performance**: Optimized for large libraries and real-time data
+### 5. Start the API Server
 
-## 🔧 Next Steps
+```bash
+# Run the basic server example
+python examples/basic_server.py
 
-1. **Prototype**: Create clickable prototypes in Figma/Sketch
-2. **User Testing**: Validate wireframes with target users
-3. **Technical Planning**: Assess implementation complexity
-4. **Design**: Create high-fidelity mockups
-5. **Development**: Begin implementation
+# Or use uvicorn directly
+uvicorn examples.basic_server:app --reload
+```
 
-## 📊 Documentation Stats
+Visit http://localhost:8000/docs for interactive API documentation.
 
-- **Total Documentation**: ~103KB across 5 markdown files
-- **Total Lines**: 2,882 lines of detailed specifications
-- **Wireframe Pages**: 7 core pages + navigation
-- **UI Components**: 20 reusable components
-- **User Journeys**: 5 complete end-to-end flows
-- **API Endpoints**: 30+ REST endpoints documented
+## 📚 Documentation
+
+- **[Yoto API Reference](docs/YOTO_API_REFERENCE.md)**: Complete API specification with endpoints, MQTT topics, and code examples
+- **[Yoto MQTT Reference](docs/yoto-mqtt-reference.md)**: Deep dive into MQTT event service implementation and real-time communication
+- **[Architecture Guide](docs/ARCHITECTURE.md)**: System design and implementation recommendations
+- **[Planning Questions](docs/PLANNING_QUESTIONS.md)**: Open questions and decision points
+- **[Getting Started Guide](docs/GETTING_STARTED.md)**: Step-by-step setup instructions
+- **[AgentSkill](/.github/agentskills/yoto-api-development.md)**: Comprehensive development guide for Yoto API
+
+## 🛠️ Development
+
+### Using GitHub Codespaces
+
+This project is configured for GitHub Codespaces with a complete development environment:
+
+1. Click "Code" → "Create codespace on main"
+2. Wait for the environment to set up automatically
+3. Start developing!
+
+### Local Development
+
+```bash
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Install pre-commit hooks
+pre-commit install
+
+# Run tests
+pytest
+
+# Run linter
+ruff check .
+
+# Format code
+black .
+```
+
+## 📖 Examples
+
+### Basic Player Control
+
+```python
+from yoto_api import YotoManager
+
+# Initialize and authenticate
+ym = YotoManager(client_id="your_client_id")
+ym.set_refresh_token("your_refresh_token")
+ym.check_and_refresh_token()
+
+# Get players
+ym.update_player_status()
+for player_id, player in ym.players.items():
+    print(f"{player.name}: {'Online' if player.online else 'Offline'}")
+
+# Control a player
+ym.pause_player(player_id)
+ym.play_player(player_id)
+ym.set_volume(player_id, 10)
+```
+
+### Listen to MQTT Events
+
+```bash
+python examples/mqtt_listener.py
+```
+
+### Start API Server
+
+```bash
+python examples/basic_server.py
+```
+
+Then use the API:
+```bash
+# List players
+curl http://localhost:8000/api/players
+
+# Control a player
+curl -X POST http://localhost:8000/api/players/{player_id}/control \
+  -H "Content-Type: application/json" \
+  -d '{"action": "pause"}'
+```
+
+## 🎮 Interactive Cards (Choose Your Own Adventure)
+
+Create interactive stories that respond to button presses:
+
+```json
+{
+  "card_id": "adventure-001",
+  "chapters": {
+    "1": {
+      "audio_file_id": "intro.mp3",
+      "choices": {
+        "left": {"next_chapter": 2},
+        "right": {"next_chapter": 3}
+      }
+    },
+    "2": {
+      "audio_file_id": "left-path.mp3",
+      "choices": {
+        "left": {"next_chapter": 4},
+        "right": {"next_chapter": 5}
+      }
+    }
+  }
+}
+```
+
+See [Architecture Guide](docs/ARCHITECTURE.md) for detailed implementation.
+
+## 🏗️ Project Structure
+
+```
+yoto-smart-stream/
+├── .devcontainer/          # GitHub Codespaces configuration
+├── .github/
+│   └── agentskills/       # Development guides
+├── docs/                  # Documentation
+├── examples/              # Example scripts
+│   ├── simple_client.py   # Basic API usage
+│   ├── mqtt_listener.py   # Event monitoring
+│   └── basic_server.py    # FastAPI server
+├── yoto_smart_stream/     # Main package (to be implemented)
+├── tests/                 # Test suite
+├── pyproject.toml         # Project configuration
+├── requirements.txt       # Dependencies
+└── README.md             # This file
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read our contributing guidelines before submitting PRs.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
 
 ## 📝 License
 
-[Specify your license here]
+MIT License - see LICENSE file for details
 
-## 👥 Contributing
+## 🙏 Acknowledgments
 
-This is a wireframe proposal repository. For implementation, please:
-1. Review all wireframe documents
-2. Provide feedback on user flows
-3. Suggest improvements or missing features
-4. Help prioritize development phases
+- [yoto_api](https://github.com/cdnninja/yoto_api) by cdnninja - Python wrapper for Yoto API
+- Yoto Play for creating an amazing audio player for kids
+- Community contributors and testers
 
-## 📧 Contact
+## ⚠️ Disclaimer
 
-[Add contact information for questions/feedback]
+This project is not affiliated with, endorsed by, or sponsored by Yoto Play. It's an independent community project built using publicly available APIs.
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/earchibald/yoto-smart-stream/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/earchibald/yoto-smart-stream/discussions)
+- **Yoto API**: [yoto.dev](https://yoto.dev/)
+
+## 🗺️ Roadmap
+
+- [x] Project setup and documentation
+- [x] Basic API client examples
+- [ ] Core API implementation
+- [ ] Audio management system
+- [ ] Interactive script engine
+- [ ] Web UI
+- [ ] Text-to-speech integration
+- [ ] Cloud deployment guides
+- [ ] Mobile app (future consideration)
+
+---
+
+Made with ❤️ for the Yoto community
