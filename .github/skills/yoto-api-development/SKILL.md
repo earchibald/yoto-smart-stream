@@ -1,3 +1,8 @@
+---
+name: yoto-api-development
+description: Specialized knowledge for developing applications that interact with the Yoto Play API, including audio streaming, MQTT event handling, and device management. Use this when working with Yoto API integration, audio streaming to Yoto players, or real-time device control.
+---
+
 # Yoto API Development AgentSkill
 
 This agentskill provides specialized knowledge for developing applications that interact with the Yoto Play API, including audio streaming, MQTT event handling, and device management.
@@ -6,7 +11,7 @@ This agentskill provides specialized knowledge for developing applications that 
 
 **IMPORTANT**: Before proceeding, review these comprehensive reference documents:
 
-1. **[Yoto API Reference](../../docs/YOTO_API_REFERENCE.md)** - Complete API specification including:
+1. **[Yoto API Reference](../../../docs/YOTO_API_REFERENCE.md)** - Complete API specification including:
    - All REST API endpoints with request/response examples
    - MQTT topics, message formats, and commands
    - Data structures and models
@@ -14,7 +19,7 @@ This agentskill provides specialized knowledge for developing applications that 
    - Code examples in Python and Node.js
    - Official documentation links
 
-2. **[Yoto MQTT Reference](../../docs/yoto-mqtt-reference.md)** - **NEW** Deep dive into MQTT implementation:
+2. **[Yoto MQTT Reference](../../../docs/yoto-mqtt-reference.md)** - **NEW** Deep dive into MQTT implementation:
    - AWS IoT Core connection details
    - WebSocket MQTT protocol specifics
    - JWT authentication for MQTT
@@ -22,9 +27,9 @@ This agentskill provides specialized knowledge for developing applications that 
    - Event handling patterns
    - Integration examples for interactive skills
 
-3. **[Architecture Guide](../../docs/ARCHITECTURE.md)** - Implementation recommendations and system design
+3. **[Architecture Guide](../../../docs/ARCHITECTURE.md)** - Implementation recommendations and system design
 
-4. **[Planning Questions](../../docs/PLANNING_QUESTIONS.md)** - Strategic decisions and considerations
+4. **[Planning Questions](../../../docs/PLANNING_QUESTIONS.md)** - Strategic decisions and considerations
 
 ## Yoto API Overview
 
