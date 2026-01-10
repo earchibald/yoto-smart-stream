@@ -191,6 +191,8 @@ jobs:
       - name: Sync Secrets to Railway
         run: |
           # Set Yoto credentials in Railway
+          # Note: In GitHub Actions workflows, ${{ secrets.SECRET_NAME }} is correct syntax
+          # and is safely interpolated by GitHub (not exposed in logs)
           railway variables set YOTO_CLIENT_ID="${{ secrets.YOTO_CLIENT_ID }}" \
             --environment ${{ env.ENVIRONMENT }}
           railway variables set YOTO_CLIENT_SECRET="${{ secrets.YOTO_CLIENT_SECRET }}" \
@@ -314,25 +316,27 @@ ENVIRONMENT=development
 
 ```bash
 # Staging - use production-like credentials
-YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }}
-YOTO_CLIENT_SECRET=${{ secrets.YOTO_CLIENT_SECRET }}
+# Set via Railway CLI or GitHub Actions (secrets synced from GitHub)
+YOTO_CLIENT_ID=<from GitHub Secrets>
+YOTO_CLIENT_SECRET=<from GitHub Secrets>
 DEBUG=true
 LOG_LEVEL=info
 ENVIRONMENT=staging
-DATABASE_URL=${{Postgres.DATABASE_URL}}
+DATABASE_URL=${{Postgres.DATABASE_URL}}  # Railway reference variable
 ```
 
 ### Production Environment
 
 ```bash
 # Production - use production credentials
-YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }}
-YOTO_CLIENT_SECRET=${{ secrets.YOTO_CLIENT_SECRET }}
+# Set via Railway CLI or GitHub Actions (secrets synced from GitHub)
+YOTO_CLIENT_ID=<from GitHub Secrets>
+YOTO_CLIENT_SECRET=<from GitHub Secrets>
 DEBUG=false
 LOG_LEVEL=warning
 ENVIRONMENT=production
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-REDIS_URL=${{Redis.REDIS_URL}}
+DATABASE_URL=${{Postgres.DATABASE_URL}}  # Railway reference variable
+REDIS_URL=${{Redis.REDIS_URL}}  # Railway reference variable
 ```
 
 ## Accessing Secrets in Application Code
