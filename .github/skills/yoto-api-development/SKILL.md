@@ -15,6 +15,19 @@ Yoto is an audio player system for children that uses physical cards to control 
 - **MQTT** for real-time device control and status monitoring
 - **OAuth2** authentication with device flow and refresh tokens
 - **Audio Streaming** capabilities to Yoto players
+- **Display Icons** for Yoto Mini devices (16x16 pixel custom icons)
+
+### Device Capabilities
+
+**Yoto Player (Original)**:
+- No display screen
+- No microphone (voice control not possible)
+- Physical card slot for content
+
+**Yoto Mini**:
+- 16x16 pixel display screen (supports custom icons)
+- No microphone (voice control not possible)
+- Physical card slot for content
 
 ### Base URLs
 - REST API: `https://api.yotoplay.com`
@@ -29,6 +42,8 @@ Yoto is an audio player system for children that uses physical cards to control 
 - [🔌 MQTT Deep Dive](./reference/yoto_mqtt_reference.md) - Real-time communication details including AWS IoT Core setup, topic structure, message formats, and event handling patterns
 - [🏗️ Architecture Guide](./reference/architecture.md) - Implementation recommendations, technology stack suggestions, system design patterns, and project structure
 - [❓ Planning Questions](./reference/planning_questions.md) - Strategic decisions and considerations for building Yoto applications
+- [🎨 Icon Management](./reference/icon_management.md) - Display icon management for Yoto Mini, including public icon repository access and custom icon uploads
+- [📝 Implementation Summary](./reference/implementation_summary.md) - Summary of recent implementation work including device capabilities and icon management features
 
 ## Quick Start
 
@@ -101,7 +116,15 @@ ym.set_volume(player_id, 50)
 - Use MP3 at 128-256 kbps for best compatibility
 - Implement byte-range support for seeking
 
-### 4. Interactive "Choose Your Own Adventure" Cards
+### 4. Display Icons (Yoto Mini)
+- Icons must be PNG format, exactly 16x16 pixels
+- Maximum file size: 10KB
+- Access public icon repository via `/media/displayIcons/public`
+- Upload custom icons via `/media/displayIcons/user/me`
+- Icons show on Yoto Mini display during playback
+- Validate icons before upload (dimensions, format, size)
+
+### 5. Interactive "Choose Your Own Adventure" Cards
 - Listen for button press events via MQTT
 - Use server-side state persistence for story progress
 - Map left/right buttons to binary choices
