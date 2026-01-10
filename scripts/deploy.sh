@@ -110,10 +110,10 @@ railway status -e "$ENVIRONMENT" || echo "⚠️  Could not fetch status"
 
 # Step 6: Show logs
 echo ""
-echo "📋 Recent Logs (last 50 lines)"
+echo "📋 Deployment Logs"
 echo "--------------------------------"
-echo "To follow logs in real-time, run:"
-echo "  railway logs -e $ENVIRONMENT"
+echo "ℹ️  To view logs in real-time, run:"
+echo "  railway logs -e $ENVIRONMENT -f"
 echo ""
 
 # Success message

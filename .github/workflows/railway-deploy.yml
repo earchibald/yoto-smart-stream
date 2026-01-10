@@ -92,12 +92,14 @@ jobs:
           railway variables set ENVIRONMENT=staging -e staging
       
       - name: Configure Yoto API Credentials (if available)
-        if: ${{ secrets.YOTO_CLIENT_ID != '' }}
+        # Only run if YOTO_CLIENT_ID secret is set
+        if: ${{ secrets.YOTO_CLIENT_ID != '' && secrets.YOTO_CLIENT_ID != null }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
         run: |
           # Use environment variable instead of passing secret in command line
+          # Only runs if YOTO_CLIENT_ID is configured in GitHub Secrets
           railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e staging
       
       - name: Get deployment status
