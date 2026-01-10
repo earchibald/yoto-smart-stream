@@ -125,13 +125,17 @@ YOTO_CLIENT_SECRET    # Yoto API client secret (for all environments)
 Set environment-specific variables in Railway:
 
 ```bash
-# Production environment
-railway variables set YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }} -e production
-railway variables set YOTO_CLIENT_SECRET=${{ secrets.YOTO_CLIENT_SECRET }} -e production
+# Production environment (via Railway CLI or GitHub Actions)
+# In bash/CLI: use actual values or environment variables
+railway variables set YOTO_CLIENT_ID="your_client_id" -e production
+railway variables set YOTO_CLIENT_SECRET="your_secret" -e production
 railway variables set DATABASE_URL='${{Postgres.DATABASE_URL}}' -e production
 
+# In GitHub Actions: use secrets syntax
+# railway variables set YOTO_CLIENT_ID="${{ secrets.YOTO_CLIENT_ID }}" -e production
+
 # Staging environment
-railway variables set YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }} -e staging
+railway variables set YOTO_CLIENT_ID="your_client_id" -e staging
 railway variables set DEBUG=true -e staging
 ```
 

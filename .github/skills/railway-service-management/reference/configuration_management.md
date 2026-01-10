@@ -434,9 +434,9 @@ RELOAD=false
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 REDIS_URL=${{Redis.REDIS_URL}}
 
-# Real Yoto credentials (from GitHub Secrets)
-YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }}
-YOTO_CLIENT_SECRET=${{ secrets.YOTO_CLIENT_SECRET }}
+# Real Yoto credentials (synced from GitHub Secrets via GitHub Actions)
+YOTO_CLIENT_ID=<actual_value_from_github_secrets>
+YOTO_CLIENT_SECRET=<actual_value_from_github_secrets>
 
 # Feature flags
 ENABLE_MQTT=true
@@ -461,9 +461,9 @@ RELOAD=false
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 REDIS_URL=${{Redis.REDIS_URL}}
 
-# Production Yoto credentials
-YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }}
-YOTO_CLIENT_SECRET=${{ secrets.YOTO_CLIENT_SECRET }}
+# Production Yoto credentials (synced from GitHub Secrets via GitHub Actions)
+YOTO_CLIENT_ID=<actual_value_from_github_secrets>
+YOTO_CLIENT_SECRET=<actual_value_from_github_secrets>
 
 # Feature flags (stable features only)
 ENABLE_MQTT=true
@@ -471,7 +471,7 @@ ENABLE_ICON_MANAGEMENT=true
 ENABLE_DEBUG_TOOLBAR=false
 
 # Production monitoring
-SENTRY_DSN=${{ secrets.SENTRY_DSN_PRODUCTION }}
+SENTRY_DSN=<actual_value_from_github_secrets>
 
 # Security
 SECURE_COOKIES=true
