@@ -1,0 +1,318 @@
+name: Railway Development (Shared Environment)
+
+# This workflow manages the shared development Railway environment
+# with coordination to avoid conflicts between concurrent sessions
+
+on:
+  workflow_dispatch:
+    inputs:
+      session_id:
+        description: 'Your session ID (e.g., copilot-session-abc123 or pr-123)'
+        required: true
+        type: string
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - acquire-and-deploy
+          - release
+          - status
+      force:
+        description: 'Force deploy (ignore lock - use with caution)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.11'
+  LOCK_FILE: '.railway-dev-lock.json'
+
+jobs:
+  # Acquire lock and deploy to shared development environment
+  acquire-and-deploy:
+    name: Acquire Lock and Deploy
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'acquire-and-deploy'
+    environment:
+      name: development
+      url: https://yoto-smart-stream-development.up.railway.app
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check for substantive changes
+        id: check-changes
+        run: |
+          # Check if there are substantive code changes (not just docs/comments)
+          # Get changed files compared to develop branch
+          git fetch origin develop
+          
+          CHANGED_FILES=$(git diff --name-only origin/develop...HEAD || echo "")
+          
+          # Filter for substantive files (code, configs, dependencies)
+          SUBSTANTIVE_CHANGES=$(echo "$CHANGED_FILES" | grep -E '\.(py|js|ts|json|toml|txt|yml|yaml)$' | grep -v -E '^(docs/|README|\.md$|PR_SUMMARY|IMPLEMENTATION)' || echo "")
+          
+          if [ -z "$SUBSTANTIVE_CHANGES" ]; then
+            echo "substantive=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No substantive code changes detected"
+            echo "Changed files are documentation or non-code files only"
+            exit 0
+          else
+            echo "substantive=true" >> $GITHUB_OUTPUT
+            echo "✓ Substantive changes detected:"
+            echo "$SUBSTANTIVE_CHANGES"
+          fi
+      
+      - name: Skip if no substantive changes
+        if: steps.check-changes.outputs.substantive == 'false' && github.event.inputs.force != 'true'
+        run: |
+          echo "::warning::No substantive changes detected. Skipping deployment."
+          echo "If you need to deploy anyway, re-run with 'force' option enabled."
+          exit 0
+      
+      - name: Check lock file
+        id: check-lock
+        run: |
+          # Create lock file directory if it doesn't exist
+          mkdir -p .railway-locks
+          
+          LOCK_PATH=".railway-locks/${LOCK_FILE}"
+          
+          # Try to get existing lock from repository
+          if gh api repos/${{ github.repository }}/contents/$LOCK_PATH --jq '.content' 2>/dev/null | base64 -d > /tmp/lock.json; then
+            echo "Lock file exists"
+            LOCK_OWNER=$(jq -r '.session_id' /tmp/lock.json)
+            LOCK_TIME=$(jq -r '.timestamp' /tmp/lock.json)
+            LOCK_AGE=$(($(date +%s) - $(date -d "$LOCK_TIME" +%s)))
+            
+            echo "lock_exists=true" >> $GITHUB_OUTPUT
+            echo "lock_owner=$LOCK_OWNER" >> $GITHUB_OUTPUT
+            echo "lock_age=$LOCK_AGE" >> $GITHUB_OUTPUT
+            
+            # Auto-release stale locks (older than 2 hours)
+            if [ $LOCK_AGE -gt 7200 ]; then
+              echo "lock_stale=true" >> $GITHUB_OUTPUT
+              echo "⚠️ Lock is stale (${LOCK_AGE}s old), will auto-release"
+            else
+              echo "lock_stale=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "lock_exists=false" >> $GITHUB_OUTPUT
+            echo "No existing lock found"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Fail if locked by another session
+        if: |
+          steps.check-lock.outputs.lock_exists == 'true' && 
+          steps.check-lock.outputs.lock_owner != github.event.inputs.session_id &&
+          steps.check-lock.outputs.lock_stale != 'true' &&
+          github.event.inputs.force != 'true'
+        run: |
+          echo "::error::Development environment is locked by: ${{ steps.check-lock.outputs.lock_owner }}"
+          echo "Lock age: ${{ steps.check-lock.outputs.lock_age }} seconds"
+          echo ""
+          echo "Options:"
+          echo "1. Wait for the other session to release (use 'release' action)"
+          echo "2. Contact the lock owner to release"
+          echo "3. Re-run with 'force' option if urgent (not recommended)"
+          exit 1
+      
+      - name: Acquire lock
+        id: acquire-lock
+        run: |
+          LOCK_PATH=".railway-locks/${LOCK_FILE}"
+          
+          # Create lock file
+          cat > /tmp/lock.json << EOF
+          {
+            "session_id": "${{ github.event.inputs.session_id }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "actor": "${{ github.actor }}",
+            "run_id": "${{ github.run_id }}",
+            "sha": "${{ github.sha }}"
+          }
+          EOF
+          
+          # Commit lock file to repository
+          mkdir -p .railway-locks
+          cp /tmp/lock.json .railway-locks/${LOCK_FILE}
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .railway-locks/${LOCK_FILE}
+          git commit -m "Lock development environment for ${{ github.event.inputs.session_id }}" || echo "No changes to commit"
+          git push || echo "Could not push lock (may already exist)"
+          
+          echo "✓ Lock acquired for session: ${{ github.event.inputs.session_id }}"
+          echo "lock_acquired=true" >> $GITHUB_OUTPUT
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Run tests
+        run: |
+          pytest tests/ -v --tb=short
+        continue-on-error: true
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Deploy to Railway Development
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+          YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
+        run: |
+          echo "🚀 Deploying to Railway development environment..."
+          railway up -e development
+          
+          echo "⚙️ Setting environment variables..."
+          railway variables set ENVIRONMENT="development" -e development
+          railway variables set DEBUG="true" -e development
+          railway variables set LOG_LEVEL="debug" -e development
+          railway variables set SESSION_ID="${{ github.event.inputs.session_id }}" -e development
+          
+          if [ -n "$YOTO_CLIENT_ID" ]; then
+            railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e development
+          fi
+      
+      - name: Get deployment status
+        if: always()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: |
+          echo "📊 Deployment status:"
+          railway status -e development || echo "Could not fetch status"
+          
+          echo ""
+          echo "📋 Recent logs:"
+          railway logs -e development --tail 30 || echo "Could not fetch logs"
+      
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Development Environment Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Session ID:** \`${{ github.event.inputs.session_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://yoto-smart-stream-development.up.railway.app" >> $GITHUB_STEP_SUMMARY
+          echo "**Locked by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️ **Remember to release the lock when done!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Run the 'release' action with your session ID to free the environment for others." >> $GITHUB_STEP_SUMMARY
+
+  # Release lock on shared development environment
+  release-lock:
+    name: Release Lock
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'release'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check and release lock
+        run: |
+          LOCK_PATH=".railway-locks/${LOCK_FILE}"
+          
+          # Get existing lock
+          if gh api repos/${{ github.repository }}/contents/$LOCK_PATH --jq '.content' 2>/dev/null | base64 -d > /tmp/lock.json; then
+            LOCK_OWNER=$(jq -r '.session_id' /tmp/lock.json)
+            
+            if [ "$LOCK_OWNER" != "${{ github.event.inputs.session_id }}" ]; then
+              echo "::warning::Lock is owned by: $LOCK_OWNER (not ${{ github.event.inputs.session_id }})"
+              echo "You can only release your own locks."
+              echo "Use 'force' option in acquire-and-deploy if you need to override."
+              exit 1
+            fi
+            
+            # Remove lock file
+            rm -f .railway-locks/${LOCK_FILE}
+            
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .railway-locks/${LOCK_FILE}
+            git commit -m "Release development environment lock from ${{ github.event.inputs.session_id }}" || echo "No changes"
+            git push || echo "Could not push"
+            
+            echo "✓ Lock released for session: ${{ github.event.inputs.session_id }}"
+          else
+            echo "No lock file found - environment is already free"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Release summary
+        run: |
+          echo "## 🔓 Development Environment Released" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Session ID:** \`${{ github.event.inputs.session_id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Released by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The development environment is now available for others to use." >> $GITHUB_STEP_SUMMARY
+
+  # Check status of development environment
+  check-status:
+    name: Check Status
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'status'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check lock status
+        run: |
+          LOCK_PATH=".railway-locks/${LOCK_FILE}"
+          
+          if gh api repos/${{ github.repository }}/contents/$LOCK_PATH --jq '.content' 2>/dev/null | base64 -d > /tmp/lock.json; then
+            echo "## 🔒 Development Environment Status: LOCKED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Locked by:**" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+            cat /tmp/lock.json >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            
+            LOCK_OWNER=$(jq -r '.session_id' /tmp/lock.json)
+            LOCK_TIME=$(jq -r '.timestamp' /tmp/lock.json)
+            LOCK_AGE=$(($(date +%s) - $(date -d "$LOCK_TIME" +%s)))
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Lock age:** ${LOCK_AGE} seconds" >> $GITHUB_STEP_SUMMARY
+            
+            if [ $LOCK_AGE -gt 7200 ]; then
+              echo "⚠️ **Lock is stale** (older than 2 hours)" >> $GITHUB_STEP_SUMMARY
+              echo "It will be auto-released on next deploy attempt." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "## 🔓 Development Environment Status: FREE" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The development environment is available for use." >> $GITHUB_STEP_SUMMARY
+            echo "Run 'acquire-and-deploy' action to deploy your changes." >> $GITHUB_STEP_SUMMARY
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Get Railway status
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Railway Status" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          railway status -e development >> $GITHUB_STEP_SUMMARY 2>&1 || echo "Could not fetch status" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

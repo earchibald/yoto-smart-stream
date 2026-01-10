@@ -140,7 +140,7 @@ def generate_all_sample_files(output_dir: Path = None):
 
     print("\nYou can now:")
     print("  1. Start the server: python examples/basic_server.py")
-    print("  2. Access files at: http://localhost:8000/audio/1.mp3")
+    print("  2. Access files at: http://localhost:8080/audio/1.mp3")
     print("  3. Create MYO cards using these files")
     print()
 
@@ -216,7 +216,7 @@ def generate_all_sample_files(output_dir: Path = None):
 
     print("\nYou can now:")
     print("  1. Start the server: python examples/basic_server.py")
-    print("  2. Access files at: http://localhost:8000/audio/1.mp3")
+    print("  2. Access files at: http://localhost:8080/audio/1.mp3")
     print("  3. Create MYO cards using these files")
     print()
 

@@ -115,9 +115,22 @@ Store secrets in GitHub that are needed during CI/CD workflows:
 # Settings → Secrets and variables → Actions → New repository secret
 
 # Required secrets for this project:
-RAILWAY_TOKEN          # Railway API token for deployments
-YOTO_CLIENT_ID        # Yoto API client ID (for all environments)
-YOTO_CLIENT_SECRET    # Yoto API client secret (for all environments)
+RAILWAY_TOKEN_PROD     # Railway API token for production deployments
+RAILWAY_TOKEN_STAGING  # Railway API token for staging deployments
+RAILWAY_TOKEN_DEV      # Railway API token for development deployments
+YOTO_CLIENT_ID         # Yoto API client ID (from https://yoto.dev/)
+```
+
+**Obtaining Yoto Client ID:**
+1. Go to https://yoto.dev/get-started/start-here/
+2. Register application:
+   - Type: Server-side / CLI Application
+   - Grant Type: Device Code (OAuth 2.0 Device Authorization Grant)
+   - Callback URLs: `http://localhost/oauth/callback` (placeholder - not used with Device Flow)
+   - Logout URLs: `http://localhost/logout` (placeholder - not used)
+3. Save your Client ID
+
+**Note:** Yoto uses OAuth2 Device Flow which doesn't require callback/logout URLs. The registration form may ask for them, but use localhost placeholders - they won't be called. Device Flow authentication doesn't redirect to your application.
 ```
 
 ### Railway Environment Variables
@@ -126,9 +139,7 @@ Set environment-specific variables in Railway:
 
 ```bash
 # Production environment (via Railway CLI or GitHub Actions)
-# In bash/CLI: use actual values or environment variables
 railway variables set YOTO_CLIENT_ID="your_client_id" -e production
-railway variables set YOTO_CLIENT_SECRET="your_secret" -e production
 railway variables set DATABASE_URL='${{Postgres.DATABASE_URL}}' -e production
 
 # In GitHub Actions: use secrets syntax

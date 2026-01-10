@@ -171,7 +171,7 @@ python examples/basic_server.py
 uvicorn examples.basic_server:app --reload
 ```
 
-Visit http://localhost:8000/docs for interactive API documentation.
+Visit http://localhost:8080/docs for interactive API documentation.
 
 ## 📚 Documentation
 
@@ -179,6 +179,9 @@ Visit http://localhost:8000/docs for interactive API documentation.
 - **[Quick Start Guide](docs/QUICK_START.md)**: Get up and running in 10 minutes - from installation to working API
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
 - **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
+- **[Railway Shared Development](docs/RAILWAY_SHARED_DEVELOPMENT.md)**: Coordinated access to shared dev environment
+- **[Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md)**: Configure separate tokens per environment
+- **[Codespaces Railway Setup](docs/CODESPACES_RAILWAY_SETUP.md)**: Configure Railway access for GitHub Codespaces
 
 ### Creating Content
 - **[Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)**: Stream audio from your server (NEW - recommended approach)
@@ -228,18 +231,24 @@ black .
 
 ### Railway.app
 
-Deploy to Railway with automated CI/CD:
+Deploy to Railway with automated CI/CD and environment-specific tokens:
 
 ```bash
-# Quick deploy from devcontainer
-./scripts/deploy.sh staging
-
-# Or push to develop branch for auto-deployment
+# Staging: Automatic on push to develop branch
 git push origin develop
+
+# Development: Manual with coordination
+# Via GitHub Actions: Railway Development (Shared Environment) workflow
 ```
 
-**Status**:
-- ✅ Staging (develop branch) - Auto-deployed
+**Static Environments**: Uses pre-registered callback URLs for Yoto OAuth compatibility.
+
+**Token Security**: Separate Railway tokens for prod/staging/dev environments. See [Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md).
+
+**Status**: 
+- ✅ Staging (develop branch) - Auto-deployed with `RAILWAY_TOKEN_STAGING`
+- ✅ Development (shared) - Manual coordination with `RAILWAY_TOKEN_DEV`
+- ⚠️ Production (main branch) - Manual only with `RAILWAY_TOKEN_PROD`
 - ⏸️ Production (main branch) - Disabled
 
 **Resources**:
@@ -291,10 +300,10 @@ python examples/basic_server.py
 Then use the API:
 ```bash
 # List players
-curl http://localhost:8000/api/players
+curl http://localhost:8080/api/players
 
 # Control a player
-curl -X POST http://localhost:8000/api/players/{player_id}/control \
+curl -X POST http://localhost:8080/api/players/{player_id}/control \
   -H "Content-Type: application/json" \
   -d '{"action": "pause"}'
 ```

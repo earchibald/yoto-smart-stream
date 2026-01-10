@@ -106,7 +106,7 @@ You can test the system without Yoto credentials:
 python examples/basic_server.py
 ```
 
-Visit http://localhost:8000/docs to explore the API.
+Visit http://localhost:8080/docs to explore the API.
 
 **Note:** Most endpoints will return errors without authentication, but you can see the API structure.
 
@@ -208,19 +208,19 @@ uvicorn examples.basic_server:app --reload
 INFO:     Started server process
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Uvicorn running on http://0.0.0.0:8080
 ```
 
 ### Test the Server
 
 Open your browser and visit:
 
-1. **API Documentation**: http://localhost:8000/docs
+1. **API Documentation**: http://localhost:8080/docs
    - Interactive Swagger UI
    - Try all endpoints
    - See request/response schemas
 
-2. **Health Check**: http://localhost:8000/health
+2. **Health Check**: http://localhost:8080/health
    ```json
    {
      "status": "healthy",
@@ -228,7 +228,7 @@ Open your browser and visit:
    }
    ```
 
-3. **List Players**: http://localhost:8000/api/players
+3. **List Players**: http://localhost:8080/api/players
    ```json
    [
      {
@@ -246,15 +246,15 @@ Open your browser and visit:
 
 ```bash
 # Get player list
-curl http://localhost:8000/api/players
+curl http://localhost:8080/api/players
 
 # Pause a player
-curl -X POST http://localhost:8000/api/players/YOUR_PLAYER_ID/control \
+curl -X POST http://localhost:8080/api/players/YOUR_PLAYER_ID/control \
   -H "Content-Type: application/json" \
   -d '{"action": "pause"}'
 
 # Set volume
-curl -X POST http://localhost:8000/api/players/YOUR_PLAYER_ID/control \
+curl -X POST http://localhost:8080/api/players/YOUR_PLAYER_ID/control \
   -H "Content-Type: application/json" \
   -d '{"action": "pause", "volume": 10}'
 ```
@@ -346,7 +346,7 @@ After completing this guide, verify:
 - [ ] Code quality checks pass (`ruff check .`)
 - [ ] Authentication works (if using Yoto account)
 - [ ] API server starts without errors
-- [ ] Can access API documentation at http://localhost:8000/docs
+- [ ] Can access API documentation at http://localhost:8080/docs
 - [ ] Can list Yoto players via API
 - [ ] Can control players via API
 - [ ] MQTT events are received
@@ -368,7 +368,7 @@ Now that everything is working, explore:
 
 1. **[Testing Guide](TESTING_GUIDE.md)** - Comprehensive testing instructions
 2. **[Icon Management Guide](ICON_MANAGEMENT.md)** - Working with display icons
-3. **[API Documentation](http://localhost:8000/docs)** - Interactive API reference
+3. **[API Documentation](http://localhost:8080/docs)** - Interactive API reference
 4. **[Example Scripts](../examples/)** - More usage examples
 
 ## 🔧 Troubleshooting
@@ -378,10 +378,10 @@ Now that everything is working, explore:
 ```bash
 # Check if port 8000 is in use
 # Linux/Mac:
-lsof -i :8000
+lsof -i :8080
 
 # Windows:
-netstat -ano | findstr :8000
+netstat -ano | findstr :8080
 
 # Use a different port:
 uvicorn examples.basic_server:app --port 8001
@@ -420,7 +420,7 @@ pytest -v
 # Should see: "✓ MQTT connected successfully"
 
 # Check if player is online
-curl http://localhost:8000/api/players
+curl http://localhost:8080/api/players
 
 # Ensure you're using the authenticated token
 # (The simple_client.py saves it to .yoto_refresh_token)

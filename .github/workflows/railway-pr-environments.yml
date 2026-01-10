@@ -1,0 +1,271 @@
+name: Railway PR Ephemeral Environments
+
+# DISABLED: Yoto OAuth requires static callback URLs
+# Ephemeral environments with dynamic URLs cannot authenticate
+# Use the shared development environment instead with manual coordination
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to comment on (optional)'
+        required: false
+        type: string
+  # pull_request:
+  #   types: [opened, synchronize, reopened, closed]
+  #   branches:
+  #     - main
+  #     - develop
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Deploy ephemeral environment for PR
+  deploy-pr-environment:
+    name: Deploy PR Environment
+    runs-on: ubuntu-latest
+    # Only run on PR open/update, not on close
+    if: github.event.action != 'closed'
+    environment:
+      name: pr-${{ github.event.pull_request.number }}
+      url: https://yoto-smart-stream-pr-${{github.event.pull_request.number}}.up.railway.app
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Run linter (ruff)
+        run: ruff check . --exit-zero
+        continue-on-error: true
+      
+      - name: Run formatter check (black)
+        run: black --check . --diff
+        continue-on-error: true
+      
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=yoto_smart_stream --cov-report=term
+        continue-on-error: true
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Create PR environment name
+        id: env-name
+        run: |
+          ENV_NAME="pr-${{ github.event.pull_request.number }}"
+          echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
+          echo "Deploying to environment: $ENV_NAME"
+      
+      - name: Deploy to Railway PR Environment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "🚀 Deploying to Railway PR environment: ${{ steps.env-name.outputs.env_name }}"
+          
+          # Deploy using ephemeral environment script
+          chmod +x ./scripts/railway_ephemeral_env.sh
+          ./scripts/railway_ephemeral_env.sh deploy ${{ steps.env-name.outputs.env_name }}
+      
+      - name: Configure PR Environment Variables
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
+        run: |
+          echo "⚙️ Setting environment variables for PR environment..."
+          
+          ENV_NAME="${{ steps.env-name.outputs.env_name }}"
+          
+          # Set environment type
+          railway variables set ENVIRONMENT="preview" -e "$ENV_NAME"
+          railway variables set DEBUG="true" -e "$ENV_NAME"
+          railway variables set LOG_LEVEL="debug" -e "$ENV_NAME"
+          
+          # Set PR metadata
+          railway variables set PR_NUMBER="${{ github.event.pull_request.number }}" -e "$ENV_NAME"
+          railway variables set PR_TITLE="${{ github.event.pull_request.title }}" -e "$ENV_NAME"
+          railway variables set GIT_SHA="${{ github.event.pull_request.head.sha }}" -e "$ENV_NAME"
+          
+          # Sync Yoto API credentials if available
+          if [ -n "$YOTO_CLIENT_ID" ]; then
+            railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "$ENV_NAME"
+          fi
+      
+      - name: Get deployment status
+        if: always()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "📊 Deployment status:"
+          railway status -e ${{ steps.env-name.outputs.env_name }} || echo "Could not fetch status"
+      
+      - name: Show deployment logs
+        if: always()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "📋 Recent deployment logs:"
+          railway logs -e ${{ steps.env-name.outputs.env_name }} --tail 30 || echo "Could not fetch logs"
+      
+      - name: Comment deployment URL on PR
+        uses: actions/github-script@v7
+        if: success()
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const envName = '${{ steps.env-name.outputs.env_name }}';
+            const prNumber = ${{ github.event.pull_request.number }};
+            const comment = `## 🚀 Ephemeral Environment Deployed
+            
+            Your PR has been deployed to a temporary Railway environment:
+            
+            **Environment:** \`${envName}\`
+            **URL:** https://yoto-smart-stream-pr-${prNumber}.up.railway.app (may take 1-2 minutes to be live)
+            
+            This environment will be automatically destroyed when the PR is closed or merged.
+            
+            ### Quick Links
+            - [View Logs in Railway](https://railway.app/dashboard)
+            - [Health Check](https://yoto-smart-stream-pr-${prNumber}.up.railway.app/health)
+            
+            ### Testing
+            You can test this deployment using:
+            \`\`\`bash
+            curl https://yoto-smart-stream-pr-${prNumber}.up.railway.app/health
+            \`\`\`
+            
+            ---
+            _This is an automated ephemeral deployment for testing purposes._`;
+            
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: comment
+            });
+
+  # Cleanup ephemeral environment when PR is closed
+  cleanup-pr-environment:
+    name: Cleanup PR Environment
+    runs-on: ubuntu-latest
+    # Only run when PR is closed
+    if: github.event.action == 'closed'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Create PR environment name
+        id: env-name
+        run: |
+          ENV_NAME="pr-${{ github.event.pull_request.number }}"
+          echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
+          echo "Cleaning up environment: $ENV_NAME"
+      
+      - name: Destroy PR Environment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "🗑️ Destroying Railway PR environment: ${{ steps.env-name.outputs.env_name }}"
+          
+          # Use ephemeral environment script to cleanup
+          chmod +x ./scripts/railway_ephemeral_env.sh
+          ./scripts/railway_ephemeral_env.sh destroy ${{ steps.env-name.outputs.env_name }} || echo "Environment may have already been cleaned up"
+      
+      - name: Comment cleanup status on PR
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const envName = '${{ steps.env-name.outputs.env_name }}';
+            const prNumber = ${{ github.event.pull_request.number }};
+            const comment = `## 🗑️ Ephemeral Environment Cleaned Up
+            
+            The temporary Railway environment \`${envName}\` has been destroyed.
+            
+            All resources associated with this PR deployment have been released.
+            
+            ---
+            _Automated cleanup on PR close._`;
+            
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: comment
+            });
+
+  # Test the deployed PR environment
+  test-pr-environment:
+    name: Test PR Environment
+    runs-on: ubuntu-latest
+    needs: deploy-pr-environment
+    if: github.event.action != 'closed'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Create PR environment name
+        id: env-name
+        run: |
+          ENV_NAME="pr-${{ github.event.pull_request.number }}"
+          echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
+      
+      - name: Wait for deployment to be ready
+        run: |
+          echo "⏳ Waiting for deployment to stabilize..."
+          sleep 30
+      
+      - name: Test PR environment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "🧪 Testing PR environment: ${{ steps.env-name.outputs.env_name }}"
+          
+          # Use ephemeral environment script to test
+          chmod +x ./scripts/railway_ephemeral_env.sh
+          ./scripts/railway_ephemeral_env.sh test ${{ steps.env-name.outputs.env_name }}
+      
+      - name: Comment test results on PR
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const status = '${{ job.status }}' === 'success' ? '✅ Tests Passed' : '⚠️ Tests Had Issues';
+            const prNumber = ${{ github.event.pull_request.number }};
+            const comment = `## ${status}
+            
+            Automated tests have been run against the ephemeral environment.
+            
+            Check the [workflow logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`;
+            
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: comment
+            });

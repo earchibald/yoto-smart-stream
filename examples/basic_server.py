@@ -11,7 +11,7 @@ This demonstrates a FastAPI server with:
 - CORS support
 
 Run with: uvicorn basic_server:app --reload
-Then visit: http://localhost:8000/docs
+Then visit: http://localhost:8080/docs
 """
 
 import os
@@ -616,8 +616,8 @@ if __name__ == "__main__":
     print("Starting Yoto Smart Stream API Server")
     print("=" * 80)
     print("\n📚 Documentation:")
-    print("  API Documentation: http://localhost:8000/docs")
-    print("  Interactive API: http://localhost:8000/redoc")
+    print("  API Documentation: http://localhost:8080/docs")
+    print("  Interactive API: http://localhost:8080/redoc")
     print("\n🎵 Audio Streaming:")
     print(f"  Audio files directory: {AUDIO_FILES_DIR.absolute()}")
     print("  Add MP3 files to this directory to stream them")
@@ -626,8 +626,8 @@ if __name__ == "__main__":
     print("  2. Add audio files to audio_files/ directory")
     print("  3. Use POST /api/cards/create-streaming to create cards")
     print("\n💡 For local testing, use ngrok:")
-    print("  ngrok http 8000")
+    print("  ngrok http 8080")
     print("  Then set: export PUBLIC_URL=https://your-id.ngrok.io")
     print("=" * 80 + "\n")
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

@@ -1,0 +1,3 @@
+# Keep the directory structure but ignore lock files by default
+*.json
+!.gitignore

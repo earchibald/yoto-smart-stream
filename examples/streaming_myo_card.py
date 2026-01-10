@@ -272,8 +272,8 @@ def main():
     )
     parser.add_argument(
         "--base-url",
-        default="http://localhost:8000",
-        help="Base URL of your streaming service (default: http://localhost:8000)",
+        default="http://localhost:8080",
+        help="Base URL of your streaming service (default: http://localhost:8080)",
     )
     parser.add_argument(
         "--card-type",
@@ -282,7 +282,7 @@ def main():
         help="Type of card to create (default: static)",
     )
     parser.add_argument("--host", default="0.0.0.0", help="Server host (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=8000, help="Server port (default: 8000)")
+    parser.add_argument("--port", type=int, default=8080, help="Server port (default: 8080)")
 
     args = parser.parse_args()
 

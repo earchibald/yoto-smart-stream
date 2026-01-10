@@ -95,7 +95,7 @@ For local testing, use ngrok:
 
 ```bash
 # Start your server
-uvicorn your_server:app --port 8000
+uvicorn your_server:app --port 8080
 
 # In another terminal, expose it publicly
 ngrok http 8000

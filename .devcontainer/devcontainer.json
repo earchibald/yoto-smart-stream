@@ -45,6 +45,15 @@
 
   "postCreateCommand": "bash .devcontainer/setup.sh",
   
+  // GitHub Codespaces: Automatically inject secrets as environment variables
+  // Add these secrets at: https://github.com/settings/codespaces
+  // - RAILWAY_TOKEN: Railway API token for deployments
+  // - YOTO_CLIENT_ID: Yoto API client ID (REQUIRED for any Yoto API testing)
+  "remoteEnv": {
+    "RAILWAY_TOKEN": "${localEnv:RAILWAY_TOKEN}",
+    "YOTO_CLIENT_ID": "${localEnv:YOTO_CLIENT_ID}"
+  },
+  
   "forwardPorts": [8000, 8080, 5000],
   "portsAttributes": {
     "8000": {

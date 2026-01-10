@@ -64,7 +64,7 @@ FastAPI server with all endpoints:
 # Start server
 python examples/basic_server.py
 
-# Visit http://localhost:8000/docs for interactive API
+# Visit http://localhost:8080/docs for interactive API
 ```
 
 Available endpoints:
@@ -147,7 +147,7 @@ pytest
 # Start server (limited mode)
 python examples/basic_server.py
 
-# Visit http://localhost:8000/docs
+# Visit http://localhost:8080/docs
 ```
 
 ### Option 2: With Yoto Credentials (15 minutes)
@@ -169,7 +169,7 @@ python examples/basic_server.py
 python examples/mqtt_listener.py
 
 # 5. Test via API
-curl http://localhost:8000/api/players
+curl http://localhost:8080/api/players
 ```
 
 ## Code Quality

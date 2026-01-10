@@ -28,7 +28,7 @@ Replace the sample files with your own audio content:
 
 Access files via the streaming endpoint:
 ```
-http://localhost:8000/audio/1.mp3
+http://localhost:8080/audio/1.mp3
 ```
 
 ### 2. Create MYO Cards
@@ -36,7 +36,7 @@ http://localhost:8000/audio/1.mp3
 Use the API to create cards that stream from these files:
 
 ```bash
-curl -X POST http://localhost:8000/api/cards/create-streaming \
+curl -X POST http://localhost:8080/api/cards/create-streaming \
   -H "Content-Type: application/json" \
   -d '{
     "title": "My Story",
@@ -48,7 +48,7 @@ curl -X POST http://localhost:8000/api/cards/create-streaming \
 ### 3. List Available Files
 
 ```bash
-curl http://localhost:8000/audio/list
+curl http://localhost:8080/audio/list
 ```
 
 ## Dynamic Content
