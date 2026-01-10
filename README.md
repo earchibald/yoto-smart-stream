@@ -4,9 +4,13 @@ A service package to stream audio to a yoto device, monitor events from that dev
 
 ## Documentation
 
-See [YOTO_API_REFERENCE.md](YOTO_API_REFERENCE.md) for comprehensive Yoto API documentation including:
-- Authentication and OAuth2 Device Flow
-- REST API endpoints for devices, content, and configuration
-- MQTT real-time communication
-- Code examples in Python and Node.js
-- Useful libraries and official resources
+### [Yoto MQTT Event Service Reference](docs/yoto-mqtt-reference.md)
+Comprehensive deep dive into the Yoto MQTT event service implementation, including:
+- Architecture and core components
+- Authentication and token management
+- MQTT connection setup and lifecycle
+- Topic structure and message formats
+- Command reference for player control
+- Event handling and state management
+- Integration patterns and examples
+- Security, performance, and debugging best practices
