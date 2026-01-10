@@ -13,14 +13,30 @@ from pathlib import Path
 
 def test_railway_cli_installed():
     """Check if Railway CLI is installed"""
-    result = os.system("which railway > /dev/null 2>&1")
-    if result == 0:
-        print("✅ Railway CLI is installed")
-        os.system("railway --version")
-        return True
-    else:
-        print("❌ Railway CLI is NOT installed")
-        print("   Run: npm i -g @railway/cli")
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["which", "railway"],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if result.returncode == 0:
+            print("✅ Railway CLI is installed")
+            version_result = subprocess.run(
+                ["railway", "--version"],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            print(version_result.stdout.strip())
+            return True
+        else:
+            print("❌ Railway CLI is NOT installed")
+            print("   Run: npm i -g @railway/cli")
+            return False
+    except Exception as e:
+        print(f"❌ Error checking Railway CLI: {e}")
         return False
 
 

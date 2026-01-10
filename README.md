@@ -132,6 +132,35 @@ ruff check .
 black .
 ```
 
+## ☁️ Deployment
+
+### Railway.app
+
+Deploy to Railway with automated CI/CD:
+
+```bash
+# Quick deploy from devcontainer
+./scripts/deploy.sh staging
+
+# Or push to develop branch for auto-deployment
+git push origin develop
+```
+
+**Status**: 
+- ✅ Staging (develop branch) - Auto-deployed
+- ⏸️ Production (main branch) - Disabled
+
+**Resources**:
+- **[Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)** - Complete setup and deployment instructions
+- **[Quick Reference](docs/RAILWAY_QUICK_REF.md)** - Common deployment commands
+
+### Health Check
+
+All deployments include a health check endpoint:
+```bash
+curl https://your-app.up.railway.app/health
+```
+
 ## 📖 Examples
 
 ### Basic Player Control

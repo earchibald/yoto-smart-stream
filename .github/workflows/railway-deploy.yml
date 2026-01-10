@@ -62,6 +62,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     environment:
       name: staging
+      # Note: Update this URL to match your actual Railway deployment URL
+      # This can be found in Railway Dashboard after first deployment
       url: https://yoto-smart-stream-staging.up.railway.app
     
     steps:
@@ -84,15 +86,19 @@ jobs:
         run: |
           echo "⚙️ Setting environment variables..."
           
-          # Set YOTO_CLIENT_ID if available in secrets
-          if [ -n "${{ secrets.YOTO_CLIENT_ID }}" ]; then
-            railway variables set YOTO_CLIENT_ID="${{ secrets.YOTO_CLIENT_ID }}" -e staging
-          fi
-          
           # Set DEBUG mode for staging
           railway variables set DEBUG=true -e staging
           railway variables set LOG_LEVEL=DEBUG -e staging
           railway variables set ENVIRONMENT=staging -e staging
+      
+      - name: Configure Yoto API Credentials (if available)
+        if: ${{ secrets.YOTO_CLIENT_ID != '' }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
+        run: |
+          # Use environment variable instead of passing secret in command line
+          railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e staging
       
       - name: Get deployment status
         env:

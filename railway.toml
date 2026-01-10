@@ -10,6 +10,7 @@ buildCommand = "pip install -r requirements.txt"
 [deploy]
 # Start the FastAPI server
 # Railway provides $PORT environment variable automatically
+# Note: Update the module path if using a different entry point
 startCommand = "uvicorn examples.basic_server:app --host 0.0.0.0 --port $PORT"
 
 # Health check endpoint
