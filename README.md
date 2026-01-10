@@ -1,13 +1,13 @@
 # Yoto Smart Stream
 
-[![Tests](https://img.shields.io/badge/tests-48%20passing-brightgreen)](./docs/TESTING_GUIDE.md)
-[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)](./docs/TESTING_GUIDE.md)
+[![Tests](https://img.shields.io/badge/tests-54%20passing-brightgreen)](./docs/TESTING_GUIDE.md)
+[![Coverage](https://img.shields.io/badge/coverage-56%25-yellow)](./docs/TESTING_GUIDE.md)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 A service to stream audio to Yoto devices, monitor events via MQTT, and manage interactive audio experiences with a web UI. Includes support for "Choose Your Own Adventure" style interactive stories.
 
-**Status**: ✅ Working implementation with comprehensive test coverage - ready for human testing!
+**Status**: ✅ Production server implemented and ready for deployment! ([See Details](PRODUCTION_SERVER_COMPLETE.md))
 
 ## 🚀 Quick Start
 
@@ -161,14 +161,17 @@ python examples/simple_client.py
 
 Follow the prompts to authenticate. Your refresh token will be saved for future use.
 
-### 5. Start the API Server
+### 5. Start the Production Server
 
 ```bash
-# Run the basic server example
-python examples/basic_server.py
+# Run the production server (recommended)
+python -m yoto_smart_stream
 
 # Or use uvicorn directly
-uvicorn examples.basic_server:app --reload
+uvicorn yoto_smart_stream.api:app --reload --port 8080
+
+# Or run the example server (for learning/testing)
+python examples/basic_server.py
 ```
 
 Visit http://localhost:8080/docs for interactive API documentation.
@@ -177,6 +180,8 @@ Visit http://localhost:8080/docs for interactive API documentation.
 
 ### Quick Start & Testing
 - **[Quick Start Guide](docs/QUICK_START.md)**: Get up and running in 10 minutes - from installation to working API
+- **[Production Server Guide](PRODUCTION_SERVER_COMPLETE.md)**: Complete guide to the production server implementation
+- **[Migration Guide](MIGRATION_GUIDE_EXAMPLES_TO_PROD.md)**: Migrate from examples to production server
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
 - **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
 - **[Railway Shared Development](docs/RAILWAY_SHARED_DEVELOPMENT.md)**: Coordinated access to shared dev environment
