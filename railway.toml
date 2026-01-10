@@ -8,12 +8,10 @@ builder = "NIXPACKS"
 buildCommand = "pip install -r requirements.txt"
 
 [deploy]
-# Start the FastAPI server
+# Start the production FastAPI server
 # Railway provides $PORT environment variable automatically
-# NOTE: Update this path if you change the application entry point
-#       Current: examples.basic_server:app
-#       Format: module.path:app_variable
-startCommand = "uvicorn examples.basic_server:app --host 0.0.0.0 --port $PORT"
+# Using production entry point: yoto_smart_stream.api:app
+startCommand = "uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT"
 
 # Health check endpoint
 healthcheckPath = "/health"
@@ -26,7 +24,6 @@ restartPolicyMaxRetries = 10
 # Watch patterns - trigger rebuild on changes to these files
 watchPatterns = [
     "yoto_smart_stream/**/*.py",
-    "examples/**/*.py",
     "requirements.txt",
     "pyproject.toml"
 ]

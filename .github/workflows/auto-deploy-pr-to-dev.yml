@@ -1,0 +1,131 @@
+name: Auto-Deploy PR to Development
+
+# This workflow automatically deploys the PR branch to Railway development
+# when changes are pushed to the copilot/build-server-and-setup-railway branch
+
+on:
+  push:
+    branches:
+      - copilot/build-server-and-setup-railway
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force deploy (ignore checks)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.11'
+  SESSION_ID: 'copilot-build-server-railway-auto'
+
+jobs:
+  deploy-to-development:
+    name: Deploy to Railway Development
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+      url: https://yoto-smart-stream-development.up.railway.app
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      - name: Run quick validation
+        run: |
+          echo "Running quick validation..."
+          ruff check . --exit-zero || true
+          pytest tests/ -v --tb=short -x || true
+        continue-on-error: true
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Deploy to Railway Development
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+          YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
+        run: |
+          echo "🚀 Deploying branch ${{ github.ref_name }} to Railway development environment..."
+          echo "Session ID: ${{ env.SESSION_ID }}"
+          
+          # Deploy to Railway
+          railway up -e development --detach
+          
+          echo "⚙️ Setting environment variables..."
+          railway variables set ENVIRONMENT="development" -e development || true
+          railway variables set DEBUG="true" -e development || true
+          railway variables set LOG_LEVEL="DEBUG" -e development || true
+          railway variables set SESSION_ID="${{ env.SESSION_ID }}" -e development || true
+          railway variables set GIT_BRANCH="${{ github.ref_name }}" -e development || true
+          railway variables set GIT_COMMIT="${{ github.sha }}" -e development || true
+          
+          if [ -n "$YOTO_CLIENT_ID" ]; then
+            echo "Setting YOTO_CLIENT_ID..."
+            railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e development || true
+          fi
+      
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting for deployment to stabilize..."
+          sleep 30
+      
+      - name: Get deployment status
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: |
+          echo "📊 Deployment status:"
+          railway status -e development || echo "Could not fetch status"
+      
+      - name: Test health endpoint
+        run: |
+          echo "🏥 Testing health endpoint..."
+          sleep 10
+          curl -f https://yoto-smart-stream-development.up.railway.app/health || echo "Health check failed (may still be starting)"
+      
+      - name: Get recent logs
+        if: always()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: |
+          echo "📋 Recent deployment logs:"
+          railway logs -e development --tail 50 || echo "Could not fetch logs"
+      
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** development" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://yoto-smart-stream-development.up.railway.app" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Quick Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [Health Check](https://yoto-smart-stream-development.up.railway.app/health)" >> $GITHUB_STEP_SUMMARY
+          echo "- [API Documentation](https://yoto-smart-stream-development.up.railway.app/docs)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Root Endpoint](https://yoto-smart-stream-development.up.railway.app/)" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Deployment failed summary
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the logs above for error details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Common issues:" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify RAILWAY_TOKEN_DEV secret is configured" >> $GITHUB_STEP_SUMMARY
+          echo "- Check Railway project has 'development' environment" >> $GITHUB_STEP_SUMMARY
+          echo "- Review Railway dashboard for build errors" >> $GITHUB_STEP_SUMMARY

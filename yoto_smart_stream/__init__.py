@@ -11,4 +11,10 @@ Device Compatibility:
 Note: Voice control features are not supported as Yoto devices do not have microphones.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
+
+from .api import app, create_app
+from .config import Settings, get_settings
+from .core import YotoClient
+
+__all__ = ["app", "create_app", "get_settings", "Settings", "YotoClient", "__version__"]

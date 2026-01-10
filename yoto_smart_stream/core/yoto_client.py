@@ -1,0 +1,122 @@
+"""Core Yoto API client wrapper with enhanced features."""
+
+import logging
+from typing import Optional
+
+from yoto_api import YotoManager
+
+from ..config import Settings
+
+logger = logging.getLogger(__name__)
+
+
+class YotoClient:
+    """
+    Enhanced Yoto API client with authentication and error handling.
+
+    This wraps the yoto_api library with additional features:
+    - Automatic token refresh
+    - Token persistence
+    - Error handling
+    """
+
+    def __init__(self, settings: Settings):
+        """
+        Initialize Yoto client.
+
+        Args:
+            settings: Application settings
+        """
+        self.settings = settings
+        self.manager: Optional[YotoManager] = None
+        self._authenticated = False
+
+    def initialize(self) -> None:
+        """Initialize YotoManager instance."""
+        if self.manager is None:
+            self.manager = YotoManager(client_id=self.settings.yoto_client_id)
+            logger.info("YotoManager initialized")
+
+    def is_authenticated(self) -> bool:
+        """Check if client is authenticated."""
+        return self._authenticated and self.manager is not None
+
+    def authenticate(self) -> None:
+        """
+        Authenticate with Yoto API using stored refresh token.
+
+        Raises:
+            FileNotFoundError: If refresh token file doesn't exist
+            Exception: If authentication fails
+        """
+        self.initialize()
+
+        token_file = self.settings.yoto_refresh_token_file
+        if not token_file.exists():
+            raise FileNotFoundError(
+                f"Refresh token file not found: {token_file}. "
+                "Run authentication first with examples/simple_client.py"
+            )
+
+        refresh_token = token_file.read_text().strip()
+        self.manager.set_refresh_token(refresh_token)
+
+        try:
+            self.manager.check_and_refresh_token()
+            self._authenticated = True
+            logger.info("Successfully authenticated with Yoto API")
+        except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise
+
+    def ensure_authenticated(self) -> None:
+        """Ensure client is authenticated, authenticate if needed."""
+        if not self.is_authenticated():
+            self.authenticate()
+        else:
+            # Refresh token if needed
+            try:
+                self.manager.check_and_refresh_token()
+            except Exception as e:
+                logger.warning(f"Token refresh failed: {e}")
+                # Try full authentication
+                self.authenticate()
+
+    def update_player_status(self) -> None:
+        """Update player status from API."""
+        self.ensure_authenticated()
+        self.manager.update_player_status()
+        logger.debug(f"Updated status for {len(self.manager.players)} players")
+
+    def connect_mqtt(self) -> None:
+        """Connect to MQTT for real-time events."""
+        self.ensure_authenticated()
+        try:
+            self.manager.connect_to_events()
+            logger.info("Connected to MQTT")
+        except Exception as e:
+            logger.error(f"Failed to connect to MQTT: {e}")
+            raise
+
+    def disconnect_mqtt(self) -> None:
+        """Disconnect from MQTT."""
+        if self.manager and hasattr(self.manager, "disconnect_from_events"):
+            try:
+                self.manager.disconnect_from_events()
+                logger.info("Disconnected from MQTT")
+            except Exception as e:
+                logger.warning(f"Error disconnecting from MQTT: {e}")
+
+    def get_manager(self) -> YotoManager:
+        """
+        Get the underlying YotoManager instance.
+
+        Returns:
+            YotoManager instance
+
+        Raises:
+            RuntimeError: If not authenticated
+        """
+        if not self.is_authenticated():
+            raise RuntimeError("Client not authenticated. Call authenticate() first.")
+        return self.manager
