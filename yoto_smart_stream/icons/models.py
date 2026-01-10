@@ -7,7 +7,7 @@ These models represent display icons that can be shown on Yoto Mini devices
 
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, ConfigDict
 
 
 class IconCategory(BaseModel):
@@ -47,10 +47,8 @@ class DisplayIcon(BaseModel):
     created_at: Optional[datetime] = Field(None, description="When the icon was created/uploaded")
     updated_at: Optional[datetime] = Field(None, description="When the icon was last modified")
 
-    class Config:
-        """Pydantic config."""
-
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "icon-music-001",
                 "name": "Music Note",
@@ -60,6 +58,7 @@ class DisplayIcon(BaseModel):
                 "is_public": True,
             }
         }
+    )
 
 
 class IconUploadRequest(BaseModel):
@@ -69,16 +68,15 @@ class IconUploadRequest(BaseModel):
     tags: list[str] = Field(default_factory=list, description="Tags for the icon")
     category: Optional[str] = Field(None, description="Category for the icon")
 
-    class Config:
-        """Pydantic config."""
-
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "My Custom Bedtime Icon",
                 "tags": ["bedtime", "moon", "stars"],
                 "category": "bedtime",
             }
         }
+    )
 
 
 class IconListResponse(BaseModel):
@@ -90,10 +88,8 @@ class IconListResponse(BaseModel):
     per_page: int = Field(50, description="Number of icons per page")
     has_next: bool = Field(False, description="Whether there are more pages")
 
-    class Config:
-        """Pydantic config."""
-
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "icons": [],
                 "total": 150,
@@ -102,3 +98,4 @@ class IconListResponse(BaseModel):
                 "has_next": True,
             }
         }
+    )
