@@ -116,6 +116,86 @@ graph TB
 
 For detailed architecture information, see [Architecture Documentation](docs/ARCHITECTURE.md).
 
+## 📖 Chapter Book User Flow (Yoto Player Perspective)
+
+This diagram illustrates how a Yoto player interacts with a straightforward chapter book card streaming from your own service:
+
+```mermaid
+sequenceDiagram
+    participant User as Child/User
+    participant Player as Yoto Player
+    participant MQTT as MQTT Broker<br/>(Yoto Cloud)
+    participant Server as Your Streaming<br/>Server
+    
+    Note over User,Server: Card Insertion & Initial Setup
+    User->>Player: Inserts chapter book card
+    activate Player
+    Player->>MQTT: Publish: Card inserted event
+    MQTT->>Server: Forward: Card inserted
+    Server->>Server: Load card metadata<br/>(3 chapters)
+    
+    Note over User,Server: Chapter 1 Playback Begins
+    Player->>Server: HTTP GET: /audio/chapter1.mp3
+    Server-->>Player: Stream audio (Chapter 1)
+    Player->>Player: Begin playback
+    Player->>MQTT: Publish: Playback started<br/>Chapter 1
+    MQTT->>Server: Forward: Status update
+    
+    Note over User,Server: Real-time Status Updates
+    loop Every few seconds during playback
+        Player->>MQTT: Publish: Track position,<br/>battery level, volume
+        MQTT->>Server: Forward: Status updates
+    end
+    
+    Note over User,Server: User Navigation - Skip to Chapter 2
+    User->>Player: Presses "Next Chapter" button
+    Player->>MQTT: Publish: Button press event<br/>(next chapter)
+    MQTT->>Server: Forward: Button event
+    Player->>Player: Stop Chapter 1
+    Player->>Server: HTTP GET: /audio/chapter2.mp3
+    Server-->>Player: Stream audio (Chapter 2)
+    Player->>Player: Begin playback
+    Player->>MQTT: Publish: Now playing<br/>Chapter 2
+    
+    Note over User,Server: Pause & Resume
+    User->>Player: Presses "Pause" button
+    Player->>Player: Pause playback
+    Player->>MQTT: Publish: Playback paused
+    MQTT->>Server: Forward: Paused status
+    
+    User->>Player: Presses "Play" button
+    Player->>Player: Resume playback
+    Player->>MQTT: Publish: Playback resumed
+    
+    Note over User,Server: Chapter 2 Completes
+    Player->>Player: Chapter 2 ends
+    Player->>MQTT: Publish: Chapter complete
+    Player->>Server: HTTP GET: /audio/chapter3.mp3
+    Server-->>Player: Stream audio (Chapter 3)
+    Player->>MQTT: Publish: Now playing<br/>Chapter 3
+    
+    Note over User,Server: Book Completion
+    Player->>Player: Chapter 3 ends
+    Player->>MQTT: Publish: Playback complete<br/>All chapters finished
+    MQTT->>Server: Forward: Complete event
+    Player->>Player: Return to idle state
+    deactivate Player
+    
+    Note over User,Server: Card Removed
+    User->>Player: Removes card
+    Player->>MQTT: Publish: Card removed
+    MQTT->>Server: Forward: Card removed
+```
+
+**Key Points:**
+- **Player-Initiated Streaming**: The Yoto player directly requests audio from your server via HTTP
+- **MQTT for Events**: All user interactions and status updates flow through Yoto's MQTT broker
+- **Sequential Chapters**: Chapters play in order and can be navigated using physical buttons
+- **Real-time Monitoring**: Your server receives live updates about playback state, position, and battery
+- **Simple HTTP**: Audio streaming uses standard HTTP GET requests - no special protocols needed
+
+For interactive (Choose Your Own Adventure) stories where chapter selection depends on button choices, see the [Interactive Cards section](#-interactive-cards-choose-your-own-adventure).
+
 ## 📋 Prerequisites
 
 - Python 3.9 or higher
