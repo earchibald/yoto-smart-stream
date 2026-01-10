@@ -358,6 +358,8 @@ Content-Type: application/json
 }
 ```
 
+**Note:** This endpoint is for uploading audio to Yoto's servers. For streaming from your own service, you don't need this endpoint - instead use the `url` field in track definitions. See [Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md).
+
 #### Upload Cover Image
 
 ```
@@ -368,6 +370,48 @@ image: [binary data]
 coverType: default
 autoConvert: true
 ```
+
+#### Create Card (Two Approaches)
+
+**Approach 1: Upload to Yoto (Traditional)**
+```
+POST /card
+Content-Type: application/json
+
+{
+  "title": "My Card",
+  "content": {
+    "chapters": [{
+      "key": "01",
+      "tracks": [{
+        "key": "01",
+        "uploadId": "abc123"  // From upload-url endpoint
+      }]
+    }]
+  }
+}
+```
+
+**Approach 2: Stream from Your Service (Recommended)**
+```
+POST /card
+Content-Type: application/json
+
+{
+  "title": "My Card",
+  "content": {
+    "chapters": [{
+      "key": "01",
+      "tracks": [{
+        "key": "01",
+        "url": "https://your-server.com/audio/story.mp3"  // YOUR server!
+      }]
+    }]
+  }
+}
+```
+
+See [Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md) for complete details.
 
 ---
 
@@ -899,12 +943,23 @@ npm install yoto-nodejs-client
 
 ## Common Use Cases
 
-### Stream Custom Audio
+### Stream Audio from Your Own Service (Recommended)
+
+1. Set up a web server with audio streaming endpoint
+2. Create card with `url` field pointing to your server
+3. Yoto players stream directly from your service
+4. Update content dynamically without recreating cards
+
+**Complete Guide:** [Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)
+
+### Upload Audio to Yoto (Traditional)
 
 1. Get audio upload URL with SHA256 hash
 2. Upload audio file to signed URL (if not already uploaded)
 3. Create card content with upload ID
 4. Play card on device via MQTT
+
+**Complete Guide:** [Creating MYO Cards](docs/CREATING_MYO_CARDS.md)
 
 ### Monitor Device Status
 

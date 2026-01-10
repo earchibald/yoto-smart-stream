@@ -11,7 +11,9 @@ A service to stream audio to Yoto devices, monitor events via MQTT, and manage i
 
 ## 🚀 Quick Start
 
-New to the project? Check out our **[Quick Start Guide](docs/QUICK_START.md)** to get running in 10 minutes!
+**New to streaming from your own service?** Check out our **[Quick Start: Streaming Guide](QUICKSTART_STREAMING.md)** to get up and running in 10 minutes!
+
+For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 
 ## 🎯 Features
 
@@ -85,9 +87,12 @@ Visit http://localhost:8000/docs for interactive API documentation.
 - **[Quick Start Guide](docs/QUICK_START.md)**: Get up and running in 10 minutes - from installation to working API
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
 
-### API & Implementation
-- **[Creating MYO Cards](docs/CREATING_MYO_CARDS.md)**: Complete guide to creating custom Yoto MYO (Make Your Own) cards
+### Creating Content
+- **[Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)**: Stream audio from your server (NEW - recommended approach)
+- **[Creating MYO Cards](docs/CREATING_MYO_CARDS.md)**: Traditional approach - upload audio to Yoto's servers
 - **[Icon Management Guide](docs/ICON_MANAGEMENT.md)**: Working with display icons for Yoto Mini
+
+### API & Implementation
 - **[Yoto API Reference](docs/YOTO_API_REFERENCE.md)**: Complete API specification with endpoints, MQTT topics, and code examples
 - **[Yoto MQTT Reference](docs/yoto-mqtt-reference.md)**: Deep dive into MQTT event service implementation and real-time communication
 
@@ -174,7 +179,37 @@ curl -X POST http://localhost:8000/api/players/{player_id}/control \
 
 ## 🎨 Creating Custom MYO Cards
 
-Create your own custom audio cards for Yoto players:
+Create your own custom audio cards for Yoto players with two approaches:
+
+### Option 1: Stream from Your Own Service (Recommended)
+
+Point cards to your own streaming URL for complete control:
+
+```python
+# Create card that streams from your server
+card_data = {
+    "title": "My Streaming Story",
+    "content": {
+        "chapters": [{
+            "tracks": [{
+                "url": "https://your-server.com/audio/story.mp3"  # YOUR server!
+            }]
+        }]
+    }
+}
+```
+
+**Benefits:**
+- ✅ Update audio without recreating cards
+- ✅ Dynamic content (time-based, personalized, etc.)
+- ✅ No file size limits
+- ✅ Complete control over content
+
+**Quick Start:** See [Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)
+
+### Option 2: Upload to Yoto's Servers (Traditional)
+
+Upload audio files to Yoto's storage:
 
 ```python
 from yoto_api import YotoManager
@@ -191,7 +226,7 @@ ym.set_refresh_token("your_refresh_token")
 # 5. Play on device
 ```
 
-**Complete Step-by-Step Guide**: See [Creating MYO Cards](docs/CREATING_MYO_CARDS.md) for detailed instructions including:
+**Complete Guide:** See [Creating MYO Cards](docs/CREATING_MYO_CARDS.md) for detailed instructions including:
 - Audio file preparation and upload
 - Cover image creation
 - Multi-chapter card creation
