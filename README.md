@@ -11,7 +11,9 @@ A service to stream audio to Yoto devices, monitor events via MQTT, and manage i
 
 ## 🚀 Quick Start
 
-New to the project? Check out our **[Quick Start Guide](docs/QUICK_START.md)** to get running in 10 minutes!
+**New to streaming from your own service?** Check out our **[Quick Start: Streaming Guide](QUICKSTART_STREAMING.md)** to get up and running in 10 minutes!
+
+For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 
 ## 🎯 Features
 
