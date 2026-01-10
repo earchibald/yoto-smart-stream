@@ -50,6 +50,15 @@ The Yoto Smart Stream project has been fully set up with comprehensive documenta
   - Python and Node.js code examples
   - 985 lines of comprehensive API documentation
 
+- **`yoto-mqtt-reference.md`** (NEW from PR#4) - MQTT deep dive
+  - AWS IoT Core WebSocket MQTT implementation
+  - JWT authentication for MQTT
+  - Complete topic structure and message formats
+  - Event handling and player state patterns
+  - Interactive skill integration examples
+  - Choose Your Own Adventure branching logic
+  - 1,032 lines of MQTT-specific documentation
+
 - **`ARCHITECTURE.md`** - System design guide (15,000+ words)
   - Technology stack recommendations (FastAPI, Python, HTMX)
   - Component architecture
@@ -214,8 +223,9 @@ The Yoto Smart Stream project has been fully set up with comprehensive documenta
 
 ## Documentation Statistics
 
-- **Total documentation**: ~60,000+ words
-- **API Reference**: 985 lines (NEW from PR#2)
+- **Total documentation**: ~62,000+ words
+- **API Reference**: 985 lines (from PR#2)
+- **MQTT Reference**: 1,032 lines (NEW from PR#4)
 - **Architecture**: 15,000 words
 - **Planning Questions**: 12,000 words
 - **AgentSkill**: 10,000+ words
@@ -250,6 +260,7 @@ The Yoto Smart Stream project has been fully set up with comprehensive documenta
 
 ### Internal Documentation
 - API Reference: `docs/YOTO_API_REFERENCE.md`
+- MQTT Reference: `docs/yoto-mqtt-reference.md`
 - Architecture: `docs/ARCHITECTURE.md`
 - Planning: `docs/PLANNING_QUESTIONS.md`
 - Getting Started: `docs/GETTING_STARTED.md`

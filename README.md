@@ -71,6 +71,7 @@ Visit http://localhost:8000/docs for interactive API documentation.
 ## 📚 Documentation
 
 - **[Yoto API Reference](docs/YOTO_API_REFERENCE.md)**: Complete API specification with endpoints, MQTT topics, and code examples
+- **[Yoto MQTT Reference](docs/yoto-mqtt-reference.md)**: Deep dive into MQTT event service implementation and real-time communication
 - **[Architecture Guide](docs/ARCHITECTURE.md)**: System design and implementation recommendations
 - **[Planning Questions](docs/PLANNING_QUESTIONS.md)**: Open questions and decision points
 - **[Getting Started Guide](docs/GETTING_STARTED.md)**: Step-by-step setup instructions

@@ -294,17 +294,26 @@ pip install -r requirements.txt
    - Data structures and models
    - Python and Node.js code examples
 
-2. **[Yoto API AgentSkill](../.github/agentskills/yoto-api-development.md)**
+2. **[Yoto MQTT Reference](yoto-mqtt-reference.md)** - **NEW FROM PR#4**
+   - **ESSENTIAL FOR REAL-TIME**: Deep dive into MQTT implementation
+   - AWS IoT Core WebSocket connection details
+   - JWT authentication specifics for MQTT
+   - Complete topic structure: device/{id}/events, device/{id}/status, device/{id}/command
+   - Event message formats and parsing
+   - Player state synchronization patterns
+   - Interactive skill integration examples
+
+3. **[Yoto API AgentSkill](../.github/agentskills/yoto-api-development.md)**
    - Comprehensive guide to Yoto API development
    - Best practices and patterns
    - Common pitfalls and solutions
 
-3. **[Architecture Document](ARCHITECTURE.md)**
+4. **[Architecture Document](ARCHITECTURE.md)**
    - System design and recommendations
    - Technology stack rationale
    - Implementation phases
 
-4. **[Planning Questions](PLANNING_QUESTIONS.md)**
+5. **[Planning Questions](PLANNING_QUESTIONS.md)**
    - Strategic decisions to make
    - Feature prioritization
    - Technical considerations

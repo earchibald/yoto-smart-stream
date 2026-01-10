@@ -14,9 +14,17 @@ This agentskill provides specialized knowledge for developing applications that 
    - Code examples in Python and Node.js
    - Official documentation links
 
-2. **[Architecture Guide](../../docs/ARCHITECTURE.md)** - Implementation recommendations and system design
+2. **[Yoto MQTT Reference](../../docs/yoto-mqtt-reference.md)** - **NEW** Deep dive into MQTT implementation:
+   - AWS IoT Core connection details
+   - WebSocket MQTT protocol specifics
+   - JWT authentication for MQTT
+   - Complete topic structure and message formats
+   - Event handling patterns
+   - Integration examples for interactive skills
 
-3. **[Planning Questions](../../docs/PLANNING_QUESTIONS.md)** - Strategic decisions and considerations
+3. **[Architecture Guide](../../docs/ARCHITECTURE.md)** - Implementation recommendations and system design
+
+4. **[Planning Questions](../../docs/PLANNING_QUESTIONS.md)** - Strategic decisions and considerations
 
 ## Yoto API Overview
 
