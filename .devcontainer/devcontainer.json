@@ -45,6 +45,13 @@
 
   "postCreateCommand": "bash .devcontainer/setup.sh",
   
+  // GitHub Codespaces: Automatically inject secrets as environment variables
+  // Set RAILWAY_TOKEN in Codespaces secrets for Railway deployments
+  "remoteEnv": {
+    "RAILWAY_TOKEN": "${localEnv:RAILWAY_TOKEN}",
+    "YOTO_CLIENT_ID": "${localEnv:YOTO_CLIENT_ID}"
+  },
+  
   "forwardPorts": [8000, 8080, 5000],
   "portsAttributes": {
     "8000": {
