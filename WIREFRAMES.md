@@ -293,7 +293,7 @@ This document proposes wireframe ideas for the Yoto Smart Stream web interface, 
 │  │                                                             ││
 │  │ Options:                                                    ││
 │  │ ☑️ Repeat if no response (30 sec timeout)                  ││
-│  │ ☐ Enable voice control                                     ││
+│  │ ☑️ Show display icon on Yoto Mini                          ││
 │  └─────────────────────────────────────────────────────────────┘│
 │                                                                   │
 └─────────────────────────────────────────────────────────────────┘
@@ -370,7 +370,97 @@ This document proposes wireframe ideas for the Yoto Smart Stream web interface, 
 
 ---
 
-## 8. Navigation Structure
+## 8. Display Icon Manager
+
+### Layout
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Display Icon Manager                         [+ Upload Icon]    │
+├─────────────────────────────────────────────────────────────────┤
+│ [Public Icons] [My Icons] [Recently Used]                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  [🔍 Search icons...]  [📁 Category: All ▼]  [Grid | List]     │
+│                                                                   │
+│  Public Icon Repository:                                         │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐                │
+│  │  🎵        │  │  📖        │  │  ⭐        │                │
+│  │            │  │            │  │            │                │
+│  │  Music     │  │  Story     │  │  Featured  │                │
+│  │            │  │            │  │            │                │
+│  │ [Select]   │  │ [Select]   │  │ [Select]   │                │
+│  └────────────┘  └────────────┘  └────────────┘                │
+│                                                                   │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐                │
+│  │  🌙        │  │  🎨        │  │  🎮        │                │
+│  │            │  │            │  │            │                │
+│  │  Bedtime   │  │  Creative  │  │  Games     │                │
+│  │            │  │            │  │            │                │
+│  │ [Select]   │  │ [Select]   │  │ [Select]   │                │
+│  └────────────┘  └────────────┘  └────────────┘                │
+│                                                                   │
+│  My Custom Icons:                                                │
+│  ┌────────────┐  ┌────────────┐                                │
+│  │  Custom 1  │  │  Custom 2  │                                │
+│  │            │  │            │                                │
+│  │ [Edit] [✕] │  │ [Edit] [✕] │                                │
+│  └────────────┘  └────────────┘                                │
+│                                                                   │
+│  [Page 1 of 8 →]                                                │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Icon Upload Modal
+```
+┌─────────────────────────────────────────────────┐
+│ Upload Display Icon                       [✕]   │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  Icon for Yoto Mini Display (16x16 pixels)     │
+│                                                 │
+│  ┌────────────────────────────────────────────┐│
+│  │                                            ││
+│  │     📁 Drag & Drop Icon Here              ││
+│  │           or                              ││
+│  │     [Browse Files]                        ││
+│  │                                            ││
+│  │  Format: PNG, 16x16 pixels                ││
+│  │  Max size: 10KB                           ││
+│  │                                            ││
+│  └────────────────────────────────────────────┘│
+│                                                 │
+│  Preview:                                       │
+│  ┌────────┐                                    │
+│  │  Icon  │  ← Actual size on Yoto Mini       │
+│  └────────┘                                    │
+│                                                 │
+│  Icon Name: [my_custom_icon________]           │
+│                                                 │
+│  Tags: [bedtime] [story] [___________]         │
+│                                                 │
+│  [Cancel]                            [Upload]  │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+### Features
+- Browse public icon repository from Yoto API
+- Upload custom user icons (16x16 pixels for Yoto Mini)
+- Search and filter icons by category/tags
+- Preview icons at actual device size
+- Assign icons to chapters/tracks in card scripts
+- Icon library management (view, edit, delete custom icons)
+- Support for both Yoto Player and Yoto Mini display formats
+
+**Device Compatibility Note**: 
+- Yoto Mini has a 16x16 pixel display that shows custom icons
+- Original Yoto Player does not have a display screen
+- Icons are optional but enhance the Yoto Mini experience
+
+---
+
+## 9. Navigation Structure
 
 ### Main Navigation (Sidebar)
 ```
@@ -379,6 +469,7 @@ This document proposes wireframe ideas for the Yoto Smart Stream web interface, 
 │ 🎵 Library     │
 │ 📝 Scripts     │
 │ 🎮 CYOA        │
+│ 🎨 Icons       │
 │ 📱 Devices     │
 │ 📊 Analytics   │
 │ ⚙️  Settings   │
@@ -485,7 +576,6 @@ This document proposes wireframe ideas for the Yoto Smart Stream web interface, 
 
 ## 13. Future Enhancements
 
-- Voice command integration
 - Mobile companion app
 - Multi-user collaboration on scripts
 - Analytics dashboard with usage statistics
@@ -495,6 +585,10 @@ This document proposes wireframe ideas for the Yoto Smart Stream web interface, 
 - Advanced MQTT event triggers
 - Schedule-based playback automation
 - Integration with external audio sources (Spotify, podcasts)
+- Custom display icon creation and management
+- Icon animation sequences for Yoto Mini
+
+**Note**: Voice command integration is not possible as Yoto devices do not have microphones.
 
 ---
 
