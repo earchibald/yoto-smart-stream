@@ -2,21 +2,40 @@
 
 This agentskill provides specialized knowledge for developing applications that interact with the Yoto Play API, including audio streaming, MQTT event handling, and device management.
 
+## 📚 Essential Reference Documents
+
+**IMPORTANT**: Before proceeding, review these comprehensive reference documents:
+
+1. **[Yoto API Reference](../../docs/YOTO_API_REFERENCE.md)** - Complete API specification including:
+   - All REST API endpoints with request/response examples
+   - MQTT topics, message formats, and commands
+   - Data structures and models
+   - Authentication flows (OAuth2 Device Flow)
+   - Code examples in Python and Node.js
+   - Official documentation links
+
+2. **[Architecture Guide](../../docs/ARCHITECTURE.md)** - Implementation recommendations and system design
+
+3. **[Planning Questions](../../docs/PLANNING_QUESTIONS.md)** - Strategic decisions and considerations
+
 ## Yoto API Overview
 
 ### Core Components
 
 1. **REST API**: Main interface for device control, library management, and configuration
-2. **MQTT Events**: Real-time event stream for player state, playback status, and device updates
-3. **Authentication**: OAuth 2.0 device code flow for user authentication
+2. **MQTT Communication**: Real-time device control and status monitoring
+3. **Authentication**: OAuth 2.0 device code flow with refresh tokens
 4. **Audio Streaming**: Direct audio URL streaming to Yoto players
 
 ### API Base Information
 
-- **Base URL**: `https://api.yotoplay.com/v1/`
+- **Base URLs**:
+  - REST API: `https://api.yotoplay.com`
+  - Auth: `https://login.yotoplay.com`
 - **Developer Portal**: https://yoto.dev/
 - **Authentication**: Device Code Flow (OAuth 2.0)
 - **Primary Python Library**: `yoto_api` by cdnninja (https://github.com/cdnninja/yoto_api)
+- **Node.js Library**: `yoto-nodejs-client` (https://github.com/bcomnes/yoto-nodejs-client)
 
 ## Key Patterns and Best Practices
 
