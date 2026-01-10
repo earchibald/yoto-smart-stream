@@ -1,0 +1,468 @@
+---
+name: railway-service-management
+description: Specialized knowledge for managing multi-environment Railway deployments, including development branch previews, production services, and full lifecycle management. Use this when setting up Railway infrastructure, configuring multi-environment workflows, or managing Railway deployments.
+---
+
+# Railway Service Management
+
+This skill provides comprehensive guidance for managing applications on Railway.app with multi-environment support. All detailed reference documentation is included in the `reference/` folder.
+
+## Overview
+
+Railway is a modern platform-as-a-service (PaaS) that simplifies application deployment and infrastructure management. This skill focuses on:
+
+- **Multi-Environment Architecture** for dev/staging/production workflows
+- **Automated Deployments** triggered by GitHub branches
+- **Service Management** including databases, Redis, and application services
+- **Environment Configuration** with secrets and variables
+- **Secret Management** with GitHub Secrets and Railway variables
+- **Monitoring & Logging** for production operations
+- **Cost Optimization** strategies for efficient resource usage
+
+### Key Railway Concepts
+
+**Projects**: Top-level containers that hold all your environments and services
+**Environments**: Isolated deployment contexts (production, staging, development)
+**Services**: Individual deployable units (your app, databases, Redis, etc.)
+**Deployments**: Immutable builds of your service at a specific point in time
+
+### Base URLs
+- Dashboard: https://railway.app/dashboard
+- CLI Documentation: https://docs.railway.app/reference/cli
+- API Reference: https://docs.railway.app/reference/api-reference
+
+## Reference Documentation
+
+**Load these reference documents as needed:**
+
+- [🏗️ Railway Platform Fundamentals](./reference/platform_fundamentals.md) - Core concepts, project structure, and Railway architecture
+- [🌍 Multi-Environment Architecture](./reference/multi_environment_architecture.md) - Strategies for dev/staging/prod setup with branch-based deployments
+- [🚀 Deployment Workflows](./reference/deployment_workflows.md) - Automated deployments, GitHub integration, and CI/CD patterns
+- [⚙️ Configuration Management](./reference/configuration_management.md) - Environment variables, secrets, and configuration strategies including GitHub Secrets integration
+- [💾 Database & Services](./reference/database_services.md) - PostgreSQL, Redis, and service configuration
+- [📊 Monitoring & Logging](./reference/monitoring_logging.md) - Application observability, logs, and metrics
+- [💰 Cost Optimization](./reference/cost_optimization.md) - Resource management and billing optimization
+- [🔧 Railway CLI & Scripts](./reference/cli_scripts.md) - Command-line tools and automation scripts
+- [🔐 Secrets Management](./reference/secrets_management.md) - GitHub Secrets, Railway variables, and secure credential handling
+
+## Quick Start
+
+### Prerequisites
+
+```bash
+# Install Railway CLI
+npm i -g @railway/cli
+
+# Login to Railway
+railway login
+
+# Link to existing project (or create new)
+railway link
+```
+
+### Multi-Environment Setup Pattern
+
+```bash
+# Create project structure
+railway init
+
+# Set up environments
+# - production: Connected to 'main' branch
+# - staging: Connected to 'develop' branch  
+# - pr-*: Ephemeral environments for feature branches
+
+# Configure environment variables
+railway variables set KEY=value -e production
+railway variables set KEY=value -e staging
+```
+
+## Architecture Patterns
+
+### Branch-to-Environment Mapping
+
+**Recommended Structure:**
+- `main` branch → `production` environment (stable, customer-facing)
+- `develop` branch → `staging` environment (pre-production testing)
+- `feature/*` branches → Ephemeral PR environments (automated testing)
+
+### Service Architecture
+
+```yaml
+# Example: Web application with database
+services:
+  web:
+    # Your FastAPI/Flask/Express application
+    start_command: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthcheck: /health
+    
+  postgres:
+    # PostgreSQL database
+    plugin: postgresql
+    
+  redis:
+    # Redis for caching/sessions
+    plugin: redis
+```
+
+## Secret Management Strategy
+
+### GitHub Secrets (for CI/CD)
+
+Store secrets in GitHub that are needed during CI/CD workflows:
+
+```bash
+# Add secrets via GitHub UI:
+# Settings → Secrets and variables → Actions → New repository secret
+
+# Required secrets for this project:
+RAILWAY_TOKEN          # Railway API token for deployments
+YOTO_CLIENT_ID        # Yoto API client ID (for all environments)
+YOTO_CLIENT_SECRET    # Yoto API client secret (for all environments)
+```
+
+### Railway Environment Variables
+
+Set environment-specific variables in Railway:
+
+```bash
+# Production environment
+railway variables set YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }} -e production
+railway variables set YOTO_CLIENT_SECRET=${{ secrets.YOTO_CLIENT_SECRET }} -e production
+railway variables set DATABASE_URL='${{Postgres.DATABASE_URL}}' -e production
+
+# Staging environment
+railway variables set YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }} -e staging
+railway variables set DEBUG=true -e staging
+```
+
+### Variable Hierarchy
+
+1. **GitHub Secrets** - For CI/CD automation (RAILWAY_TOKEN, YOTO_CLIENT_ID)
+2. **Railway Shared Variables** - Common across environments (LOG_LEVEL, REGION)
+3. **Railway Environment Variables** - Per environment (DATABASE_URL, DEBUG)
+4. **Railway Service Variables** - Per service in environment (PORT, WORKERS)
+
+## Environment Configuration Strategy
+
+### Development Workflow
+
+```bash
+# Local development - use .env file (never commit)
+YOTO_CLIENT_ID=dev_client_id
+YOTO_CLIENT_SECRET=dev_secret
+
+# GitHub Actions - access GitHub Secrets
+${{ secrets.YOTO_CLIENT_ID }}
+
+# Railway deployment - use Railway variables
+railway variables get YOTO_CLIENT_ID -e production
+```
+
+### Accessing Secrets in Code
+
+```python
+# main.py - FastAPI application
+import os
+
+# Railway automatically loads environment variables
+YOTO_CLIENT_ID = os.getenv("YOTO_CLIENT_ID")
+YOTO_CLIENT_SECRET = os.getenv("YOTO_CLIENT_SECRET")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not YOTO_CLIENT_ID:
+    raise ValueError("YOTO_CLIENT_ID environment variable is required")
+```
+
+## Deployment Workflow
+
+### Automated Deployments
+
+1. **Commit to branch** → Railway detects change
+2. **Build starts** → Docker build or Nixpacks detection
+3. **Deploy** → New deployment goes live
+4. **Health check** → Railway verifies service is healthy
+5. **Rollback available** → Previous deployment kept for quick rollback
+
+### Manual Deployments
+
+```bash
+# Deploy current directory to specific environment
+railway up -e production
+
+# Deploy with specific service
+railway up -s web -e staging
+
+# Redeploy last successful build
+railway redeploy -e production
+```
+
+## Database Management
+
+### PostgreSQL Setup
+
+```bash
+# Add PostgreSQL to project
+railway add --plugin postgresql
+
+# Access database credentials
+railway variables -e production | grep DATABASE_URL
+
+# Connect to database
+railway connect postgres -e production
+
+# Run migrations
+railway run -e production python manage.py migrate
+```
+
+### Backup Strategy
+
+- Railway provides automatic daily backups for databases
+- For critical production data, implement application-level backups
+- Use `pg_dump` for manual backups before major migrations
+
+## Monitoring & Observability
+
+### Built-in Features
+
+- **Logs**: Real-time log streaming via dashboard or CLI
+- **Metrics**: CPU, memory, network usage per service
+- **Deployments**: History of all deployments with rollback capability
+
+### Log Access
+
+```bash
+# Stream logs from production
+railway logs -e production
+
+# Follow logs with filter
+railway logs -e production --filter "ERROR"
+
+# View logs for specific service
+railway logs -s web -e production
+```
+
+## Best Practices
+
+### ✅ DO:
+
+- Store sensitive credentials in GitHub Secrets
+- Use environment-specific configurations in Railway
+- Implement health check endpoints
+- Set up automatic deployments for main branches
+- Use Railway's reference variables (`${{Postgres.DATABASE_URL}}`)
+- Monitor deployment logs after each deploy
+- Set resource limits appropriately
+- Use Railway CLI for automation scripts
+- Document environment setup in repository
+- Rotate secrets regularly
+
+### ❌ DON'T:
+
+- Commit secrets to version control (use .env.example as template)
+- Use production credentials in development
+- Skip health check endpoints
+- Deploy directly to production without staging
+- Ignore deployment failures
+- Over-provision resources unnecessarily
+- Hardcode URLs or credentials
+- Share production database between environments
+- Store secrets in code comments or documentation
+
+## Cost Optimization
+
+### Resource Management
+
+1. **Right-size your services** - Start small, scale based on metrics
+2. **Use development environments wisely** - Sleep/destroy unused environments
+3. **Leverage free tier** - Railway provides $5/month free credits
+4. **Monitor usage** - Set up billing alerts
+5. **Clean up old deployments** - Remove unused services and environments
+
+### Scaling Strategy
+
+```bash
+# Horizontal scaling (multiple replicas)
+railway scale replicas=3 -s web -e production
+
+# Vertical scaling (increase resources)
+# Adjust via Railway dashboard or railway.json
+```
+
+## Python/FastAPI Specific Configuration
+
+### Recommended Setup
+
+```python
+# main.py - FastAPI application
+from fastapi import FastAPI
+import os
+
+app = FastAPI()
+
+# Railway provides PORT environment variable
+PORT = int(os.getenv("PORT", 8000))
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Railway"""
+    return {"status": "healthy"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
+```
+
+### Deployment Configuration
+
+```toml
+# railway.toml (optional, but recommended)
+[build]
+builder = "NIXPACKS"
+buildCommand = "pip install -r requirements.txt"
+
+[deploy]
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+```
+
+## Integration with CI/CD
+
+### GitHub Actions Integration
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+        
+      - name: Deploy to Railway
+        run: railway up -e ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          
+      - name: Set Railway Variables
+        run: |
+          railway variables set YOTO_CLIENT_ID="${{ secrets.YOTO_CLIENT_ID }}" -e production
+          railway variables set YOTO_CLIENT_SECRET="${{ secrets.YOTO_CLIENT_SECRET }}" -e production
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Deployment Fails**
+- Check build logs: `railway logs -e production`
+- Verify Python version compatibility
+- Ensure all dependencies in requirements.txt
+
+**Database Connection Issues**
+- Verify DATABASE_URL variable is set
+- Check database service is running
+- Confirm network connectivity between services
+
+**Environment Variables Not Loading**
+- Verify variables are set in correct environment
+- Check for typos in variable names
+- Ensure service is redeployed after variable changes
+
+**Secrets Not Accessible**
+- Verify GitHub Secrets are created in repository settings
+- Check workflow has correct permissions
+- Ensure Railway variables are synced from GitHub
+
+**High Costs**
+- Review resource usage in dashboard
+- Scale down or remove unused environments
+- Check for runaway processes or memory leaks
+
+## Security Considerations
+
+1. **Never commit credentials** - Use GitHub Secrets and Railway variables
+2. **Rotate secrets regularly** - Especially API keys and tokens (YOTO_CLIENT_ID)
+3. **Use least privilege** - Limit access to production environments
+4. **Enable 2FA** - For Railway and GitHub account access
+5. **Audit access** - Review team member permissions periodically
+6. **Network security** - Use private networking for service-to-service communication
+7. **Backup regularly** - Especially before major changes
+8. **Separate secrets** - Use different credentials for dev/staging/production when possible
+
+## Team Workflow
+
+### Development Process
+
+1. **Create feature branch** → Automatic PR environment spins up
+2. **Develop & test** → Use PR environment for testing (with dev credentials)
+3. **Merge to develop** → Deploys to staging environment
+4. **QA & validation** → Test on staging (with staging credentials)
+5. **Merge to main** → Deploys to production (with production credentials)
+6. **Monitor** → Watch logs and metrics
+
+### Environment Lifecycle
+
+```bash
+# Development branches
+feature/add-auth → pr-123 environment (auto-created)
+feature/new-ui → pr-124 environment (auto-created)
+
+# Long-lived branches
+develop → staging environment (persistent)
+main → production environment (persistent)
+
+# Cleanup
+# PR environments destroyed after merge/close
+# Manual cleanup: railway down -e pr-123
+```
+
+## Resources
+
+- **Railway Documentation**: https://docs.railway.app/
+- **Railway Templates**: https://railway.app/templates
+- **Railway Discord**: https://discord.gg/railway
+- **Railway Blog**: https://blog.railway.app/
+- **Railway Status**: https://status.railway.app/
+- **Railway CLI**: https://docs.railway.app/reference/cli
+- **GitHub Secrets**: https://docs.github.com/en/actions/security-guides/encrypted-secrets
+
+## Migration Guides
+
+### From Heroku to Railway
+
+- Railway offers similar workflow with better DX
+- Environment variables map 1:1
+- Database migration via `pg_dump` and `pg_restore`
+- Update deployment scripts to use Railway CLI
+
+### From Docker Compose to Railway
+
+- Convert services to Railway services
+- Map environment variables
+- Set up service dependencies
+- Configure networking
+
+---
+
+**When managing Railway deployments:**
+1. Review the relevant reference documentation in the `reference/` folder
+2. Set up GitHub Secrets for CI/CD automation (RAILWAY_TOKEN, YOTO_CLIENT_ID)
+3. Follow the multi-environment patterns and best practices
+4. Use Railway CLI for automation
+5. Monitor deployments and costs regularly
+6. Document your setup for team members
