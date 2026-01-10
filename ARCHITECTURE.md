@@ -551,10 +551,18 @@ Topic: yoto/device_abc123/commands
 Payload: {
     "command": "play",
     "script_id": "script-uuid-here",
-    "audio_file": "https://cdn.example.com/audio/story.mp3",
+    "audio_file": "https://your-server.com/audio/story.mp3",
     "timestamp": "2026-01-10T08:15:30Z"
 }
 ```
+
+**Note on Audio Streaming:** Yoto MYO cards can stream audio from your own server by using the `url` field in track definitions instead of `uploadId`. This enables:
+- Dynamic content that changes based on time, user, or context
+- No upload size limits
+- Complete control over audio content
+- Ability to update content without recreating cards
+
+See [Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md) for details.
 
 **Playback Status:**
 ```json

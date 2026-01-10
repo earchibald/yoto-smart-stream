@@ -2,9 +2,22 @@
 
 This guide explains the complete procedure for creating custom Yoto MYO Cards using the Yoto API. MYO Cards allow you to create your own audio content that can be played on Yoto devices.
 
+## Two Approaches
+
+There are two ways to provide audio content for MYO cards:
+
+1. **Upload to Yoto's Servers** (Traditional) - Upload your audio files to Yoto's storage
+2. **Stream from Your Own Service** (NEW) - Point cards to your own streaming URL
+
+**👉 Looking to stream from your own service?** See [Streaming from Your Own Service](STREAMING_FROM_OWN_SERVICE.md) for the complete guide.
+
+This document covers the traditional upload approach. For most use cases where you want full control over your content and the ability to update audio without recreating cards, **streaming from your own service is recommended**.
+
 ## Overview
 
 A Yoto MYO Card is custom audio content that you create and upload to your Yoto account. Once created, you can play this content on any Yoto Player in your family by scanning a physical Yoto card or using the Yoto app.
+
+**Note:** This guide covers uploading audio to Yoto's servers. For streaming from your own server, see [Streaming from Your Own Service](STREAMING_FROM_OWN_SERVICE.md).
 
 ## Prerequisites
 
@@ -534,8 +547,22 @@ For complete API documentation, see:
 - [Yoto API Reference](YOTO_API_REFERENCE.md)
 - [Official Yoto API Documentation](https://yoto.dev/api/)
 
+## Comparison: Upload vs Stream
+
+| Feature | Upload to Yoto (This Guide) | Stream from Own Service |
+|---------|---------------------------|------------------------|
+| Setup Complexity | Simple | Moderate |
+| Requires Server | No | Yes |
+| Dynamic Content | No | ✅ Yes |
+| File Size Limits | Yes | ✅ No |
+| Bandwidth Cost | Yoto pays | You pay |
+| Content Control | Limited | ✅ Complete |
+
+**For streaming from your own service**, see [Streaming from Your Own Service](STREAMING_FROM_OWN_SERVICE.md).
+
 ## Related Guides
 
+- **[Streaming from Your Own Service](STREAMING_FROM_OWN_SERVICE.md)** - Stream audio from your server (recommended for dynamic content)
 - [Getting Started Guide](GETTING_STARTED.md)
 - [Architecture Guide](ARCHITECTURE.md)
 - [MQTT Reference](yoto-mqtt-reference.md)

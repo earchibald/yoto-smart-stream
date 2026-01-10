@@ -2,9 +2,11 @@
 """
 Basic FastAPI Server Example for Yoto Smart Stream
 
-This demonstrates a minimal FastAPI server with:
+This demonstrates a FastAPI server with:
 - Player listing endpoint
 - Player control endpoint
+- Audio streaming endpoint for MYO cards
+- MYO card creation with streaming URLs
 - Basic error handling
 - CORS support
 
@@ -14,11 +16,14 @@ Then visit: http://localhost:8000/docs
 
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import requests
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 try:
@@ -27,6 +32,10 @@ except ImportError:
     print("Error: yoto_api library not found.")
     print("Install with: pip install yoto_api")
     exit(1)
+
+# Audio files directory
+AUDIO_FILES_DIR = Path("audio_files")
+AUDIO_FILES_DIR.mkdir(exist_ok=True)
 
 
 # Pydantic models for request/response
@@ -54,6 +63,18 @@ class ErrorResponse(BaseModel):
     """Error response model."""
 
     detail: str
+
+
+class CreateCardRequest(BaseModel):
+    """Request model for creating a streaming MYO card."""
+
+    title: str = Field(..., description="Card title")
+    description: str = Field(default="", description="Card description")
+    author: str = Field(default="Yoto Smart Stream", description="Card author")
+    audio_filename: str = Field(
+        ..., description="Audio filename in audio_files directory (e.g., 'story.mp3')"
+    )
+    cover_image_id: Optional[str] = Field(None, description="Optional cover image ID")
 
 
 # Global Yoto Manager instance (in production, use dependency injection)
@@ -142,9 +163,14 @@ async def root():
     """Root endpoint with API information."""
     return {
         "name": "Yoto Smart Stream API",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "status": "running",
         "docs": "/docs",
+        "features": {
+            "player_control": True,
+            "audio_streaming": True,
+            "myo_card_creation": True,
+        },
     }
 
 
@@ -272,14 +298,336 @@ async def control_player(player_id: str, control: PlayerControl):
 @app.get("/health", tags=["General"])
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "yoto_api": "connected" if yoto_manager else "not initialized"}
+    return {
+        "status": "healthy",
+        "yoto_api": "connected" if yoto_manager else "not initialized",
+        "audio_files": len(list(AUDIO_FILES_DIR.glob("*.mp3"))),
+    }
+
+
+# === Audio Streaming Endpoints ===
+
+
+@app.get("/audio/{filename}", tags=["Audio Streaming"])
+async def stream_audio(filename: str):
+    """
+    Stream audio file for Yoto MYO cards.
+    
+    This endpoint serves audio files that can be referenced in MYO card URLs.
+    Audio files should be placed in the 'audio_files/' directory.
+    
+    Example:
+        Place story.mp3 in audio_files/
+        Access at: http://your-server.com/audio/story.mp3
+        Use in card: {"url": "https://your-server.com/audio/story.mp3"}
+    
+    Args:
+        filename: Audio filename (e.g., 'story.mp3')
+    
+    Returns:
+        Audio file with proper headers for streaming
+    """
+    audio_path = AUDIO_FILES_DIR / filename
+
+    if not audio_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file not found: {filename}"
+        )
+
+    # Determine media type from extension
+    media_type = "audio/mpeg" if filename.endswith(".mp3") else "audio/aac"
+
+    return FileResponse(
+        audio_path,
+        media_type=media_type,
+        headers={
+            "Accept-Ranges": "bytes",  # Enable seeking
+            "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+        },
+    )
+
+
+@app.get("/audio/dynamic/{card_id}.mp3", tags=["Audio Streaming"])
+async def stream_dynamic_audio(card_id: str):
+    """
+    Stream dynamic audio based on time or other factors.
+    
+    This endpoint demonstrates how to serve different content
+    for the same URL based on context (time, user, etc.).
+    
+    Example use case: Bedtime stories that change based on time of day.
+    
+    Args:
+        card_id: Identifier for the dynamic card
+    
+    Returns:
+        Audio file appropriate for current context
+    """
+    hour = datetime.now().hour
+
+    # Serve different audio based on time of day
+    if 6 <= hour < 12:
+        audio_file = "morning-story.mp3"
+    elif 12 <= hour < 18:
+        audio_file = "afternoon-story.mp3"
+    else:
+        audio_file = "bedtime-story.mp3"
+
+    audio_path = AUDIO_FILES_DIR / audio_file
+
+    # Fallback to default if specific file doesn't exist
+    if not audio_path.exists():
+        audio_path = AUDIO_FILES_DIR / "default-story.mp3"
+
+    if not audio_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No audio files found. Add MP3 files to {AUDIO_FILES_DIR}/",
+        )
+
+    return FileResponse(
+        audio_path,
+        media_type="audio/mpeg",
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "no-cache",  # Don't cache dynamic content
+        },
+    )
+
+
+@app.get("/audio/list", tags=["Audio Streaming"])
+async def list_audio_files():
+    """
+    List available audio files.
+    
+    Returns:
+        List of audio files in the audio_files directory
+    """
+    audio_files = []
+    for audio_path in AUDIO_FILES_DIR.glob("*.mp3"):
+        audio_files.append(
+            {
+                "filename": audio_path.name,
+                "size": audio_path.stat().st_size,
+                "url": f"/audio/{audio_path.name}",
+            }
+        )
+
+    return {"files": audio_files, "count": len(audio_files)}
+
+
+# === MYO Card Creation Endpoints ===
+
+
+@app.post("/api/cards/create-streaming", tags=["Cards"])
+async def create_streaming_card(request: CreateCardRequest):
+    """
+    Create a Yoto MYO card that streams from this server.
+    
+    This endpoint creates a card that points to audio hosted on THIS server,
+    not uploaded to Yoto's servers. This allows:
+    - Dynamic content updates without recreating cards
+    - No upload size limits
+    - Complete control over content
+    
+    The audio file must exist in the audio_files/ directory.
+    
+    Example:
+        {
+            "title": "My Story",
+            "audio_filename": "story.mp3",
+            "description": "A wonderful tale"
+        }
+    
+    Returns:
+        Created card information including card ID
+    """
+    ym = get_yoto_manager()
+
+    # Verify audio file exists
+    audio_path = AUDIO_FILES_DIR / request.audio_filename
+    if not audio_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Audio file not found: {request.audio_filename}. "
+            f"Add it to {AUDIO_FILES_DIR}/",
+        )
+
+    # Get the base URL (in production, use env var or config)
+    # For now, use a placeholder that needs to be configured
+    base_url = os.getenv("PUBLIC_URL", "https://your-server.com")
+    if base_url == "https://your-server.com":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="PUBLIC_URL environment variable not set. "
+            "Set it to your public server URL (e.g., https://example.ngrok.io)",
+        )
+
+    streaming_url = f"{base_url}/audio/{request.audio_filename}"
+
+    # Create the card
+    card_data = {
+        "title": request.title,
+        "description": request.description,
+        "author": request.author,
+        "metadata": {},
+        "content": {
+            "chapters": [
+                {
+                    "key": "01",
+                    "title": "Chapter 1",
+                    "tracks": [
+                        {
+                            "key": "01",
+                            "title": request.title,
+                            "format": "mp3",
+                            "channels": "mono",
+                            "url": streaming_url,  # Stream from THIS server!
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+
+    # Add cover image if provided
+    if request.cover_image_id:
+        card_data["metadata"]["cover"] = {"imageId": request.cover_image_id}
+
+    try:
+        response = requests.post(
+            "https://api.yotoplay.com/card",
+            headers={
+                "Authorization": f"Bearer {ym.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            json=card_data,
+            timeout=30,
+        )
+
+        response.raise_for_status()
+        card = response.json()
+
+        return {
+            "success": True,
+            "card_id": card.get("cardId"),
+            "streaming_url": streaming_url,
+            "message": "Card created successfully! It will stream from this server.",
+        }
+
+    except requests.exceptions.HTTPError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create card: {e.response.text}",
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create card: {str(e)}",
+        ) from e
+
+
+@app.post("/api/cards/create-dynamic", tags=["Cards"])
+async def create_dynamic_card(title: str, card_id: str):
+    """
+    Create a dynamic MYO card that serves different content based on time.
+    
+    This creates a card that streams from /audio/dynamic/{card_id}.mp3,
+    which serves different audio files based on time of day.
+    
+    Args:
+        title: Card title
+        card_id: Unique identifier for this dynamic card
+    
+    Returns:
+        Created card information
+    """
+    ym = get_yoto_manager()
+
+    base_url = os.getenv("PUBLIC_URL", "https://your-server.com")
+    if base_url == "https://your-server.com":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="PUBLIC_URL environment variable not set",
+        )
+
+    streaming_url = f"{base_url}/audio/dynamic/{card_id}.mp3"
+
+    card_data = {
+        "title": title,
+        "description": "Dynamic content that changes based on time of day",
+        "author": "Yoto Smart Stream",
+        "content": {
+            "chapters": [
+                {
+                    "key": "01",
+                    "title": "Chapter 1",
+                    "tracks": [
+                        {
+                            "key": "01",
+                            "title": title,
+                            "format": "mp3",
+                            "channels": "mono",
+                            "url": streaming_url,
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+
+    try:
+        response = requests.post(
+            "https://api.yotoplay.com/card",
+            headers={
+                "Authorization": f"Bearer {ym.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            json=card_data,
+            timeout=30,
+        )
+
+        response.raise_for_status()
+        card = response.json()
+
+        return {
+            "success": True,
+            "card_id": card.get("cardId"),
+            "streaming_url": streaming_url,
+            "message": "Dynamic card created! Content will change based on time of day.",
+            "time_schedule": {
+                "morning": "6:00 AM - 12:00 PM: morning-story.mp3",
+                "afternoon": "12:00 PM - 6:00 PM: afternoon-story.mp3",
+                "evening": "6:00 PM - 6:00 AM: bedtime-story.mp3",
+            },
+        }
+
+    except requests.exceptions.HTTPError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create card: {e.response.text}",
+        ) from e
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    print("\nStarting Yoto Smart Stream API Server...")
-    print("API Documentation: http://localhost:8000/docs")
-    print("Interactive API: http://localhost:8000/redoc\n")
+    print("\n" + "=" * 80)
+    print("Starting Yoto Smart Stream API Server")
+    print("=" * 80)
+    print("\n📚 Documentation:")
+    print("  API Documentation: http://localhost:8000/docs")
+    print("  Interactive API: http://localhost:8000/redoc")
+    print("\n🎵 Audio Streaming:")
+    print(f"  Audio files directory: {AUDIO_FILES_DIR.absolute()}")
+    print("  Add MP3 files to this directory to stream them")
+    print("\n🎴 MYO Card Creation:")
+    print("  1. Set PUBLIC_URL environment variable (your public URL)")
+    print("  2. Add audio files to audio_files/ directory")
+    print("  3. Use POST /api/cards/create-streaming to create cards")
+    print("\n💡 For local testing, use ngrok:")
+    print("  ngrok http 8000")
+    print("  Then set: export PUBLIC_URL=https://your-id.ngrok.io")
+    print("=" * 80 + "\n")
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
