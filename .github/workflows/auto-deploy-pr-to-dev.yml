@@ -53,18 +53,12 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
       
-      - name: Deploy to Railway Development
+      - name: Set Railway Environment Variables
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
           YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
         run: |
-          echo "🚀 Deploying branch ${{ github.ref_name }} to Railway development environment..."
-          echo "Session ID: ${{ env.SESSION_ID }}"
-          
-          # Deploy to Railway
-          railway up -e development --detach
-          
-          echo "⚙️ Setting environment variables..."
+          echo "⚙️ Setting environment variables before deployment..."
           railway variables set ENVIRONMENT="development" -e development || true
           railway variables set DEBUG="true" -e development || true
           railway variables set LOG_LEVEL="DEBUG" -e development || true
@@ -75,7 +69,19 @@ jobs:
           if [ -n "$YOTO_CLIENT_ID" ]; then
             echo "Setting YOTO_CLIENT_ID..."
             railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e development || true
+          else
+            echo "⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets"
           fi
+      
+      - name: Deploy to Railway Development
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: |
+          echo "🚀 Deploying branch ${{ github.ref_name }} to Railway development environment..."
+          echo "Session ID: ${{ env.SESSION_ID }}"
+          
+          # Deploy to Railway
+          railway up -e development --detach
       
       - name: Wait for deployment
         run: |

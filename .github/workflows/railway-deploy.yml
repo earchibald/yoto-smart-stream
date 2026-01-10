@@ -73,34 +73,32 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
       
+      - name: Configure Railway Variables
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
+        run: |
+          echo "⚙️ Setting environment variables before deployment..."
+          
+          # Set DEBUG mode for staging
+          railway variables set DEBUG=true -e staging
+          railway variables set LOG_LEVEL=DEBUG -e staging
+          railway variables set ENVIRONMENT=staging -e staging
+          
+          # Set Yoto API credentials if available
+          if [ -n "$YOTO_CLIENT_ID" ]; then
+            echo "Setting YOTO_CLIENT_ID..."
+            railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e staging
+          else
+            echo "⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets"
+          fi
+      
       - name: Deploy to Railway Staging
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
         run: |
           echo "🚀 Deploying to Railway staging environment..."
           railway up --environment staging --detach
-      
-      - name: Configure Railway Variables
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
-        run: |
-          echo "⚙️ Setting environment variables..."
-          
-          # Set DEBUG mode for staging
-          railway variables set DEBUG=true -e staging
-          railway variables set LOG_LEVEL=DEBUG -e staging
-          railway variables set ENVIRONMENT=staging -e staging
-      
-      - name: Configure Yoto API Credentials (if available)
-        # Only run if YOTO_CLIENT_ID secret is set
-        if: ${{ secrets.YOTO_CLIENT_ID != '' && secrets.YOTO_CLIENT_ID != null }}
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
-          YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
-        run: |
-          # Use environment variable instead of passing secret in command line
-          # Only runs if YOTO_CLIENT_ID is configured in GitHub Secrets
-          railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e staging
       
       - name: Get deployment status
         env:
@@ -153,31 +151,32 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
       
+      - name: Configure Railway Variables
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+          YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
+        run: |
+          echo "⚙️ Setting environment variables before deployment..."
+          
+          # Set production configuration
+          railway variables set DEBUG=false -e production
+          railway variables set LOG_LEVEL=warning -e production
+          railway variables set ENVIRONMENT=production -e production
+          
+          # Set Yoto API credentials if available
+          if [ -n "$YOTO_CLIENT_ID" ]; then
+            echo "Setting YOTO_CLIENT_ID..."
+            railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e production
+          else
+            echo "⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets"
+          fi
+      
       - name: Deploy to Railway Production
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
         run: |
           echo "🚀 Deploying to Railway production environment..."
           railway up --environment production --detach
-      
-      - name: Configure Railway Variables
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
-        run: |
-          echo "⚙️ Setting environment variables..."
-          
-          # Set production configuration
-          railway variables set DEBUG=false -e production
-          railway variables set LOG_LEVEL=warning -e production
-          railway variables set ENVIRONMENT=production -e production
-      
-      - name: Configure Yoto API Credentials (if available)
-        if: ${{ secrets.YOTO_CLIENT_ID != '' && secrets.YOTO_CLIENT_ID != null }}
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
-          YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
-        run: |
-          railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e production
       
       - name: Get deployment status
         env:
