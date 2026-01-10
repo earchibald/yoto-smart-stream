@@ -4,9 +4,28 @@ A service package to stream audio to a yoto device, monitor events from that dev
 
 ## 📚 Documentation
 
-This repository contains comprehensive wireframe proposals and architectural documentation for the Yoto Smart Stream web interface.
+This repository contains comprehensive documentation for the Yoto Smart Stream project, including API references, MQTT service documentation, and web UI wireframe proposals.
 
-### Wireframe Documents
+### API & Integration Documentation
+
+- **[YOTO_API_REFERENCE.md](YOTO_API_REFERENCE.md)** - Comprehensive Yoto API documentation
+  - Authentication and OAuth2 Device Flow
+  - REST API endpoints for devices, content, and configuration
+  - MQTT real-time communication
+  - Code examples in Python and Node.js
+  - Useful libraries and official resources
+
+- **[Yoto MQTT Event Service Reference](docs/yoto-mqtt-reference.md)** - Deep dive into MQTT implementation
+  - Architecture and core components
+  - Authentication and token management
+  - MQTT connection setup and lifecycle
+  - Topic structure and message formats
+  - Command reference for player control
+  - Event handling and state management
+  - Integration patterns and examples
+  - Security, performance, and debugging best practices
+
+### Web UI Wireframe Documents
 
 - **[WIREFRAME_SUMMARY.md](./WIREFRAME_SUMMARY.md)** - Start here! Overview of all wireframe documentation
 - **[WIREFRAMES.md](./WIREFRAMES.md)** - Detailed wireframes for 7 core pages (31KB, 516 lines)
