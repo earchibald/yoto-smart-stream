@@ -15,7 +15,14 @@ Device Compatibility:
 """
 
 from .client import IconClient
-from .models import DisplayIcon, IconCategory
+from .models import DisplayIcon, IconCategory, IconListResponse, IconUploadRequest
 from .service import IconService
 
-__all__ = ["IconClient", "DisplayIcon", "IconCategory", "IconService"]
+__all__ = [
+    "IconClient",
+    "DisplayIcon",
+    "IconCategory",
+    "IconListResponse",
+    "IconUploadRequest",
+    "IconService",
+]
