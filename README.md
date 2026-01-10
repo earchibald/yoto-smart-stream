@@ -62,27 +62,27 @@ graph TB
 
     WebUI -->|HTTP/WebSocket| API
     MobileApp -.->|HTTP/WebSocket| API
-    
+
     API --> AudioMgr
     API --> ScriptEngine
     API --> CardMgr
     API --> IconService
     API -->|Subscribe/Publish| MQTT_Handler
-    
+
     AudioMgr --> FileStorage
     ScriptEngine --> DB
     CardMgr --> DB
     IconService --> FileStorage
     MQTT_Handler --> DB
-    
+
     API -->|Create Cards<br/>Control Players| YotoAPI
     MQTT_Handler <-->|Subscribe to Events<br/>Device Status| YotoMQTT
-    
+
     YotoAPI -->|Commands| YotoPlayer1
     YotoAPI -->|Commands| YotoMini
     YotoMQTT <-->|Events & Status| YotoPlayer1
     YotoMQTT <-->|Events & Status| YotoMini
-    
+
     YotoPlayer1 -->|Stream Audio| FileStorage
     YotoMini -->|Stream Audio| FileStorage
 
@@ -238,7 +238,7 @@ Deploy to Railway with automated CI/CD:
 git push origin develop
 ```
 
-**Status**: 
+**Status**:
 - ✅ Staging (develop branch) - Auto-deployed
 - ⏸️ Production (main branch) - Disabled
 
