@@ -2,15 +2,14 @@
 Tests for icon service functionality.
 """
 
-import pytest
 from io import BytesIO
-from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock
 
+import pytest
 from PIL import Image
 
-from yoto_smart_stream.icons.service import IconService
 from yoto_smart_stream.icons.models import DisplayIcon, IconListResponse
+from yoto_smart_stream.icons.service import IconService
 
 
 @pytest.fixture
@@ -128,7 +127,7 @@ class TestGetPublicIcons:
         )
         mock_icon_client.list_public_icons.return_value = mock_response
 
-        result = await icon_service.get_public_icons(category="music")
+        await icon_service.get_public_icons(category="music")
 
         mock_icon_client.list_public_icons.assert_called_once_with(
             category="music",

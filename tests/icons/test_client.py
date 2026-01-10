@@ -2,10 +2,10 @@
 Tests for icon API client.
 """
 
-import pytest
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
+import pytest
 
 from yoto_smart_stream.icons.client import IconClient
 from yoto_smart_stream.icons.models import DisplayIcon, IconUploadRequest

@@ -11,10 +11,8 @@ Original Yoto Players do not have displays and will not show icons.
 
 import logging
 from typing import Optional
-from pathlib import Path
 
 import httpx
-from pydantic import HttpUrl
 
 from .models import DisplayIcon, IconListResponse, IconUploadRequest
 

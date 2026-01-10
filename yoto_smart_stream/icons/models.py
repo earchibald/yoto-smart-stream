@@ -5,9 +5,10 @@ These models represent display icons that can be shown on Yoto Mini devices
 (16x16 pixel display). Original Yoto Players do not have display screens.
 """
 
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl, ConfigDict
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class IconCategory(BaseModel):

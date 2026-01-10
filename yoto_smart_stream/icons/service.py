@@ -9,9 +9,9 @@ Provides high-level business logic for icon management including:
 """
 
 import logging
-from typing import Optional, List
-from pathlib import Path
 from io import BytesIO
+from pathlib import Path
+from typing import Optional
 
 from PIL import Image
 
@@ -129,7 +129,7 @@ class IconService:
         self,
         icon_path: Path,
         name: str,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         category: Optional[str] = None,
     ) -> DisplayIcon:
         """
@@ -175,7 +175,7 @@ class IconService:
         self,
         icon_data: bytes,
         name: str,
-        tags: Optional[List[str]] = None,
+        tags: Optional[list[str]] = None,
         category: Optional[str] = None,
     ) -> DisplayIcon:
         """
@@ -250,7 +250,7 @@ class IconService:
         try:
             img = Image.open(BytesIO(icon_data))
         except Exception as e:
-            raise ValueError(f"Invalid image data: {e}")
+            raise ValueError(f"Invalid image data: {e}") from e
 
         # Check format
         if img.format != self.ALLOWED_FORMAT:

@@ -2,15 +2,16 @@
 Tests for icon data models.
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 from pydantic import ValidationError
 
 from yoto_smart_stream.icons.models import (
     DisplayIcon,
     IconCategory,
-    IconUploadRequest,
     IconListResponse,
+    IconUploadRequest,
 )
 
 
