@@ -28,9 +28,9 @@ def icon_service(mock_icon_client):
 @pytest.fixture
 def valid_icon_bytes():
     """Create valid 16x16 PNG icon bytes."""
-    img = Image.new('RGBA', (16, 16), color='red')
+    img = Image.new("RGBA", (16, 16), color="red")
     buffer = BytesIO()
-    img.save(buffer, format='PNG')
+    img.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
@@ -56,9 +56,9 @@ class TestIconValidation:
 
     def test_validate_wrong_size(self, icon_service):
         """Test that wrong size icons are rejected."""
-        img = Image.new('RGBA', (32, 32), color='red')
+        img = Image.new("RGBA", (32, 32), color="red")
         buffer = BytesIO()
-        img.save(buffer, format='PNG')
+        img.save(buffer, format="PNG")
         icon_data = buffer.getvalue()
 
         with pytest.raises(ValueError, match="must be exactly 16x16 pixels"):
@@ -66,9 +66,9 @@ class TestIconValidation:
 
     def test_validate_wrong_format(self, icon_service):
         """Test that non-PNG formats are rejected."""
-        img = Image.new('RGB', (16, 16), color='red')
+        img = Image.new("RGB", (16, 16), color="red")
         buffer = BytesIO()
-        img.save(buffer, format='JPEG')
+        img.save(buffer, format="JPEG")
         icon_data = buffer.getvalue()
 
         with pytest.raises(ValueError, match="must be PNG format"):
@@ -77,14 +77,14 @@ class TestIconValidation:
     def test_validate_too_large(self, icon_service):
         """Test that oversized files are rejected."""
         # Create a large file (> 10KB)
-        icon_data = b'x' * (11 * 1024)
+        icon_data = b"x" * (11 * 1024)
 
         with pytest.raises(ValueError, match="exceeds maximum allowed size"):
             icon_service.validate_icon(icon_data)
 
     def test_validate_invalid_data(self, icon_service):
         """Test that invalid image data is rejected."""
-        icon_data = b'not an image'
+        icon_data = b"not an image"
 
         with pytest.raises(ValueError, match="Invalid image data"):
             icon_service.validate_icon(icon_data)
@@ -116,7 +116,9 @@ class TestGetPublicIcons:
         )
 
     @pytest.mark.asyncio
-    async def test_get_public_icons_with_category(self, icon_service, mock_icon_client, sample_icon):
+    async def test_get_public_icons_with_category(
+        self, icon_service, mock_icon_client, sample_icon
+    ):
         """Test getting public icons filtered by category."""
         mock_response = IconListResponse(
             icons=[sample_icon],
@@ -240,11 +242,9 @@ class TestUploadIcon:
         mock_icon_client.upload_icon.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_upload_custom_icon_invalid(
-        self, icon_service, mock_icon_client
-    ):
+    async def test_upload_custom_icon_invalid(self, icon_service, mock_icon_client):
         """Test that invalid icons are rejected before upload."""
-        invalid_data = b'not an image'
+        invalid_data = b"not an image"
 
         with pytest.raises(ValueError):
             await icon_service.upload_custom_icon_bytes(

@@ -27,7 +27,7 @@ def icon_client(access_token):
 def mock_httpx_response():
     """Create a mock httpx response."""
     response = AsyncMock(spec=httpx.Response)
-    response.raise_for_status = AsyncMock()
+    response.raise_for_status = Mock()  # This is not async
     return response
 
 
@@ -75,9 +75,7 @@ class TestListPublicIcons:
             "total": 100,
         }
 
-        with patch.object(
-            icon_client._client, 'get', return_value=mock_httpx_response
-        ) as mock_get:
+        with patch.object(icon_client._client, "get", return_value=mock_httpx_response) as mock_get:
             result = await icon_client.list_public_icons()
 
             # Verify API call
@@ -100,9 +98,7 @@ class TestListPublicIcons:
             "total": 0,
         }
 
-        with patch.object(
-            icon_client._client, 'get', return_value=mock_httpx_response
-        ) as mock_get:
+        with patch.object(icon_client._client, "get", return_value=mock_httpx_response) as mock_get:
             await icon_client.list_public_icons(category="bedtime")
 
             mock_get.assert_called_once_with(
@@ -118,9 +114,7 @@ class TestListPublicIcons:
             "total": 0,
         }
 
-        with patch.object(
-            icon_client._client, 'get', return_value=mock_httpx_response
-        ) as mock_get:
+        with patch.object(icon_client._client, "get", return_value=mock_httpx_response) as mock_get:
             await icon_client.list_public_icons(page=2, per_page=25)
 
             mock_get.assert_called_once_with(
@@ -147,9 +141,7 @@ class TestListUserIcons:
             "total": 5,
         }
 
-        with patch.object(
-            icon_client._client, 'get', return_value=mock_httpx_response
-        ) as mock_get:
+        with patch.object(icon_client._client, "get", return_value=mock_httpx_response) as mock_get:
             result = await icon_client.list_user_icons()
 
             mock_get.assert_called_once_with(
@@ -175,9 +167,7 @@ class TestGetIcon:
             "url": "https://example.com/icon.png",
         }
 
-        with patch.object(
-            icon_client._client, 'get', return_value=mock_httpx_response
-        ) as mock_get:
+        with patch.object(icon_client._client, "get", return_value=mock_httpx_response) as mock_get:
             result = await icon_client.get_icon("icon-001")
 
             mock_get.assert_called_once_with("/media/displayIcons/icon-001")
@@ -193,7 +183,7 @@ class TestUploadIcon:
     @pytest.mark.asyncio
     async def test_upload_icon(self, icon_client, mock_httpx_response):
         """Test uploading a custom icon."""
-        icon_data = b'fake_png_data'
+        icon_data = b"fake_png_data"
         metadata = IconUploadRequest(
             name="My Icon",
             tags=["custom", "test"],
@@ -207,7 +197,7 @@ class TestUploadIcon:
         }
 
         with patch.object(
-            icon_client._client, 'post', return_value=mock_httpx_response
+            icon_client._client, "post", return_value=mock_httpx_response
         ) as mock_post:
             result = await icon_client.upload_icon(icon_data, metadata)
 
@@ -216,8 +206,8 @@ class TestUploadIcon:
             call_args = mock_post.call_args
 
             assert call_args[0][0] == "/media/displayIcons/upload"
-            assert 'files' in call_args[1]
-            assert 'data' in call_args[1]
+            assert "files" in call_args[1]
+            assert "data" in call_args[1]
 
             # Verify response
             assert isinstance(result, DisplayIcon)
@@ -234,7 +224,7 @@ class TestDeleteIcon:
         mock_httpx_response.status_code = 204
 
         with patch.object(
-            icon_client._client, 'delete', return_value=mock_httpx_response
+            icon_client._client, "delete", return_value=mock_httpx_response
         ) as mock_delete:
             result = await icon_client.delete_icon("icon-001")
 
@@ -254,9 +244,7 @@ class TestErrorHandling:
             "Not Found", request=Mock(), response=Mock()
         )
 
-        with patch.object(
-            icon_client._client, 'get', return_value=mock_response
-        ):
+        with patch.object(icon_client._client, "get", return_value=mock_response):
             with pytest.raises(httpx.HTTPStatusError):
                 await icon_client.list_public_icons()
 

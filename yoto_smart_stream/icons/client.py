@@ -90,7 +90,9 @@ class IconClient:
         if category:
             params["category"] = category
 
-        logger.info(f"Fetching public icons (page={page}, per_page={per_page}, category={category})")
+        logger.info(
+            f"Fetching public icons (page={page}, per_page={per_page}, category={category})"
+        )
 
         response = await self._client.get("/media/displayIcons/public", params=params)
         response.raise_for_status()
@@ -240,10 +242,7 @@ class IconClient:
         # Parse icons from response
         # The actual API response format may vary, this is a reasonable default
         icons_data = data.get("icons", []) or data.get("items", [])
-        icons = [
-            DisplayIcon(**icon_data, is_public=is_public)
-            for icon_data in icons_data
-        ]
+        icons = [DisplayIcon(**icon_data, is_public=is_public) for icon_data in icons_data]
 
         total = data.get("total", len(icons))
         has_next = (page * per_page) < total

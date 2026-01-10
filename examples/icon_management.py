@@ -12,14 +12,13 @@ Note: Icons only display on Yoto Mini devices (16x16 pixel display).
 Original Yoto Players do not have displays.
 """
 
-import asyncio
 import sys
 from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from yoto_smart_stream.icons import IconClient, IconService, IconUploadRequest
+from yoto_smart_stream.icons import IconClient, IconService
 
 
 async def main():
@@ -87,7 +86,8 @@ async def main():
         print("  - Icon must be under 10KB")
         print()
         print("Example code:")
-        print("""
+        print(
+            """
         icon = await service.upload_custom_icon(
             icon_path=Path("my_icon.png"),
             name="My Custom Icon",
@@ -95,7 +95,8 @@ async def main():
             category="misc"
         )
         print(f"Uploaded icon: {icon.id}")
-        """)
+        """
+        )
 
         # Example 6: Get a specific icon
         if public_icons.icons:
