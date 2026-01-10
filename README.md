@@ -70,6 +70,7 @@ Visit http://localhost:8000/docs for interactive API documentation.
 
 ## 📚 Documentation
 
+- **[Creating MYO Cards](docs/CREATING_MYO_CARDS.md)**: Complete guide to creating custom Yoto MYO (Make Your Own) cards
 - **[Yoto API Reference](docs/YOTO_API_REFERENCE.md)**: Complete API specification with endpoints, MQTT topics, and code examples
 - **[Yoto MQTT Reference](docs/yoto-mqtt-reference.md)**: Deep dive into MQTT event service implementation and real-time communication
 - **[Architecture Guide](docs/ARCHITECTURE.md)**: System design and implementation recommendations
@@ -151,6 +152,32 @@ curl -X POST http://localhost:8000/api/players/{player_id}/control \
   -H "Content-Type: application/json" \
   -d '{"action": "pause"}'
 ```
+
+## 🎨 Creating Custom MYO Cards
+
+Create your own custom audio cards for Yoto players:
+
+```python
+from yoto_api import YotoManager
+
+# Authenticate
+ym = YotoManager(client_id="your_client_id")
+ym.set_refresh_token("your_refresh_token")
+
+# Create a custom card with your audio
+# 1. Calculate file hash
+# 2. Get upload URL
+# 3. Upload audio file
+# 4. Create card with metadata
+# 5. Play on device
+```
+
+**Complete Step-by-Step Guide**: See [Creating MYO Cards](docs/CREATING_MYO_CARDS.md) for detailed instructions including:
+- Audio file preparation and upload
+- Cover image creation
+- Multi-chapter card creation
+- Complete Python code examples
+- Troubleshooting tips
 
 ## 🎮 Interactive Cards (Choose Your Own Adventure)
 

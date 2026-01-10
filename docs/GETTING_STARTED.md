@@ -286,15 +286,24 @@ pip install -r requirements.txt
 
 ### Essential Reading
 
-1. **[Yoto API Reference](YOTO_API_REFERENCE.md)**
-   - **START HERE**: Complete API specification
+1. **[Creating MYO Cards](CREATING_MYO_CARDS.md)** - **NEW**
+   - **START HERE FOR CUSTOM CONTENT**: Complete guide to creating Yoto MYO (Make Your Own) cards
+   - Step-by-step procedure for creating custom audio cards
+   - Audio upload and processing workflows
+   - Cover image upload
+   - Multi-chapter card creation
+   - Complete Python code examples
+   - Troubleshooting and best practices
+
+2. **[Yoto API Reference](YOTO_API_REFERENCE.md)**
+   - Complete API specification
    - All REST API endpoints and request/response formats
    - MQTT topics, commands, and message formats
    - Authentication details and token management
    - Data structures and models
    - Python and Node.js code examples
 
-2. **[Yoto MQTT Reference](yoto-mqtt-reference.md)** - **NEW FROM PR#4**
+3. **[Yoto MQTT Reference](yoto-mqtt-reference.md)** - **FROM PR#4**
    - **ESSENTIAL FOR REAL-TIME**: Deep dive into MQTT implementation
    - AWS IoT Core WebSocket connection details
    - JWT authentication specifics for MQTT
@@ -303,17 +312,17 @@ pip install -r requirements.txt
    - Player state synchronization patterns
    - Interactive skill integration examples
 
-3. **[Yoto API AgentSkill](../.github/agentskills/yoto-api-development.md)**
+4. **[Yoto API AgentSkill](../.github/agentskills/yoto-api-development.md)**
    - Comprehensive guide to Yoto API development
    - Best practices and patterns
    - Common pitfalls and solutions
 
-4. **[Architecture Document](ARCHITECTURE.md)**
+5. **[Architecture Document](ARCHITECTURE.md)**
    - System design and recommendations
    - Technology stack rationale
    - Implementation phases
 
-5. **[Planning Questions](PLANNING_QUESTIONS.md)**
+6. **[Planning Questions](PLANNING_QUESTIONS.md)**
    - Strategic decisions to make
    - Feature prioritization
    - Technical considerations
