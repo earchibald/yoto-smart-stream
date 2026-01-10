@@ -1,11 +1,21 @@
 name: Railway PR Ephemeral Environments
 
+# DISABLED: Yoto OAuth requires static callback URLs
+# Ephemeral environments with dynamic URLs cannot authenticate
+# Use the shared development environment instead with manual coordination
+
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
-      - develop
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to comment on (optional)'
+        required: false
+        type: string
+  # pull_request:
+  #   types: [opened, synchronize, reopened, closed]
+  #   branches:
+  #     - main
+  #     - develop
 
 env:
   PYTHON_VERSION: '3.11'

@@ -10,10 +10,14 @@ GitHub Copilot PR sessions run in GitHub Codespaces. For these sessions to deplo
 
 ### Step 1: Get Your Railway Token
 
+For development environment access, you'll need a Railway token:
+
 1. Go to https://railway.app/account/tokens
 2. Click **"Create Token"**
-3. Give it a name: `GitHub Codespaces`
+3. Give it a name: `GitHub Codespaces - Development`
 4. Copy the token (you'll only see it once!)
+
+**Note:** This should be a **development environment token** with access only to the development Railway project. For security, use separate tokens for each environment (dev/staging/prod).
 
 ### Step 2: Add Token to GitHub Codespaces Secrets
 

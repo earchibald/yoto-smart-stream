@@ -87,7 +87,8 @@ Visit http://localhost:8000/docs for interactive API documentation.
 - **[Quick Start Guide](docs/QUICK_START.md)**: Get up and running in 10 minutes - from installation to working API
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
 - **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
-- **[Ephemeral Railway Environments](docs/EPHEMERAL_RAILWAY_ENVIRONMENTS.md)**: Automated PR and Copilot session deployments
+- **[Railway Shared Development](docs/RAILWAY_SHARED_DEVELOPMENT.md)**: Coordinated access to shared dev environment
+- **[Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md)**: Configure separate tokens per environment
 - **[Codespaces Railway Setup](docs/CODESPACES_RAILWAY_SETUP.md)**: Configure Railway access for GitHub Codespaces
 
 ### Creating Content
@@ -138,22 +139,24 @@ black .
 
 ### Railway.app
 
-Deploy to Railway with automated CI/CD:
+Deploy to Railway with automated CI/CD and environment-specific tokens:
 
 ```bash
-# Quick deploy from devcontainer
-./scripts/deploy.sh staging
-
-# Or push to develop branch for auto-deployment
+# Staging: Automatic on push to develop branch
 git push origin develop
+
+# Development: Manual with coordination
+# Via GitHub Actions: Railway Development (Shared Environment) workflow
 ```
 
-**Ephemeral PR Environments**: Every pull request automatically gets a temporary deployment for testing. See [Ephemeral Railway Environments](docs/EPHEMERAL_RAILWAY_ENVIRONMENTS.md) for details.
+**Static Environments**: Uses pre-registered callback URLs for Yoto OAuth compatibility.
+
+**Token Security**: Separate Railway tokens for prod/staging/dev environments. See [Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md).
 
 **Status**: 
-- ✅ Staging (develop branch) - Auto-deployed
-- ✅ PR Environments - Auto-created on PR open, destroyed on close
-- ✅ Copilot Environments - Auto-created for copilot/* branches
+- ✅ Staging (develop branch) - Auto-deployed with `RAILWAY_TOKEN_STAGING`
+- ✅ Development (shared) - Manual coordination with `RAILWAY_TOKEN_DEV`
+- ⚠️ Production (main branch) - Manual only with `RAILWAY_TOKEN_PROD`
 - ⏸️ Production (main branch) - Disabled
 
 **Resources**:

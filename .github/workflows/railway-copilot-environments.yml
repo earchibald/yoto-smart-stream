@@ -1,13 +1,14 @@
 name: Railway Copilot Session Environments
 
-# This workflow creates ephemeral Railway environments for GitHub Copilot PR sessions
-# It can be triggered manually or automatically when a Copilot branch is created
+# DISABLED: Yoto OAuth requires static callback URLs
+# Ephemeral environments with dynamic URLs cannot authenticate
+# Use the shared development environment instead with manual coordination
 
 on:
   workflow_dispatch:
     inputs:
       session_id:
-        description: 'Copilot session ID (e.g., copilot-session-abc123)'
+        description: 'Session ID (for coordination tracking)'
         required: true
         type: string
       action:
@@ -19,12 +20,12 @@ on:
           - test
           - status
           - destroy
-  push:
-    branches:
-      - 'copilot/**'
-  delete:
-    branches:
-      - 'copilot/**'
+  # push:
+  #   branches:
+  #     - 'copilot/**'
+  # delete:
+  #   branches:
+  #     - 'copilot/**'
 
 env:
   PYTHON_VERSION: '3.11'
