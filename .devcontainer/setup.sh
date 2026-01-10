@@ -5,15 +5,21 @@ echo "🚀 Setting up Yoto Smart Stream development environment..."
 # Upgrade pip
 python -m pip install --upgrade pip
 
-# Install development dependencies if requirements files exist
-if [ -f "requirements.txt" ]; then
-    echo "📦 Installing dependencies from requirements.txt..."
-    pip install -r requirements.txt
-fi
+# Install package with dev dependencies from pyproject.toml
+if [ -f "pyproject.toml" ]; then
+    echo "📦 Installing package with [dev] dependencies..."
+    pip install -e .[dev]
+else
+    # Fallback to requirements files if pyproject.toml doesn't exist
+    if [ -f "requirements.txt" ]; then
+        echo "📦 Installing dependencies from requirements.txt..."
+        pip install -r requirements.txt
+    fi
 
-if [ -f "requirements-dev.txt" ]; then
-    echo "📦 Installing development dependencies..."
-    pip install -r requirements-dev.txt
+    if [ -f "requirements-dev.txt" ]; then
+        echo "📦 Installing development dependencies..."
+        pip install -r requirements-dev.txt
+    fi
 fi
 
 # Install pre-commit hooks if configuration exists
