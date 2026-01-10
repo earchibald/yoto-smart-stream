@@ -12,7 +12,7 @@ router = APIRouter()
 async def health_check():
     """
     Health check endpoint.
-    
+
     Returns basic health status and configuration info.
     """
     settings = get_settings()
@@ -36,7 +36,7 @@ async def health_check():
 async def readiness_check():
     """
     Readiness check for orchestrators.
-    
+
     Verifies the service is ready to accept requests.
     """
     try:

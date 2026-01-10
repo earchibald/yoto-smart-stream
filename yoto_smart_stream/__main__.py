@@ -33,7 +33,7 @@ def main():
 
     if not Path(settings.yoto_refresh_token_file).exists():
         print("\n⚠️  Yoto refresh token not found")
-        print(f"   Run: python examples/simple_client.py")
+        print("   Run: python examples/simple_client.py")
         print("   Some features may not work until authenticated")
 
     print("=" * 80 + "\n")

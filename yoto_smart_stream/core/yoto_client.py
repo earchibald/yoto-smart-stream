@@ -1,7 +1,6 @@
 """Core Yoto API client wrapper with enhanced features."""
 
 import logging
-from pathlib import Path
 from typing import Optional
 
 from yoto_api import YotoManager
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 class YotoClient:
     """
     Enhanced Yoto API client with authentication and error handling.
-    
+
     This wraps the yoto_api library with additional features:
     - Automatic token refresh
     - Token persistence
@@ -24,7 +23,7 @@ class YotoClient:
     def __init__(self, settings: Settings):
         """
         Initialize Yoto client.
-        
+
         Args:
             settings: Application settings
         """
@@ -45,7 +44,7 @@ class YotoClient:
     def authenticate(self) -> None:
         """
         Authenticate with Yoto API using stored refresh token.
-        
+
         Raises:
             FileNotFoundError: If refresh token file doesn't exist
             Exception: If authentication fails
@@ -111,10 +110,10 @@ class YotoClient:
     def get_manager(self) -> YotoManager:
         """
         Get the underlying YotoManager instance.
-        
+
         Returns:
             YotoManager instance
-            
+
         Raises:
             RuntimeError: If not authenticated
         """

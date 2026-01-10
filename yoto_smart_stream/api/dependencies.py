@@ -15,10 +15,10 @@ def set_yoto_client(client: YotoClient) -> None:
 def get_yoto_client() -> YotoClient:
     """
     Get the global Yoto client instance.
-    
+
     Returns:
         Initialized and authenticated YotoClient
-        
+
     Raises:
         RuntimeError: If client not initialized
     """

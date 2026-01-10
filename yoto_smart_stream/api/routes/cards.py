@@ -32,7 +32,7 @@ class CreateCardRequest(BaseModel):
 async def list_audio_files():
     """
     List available audio files.
-    
+
     Returns:
         List of audio files in the audio_files directory
     """
@@ -55,15 +55,15 @@ async def list_audio_files():
 async def stream_dynamic_audio(card_id: str):
     """
     Stream dynamic audio based on time or other factors.
-    
+
     This endpoint demonstrates how to serve different content
     for the same URL based on context (time, user, etc.).
-    
+
     Example use case: Bedtime stories that change based on time of day.
-    
+
     Args:
         card_id: Identifier for the dynamic card
-    
+
     Returns:
         Audio file appropriate for current context
     """
@@ -104,18 +104,18 @@ async def stream_dynamic_audio(card_id: str):
 async def stream_audio(filename: str):
     """
     Stream audio file for Yoto MYO cards.
-    
+
     This endpoint serves audio files that can be referenced in MYO card URLs.
     Audio files should be placed in the 'audio_files/' directory.
-    
+
     Example:
         Place story.mp3 in audio_files/
         Access at: http://your-server.com/audio/story.mp3
         Use in card: {"url": "https://your-server.com/audio/story.mp3"}
-    
+
     Args:
         filename: Audio filename (e.g., 'story.mp3')
-    
+
     Returns:
         Audio file with proper headers for streaming
     """
@@ -145,22 +145,22 @@ async def stream_audio(filename: str):
 async def create_streaming_card(request: CreateCardRequest):
     """
     Create a Yoto MYO card that streams from this server.
-    
+
     This endpoint creates a card that points to audio hosted on THIS server,
     not uploaded to Yoto's servers. This allows:
     - Dynamic content updates without recreating cards
     - No upload size limits
     - Complete control over content
-    
+
     The audio file must exist in the audio_files/ directory.
-    
+
     Example:
         {
             "title": "My Story",
             "audio_filename": "story.mp3",
             "description": "A wonderful tale"
         }
-    
+
     Returns:
         Created card information including card ID
     """
@@ -253,14 +253,14 @@ async def create_streaming_card(request: CreateCardRequest):
 async def create_dynamic_card(title: str, card_id: str):
     """
     Create a dynamic MYO card that serves different content based on time.
-    
+
     This creates a card that streams from /audio/dynamic/{card_id}.mp3,
     which serves different audio files based on time of day.
-    
+
     Args:
         title: Card title
         card_id: Unique identifier for this dynamic card
-    
+
     Returns:
         Created card information
     """

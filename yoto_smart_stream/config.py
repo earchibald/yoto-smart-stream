@@ -4,7 +4,6 @@ Configuration management for Yoto Smart Stream.
 Handles environment variables and application settings.
 """
 
-import os
 from pathlib import Path
 from typing import Optional
 
