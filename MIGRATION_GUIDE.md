@@ -13,9 +13,9 @@ However, **Yoto OAuth requires static callback URLs** that must be pre-registere
 ### The Solution
 
 Switched to **static environments** with **coordination**:
-- `yoto.up.railway.app` (production)
-- `yoto-staging.up.railway.app` (staging)
-- `yoto-dev.up.railway.app` (development - shared)
+- `yoto-smart-stream-production.up.railway.app` (production)
+- `yoto-smart-stream-staging.up.railway.app` (staging)
+- `yoto-smart-stream-development.up.railway.app` (development - shared)
 
 Added **separate Railway tokens** per environment for better security.
 
@@ -62,9 +62,9 @@ Token 3: "Development Token"
 2. Find your application
 3. Add these callback URLs:
    ```
-   https://yoto.up.railway.app/callback
-   https://yoto-staging.up.railway.app/callback
-   https://yoto-dev.up.railway.app/callback
+   https://yoto-smart-stream-production.up.railway.app/callback
+   https://yoto-smart-stream-staging.up.railway.app/callback
+   https://yoto-smart-stream-development.up.railway.app/callback
    ```
 
 ### 5. Test the Setup
@@ -85,7 +85,7 @@ git push origin develop
 3. Run workflow:
    - action: acquire-and-deploy
    - session_id: test-migration
-4. Verify at: https://yoto-dev.up.railway.app
+4. Verify at: https://yoto-smart-stream-development.up.railway.app
 5. Run workflow:
    - action: release
    - session_id: test-migration
@@ -110,13 +110,13 @@ git push origin develop
 ### After (Static + Coordination)
 
 **PR needs testing → Manual deployment**
-- Environment: `yoto-dev.up.railway.app` (shared)
+- Environment: `yoto-smart-stream-development.up.railway.app` (shared)
 - Coordination required (lock system)
 - Static URL
 - ✅ URL registered in Yoto portal
 
 **Copilot needs testing → Manual deployment**
-- Environment: `yoto-dev.up.railway.app` (shared)
+- Environment: `yoto-smart-stream-development.up.railway.app` (shared)
 - Coordination required (lock system)
 - Static URL
 - ✅ URL registered in Yoto portal
@@ -178,7 +178,7 @@ Reason: OAuth callback URL requirement
 2. Go to: Actions → Railway Development (Shared Environment)
 3. Check status (ensure it's free)
 4. Run acquire-and-deploy with session_id: pr-123
-5. Test at yoto-dev.up.railway.app
+5. Test at yoto-smart-stream-development.up.railway.app
 6. Run release with session_id: pr-123
 ```
 
@@ -198,7 +198,7 @@ Reason: OAuth callback URL requirement
 2. When ready to test:
    - Actions → Railway Development (Shared Environment)
    - acquire-and-deploy with session_id: copilot-session-xyz
-3. Test at yoto-dev.up.railway.app
+3. Test at yoto-smart-stream-development.up.railway.app
 4. When done:
    - Actions → Railway Development (Shared Environment)
    - release with session_id: copilot-session-xyz

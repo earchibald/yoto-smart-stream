@@ -127,7 +127,7 @@ jobs:
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment:
       name: staging
-      url: https://yoto-staging.up.railway.app
+      url: https://yoto-smart-stream-staging.up.railway.app
     
     steps:
       - name: Checkout code
@@ -153,7 +153,7 @@ jobs:
       
       - name: Run smoke tests
         env:
-          TEST_URL: https://yoto-staging.up.railway.app
+          TEST_URL: https://yoto-smart-stream-staging.up.railway.app
         run: |
           pytest tests/smoke/ -v --base-url=$TEST_URL
   
@@ -164,7 +164,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
-      url: https://yoto.up.railway.app
+      url: https://yoto-smart-stream-production.up.railway.app
     
     steps:
       - name: Checkout code
@@ -190,11 +190,11 @@ jobs:
       
       - name: Verify deployment
         run: |
-          curl -f https://yoto.up.railway.app/health || exit 1
+          curl -f https://yoto-smart-stream-production.up.railway.app/health || exit 1
       
       - name: Run smoke tests
         env:
-          TEST_URL: https://yoto.up.railway.app
+          TEST_URL: https://yoto-smart-stream-production.up.railway.app
         run: |
           pytest tests/smoke/ -v --base-url=$TEST_URL
       
@@ -279,7 +279,7 @@ jobs:
         with:
           script: |
             const prNumber = context.payload.pull_request.number;
-            const previewUrl = `https://yoto-pr-${prNumber}.up.railway.app`;
+            const previewUrl = `https://yoto-smart-stream-pr-${prNumber}.up.railway.app`;
             
             github.rest.issues.createComment({
               issue_number: prNumber,
@@ -395,8 +395,8 @@ gh pr create \
 - [ ] PR reviewed
 - [ ] Ready to merge
 
-**Staging URL:** https://yoto-staging.up.railway.app
-**Production URL:** https://yoto.up.railway.app
+**Staging URL:** https://yoto-smart-stream-staging.up.railway.app
+**Production URL:** https://yoto-smart-stream-production.up.railway.app
 "
 
 echo ""
@@ -507,7 +507,7 @@ jobs:
       - name: Health check
         id: health
         run: |
-          if curl -f https://yoto.up.railway.app/health; then
+          if curl -f https://yoto-smart-stream-production.up.railway.app/health; then
             echo "status=success" >> $GITHUB_OUTPUT
           else
             echo "status=failed" >> $GITHUB_OUTPUT

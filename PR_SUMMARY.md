@@ -23,7 +23,7 @@ This PR implements a comprehensive system for deploying ephemeral Railway enviro
 - **Environment:** `pr-{number}` (e.g., `pr-123`)
 - **Actions:** Deploy → Test → Comment URL on PR
 - **Cleanup:** Automatic on PR close/merge
-- **URL:** `https://yoto-pr-{number}.up.railway.app`
+- **URL:** `https://yoto-smart-stream-pr-{number}.up.railway.app`
 
 ### ✅ Automatic Copilot Environments
 - **Trigger:** Push to `copilot/*` branch
@@ -92,7 +92,7 @@ railway logs -e copilot-test-123 --tail 50
 
 1. Open PR → Environment auto-created in ~2 minutes
 2. Check PR comment for deployment URL
-3. Test: `curl https://yoto-pr-123.up.railway.app/health`
+3. Test: `curl https://yoto-smart-stream-pr-123.up.railway.app/health`
 4. Merge/Close PR → Environment auto-destroyed
 
 ### For Copilot Sessions

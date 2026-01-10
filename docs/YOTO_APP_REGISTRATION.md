@@ -65,17 +65,17 @@ While not needed for OAuth, your Railway deployments will have these URLs for **
 
 ### Production
 ```
-https://yoto.up.railway.app
+https://yoto-smart-stream-production.up.railway.app
 ```
 
 ### Staging
 ```
-https://yoto-staging.up.railway.app
+https://yoto-smart-stream-staging.up.railway.app
 ```
 
 ### Development
 ```
-https://yoto-dev.up.railway.app
+https://yoto-smart-stream-development.up.railway.app
 ```
 
 These URLs are used for:
@@ -98,9 +98,9 @@ OAuth Configuration:
 └── Allowed Logout URLs: N/A (Device Flow - not required)
 
 Deployment URLs (for reference):
-├── Production: https://yoto.up.railway.app
-├── Staging: https://yoto-staging.up.railway.app
-└── Development: https://yoto-dev.up.railway.app
+├── Production: https://yoto-smart-stream-production.up.railway.app
+├── Staging: https://yoto-smart-stream-staging.up.railway.app
+└── Development: https://yoto-smart-stream-development.up.railway.app
 ```
 
 ## If Callback URLs Are Required
@@ -111,24 +111,24 @@ Some forms may require callback URLs even for Device Flow. If so:
 ```
 Allowed Callback URLs:
 - http://localhost/oauth/callback
-- http://localhost:8000/oauth/callback
+- http://localhost:8080/oauth/callback
 
 Allowed Logout URLs:
 - http://localhost/logout
-- http://localhost:8000/logout
+- http://localhost:8080/logout
 ```
 
 ### Option 2: Use Railway URLs (if required)
 ```
 Allowed Callback URLs:
-- https://yoto.up.railway.app/oauth/callback
-- https://yoto-staging.up.railway.app/oauth/callback
-- https://yoto-dev.up.railway.app/oauth/callback
+- https://yoto-smart-stream-production.up.railway.app/oauth/callback
+- https://yoto-smart-stream-staging.up.railway.app/oauth/callback
+- https://yoto-smart-stream-development.up.railway.app/oauth/callback
 
 Allowed Logout URLs:
-- https://yoto.up.railway.app/logout
-- https://yoto-staging.up.railway.app/logout
-- https://yoto-dev.up.railway.app/logout
+- https://yoto-smart-stream-production.up.railway.app/logout
+- https://yoto-smart-stream-staging.up.railway.app/logout
+- https://yoto-smart-stream-development.up.railway.app/logout
 ```
 
 **Note:** Even if these URLs are registered, they won't be used by the Device Flow authentication. They're just to satisfy form requirements.

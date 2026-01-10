@@ -144,7 +144,7 @@ jobs:
     if: false  # Disabled by default - use manual workflow_dispatch
     environment:
       name: production
-      url: https://yoto.up.railway.app
+      url: https://yoto-smart-stream-production.up.railway.app
     
     steps:
       - name: Checkout code

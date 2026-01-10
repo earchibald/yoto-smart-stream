@@ -17,7 +17,7 @@ This guide outlines strategies for implementing a robust multi-environment archi
 │  ┌──────────────────────────────────────────────┐  │
 │  │  Production Environment                      │  │
 │  │  - Branch: main                              │  │
-│  │  - URL: yoto.up.railway.app                 │  │
+│  │  - URL: yoto-smart-stream-production.up.railway.app                 │  │
 │  │  - Services: web, postgres, redis            │  │
 │  │  - Auto-deploy: ✓                            │  │
 │  └──────────────────────────────────────────────┘  │
@@ -25,7 +25,7 @@ This guide outlines strategies for implementing a robust multi-environment archi
 │  ┌──────────────────────────────────────────────┐  │
 │  │  Staging Environment                         │  │
 │  │  - Branch: develop                           │  │
-│  │  - URL: yoto-staging.up.railway.app         │  │
+│  │  - URL: yoto-smart-stream-staging.up.railway.app         │  │
 │  │  - Services: web, postgres, redis            │  │
 │  │  - Auto-deploy: ✓                            │  │
 │  └──────────────────────────────────────────────┘  │
@@ -33,7 +33,7 @@ This guide outlines strategies for implementing a robust multi-environment archi
 │  ┌──────────────────────────────────────────────┐  │
 │  │  PR Environment (pr-123)                     │  │
 │  │  - Branch: feature/add-mqtt                  │  │
-│  │  - URL: yoto-pr-123.up.railway.app          │  │
+│  │  - URL: yoto-smart-stream-pr-123.up.railway.app          │  │
 │  │  - Services: web, postgres                   │  │
 │  │  - Auto-deploy: ✓                            │  │
 │  │  - Auto-destroy: on merge/close              │  │

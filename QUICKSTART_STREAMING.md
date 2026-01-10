@@ -64,7 +64,7 @@ You should see:
 ```
 Starting Yoto Smart Stream API Server
 ...
-API Documentation: http://localhost:8000/docs
+API Documentation: http://localhost:8080/docs
 ```
 
 ## Step 5: Make Server Publicly Accessible
@@ -88,7 +88,7 @@ export PUBLIC_URL=https://abc123.ngrok.io
 ### Option A: Using the API
 
 ```bash
-curl -X POST http://localhost:8000/api/cards/create-streaming \
+curl -X POST http://localhost:8080/api/cards/create-streaming \
   -H "Content-Type: application/json" \
   -d '{
     "title": "My First Streaming Card",
@@ -99,7 +99,7 @@ curl -X POST http://localhost:8000/api/cards/create-streaming \
 
 ### Option B: Using the Interactive API Docs
 
-1. Open http://localhost:8000/docs
+1. Open http://localhost:8080/docs
 2. Find `POST /api/cards/create-streaming`
 3. Click "Try it out"
 4. Fill in:
@@ -148,7 +148,7 @@ cp afternoon.mp3 audio_files/afternoon-story.mp3
 cp evening.mp3 audio_files/bedtime-story.mp3
 
 # Create dynamic card
-curl -X POST "http://localhost:8000/api/cards/create-dynamic?title=Time%20Based%20Story&card_id=dynamic001"
+curl -X POST "http://localhost:8080/api/cards/create-dynamic?title=Time%20Based%20Story&card_id=dynamic001"
 ```
 
 This card will play different audio based on the time of day!
@@ -157,12 +157,12 @@ This card will play different audio based on the time of day!
 
 List available files:
 ```bash
-curl http://localhost:8000/audio/list
+curl http://localhost:8080/audio/list
 ```
 
 Check server health:
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 ```
 
 ## Troubleshooting
@@ -190,7 +190,7 @@ export PUBLIC_URL=https://your-ngrok-url.ngrok.io
 
 List available files:
 ```bash
-curl http://localhost:8000/audio/list
+curl http://localhost:8080/audio/list
 ```
 
 Make sure the filename matches exactly (case-sensitive).
@@ -208,7 +208,7 @@ export PUBLIC_URL=https://abc123.ngrok.io
 python examples/basic_server.py &
 
 # 3. Create card
-curl -X POST http://localhost:8000/api/cards/create-streaming \
+curl -X POST http://localhost:8080/api/cards/create-streaming \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Counting Numbers",

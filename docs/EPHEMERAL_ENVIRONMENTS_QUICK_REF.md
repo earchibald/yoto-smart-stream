@@ -57,7 +57,7 @@ railway logs -e copilot-test-123 --tail 50
 
 **Test health endpoint:**
 ```bash
-curl https://yoto-pr-123.up.railway.app/health
+curl https://yoto-smart-stream-pr-123.up.railway.app/health
 ```
 
 **View deployment:**
@@ -93,12 +93,12 @@ When you push to a `copilot/*` branch:
 
 **PR Environment:**
 ```
-https://yoto-pr-{number}.up.railway.app
+https://yoto-smart-stream-pr-{number}.up.railway.app
 ```
 
 **Health Check:**
 ```
-https://yoto-pr-{number}.up.railway.app/health
+https://yoto-smart-stream-pr-{number}.up.railway.app/health
 ```
 
 ## Troubleshooting

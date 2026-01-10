@@ -194,7 +194,7 @@ YOTO_CLIENT_ID      - For local testing (optional)
 
 1. Open PR → Environment auto-created
 2. Check PR comment for URL
-3. Test: `curl https://yoto-pr-123.up.railway.app/health`
+3. Test: `curl https://yoto-smart-stream-pr-123.up.railway.app/health`
 4. Merge/Close → Environment auto-destroyed
 
 ### For Copilot Sessions

@@ -95,12 +95,12 @@ railway open -e pr-123
 
 **Via Direct URL:**
 ```
-https://yoto-pr-123.up.railway.app
+https://yoto-smart-stream-pr-123.up.railway.app
 ```
 
 **Health Check:**
 ```bash
-curl https://yoto-pr-123.up.railway.app/health
+curl https://yoto-smart-stream-pr-123.up.railway.app/health
 ```
 
 ### PR Environment Configuration
@@ -364,7 +364,7 @@ railway status -e pr-123
 
 **Check health endpoint:**
 ```bash
-curl https://yoto-pr-123.up.railway.app/health
+curl https://yoto-smart-stream-pr-123.up.railway.app/health
 ```
 
 **View recent logs:**

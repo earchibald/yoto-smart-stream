@@ -79,7 +79,7 @@ python examples/basic_server.py
 uvicorn examples.basic_server:app --reload
 ```
 
-Visit http://localhost:8000/docs for interactive API documentation.
+Visit http://localhost:8080/docs for interactive API documentation.
 
 ## 📚 Documentation
 
@@ -208,10 +208,10 @@ python examples/basic_server.py
 Then use the API:
 ```bash
 # List players
-curl http://localhost:8000/api/players
+curl http://localhost:8080/api/players
 
 # Control a player
-curl -X POST http://localhost:8000/api/players/{player_id}/control \
+curl -X POST http://localhost:8080/api/players/{player_id}/control \
   -H "Content-Type: application/json" \
   -d '{"action": "pause"}'
 ```

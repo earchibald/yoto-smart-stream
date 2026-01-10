@@ -135,19 +135,19 @@ uvicorn examples.basic_server:app --reload
 ```
 
 Then visit:
-- http://localhost:8000/docs - Interactive API docs
-- http://localhost:8000/redoc - Alternative API docs
+- http://localhost:8080/docs - Interactive API docs
+- http://localhost:8080/redoc - Alternative API docs
 
 Try the API:
 ```bash
 # List players
-curl http://localhost:8000/api/players
+curl http://localhost:8080/api/players
 
 # Get specific player
-curl http://localhost:8000/api/players/{player_id}
+curl http://localhost:8080/api/players/{player_id}
 
 # Control player
-curl -X POST http://localhost:8000/api/players/{player_id}/control \
+curl -X POST http://localhost:8080/api/players/{player_id}/control \
   -H "Content-Type: application/json" \
   -d '{"action": "pause"}'
 ```

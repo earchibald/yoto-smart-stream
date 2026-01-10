@@ -93,9 +93,9 @@ uvicorn examples.basic_server:app --reload
 ```
 
 Visit:
-- API Documentation: http://localhost:8000/docs
-- Alternative Docs: http://localhost:8000/redoc
-- Health Check: http://localhost:8000/health
+- API Documentation: http://localhost:8080/docs
+- Alternative Docs: http://localhost:8080/redoc
+- Health Check: http://localhost:8080/health
 
 ### Testing with Mock Data
 
@@ -103,12 +103,12 @@ For testing without actual Yoto credentials, you can:
 
 1. **Test health and info endpoints** (no auth required):
    ```bash
-   curl http://localhost:8000/health
-   curl http://localhost:8000/
+   curl http://localhost:8080/health
+   curl http://localhost:8080/
    ```
 
 2. **Review API schema** in the interactive docs:
-   - Visit http://localhost:8000/docs
+   - Visit http://localhost:8080/docs
    - Explore all endpoints and their parameters
    - Try the "Try it out" feature (will fail without auth, but shows request format)
 

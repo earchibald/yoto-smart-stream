@@ -10,12 +10,12 @@ NOT REQUIRED - OAuth2 Device Flow doesn't use callbacks
 
 If form requires input (use placeholders):
 - http://localhost/oauth/callback
-- http://localhost:8000/oauth/callback
+- http://localhost:8080/oauth/callback
 
 OR (if Railway URLs preferred):
-- https://yoto.up.railway.app/oauth/callback
-- https://yoto-staging.up.railway.app/oauth/callback  
-- https://yoto-dev.up.railway.app/oauth/callback
+- https://yoto-smart-stream-production.up.railway.app/oauth/callback
+- https://yoto-smart-stream-staging.up.railway.app/oauth/callback  
+- https://yoto-smart-stream-development.up.railway.app/oauth/callback
 ```
 
 ### Allowed Logout URLs
@@ -24,12 +24,12 @@ NOT REQUIRED - Device Flow doesn't use logout URLs
 
 If form requires input (use placeholders):
 - http://localhost/logout
-- http://localhost:8000/logout
+- http://localhost:8080/logout
 
 OR (if Railway URLs preferred):
-- https://yoto.up.railway.app/logout
-- https://yoto-staging.up.railway.app/logout
-- https://yoto-dev.up.railway.app/logout
+- https://yoto-smart-stream-production.up.railway.app/logout
+- https://yoto-smart-stream-staging.up.railway.app/logout
+- https://yoto-smart-stream-development.up.railway.app/logout
 ```
 
 ## Why These URLs Don't Matter
@@ -50,17 +50,17 @@ The URLs above are only if the registration form requires something. They'll nev
 
 **Production:**
 ```
-https://yoto.up.railway.app
+https://yoto-smart-stream-production.up.railway.app
 ```
 
 **Staging:**
 ```
-https://yoto-staging.up.railway.app
+https://yoto-smart-stream-staging.up.railway.app
 ```
 
 **Development:**
 ```
-https://yoto-dev.up.railway.app
+https://yoto-smart-stream-development.up.railway.app
 ```
 
 **Used for:**
@@ -83,9 +83,9 @@ Allowed Logout URLs:
   http://localhost/logout (not used, placeholder only)
 
 Deployment URLs (reference only):
-  Production: https://yoto.up.railway.app
-  Staging: https://yoto-staging.up.railway.app
-  Development: https://yoto-dev.up.railway.app
+  Production: https://yoto-smart-stream-production.up.railway.app
+  Staging: https://yoto-smart-stream-staging.up.railway.app
+  Development: https://yoto-smart-stream-development.up.railway.app
 ```
 
 ## After Registration

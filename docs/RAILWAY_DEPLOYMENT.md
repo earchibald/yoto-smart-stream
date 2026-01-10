@@ -164,7 +164,7 @@ Railway needs these variables set in each environment:
 ```bash
 # Core Application
 YOTO_CLIENT_ID=your_client_id_here
-PORT=8000  # Auto-set by Railway
+PORT, 8080)  # Auto-set by Railway
 HOST=0.0.0.0
 
 # Environment Settings

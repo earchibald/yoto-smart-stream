@@ -36,7 +36,7 @@ jobs:
     if: github.event.inputs.action == 'acquire-and-deploy'
     environment:
       name: development
-      url: https://yoto-dev.up.railway.app
+      url: https://yoto-smart-stream-development.up.railway.app
     
     steps:
       - name: Checkout code
@@ -205,7 +205,7 @@ jobs:
           echo "## 🚀 Development Environment Deployed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Session ID:** \`${{ github.event.inputs.session_id }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**URL:** https://yoto-dev.up.railway.app" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://yoto-smart-stream-development.up.railway.app" >> $GITHUB_STEP_SUMMARY
           echo "**Locked by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "⚠️ **Remember to release the lock when done!**" >> $GITHUB_STEP_SUMMARY

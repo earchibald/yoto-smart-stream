@@ -23,9 +23,9 @@ Ephemeral environments with dynamic URLs (`pr-123`, `copilot-abc`) would have di
 We use a **single shared development environment** with a **coordination mechanism** to avoid conflicts:
 
 ```
-Production    - https://yoto.up.railway.app       (main branch, auto-deploy)
-Staging       - https://yoto-staging.up.railway.app (develop branch, auto-deploy)
-Development   - https://yoto-dev.up.railway.app   (manual, coordinated access)
+Production    - https://yoto-smart-stream-production.up.railway.app       (main branch, auto-deploy)
+Staging       - https://yoto-smart-stream-staging.up.railway.app (develop branch, auto-deploy)
+Development   - https://yoto-smart-stream-development.up.railway.app   (manual, coordinated access)
 ```
 
 ### Coordination Mechanism
@@ -59,7 +59,7 @@ Go to: **Actions** → **Railway Development (Shared Environment)** → **Run wo
 
 **3. Test your changes:**
 
-- URL: https://yoto-dev.up.railway.app
+- URL: https://yoto-smart-stream-development.up.railway.app
 - Use Yoto OAuth with this static URL
 - Test your features
 
@@ -86,7 +86,7 @@ Actions → Railway Development → Run workflow
 
 **3. Test at static URL:**
 ```
-https://yoto-dev.up.railway.app
+https://yoto-smart-stream-development.up.railway.app
 ```
 
 **4. Release when done:**
@@ -159,14 +159,14 @@ Register these URLs in your Yoto application at https://yoto.dev/:
 
 ```
 Callback URLs:
-- https://yoto-dev.up.railway.app/callback
-- https://yoto-staging.up.railway.app/callback
-- https://yoto.up.railway.app/callback
+- https://yoto-smart-stream-development.up.railway.app/callback
+- https://yoto-smart-stream-staging.up.railway.app/callback
+- https://yoto-smart-stream-production.up.railway.app/callback
 
 Audio Streaming Base URLs:
-- https://yoto-dev.up.railway.app/audio
-- https://yoto-staging.up.railway.app/audio  
-- https://yoto.up.railway.app/audio
+- https://yoto-smart-stream-development.up.railway.app/audio
+- https://yoto-smart-stream-staging.up.railway.app/audio  
+- https://yoto-smart-stream-production.up.railway.app/audio
 ```
 
 ## Troubleshooting

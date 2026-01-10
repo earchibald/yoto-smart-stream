@@ -166,18 +166,18 @@ python examples/basic_server.py
 # Output:
 # ✓ Yoto API connected successfully
 # ✓ MQTT connected successfully
-# INFO: Uvicorn running on http://0.0.0.0:8000
+# INFO: Uvicorn running on http://0.0.0.0:8080
 ```
 
 ### 2. API Endpoints Work
 
 ```bash
 # Health check
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 # {"status":"healthy","yoto_api":"connected"}
 
 # List players
-curl http://localhost:8000/api/players
+curl http://localhost:8080/api/players
 # [{"id":"abc123","name":"Living Room","online":true,...}]
 ```
 

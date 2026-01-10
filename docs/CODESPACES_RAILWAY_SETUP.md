@@ -276,7 +276,7 @@ gh pr create --title "Add new feature" --body "Copilot-assisted feature"
 # → GitHub Actions automatically deploys to pr-{number}
 
 # 2. Test the PR environment
-curl https://yoto-pr-123.up.railway.app/health
+curl https://yoto-smart-stream-pr-123.up.railway.app/health
 
 # 3. Check logs
 railway logs -e pr-123

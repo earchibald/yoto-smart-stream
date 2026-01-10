@@ -29,7 +29,7 @@ jobs:
     if: github.event.action != 'closed'
     environment:
       name: pr-${{ github.event.pull_request.number }}
-      url: https://yoto-pr-${{ github.event.pull_request.number }}.up.railway.app
+      url: https://yoto-smart-stream-pr-${{github.event.pull_request.number}}.up.railway.app
     
     steps:
       - name: Checkout code
@@ -135,18 +135,18 @@ jobs:
             Your PR has been deployed to a temporary Railway environment:
             
             **Environment:** \`${envName}\`
-            **URL:** https://yoto-pr-${prNumber}.up.railway.app (may take 1-2 minutes to be live)
+            **URL:** https://yoto-smart-stream-pr-${prNumber}.up.railway.app (may take 1-2 minutes to be live)
             
             This environment will be automatically destroyed when the PR is closed or merged.
             
             ### Quick Links
             - [View Logs in Railway](https://railway.app/dashboard)
-            - [Health Check](https://yoto-pr-${prNumber}.up.railway.app/health)
+            - [Health Check](https://yoto-smart-stream-pr-${prNumber}.up.railway.app/health)
             
             ### Testing
             You can test this deployment using:
             \`\`\`bash
-            curl https://yoto-pr-${prNumber}.up.railway.app/health
+            curl https://yoto-smart-stream-pr-${prNumber}.up.railway.app/health
             \`\`\`
             
             ---
