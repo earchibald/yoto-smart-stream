@@ -86,6 +86,7 @@ Visit http://localhost:8000/docs for interactive API documentation.
 ### Quick Start & Testing
 - **[Quick Start Guide](docs/QUICK_START.md)**: Get up and running in 10 minutes - from installation to working API
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
+- **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
 
 ### Creating Content
 - **[Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)**: Stream audio from your server (NEW - recommended approach)
@@ -129,6 +130,35 @@ ruff check .
 
 # Format code
 black .
+```
+
+## ☁️ Deployment
+
+### Railway.app
+
+Deploy to Railway with automated CI/CD:
+
+```bash
+# Quick deploy from devcontainer
+./scripts/deploy.sh staging
+
+# Or push to develop branch for auto-deployment
+git push origin develop
+```
+
+**Status**: 
+- ✅ Staging (develop branch) - Auto-deployed
+- ⏸️ Production (main branch) - Disabled
+
+**Resources**:
+- **[Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)** - Complete setup and deployment instructions
+- **[Quick Reference](docs/RAILWAY_QUICK_REF.md)** - Common deployment commands
+
+### Health Check
+
+All deployments include a health check endpoint:
+```bash
+curl https://your-app.up.railway.app/health
 ```
 
 ## 📖 Examples
