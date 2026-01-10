@@ -5,6 +5,14 @@ echo "🚀 Setting up Yoto Smart Stream development environment..."
 # Upgrade pip
 python -m pip install --upgrade pip
 
+# Install Railway CLI for deployments
+if ! command -v railway &> /dev/null; then
+    echo "📦 Installing Railway CLI..."
+    npm i -g @railway/cli
+else
+    echo "✓ Railway CLI already installed"
+fi
+
 # Install package with dev dependencies from pyproject.toml
 if [ -f "pyproject.toml" ]; then
     echo "📦 Installing package with [dev] dependencies..."
@@ -35,4 +43,6 @@ echo "📚 Quick Start:"
 echo "  - Run 'pytest' to run tests"
 echo "  - Run 'python examples/simple_client.py' to test basic API connection"
 echo "  - Check docs/ for architecture and implementation guidance"
+echo "  - Run 'railway login' to authenticate with Railway for deployments"
+echo "  - Run './scripts/deploy.sh' to deploy to Railway"
 echo ""

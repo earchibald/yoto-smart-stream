@@ -86,6 +86,7 @@ Visit http://localhost:8000/docs for interactive API documentation.
 ### Quick Start & Testing
 - **[Quick Start Guide](docs/QUICK_START.md)**: Get up and running in 10 minutes - from installation to working API
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
+- **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
 
 ### Creating Content
 - **[Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)**: Stream audio from your server (NEW - recommended approach)

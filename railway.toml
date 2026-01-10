@@ -1,0 +1,29 @@
+# Railway.app Configuration for Yoto Smart Stream
+# https://docs.railway.app/reference/config-as-code
+
+[build]
+# Use Nixpacks for automatic Python environment detection
+builder = "NIXPACKS"
+# Install dependencies from requirements.txt
+buildCommand = "pip install -r requirements.txt"
+
+[deploy]
+# Start the FastAPI server
+# Railway provides $PORT environment variable automatically
+startCommand = "uvicorn examples.basic_server:app --host 0.0.0.0 --port $PORT"
+
+# Health check endpoint
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+
+# Restart policy
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Watch patterns - trigger rebuild on changes to these files
+watchPatterns = [
+    "yoto_smart_stream/**/*.py",
+    "examples/**/*.py",
+    "requirements.txt",
+    "pyproject.toml"
+]
