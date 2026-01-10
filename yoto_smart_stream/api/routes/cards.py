@@ -1,6 +1,5 @@
 """Card management and audio streaming endpoints."""
 
-from datetime import datetime
 from typing import Optional
 
 import requests
@@ -10,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from ...config import get_settings
 from ..dependencies import get_yoto_client
+from ..utils import get_time_based_audio_file, get_time_schedule
 
 router = APIRouter()
 
@@ -68,16 +68,7 @@ async def stream_dynamic_audio(card_id: str):
         Audio file appropriate for current context
     """
     settings = get_settings()
-    hour = datetime.now().hour
-
-    # Serve different audio based on time of day
-    if 6 <= hour < 12:
-        audio_file = "morning-story.mp3"
-    elif 12 <= hour < 18:
-        audio_file = "afternoon-story.mp3"
-    else:
-        audio_file = "bedtime-story.mp3"
-
+    audio_file = get_time_based_audio_file()
     audio_path = settings.audio_files_dir / audio_file
 
     # Fallback to default if specific file doesn't exist
@@ -318,11 +309,7 @@ async def create_dynamic_card(title: str, card_id: str):
             "card_id": card.get("cardId"),
             "streaming_url": streaming_url,
             "message": "Dynamic card created! Content will change based on time of day.",
-            "time_schedule": {
-                "morning": "6:00 AM - 12:00 PM: morning-story.mp3",
-                "afternoon": "12:00 PM - 6:00 PM: afternoon-story.mp3",
-                "evening": "6:00 PM - 6:00 AM: bedtime-story.mp3",
-            },
+            "time_schedule": get_time_schedule(),
         }
 
     except requests.exceptions.HTTPError as e:
