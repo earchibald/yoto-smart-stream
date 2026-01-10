@@ -42,7 +42,7 @@ gh secret set RAILWAY_TOKEN --user --body "your_railway_token_here" --repos earc
 
 **Start or Restart Codespace:**
 
-If you already have a Codespace running, you need to restart it for the secret to be available:
+If you already have a Codespace running, you need to restart it for secrets to be available:
 
 1. Go to https://github.com/codespaces
 2. Find your Codespace for this repo
@@ -50,23 +50,32 @@ If you already have a Codespace running, you need to restart it for the secret t
 4. Wait a few seconds
 5. Click **"..." → "Open in browser"** (or your preferred editor)
 
-**Test the Token:**
+**Test the Tokens:**
 
 In your Codespace terminal:
 
 ```bash
-# Check if token is available
+# Check if Railway token is available
 echo $RAILWAY_TOKEN  # Should show your token (or part of it)
+
+# Check if Yoto Client ID is available
+echo $YOTO_CLIENT_ID  # Should show your client ID
 
 # Verify Railway authentication
 railway whoami
 
-# Expected output: Your Railway username/email
+# Test Yoto authentication (will prompt for device code flow)
+python examples/simple_client.py
 ```
 
-## For Yoto API Credentials (Optional)
+**Expected behavior:**
+- RAILWAY_TOKEN should be set (for deployments)
+- YOTO_CLIENT_ID should be set (for API access)
+- `simple_client.py` should start device flow authentication
 
-If you want your Copilot environments to test with real Yoto API:
+## For Yoto API Credentials (Required for Testing)
+
+To test with the actual Yoto API in your Codespace, you need the Yoto Client ID:
 
 ### Step 1: Get Yoto Client ID
 
@@ -77,11 +86,28 @@ If you want your Copilot environments to test with real Yoto API:
 
 ### Step 2: Add to Codespaces Secrets
 
+**This is REQUIRED for any Yoto API testing** - without it, you cannot:
+- Authenticate with Yoto
+- List your players
+- Control players
+- Create MYO cards
+- Run any examples
+
 Same process as Railway token:
 
 1. Go to https://github.com/settings/codespaces
 2. Click **"New secret"**
 3. Fill in:
+   - **Name:** `YOTO_CLIENT_ID`
+   - **Value:** Paste your Yoto Client ID (from yoto.dev)
+   - **Repository access:** Select this repository (`earchibald/yoto-smart-stream`)
+4. Click **"Add secret"**
+
+**Why it's needed:**
+- All Yoto API interactions require authentication
+- Authentication requires a Client ID
+- Examples like `simple_client.py`, `basic_server.py` all check for YOTO_CLIENT_ID
+- Without it: `Error: YOTO_CLIENT_ID environment variable not set`
    - **Name:** `YOTO_CLIENT_ID`
    - **Value:** Paste your Yoto Client ID
    - **Repository access:** Select this repository

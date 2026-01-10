@@ -50,7 +50,7 @@ echo "  - For local devcontainer: Run 'railway login' to authenticate"
 echo "  - Deploy with: './scripts/railway_ephemeral_env.sh deploy <env-name>'"
 echo "  - See: docs/EPHEMERAL_RAILWAY_ENVIRONMENTS.md for full guide"
 echo ""
-echo "🔑 Railway Token Setup (Codespaces):"
+echo "🔑 Required Secrets Setup (Codespaces):"
 if [ -n "$RAILWAY_TOKEN" ]; then
   echo "  ✅ RAILWAY_TOKEN is set and available"
   railway whoami &> /dev/null && echo "  ✅ Railway authentication verified" || echo "  ⚠️  Could not verify Railway auth (may still work)"
@@ -61,5 +61,24 @@ else
   echo "     3. Restart Codespace to load the secret"
   echo "  OR"
   echo "     Run 'railway login' for local authentication"
+fi
+echo ""
+if [ -n "$YOTO_CLIENT_ID" ]; then
+  echo "  ✅ YOTO_CLIENT_ID is set and available"
+  echo "     You can now test with the Yoto API"
+else
+  echo "  ⚠️  YOTO_CLIENT_ID not set - REQUIRED for Yoto API testing!"
+  echo "     Without this, you cannot:"
+  echo "     - Run examples (simple_client.py, basic_server.py, etc.)"
+  echo "     - Authenticate with Yoto API"
+  echo "     - Control players or create MYO cards"
+  echo ""
+  echo "     To fix:"
+  echo "     1. Register app at https://yoto.dev/"
+  echo "     2. Get your Client ID"
+  echo "     3. Add to Codespaces secrets: https://github.com/settings/codespaces"
+  echo "     4. Restart Codespace to load the secret"
+  echo "  OR"
+  echo "     Set locally: export YOTO_CLIENT_ID='your_client_id_here'"
 fi
 echo ""
