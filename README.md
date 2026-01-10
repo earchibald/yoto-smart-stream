@@ -24,6 +24,98 @@ For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 - **Card Management**: Upload, organize, and configure custom Yoto cards
 - **Multi-format Support**: Automatic audio conversion to Yoto-compatible formats
 
+## 🏗️ Architecture
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        WebUI[Web Browser / UI]
+        MobileApp[Mobile App<br/><i>future</i>]
+    end
+
+    subgraph "Application Layer"
+        API[FastAPI Server<br/>REST API]
+        MQTT_Handler[MQTT Event Handler<br/>Real-time Events]
+        IconService[Icon Service<br/>Image Management]
+    end
+
+    subgraph "Core Services"
+        AudioMgr[Audio Manager<br/>Upload & Conversion]
+        ScriptEngine[Script Engine<br/>CYOA Logic]
+        CardMgr[Card Manager<br/>MYO Cards]
+    end
+
+    subgraph "Data Layer"
+        DB[(SQLite/PostgreSQL<br/>Cards, Scripts, Metadata)]
+        FileStorage[File Storage<br/>Audio Files & Icons]
+    end
+
+    subgraph "External Services"
+        YotoAPI[Yoto REST API<br/>yoto.dev]
+        YotoMQTT[Yoto MQTT Broker<br/>mqtt.yoto.io]
+    end
+
+    subgraph "Yoto Devices"
+        YotoPlayer1[Yoto Player<br/>Living Room]
+        YotoMini[Yoto Mini<br/>Bedroom]
+    end
+
+    WebUI -->|HTTP/WebSocket| API
+    MobileApp -.->|HTTP/WebSocket| API
+
+    API --> AudioMgr
+    API --> ScriptEngine
+    API --> CardMgr
+    API --> IconService
+    API -->|Subscribe/Publish| MQTT_Handler
+
+    AudioMgr --> FileStorage
+    ScriptEngine --> DB
+    CardMgr --> DB
+    IconService --> FileStorage
+    MQTT_Handler --> DB
+
+    API -->|Create Cards<br/>Control Players| YotoAPI
+    MQTT_Handler <-->|Subscribe to Events<br/>Device Status| YotoMQTT
+
+    YotoAPI -->|Commands| YotoPlayer1
+    YotoAPI -->|Commands| YotoMini
+    YotoMQTT <-->|Events & Status| YotoPlayer1
+    YotoMQTT <-->|Events & Status| YotoMini
+
+    YotoPlayer1 -->|Stream Audio| FileStorage
+    YotoMini -->|Stream Audio| FileStorage
+
+    style WebUI fill:#e1f5ff
+    style API fill:#fff3e0
+    style MQTT_Handler fill:#fff3e0
+    style YotoAPI fill:#f3e5f5
+    style YotoMQTT fill:#f3e5f5
+    style YotoPlayer1 fill:#e8f5e9
+    style YotoMini fill:#e8f5e9
+    style DB fill:#fce4ec
+    style FileStorage fill:#fce4ec
+```
+
+### Key Components
+
+- **FastAPI Server**: REST API for managing cards, audio, and device control
+- **MQTT Handler**: Real-time event processing from Yoto devices (button presses, playback status)
+- **Icon Service**: Manages 16x16 display icons for Yoto Mini devices
+- **Audio Manager**: Handles file uploads, format conversion, and streaming
+- **Script Engine**: Executes interactive "Choose Your Own Adventure" logic
+- **Card Manager**: Creates and manages Yoto MYO (Make Your Own) cards
+
+### Data Flow
+
+1. **User → Web UI → API**: Manage cards, upload audio, configure scripts
+2. **API → Yoto API**: Create cards, control playback, send commands
+3. **Yoto Devices → MQTT**: Real-time events (button presses, status updates)
+4. **MQTT → Event Handler → API → Web UI**: Real-time updates displayed to users
+5. **Yoto Devices → File Storage**: Stream audio content directly from your server
+
+For detailed architecture information, see [Architecture Documentation](docs/ARCHITECTURE.md).
+
 ## 📋 Prerequisites
 
 - Python 3.9 or higher
@@ -146,7 +238,7 @@ Deploy to Railway with automated CI/CD:
 git push origin develop
 ```
 
-**Status**: 
+**Status**:
 - ✅ Staging (develop branch) - Auto-deployed
 - ⏸️ Production (main branch) - Disabled
 
@@ -319,6 +411,22 @@ Contributions are welcome! Please read our contributing guidelines before submit
 3. Make your changes
 4. Run tests and linting
 5. Submit a pull request
+
+### Keeping Documentation Up to Date
+
+When making significant architectural changes:
+
+1. **Update the Architecture Diagram**: Edit the Mermaid diagram in `README.md` (🏗️ Architecture section)
+2. **Update Architecture Docs**: Sync changes with `docs/ARCHITECTURE.md` for detailed explanations
+3. **Key Areas to Check**:
+   - New services or components
+   - Changed data flows
+   - New external integrations
+   - Modified APIs or protocols
+
+The architectural diagram uses [Mermaid](https://mermaid.js.org/) syntax and renders automatically on GitHub. Test your changes locally with a Mermaid preview tool or GitHub's preview feature.
+
+For detailed instructions, see the [Architecture Diagram Maintenance Guide](docs/ARCHITECTURE_DIAGRAM.md).
 
 ## 📝 License
 
