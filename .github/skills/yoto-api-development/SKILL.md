@@ -48,6 +48,17 @@ Yoto is an audio player system for children that uses physical cards to control 
 
 ## Quick Start
 
+### Prerequisites
+
+1. **Register Yoto Application** at https://yoto.dev/get-started/start-here/
+   - Application Type: Server-side / CLI Application
+   - Grant Type: Device Code (OAuth 2.0 Device Authorization Grant)
+   - Allowed Callback URLs: `http://localhost/oauth/callback` (placeholder - not used)
+   - Allowed Logout URLs: `http://localhost/logout` (placeholder - not used)
+   - Save your Client ID
+
+**Note:** Yoto uses OAuth2 Device Flow which doesn't require callback URLs. If the registration form requires them, use localhost placeholders - they won't be called.
+
 ### Authentication Flow (Python)
 
 ```python
