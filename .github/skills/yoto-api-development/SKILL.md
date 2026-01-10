@@ -44,6 +44,7 @@ Yoto is an audio player system for children that uses physical cards to control 
 - [❓ Planning Questions](./reference/planning_questions.md) - Strategic decisions and considerations for building Yoto applications
 - [🎨 Icon Management](./reference/icon_management.md) - Display icon management for Yoto Mini, including public icon repository access and custom icon uploads
 - [📝 Implementation Summary](./reference/implementation_summary.md) - Summary of recent implementation work including device capabilities and icon management features
+- [✅ Testing Guide](./reference/testing_guide.md) - Comprehensive automated functional testing approach with test-and-fix loop, patterns, and guardrails
 
 ## Quick Start
 
@@ -185,11 +186,54 @@ yoto_smart_stream/
 ## Development Workflow
 
 1. **Start with authentication** - Test OAuth2 device flow
-2. **Test MQTT connection** - Verify real-time events work
-3. **Implement audio upload** - Test streaming to device
-4. **Build card management** - Create and manage content
-5. **Add interactive features** - Implement CYOA scripts if needed
-6. **Polish and deploy** - Add logging, monitoring, documentation
+2. **Write tests first** - Follow TDD approach (see Testing Guide)
+3. **Test MQTT connection** - Verify real-time events work
+4. **Implement audio upload** - Test streaming to device
+5. **Build card management** - Create and manage content
+6. **Add interactive features** - Implement CYOA scripts if needed
+7. **Polish and deploy** - Add logging, monitoring, documentation
+
+## Testing Best Practices
+
+### Test-Driven Development
+- Write failing tests before implementing features
+- Aim for >70% code coverage
+- Run tests on every commit
+
+### Test Structure
+```python
+# Unit tests - Fast, isolated
+pytest tests/unit
+
+# Integration tests - API/MQTT mocks
+pytest tests/integration
+
+# Functional tests - End-to-end flows
+pytest tests/functional -m "not slow"
+```
+
+### Key Testing Patterns
+1. **Mock External APIs** - Use `unittest.mock` for Yoto API calls
+2. **Use Fixtures** - Share common setup with pytest fixtures
+3. **Test Error Cases** - Network failures, invalid data, timeouts
+4. **Clean Up Resources** - Always cleanup test data (cards, audio)
+
+### Test-and-Fix Loop
+```bash
+# 1. Write failing test
+pytest tests/unit/test_feature.py::test_new_feature -v
+
+# 2. Implement feature
+# ... code ...
+
+# 3. Run test again (should pass)
+pytest tests/unit/test_feature.py::test_new_feature -v
+
+# 4. Run full suite
+pytest -v --cov=yoto_smart_stream
+```
+
+See [Testing Guide](./reference/testing_guide.md) for comprehensive testing approach with examples and guardrails.
 
 ## Troubleshooting
 
