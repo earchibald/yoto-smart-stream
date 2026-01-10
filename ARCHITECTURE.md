@@ -85,6 +85,47 @@ This document illustrates how data flows through the Yoto Smart Stream system an
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
+
+---
+
+## Device Capabilities and Limitations
+
+### Yoto Player Models
+
+#### Yoto Player (Original)
+- **Display**: None - no screen
+- **Microphone**: None
+- **Controls**: Physical buttons (play/pause, skip, volume)
+- **Connectivity**: Wi-Fi, MQTT
+- **Display Icons**: Not applicable (no display)
+
+#### Yoto Mini
+- **Display**: 16x16 pixel screen
+- **Microphone**: None
+- **Controls**: Physical buttons (play/pause, skip, volume)
+- **Connectivity**: Wi-Fi, MQTT
+- **Display Icons**: Fully supported (16x16 PNG icons)
+
+### Important Limitations
+
+⚠️ **No Voice Control**: Neither Yoto device has a microphone, so voice control and voice-activated features are not possible. All interactions must be through:
+- Physical buttons on the device
+- MQTT commands from the server
+- Web UI controls
+
+✓ **Display Icons**: Only available on Yoto Mini. Icons can be assigned to chapters/tracks and will display during playback on the Mini's 16x16 pixel screen.
+
+### Icon Management
+
+The system supports display icons for Yoto Mini devices:
+
+- **Public Icon Repository**: Browse and use icons from Yoto's public repository via `/media/displayIcons/public` endpoint
+- **Custom Icons**: Upload custom 16x16 PNG icons via `/media/displayIcons/upload` endpoint
+- **Icon Assignment**: Assign icons to chapters using the `display.icon16x16` field
+- **Icon Service**: Use the `yoto_smart_stream.icons` module for icon management
+
+See [Icon Management Documentation](docs/ICON_MANAGEMENT.md) for detailed information.
+
 ---
 
 ## Data Flow: Uploading Audio and Creating a Card Script

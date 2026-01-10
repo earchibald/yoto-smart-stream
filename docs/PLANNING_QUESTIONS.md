@@ -19,10 +19,11 @@ This document captures key questions and decisions that need to be made during t
 ### Interactive Features Priority
 - **Q2.1**: What interactive features are highest priority?
   - Choose Your Own Adventure (CYOA) style stories
-  - Voice-activated responses
   - Time-based content (morning vs. evening stories)
   - Conditional logic based on previous choices
+  - Display icon sequences for Yoto Mini
   - **Recommendation**: Start with basic CYOA button navigation
+  - **Note**: Voice-activated responses are NOT possible as Yoto devices do not have microphones
 
 - **Q2.2**: Should scripts support variables and state persistence?
   - Example: Remember user's name, previous choices across sessions
@@ -227,8 +228,8 @@ This document captures key questions and decisions that need to be made during t
 - **Q17.1**: How to map buttons for choices?
   - Left = Choice A, Right = Choice B
   - Numbers via button combos
-  - Use voice commands (future)
   - **Recommendation**: Left/Right for binary choices
+  - **Note**: Voice commands are not possible as Yoto devices lack microphones
 
 - **Q17.2**: What about more than 2 choices?
   - Present 2 at a time, more after
@@ -278,10 +279,19 @@ This document captures key questions and decisions that need to be made during t
 
 ### Device Testing
 - **Q21.1**: Which Yoto models to support?
-  - Yoto Player (original)
-  - Yoto Mini
+  - Yoto Player (original) - No display screen, no microphone
+  - Yoto Mini - 16x16 pixel display, no microphone
   - Both
-  - **Recommendation**: Both, document any differences
+  - **Recommendation**: Both, document differences in display capabilities
+  - **Note**: Neither device has a microphone, so voice control features are not applicable
+
+- **Q21.2**: How to handle display icons for Yoto Mini?
+  - Support public icon repository from Yoto API
+  - Allow custom icon uploads (16x16 PNG)
+  - Provide icon selection in card/chapter editor
+  - Show icon preview at actual size
+  - **Recommendation**: Full support for both public and custom icons
+  - **Note**: Icons only display on Yoto Mini, not on original Yoto Player
 
 ## 9. Documentation
 
