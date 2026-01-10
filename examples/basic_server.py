@@ -13,8 +13,9 @@ Then visit: http://localhost:8000/docs
 """
 
 import os
-from typing import Dict, List, Optional
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +32,7 @@ except ImportError:
 # Pydantic models for request/response
 class PlayerInfo(BaseModel):
     """Player information response model."""
+
     id: str
     name: str
     online: bool
@@ -41,74 +43,26 @@ class PlayerInfo(BaseModel):
 
 class PlayerControl(BaseModel):
     """Player control request model."""
-    action: str = Field(..., description="Action to perform: play, pause, skip_forward, skip_backward")
+
+    action: str = Field(
+        ..., description="Action to perform: play, pause, skip_forward, skip_backward"
+    )
     volume: Optional[int] = Field(None, ge=0, le=16, description="Volume level (0-16)")
 
 
 class ErrorResponse(BaseModel):
     """Error response model."""
+
     detail: str
-
-
-# Initialize FastAPI app
-app = FastAPI(
-    title="Yoto Smart Stream API",
-    description="API for controlling Yoto players and managing audio content",
-    version="0.1.0"
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 # Global Yoto Manager instance (in production, use dependency injection)
 yoto_manager: Optional[YotoManager] = None
 
 
-def get_yoto_manager() -> YotoManager:
-    """Get or initialize Yoto Manager."""
-    global yoto_manager
-
-    if yoto_manager is None:
-        client_id = os.getenv("YOTO_CLIENT_ID")
-        if not client_id:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="YOTO_CLIENT_ID not configured"
-            )
-
-        token_file = Path(".yoto_refresh_token")
-        if not token_file.exists():
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Not authenticated. Run authentication first."
-            )
-
-        # Initialize and authenticate
-        yoto_manager = YotoManager(client_id=client_id)
-        refresh_token = token_file.read_text().strip()
-        yoto_manager.set_refresh_token(refresh_token)
-
-        try:
-            yoto_manager.check_and_refresh_token()
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Authentication failed: {str(e)}"
-            )
-
-    return yoto_manager
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize services on startup and cleanup on shutdown."""
     try:
         ym = get_yoto_manager()
         ym.update_player_status()
@@ -125,6 +79,63 @@ async def startup_event():
         print(f"⚠ Warning: Could not initialize Yoto API: {e}")
         print("  Some endpoints may not work until authentication is completed.")
 
+    yield  # Application runs here
+
+    # Cleanup (if needed)
+    pass
+
+
+# Initialize FastAPI app with lifespan
+app = FastAPI(
+    title="Yoto Smart Stream API",
+    description="API for controlling Yoto players and managing audio content",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def get_yoto_manager() -> YotoManager:
+    """Get or initialize Yoto Manager."""
+    global yoto_manager
+
+    if yoto_manager is None:
+        client_id = os.getenv("YOTO_CLIENT_ID")
+        if not client_id:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="YOTO_CLIENT_ID not configured",
+            )
+
+        token_file = Path(".yoto_refresh_token")
+        if not token_file.exists():
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Not authenticated. Run authentication first.",
+            )
+
+        # Initialize and authenticate
+        yoto_manager = YotoManager(client_id=client_id)
+        refresh_token = token_file.read_text().strip()
+        yoto_manager.set_refresh_token(refresh_token)
+
+        try:
+            yoto_manager.check_and_refresh_token()
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Authentication failed: {str(e)}"
+            ) from e
+
+    return yoto_manager
+
 
 @app.get("/", tags=["General"])
 async def root():
@@ -133,11 +144,11 @@ async def root():
         "name": "Yoto Smart Stream API",
         "version": "0.1.0",
         "status": "running",
-        "docs": "/docs"
+        "docs": "/docs",
     }
 
 
-@app.get("/api/players", response_model=List[PlayerInfo], tags=["Players"])
+@app.get("/api/players", response_model=list[PlayerInfo], tags=["Players"])
 async def list_players():
     """
     List all Yoto players on the account.
@@ -165,9 +176,9 @@ async def list_players():
                 id=player_id,
                 name=player.name,
                 online=player.online,
-                volume=player.volume if hasattr(player, 'volume') else 8,
-                playing=player.playing if hasattr(player, 'playing') else False,
-                battery_level=player.battery_level if hasattr(player, 'battery_level') else None
+                volume=player.volume if hasattr(player, "volume") else 8,
+                playing=player.playing if hasattr(player, "playing") else False,
+                battery_level=player.battery_level if hasattr(player, "battery_level") else None,
             )
             players.append(player_info)
 
@@ -176,8 +187,8 @@ async def list_players():
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch players: {str(e)}"
-        )
+            detail=f"Failed to fetch players: {str(e)}",
+        ) from e
 
 
 @app.get("/api/players/{player_id}", response_model=PlayerInfo, tags=["Players"])
@@ -195,8 +206,7 @@ async def get_player(player_id: str):
 
     if player_id not in ym.players:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Player {player_id} not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Player {player_id} not found"
         )
 
     player = ym.players[player_id]
@@ -204,9 +214,9 @@ async def get_player(player_id: str):
         id=player_id,
         name=player.name,
         online=player.online,
-        volume=player.volume if hasattr(player, 'volume') else 8,
-        playing=player.playing if hasattr(player, 'playing') else False,
-        battery_level=player.battery_level if hasattr(player, 'battery_level') else None
+        volume=player.volume if hasattr(player, "volume") else 8,
+        playing=player.playing if hasattr(player, "playing") else False,
+        battery_level=player.battery_level if hasattr(player, "battery_level") else None,
     )
 
 
@@ -228,8 +238,7 @@ async def control_player(player_id: str, control: PlayerControl):
 
     if player_id not in ym.players:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Player {player_id} not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Player {player_id} not found"
         )
 
     try:
@@ -244,34 +253,26 @@ async def control_player(player_id: str, control: PlayerControl):
             ym.skip_chapter(player_id, direction="backward")
         else:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unknown action: {control.action}"
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown action: {control.action}"
             )
 
         # Set volume if provided
         if control.volume is not None:
             ym.set_volume(player_id, control.volume)
 
-        return {
-            "success": True,
-            "player_id": player_id,
-            "action": control.action
-        }
+        return {"success": True, "player_id": player_id, "action": control.action}
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to control player: {str(e)}"
-        )
+            detail=f"Failed to control player: {str(e)}",
+        ) from e
 
 
 @app.get("/health", tags=["General"])
 async def health_check():
     """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "yoto_api": "connected" if yoto_manager else "not initialized"
-    }
+    return {"status": "healthy", "yoto_api": "connected" if yoto_manager else "not initialized"}
 
 
 if __name__ == "__main__":

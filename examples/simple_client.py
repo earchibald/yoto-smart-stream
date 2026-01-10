@@ -12,10 +12,10 @@ Requirements:
 - YOTO_CLIENT_ID environment variable set
 """
 
+import logging
 import os
 import sys
 import time
-import logging
 from pathlib import Path
 
 try:
@@ -27,8 +27,7 @@ except ImportError:
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -85,7 +84,7 @@ def main():
             logger.info("Authentication successful!")
 
             # Save refresh token for future use
-            if hasattr(ym.token, 'refresh_token'):
+            if hasattr(ym.token, "refresh_token"):
                 token_file.write_text(ym.token.refresh_token)
                 logger.info(f"Refresh token saved to {token_file}")
 
@@ -111,12 +110,12 @@ def main():
         print(f"  Online: {player.online}")
         print(f"  Volume: {player.volume}/16")
 
-        if hasattr(player, 'playing') and player.playing:
-            print(f"  Status: Playing")
+        if hasattr(player, "playing") and player.playing:
+            print("  Status: Playing")
         else:
-            print(f"  Status: Not playing")
+            print("  Status: Not playing")
 
-        if hasattr(player, 'battery_level'):
+        if hasattr(player, "battery_level"):
             print(f"  Battery: {player.battery_level}%")
         print()
 

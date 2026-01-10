@@ -13,13 +13,13 @@ Events you might see:
 - button.press: Physical button presses
 """
 
+import json
+import logging
 import os
 import sys
 import time
-import json
-import logging
+from datetime import UTC, datetime
 from pathlib import Path
-from datetime import datetime
 
 try:
     from yoto_api import YotoManager
@@ -30,8 +30,7 @@ except ImportError:
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -53,10 +52,10 @@ class EventLogger:
 
         # Create structured event
         event = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "count": self.event_count,
             "topic": topic,
-            "payload": payload
+            "payload": payload,
         }
 
         # Pretty print to console

@@ -42,9 +42,7 @@ class DisplayIcon(BaseModel):
     is_public: bool = Field(
         default=True, description="Whether this is from the public repository or user-uploaded"
     )
-    owner_id: Optional[str] = Field(
-        None, description="User ID of the owner (for custom icons)"
-    )
+    owner_id: Optional[str] = Field(None, description="User ID of the owner (for custom icons)")
     created_at: Optional[datetime] = Field(None, description="When the icon was created/uploaded")
     updated_at: Optional[datetime] = Field(None, description="When the icon was last modified")
 

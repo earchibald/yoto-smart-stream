@@ -77,7 +77,8 @@ class IconService:
         if search:
             search_lower = search.lower()
             filtered_icons = [
-                icon for icon in response.icons
+                icon
+                for icon in response.icons
                 if search_lower in icon.name.lower()
                 or any(search_lower in tag.lower() for tag in icon.tags)
             ]
@@ -254,9 +255,7 @@ class IconService:
 
         # Check format
         if img.format != self.ALLOWED_FORMAT:
-            raise ValueError(
-                f"Icon must be {self.ALLOWED_FORMAT} format, got {img.format}"
-            )
+            raise ValueError(f"Icon must be {self.ALLOWED_FORMAT} format, got {img.format}")
 
         # Check dimensions
         if img.size != (self.REQUIRED_WIDTH, self.REQUIRED_HEIGHT):

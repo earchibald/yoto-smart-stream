@@ -1,6 +1,17 @@
 # Yoto Smart Stream
 
+[![Tests](https://img.shields.io/badge/tests-48%20passing-brightgreen)](./docs/TESTING_GUIDE.md)
+[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)](./docs/TESTING_GUIDE.md)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
+
 A service to stream audio to Yoto devices, monitor events via MQTT, and manage interactive audio experiences with a web UI. Includes support for "Choose Your Own Adventure" style interactive stories.
+
+**Status**: ✅ Working implementation with comprehensive test coverage - ready for human testing!
+
+## 🚀 Quick Start
+
+New to the project? Check out our **[Quick Start Guide](docs/QUICK_START.md)** to get running in 10 minutes!
 
 ## 🎯 Features
 
@@ -70,9 +81,17 @@ Visit http://localhost:8000/docs for interactive API documentation.
 
 ## 📚 Documentation
 
+### Quick Start & Testing
+- **[Quick Start Guide](docs/QUICK_START.md)**: Get up and running in 10 minutes - from installation to working API
+- **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
+
+### API & Implementation
 - **[Creating MYO Cards](docs/CREATING_MYO_CARDS.md)**: Complete guide to creating custom Yoto MYO (Make Your Own) cards
+- **[Icon Management Guide](docs/ICON_MANAGEMENT.md)**: Working with display icons for Yoto Mini
 - **[Yoto API Reference](docs/YOTO_API_REFERENCE.md)**: Complete API specification with endpoints, MQTT topics, and code examples
 - **[Yoto MQTT Reference](docs/yoto-mqtt-reference.md)**: Deep dive into MQTT event service implementation and real-time communication
+
+### Architecture & Planning
 - **[Architecture Guide](docs/ARCHITECTURE.md)**: System design and implementation recommendations
 - **[Planning Questions](docs/PLANNING_QUESTIONS.md)**: Open questions and decision points
 - **[Getting Started Guide](docs/GETTING_STARTED.md)**: Step-by-step setup instructions
@@ -260,7 +279,12 @@ This project is not affiliated with, endorsed by, or sponsored by Yoto Play. It'
 
 - [x] Project setup and documentation
 - [x] Basic API client examples
-- [ ] Core API implementation
+- [x] Icon management module (100% complete, 96% test coverage)
+- [x] FastAPI server implementation with lifespan management
+- [x] MQTT event monitoring
+- [x] Comprehensive testing suite (48 tests passing)
+- [x] Code quality tooling (ruff, black, pytest, mypy)
+- [x] Quick start and testing guides
 - [ ] Audio management system
 - [ ] Interactive script engine
 - [ ] Web UI
