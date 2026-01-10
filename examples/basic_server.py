@@ -308,43 +308,25 @@ async def health_check():
 # === Audio Streaming Endpoints ===
 
 
-@app.get("/audio/{filename}", tags=["Audio Streaming"])
-async def stream_audio(filename: str):
+@app.get("/audio/list", tags=["Audio Streaming"])
+async def list_audio_files():
     """
-    Stream audio file for Yoto MYO cards.
-    
-    This endpoint serves audio files that can be referenced in MYO card URLs.
-    Audio files should be placed in the 'audio_files/' directory.
-    
-    Example:
-        Place story.mp3 in audio_files/
-        Access at: http://your-server.com/audio/story.mp3
-        Use in card: {"url": "https://your-server.com/audio/story.mp3"}
-    
-    Args:
-        filename: Audio filename (e.g., 'story.mp3')
+    List available audio files.
     
     Returns:
-        Audio file with proper headers for streaming
+        List of audio files in the audio_files directory
     """
-    audio_path = AUDIO_FILES_DIR / filename
-
-    if not audio_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file not found: {filename}"
+    audio_files = []
+    for audio_path in AUDIO_FILES_DIR.glob("*.mp3"):
+        audio_files.append(
+            {
+                "filename": audio_path.name,
+                "size": audio_path.stat().st_size,
+                "url": f"/audio/{audio_path.name}",
+            }
         )
 
-    # Determine media type from extension
-    media_type = "audio/mpeg" if filename.endswith(".mp3") else "audio/aac"
-
-    return FileResponse(
-        audio_path,
-        media_type=media_type,
-        headers={
-            "Accept-Ranges": "bytes",  # Enable seeking
-            "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
-        },
-    )
+    return {"files": audio_files, "count": len(audio_files)}
 
 
 @app.get("/audio/dynamic/{card_id}.mp3", tags=["Audio Streaming"])
@@ -395,25 +377,43 @@ async def stream_dynamic_audio(card_id: str):
     )
 
 
-@app.get("/audio/list", tags=["Audio Streaming"])
-async def list_audio_files():
+@app.get("/audio/{filename}", tags=["Audio Streaming"])
+async def stream_audio(filename: str):
     """
-    List available audio files.
+    Stream audio file for Yoto MYO cards.
+    
+    This endpoint serves audio files that can be referenced in MYO card URLs.
+    Audio files should be placed in the 'audio_files/' directory.
+    
+    Example:
+        Place story.mp3 in audio_files/
+        Access at: http://your-server.com/audio/story.mp3
+        Use in card: {"url": "https://your-server.com/audio/story.mp3"}
+    
+    Args:
+        filename: Audio filename (e.g., 'story.mp3')
     
     Returns:
-        List of audio files in the audio_files directory
+        Audio file with proper headers for streaming
     """
-    audio_files = []
-    for audio_path in AUDIO_FILES_DIR.glob("*.mp3"):
-        audio_files.append(
-            {
-                "filename": audio_path.name,
-                "size": audio_path.stat().st_size,
-                "url": f"/audio/{audio_path.name}",
-            }
+    audio_path = AUDIO_FILES_DIR / filename
+
+    if not audio_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file not found: {filename}"
         )
 
-    return {"files": audio_files, "count": len(audio_files)}
+    # Determine media type from extension
+    media_type = "audio/mpeg" if filename.endswith(".mp3") else "audio/aac"
+
+    return FileResponse(
+        audio_path,
+        media_type=media_type,
+        headers={
+            "Accept-Ranges": "bytes",  # Enable seeking
+            "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+        },
+    )
 
 
 # === MYO Card Creation Endpoints ===
