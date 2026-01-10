@@ -899,6 +899,20 @@ npm install yoto-nodejs-client
 
 ## Common Use Cases
 
+### Create MYO (Make Your Own) Cards
+
+**See the complete guide**: [Creating MYO Cards](CREATING_MYO_CARDS.md)
+
+Quick overview:
+
+1. Authenticate with Yoto API
+2. Calculate SHA-256 hash of audio file
+3. Get audio upload URL with SHA256 hash
+4. Upload audio file to signed URL (if not already uploaded)
+5. Upload cover image (optional)
+6. Create card content with upload ID
+7. Play card on device via MQTT
+
 ### Stream Custom Audio
 
 1. Get audio upload URL with SHA256 hash

@@ -42,6 +42,15 @@ The Yoto Smart Stream project has been fully set up with comprehensive documenta
 ### 3. Comprehensive Documentation
 
 #### Core Documentation (docs/)
+- **`CREATING_MYO_CARDS.md`** (NEW) - Complete MYO Card creation guide
+  - Step-by-step procedure for creating custom audio cards
+  - Audio upload and processing workflows
+  - Cover image upload
+  - Multi-chapter card creation
+  - Complete Python code examples
+  - Troubleshooting and best practices
+  - 550+ lines of detailed MYO card documentation
+
 - **`YOTO_API_REFERENCE.md`** (NEW from PR#2) - Complete API specification
   - All REST API endpoints with examples
   - MQTT topics and message formats
