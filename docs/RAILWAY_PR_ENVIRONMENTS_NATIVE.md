@@ -199,15 +199,14 @@ PR environments automatically inherit variables from the base environment (stagi
 - All other staging variables
 
 **Automatically Set by Railway:**
-- `RAILWAY_ENVIRONMENT_NAME=pr-{number}`
+- `RAILWAY_ENVIRONMENT_NAME=pr-{number}` - Used by the application as the environment name
 - `RAILWAY_GIT_COMMIT_SHA={commit SHA}`
 - `RAILWAY_GIT_BRANCH={source branch}`
 
 **Automatically Configured by GitHub Actions:**
-- `ENVIRONMENT=preview` - Set by `railway-pr-checks.yml` workflow
 - `YOTO_CLIENT_ID` - Synced from GitHub secrets by workflow
 
-The `railway-pr-checks.yml` workflow automatically configures these essential variables when a PR is opened or updated, ensuring the PR environment has the correct configuration for testing.
+The `railway-pr-checks.yml` workflow automatically configures these essential variables when a PR is opened or updated, ensuring the PR environment has the correct configuration for testing. The application now uses `RAILWAY_ENVIRONMENT_NAME` directly instead of a custom `ENVIRONMENT` variable.
 
 ### Custom Variables
 

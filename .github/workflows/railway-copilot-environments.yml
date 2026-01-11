@@ -90,8 +90,7 @@ jobs:
           
           ENV_NAME="${{ steps.env-name.outputs.env_name }}"
           
-          # Set environment type
-          railway variables set ENVIRONMENT="copilot-preview" -e "$ENV_NAME"
+          # Note: ENVIRONMENT is now auto-populated from RAILWAY_ENVIRONMENT_NAME
           railway variables set DEBUG="true" -e "$ENV_NAME"
           railway variables set LOG_LEVEL="debug" -e "$ENV_NAME"
           

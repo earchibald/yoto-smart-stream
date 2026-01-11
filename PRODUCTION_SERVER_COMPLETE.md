@@ -132,7 +132,7 @@ YOTO_CLIENT_ID="your_client_id_from_yoto_dev"
 PUBLIC_URL="https://your-app.up.railway.app"
 
 # Optional - Configuration
-ENVIRONMENT="development"  # or "staging", "production"
+# Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "development", "staging", "production")
 LOG_LEVEL="INFO"
 DEBUG="false"
 MQTT_ENABLED="true"
@@ -145,7 +145,7 @@ MQTT_ENABLED="true"
 # Set for development environment
 railway variables set YOTO_CLIENT_ID="your_client_id" -e development
 railway variables set PUBLIC_URL="https://yoto-smart-stream-dev.up.railway.app" -e development
-railway variables set ENVIRONMENT="development" -e development
+# Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "development")
 railway variables set LOG_LEVEL="DEBUG" -e development
 railway variables set DEBUG="true" -e development
 ```
@@ -182,7 +182,7 @@ railway link
 # Set environment variables
 railway variables set YOTO_CLIENT_ID="your_client_id" -e development
 railway variables set PUBLIC_URL="$(railway status -e development | grep 'Deployment URL' | awk '{print $3}')" -e development
-railway variables set ENVIRONMENT="development" -e development
+# Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "development")
 railway variables set LOG_LEVEL="DEBUG" -e development
 
 # Deploy to development environment
