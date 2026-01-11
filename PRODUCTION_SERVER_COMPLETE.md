@@ -36,9 +36,10 @@ The Yoto Smart Stream server has been successfully migrated from sample code in 
 - Clear error messages for authentication issues
 
 ✅ **API Endpoints**
-- `GET /` - API information and feature list
-- `GET /health` - Health check with status
-- `GET /ready` - Readiness check for orchestrators
+- `GET /` - Web UI dashboard
+- `GET /api/status` - API information and feature list
+- `GET /api/health` - Health check with status
+- `GET /api/ready` - Readiness check for orchestrators
 - `GET /api/players` - List all Yoto players
 - `GET /api/players/{id}` - Get specific player details
 - `POST /api/players/{id}/control` - Control player (play/pause/skip/volume)

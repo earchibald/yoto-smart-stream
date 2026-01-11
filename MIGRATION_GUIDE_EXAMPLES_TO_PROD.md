@@ -106,11 +106,12 @@ client = TestClient(app)
 
 The production server maintains **100% API compatibility** with the examples. All endpoints work exactly the same:
 
-- `GET /` - API information
-- `GET /health` - Health check
+- `GET /` - Web UI dashboard
+- `GET /api/status` - API information
+- `GET /api/health` - Health check
 - `GET /api/players` - List players
 - `POST /api/players/{id}/control` - Control player
-- `GET /audio/{filename}` - Stream audio
+- `GET /api/audio/{filename}` - Stream audio
 - `POST /api/cards/create-streaming` - Create card
 
 **No code changes needed in client applications!**

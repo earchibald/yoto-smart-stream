@@ -168,12 +168,12 @@ jobs:
             
             ### Quick Links
             - [View Logs in Railway](https://railway.app/dashboard)
-            - [Health Check](https://yoto-smart-stream-pr-${prNumber}.up.railway.app/health)
+            - [Health Check](https://yoto-smart-stream-pr-${prNumber}.up.railway.app/api/health)
             
             ### Testing
             You can test this deployment using:
             \`\`\`bash
-            curl https://yoto-smart-stream-pr-${prNumber}.up.railway.app/health
+            curl https://yoto-smart-stream-pr-${prNumber}.up.railway.app/api/health
             \`\`\`
             
             ---

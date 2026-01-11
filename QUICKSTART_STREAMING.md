@@ -233,10 +233,11 @@ See [STREAMING_FROM_OWN_SERVICE.md](STREAMING_FROM_OWN_SERVICE.md) for complete 
 
 ## Key Endpoints
 
-- `GET /` - API information
-- `GET /health` - Health check
-- `GET /audio/list` - List audio files
-- `GET /audio/{filename}` - Stream audio file
+- `GET /` - Web UI dashboard
+- `GET /api/status` - API information
+- `GET /api/health` - Health check
+- `GET /api/audio/list` - List audio files
+- `GET /api/audio/{filename}` - Stream audio file
 - `POST /api/cards/create-streaming` - Create streaming card
 - `GET /docs` - Interactive API documentation
 

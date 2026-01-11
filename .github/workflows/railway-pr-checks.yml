@@ -129,7 +129,7 @@ jobs:
             - FastAPI application startup
             
             ### Quick Links
-            - [🏥 Health Check](${envUrl}/health)
+            - [🏥 Health Check](${envUrl}/api/health)
             - [📊 API Docs](${envUrl}/docs)
             - [🔍 Railway Dashboard](https://railway.app/dashboard)
             
@@ -145,7 +145,7 @@ jobs:
             railway status -e pr-${prNumber}
             
             # Test health endpoint
-            curl ${envUrl}/health
+            curl ${envUrl}/api/health
             \`\`\`
             
             ### Notes
