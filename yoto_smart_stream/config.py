@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,27 @@ class Settings(BaseSettings):
     app_version: str = "0.2.0"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
-    environment: str = Field(default="development", description="Environment name")
+    environment: str = Field(
+        default="development",
+        description="Environment name (auto-populated from RAILWAY_ENVIRONMENT_NAME)",
+    )
+
+    @field_validator("environment", mode="before")
+    @classmethod
+    def get_environment_name(cls, v):
+        """Get environment name from RAILWAY_ENVIRONMENT_NAME or fall back to ENVIRONMENT."""
+        # Priority: RAILWAY_ENVIRONMENT_NAME > ENVIRONMENT > provided value > default
+        railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
+        if railway_env:
+            return railway_env
+
+        # Fall back to ENVIRONMENT for backward compatibility
+        env_var = os.environ.get("ENVIRONMENT")
+        if env_var:
+            return env_var
+
+        # Use provided value or default
+        return v if v is not None else "development"
 
     # Server settings
     host: str = Field(default="0.0.0.0", description="Server host")

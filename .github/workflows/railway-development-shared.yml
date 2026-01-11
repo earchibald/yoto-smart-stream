@@ -176,7 +176,7 @@ jobs:
           YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
         run: |
           echo "⚙️ Setting environment variables before deployment..."
-          railway variables set ENVIRONMENT="development" -e development
+          # Note: ENVIRONMENT is now auto-populated from RAILWAY_ENVIRONMENT_NAME
           railway variables set DEBUG="true" -e development
           railway variables set LOG_LEVEL="debug" -e development
           railway variables set SESSION_ID="${{ github.event.inputs.session_id }}" -e development

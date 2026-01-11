@@ -56,6 +56,9 @@ logs/
 
 # Audio files (can be large)
 *.mp3
+# Exception: allow sample files in audio_files directory
+!audio_files/[0-9].mp3
+!audio_files/[0-9][0-9].mp3
 *.wav
 *.ogg
 *.flac

@@ -120,7 +120,7 @@ curl https://yoto-smart-stream-pr-123.up.railway.app/health
 Each PR environment automatically receives:
 
 ```bash
-ENVIRONMENT=preview
+RAILWAY_ENVIRONMENT_NAME=pr-123  # Automatically set by Railway
 DEBUG=true
 LOG_LEVEL=debug
 PR_NUMBER=123
@@ -183,7 +183,7 @@ You can also manually manage Copilot environments:
 Each Copilot environment automatically receives:
 
 ```bash
-ENVIRONMENT=copilot-preview
+RAILWAY_ENVIRONMENT_NAME=copilot-feature-name  # Automatically set by Railway
 DEBUG=true
 LOG_LEVEL=debug
 SESSION_TYPE=copilot

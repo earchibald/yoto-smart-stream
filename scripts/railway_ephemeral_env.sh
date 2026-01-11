@@ -92,7 +92,7 @@ deploy_environment() {
     
     # Set environment-specific variables
     log_info "Setting environment variables for $ENV_NAME..."
-    railway variables set ENVIRONMENT="preview" -e "$ENV_NAME" || log_warning "Could not set ENVIRONMENT variable"
+    # Note: ENVIRONMENT is now auto-populated from RAILWAY_ENVIRONMENT_NAME
     railway variables set DEBUG="true" -e "$ENV_NAME" || log_warning "Could not set DEBUG variable"
     railway variables set LOG_LEVEL="debug" -e "$ENV_NAME" || log_warning "Could not set LOG_LEVEL variable"
     
