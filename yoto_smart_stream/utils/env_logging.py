@@ -29,10 +29,15 @@ def log_environment_variables(output_fn: Callable[[str], None]) -> None:
         is_sensitive = any(sensitive in key.upper() for sensitive in sensitive_keys)
 
         if is_sensitive:
-            # Show only first and last 4 characters for sensitive values
-            if len(value) > 8:
+            # Mask sensitive values
+            if len(value) >= 12:
+                # Show only first and last 4 characters for longer values
                 masked_value = f"{value[:4]}...{value[-4:]}"
+            elif len(value) >= 4:
+                # Show only first 2 characters for medium values
+                masked_value = f"{value[:2]}***"
             else:
+                # Completely mask short values
                 masked_value = "***"
             output_fn(f"  {key}={masked_value}")
         else:
