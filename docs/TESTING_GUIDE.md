@@ -122,7 +122,7 @@ To test with actual Yoto devices, you need:
 2. **Environment Setup**:
    ```bash
    cp .env.example .env
-   # Edit .env and add your YOTO_CLIENT_ID
+   # Edit .env and add your YOTO_SERVER_CLIENT_ID
    ```
 
 ### Authentication Flow
@@ -349,13 +349,13 @@ Recommended workflow during development:
    pip install -e .
    ```
 
-2. **YOTO_CLIENT_ID not found**:
+2. **YOTO_SERVER_CLIENT_ID not found**:
    ```bash
    # Set environment variable
-   export YOTO_CLIENT_ID=your_client_id_here
+   export YOTO_SERVER_CLIENT_ID=your_client_id_here
    
    # Or create .env file
-   echo "YOTO_CLIENT_ID=your_client_id" > .env
+   echo "YOTO_SERVER_CLIENT_ID=your_client_id" > .env
    ```
 
 3. **Async test warnings**:

@@ -35,7 +35,7 @@ This PR implements a comprehensive system for deploying ephemeral Railway enviro
 ### ✅ Secure Token Management
 - **Repository Secrets:** For GitHub Actions workflows
   - `RAILWAY_TOKEN` - Deployment automation
-  - `YOTO_CLIENT_ID` - Testing credentials
+  - `YOTO_SERVER_CLIENT_ID` - Testing credentials
 - **Codespaces Secrets:** For developer Codespaces
   - `RAILWAY_TOKEN` - Personal token for CLI
   - User-level, revocable, secure
@@ -110,7 +110,7 @@ railway logs -e copilot-test-123 --tail 50
 │     (for CI/CD automation)                  │
 │  ┌────────────────────────────────────┐    │
 │  │ RAILWAY_TOKEN                       │    │
-│  │ YOTO_CLIENT_ID                      │    │
+│  │ YOTO_SERVER_CLIENT_ID                      │    │
 │  └──────────┬──────────────────────────┘    │
 └─────────────┼──────────────────────────────┘
               │
@@ -130,7 +130,7 @@ railway logs -e copilot-test-123 --tail 50
 │     (user-level, per developer)             │
 │  ┌────────────────────────────────────┐    │
 │  │ RAILWAY_TOKEN (personal)            │    │
-│  │ YOTO_CLIENT_ID (optional)           │    │
+│  │ YOTO_SERVER_CLIENT_ID (optional)           │    │
 │  └──────────┬──────────────────────────┘    │
 └─────────────┼──────────────────────────────┘
               │
@@ -161,7 +161,7 @@ railway logs -e copilot-test-123 --tail 50
 **1. Add Repository Secrets (for GitHub Actions):**
 - Go to: Repo Settings → Secrets and variables → Actions
 - Add `RAILWAY_TOKEN` from https://railway.app/account/tokens
-- Add `YOTO_CLIENT_ID` (optional, for testing)
+- Add `YOTO_SERVER_CLIENT_ID` (optional, for testing)
 
 **2. Add Codespaces Secrets (for developers):**
 - Go to: https://github.com/settings/codespaces

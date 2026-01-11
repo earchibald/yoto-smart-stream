@@ -158,7 +158,7 @@ Full functionality with real devices:
 ```bash
 # 1. Set up environment
 cp .env.example .env
-# Edit .env and add your YOTO_CLIENT_ID
+# Edit .env and add your YOTO_SERVER_CLIENT_ID
 
 # 2. Authenticate
 python examples/simple_client.py

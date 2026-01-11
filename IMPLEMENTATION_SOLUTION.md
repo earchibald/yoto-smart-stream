@@ -100,7 +100,7 @@ GitHub Repository
 **Required secrets:**
 ```
 RAILWAY_TOKEN       - For automated deployments
-YOTO_CLIENT_ID      - For testing deployed environments
+YOTO_SERVER_CLIENT_ID      - For testing deployed environments
 ```
 
 **Why:** GitHub Actions can only access repository secrets
@@ -113,7 +113,7 @@ YOTO_CLIENT_ID      - For testing deployed environments
 **Required secrets:**
 ```
 RAILWAY_TOKEN       - For manual deployments from Codespace
-YOTO_CLIENT_ID      - For local testing (optional)
+YOTO_SERVER_CLIENT_ID      - For local testing (optional)
 ```
 
 **Why:** 
@@ -213,7 +213,7 @@ YOTO_CLIENT_ID      - For local testing (optional)
 │ GitHub Repository Secrets                                │
 │ - Used by: GitHub Actions workflows                     │
 │ - Accessible by: Repository admins                      │
-│ - Secrets: RAILWAY_TOKEN, YOTO_CLIENT_ID                │
+│ - Secrets: RAILWAY_TOKEN, YOTO_SERVER_CLIENT_ID                │
 └─────────────────────────────────────────────────────────┘
                           ↓
               ┌───────────────────────┐
@@ -230,7 +230,7 @@ YOTO_CLIENT_ID      - For local testing (optional)
 │ GitHub Codespaces Secrets (User-level)                  │
 │ - Used by: Developer Codespaces                         │
 │ - Accessible by: Individual user only                   │
-│ - Secrets: RAILWAY_TOKEN, YOTO_CLIENT_ID                │
+│ - Secrets: RAILWAY_TOKEN, YOTO_SERVER_CLIENT_ID                │
 └─────────────────────────────────────────────────────────┘
                           ↓
               ┌───────────────────────┐

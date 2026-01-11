@@ -9,13 +9,13 @@
 > 
 > ---
 > 
-# Deployment Test Plan for YOTO_CLIENT_ID Fix
+# Deployment Test Plan for YOTO_SERVER_CLIENT_ID Fix
 
 ## Issue Fixed
-YOTO_CLIENT_ID environment variable was not being passed to Railway deployments correctly. Environment variables were being set AFTER the service started, causing the service to start without the required YOTO_CLIENT_ID.
+YOTO_SERVER_CLIENT_ID environment variable was not being passed to Railway deployments correctly. Environment variables were being set AFTER the service started, causing the service to start without the required YOTO_SERVER_CLIENT_ID.
 
 ## Changes Made
-Updated all Railway deployment workflows to set environment variables (including YOTO_CLIENT_ID) BEFORE running `railway up`:
+Updated all Railway deployment workflows to set environment variables (including YOTO_SERVER_CLIENT_ID) BEFORE running `railway up`:
 
 1. `.github/workflows/railway-development-shared.yml`
 2. `.github/workflows/auto-deploy-pr-to-dev.yml`
@@ -47,14 +47,14 @@ If you merge this PR or push to a branch that triggers auto-deploy:
 
 ## Verification Steps
 
-Once deployment completes, verify YOTO_CLIENT_ID is available:
+Once deployment completes, verify YOTO_SERVER_CLIENT_ID is available:
 
 ### 1. Check Deployment Logs in GitHub Actions
 
 In the workflow run:
 - Look for the "Deploy to Railway Development" step
-- Verify it shows: "Setting YOTO_CLIENT_ID..."
-- Ensure no warning: "⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets"
+- Verify it shows: "Setting YOTO_SERVER_CLIENT_ID..."
+- Ensure no warning: "⚠️ Warning: YOTO_SERVER_CLIENT_ID not set in GitHub secrets"
 
 ### 2. Check Railway Dashboard
 
@@ -63,7 +63,7 @@ In the workflow run:
 3. Select "development" environment
 4. Click on the service
 5. Go to **Variables** tab
-6. Verify `YOTO_CLIENT_ID` is present and has a value
+6. Verify `YOTO_SERVER_CLIENT_ID` is present and has a value
 
 ### 3. Check Application Logs in Railway
 
@@ -81,7 +81,7 @@ Environment: development
 ✓ MQTT connected successfully
 ```
 
-If YOTO_CLIENT_ID is missing, you'll see:
+If YOTO_SERVER_CLIENT_ID is missing, you'll see:
 ```
 ⚠ Warning: Could not initialize Yoto API: [error message about client ID]
   Some endpoints may not work until authentication is completed.
@@ -89,7 +89,7 @@ If YOTO_CLIENT_ID is missing, you'll see:
 
 Expected behavior:
 - ✅ Logs show "✓ Yoto API connected successfully"
-- ✅ No errors about missing or invalid YOTO_CLIENT_ID
+- ✅ No errors about missing or invalid YOTO_SERVER_CLIENT_ID
 - ✅ Service starts successfully
 - ✅ uvicorn server is running and accepting connections
 
@@ -110,7 +110,7 @@ Expected response should include:
 }
 ```
 
-If YOTO_CLIENT_ID is not set, you might see:
+If YOTO_SERVER_CLIENT_ID is not set, you might see:
 ```json
 {
   "status": "healthy",
@@ -127,12 +127,12 @@ Test the config endpoint (if available):
 curl https://yoto-smart-stream-development.up.railway.app/config
 ```
 
-Or check via logs that the application loaded YOTO_CLIENT_ID successfully.
+Or check via logs that the application loaded YOTO_SERVER_CLIENT_ID successfully.
 
 ## Success Criteria
 
-✅ YOTO_CLIENT_ID is set in Railway environment variables BEFORE deployment starts
-✅ Service starts without errors related to missing YOTO_CLIENT_ID
+✅ YOTO_SERVER_CLIENT_ID is set in Railway environment variables BEFORE deployment starts
+✅ Service starts without errors related to missing YOTO_SERVER_CLIENT_ID
 ✅ Health check endpoint responds correctly
 ✅ Application logs show successful configuration loading
 ✅ No race conditions or timing issues with environment variable availability
@@ -142,7 +142,7 @@ Or check via logs that the application loaded YOTO_CLIENT_ID successfully.
 If issues occur:
 1. The changes are in workflow files only, no application code changed
 2. Revert the workflow changes by reverting the commit
-3. Or manually set YOTO_CLIENT_ID in Railway dashboard as a workaround
+3. Or manually set YOTO_SERVER_CLIENT_ID in Railway dashboard as a workaround
 
 ## Additional Notes
 

@@ -34,7 +34,7 @@ Choose one of these methods to get started:
 2. **Configure Environment**
    ```bash
    cp .env.example .env
-   # Edit .env and add your YOTO_CLIENT_ID
+   # Edit .env and add your YOTO_SERVER_CLIENT_ID
    ```
 
 3. **Authenticate**
@@ -76,7 +76,7 @@ Choose one of these methods to get started:
    
    Edit `.env` and add your Yoto client ID:
    ```
-   YOTO_CLIENT_ID=your_client_id_here
+   YOTO_SERVER_CLIENT_ID=your_client_id_here
    ```
 
 5. **Authenticate with Yoto**
@@ -244,7 +244,7 @@ python examples/simple_client.py
 
 ## Troubleshooting
 
-### "YOTO_CLIENT_ID not configured"
+### "YOTO_SERVER_CLIENT_ID not configured"
 
 **Solution**: Make sure you've:
 1. Created a `.env` file from `.env.example`

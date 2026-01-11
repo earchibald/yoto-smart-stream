@@ -31,7 +31,7 @@ pip install -r requirements.txt
 
 ```bash
 # Set your client ID
-export YOTO_CLIENT_ID=your_client_id_here
+export YOTO_SERVER_CLIENT_ID=your_client_id_here
 
 # Run authentication
 python examples/simple_client.py
@@ -201,7 +201,7 @@ Here's a complete workflow:
 
 ```bash
 # 1. Set up environment
-export YOTO_CLIENT_ID=your_client_id
+export YOTO_SERVER_CLIENT_ID=your_client_id
 export PUBLIC_URL=https://abc123.ngrok.io
 
 # 2. Start server

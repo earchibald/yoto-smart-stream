@@ -218,8 +218,9 @@ cd yoto-smart-stream
 # Copy environment template
 cp .env.example .env
 
-# Edit .env and add your Yoto client ID
-# YOTO_CLIENT_ID=your_client_id_here
+# Edit .env and add your Yoto server client ID
+# YOTO_SERVER_CLIENT_ID=your_yoto_server_client_id_here
+# (YOTO_SERVER_CLIENT_ID also supported for backward compatibility)
 ```
 
 ### 3. Install Dependencies
@@ -341,7 +342,7 @@ git push origin develop
 
 **Static Environments**: Uses pre-registered callback URLs for Yoto OAuth compatibility.
 
-**Token Security**: Production uses a single Railway token (`RAILWAY_TOKEN_PROD`). Application secrets like `YOTO_CLIENT_ID` are stored as Railway Shared Variables. See [GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md).
+**Token Security**: Production uses a single Railway token (`RAILWAY_TOKEN_PROD`). Application secrets like `YOTO_SERVER_CLIENT_ID` are stored as Railway Shared Variables. See [GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md).
 
 **Status**: 
 - ✅ Production (main branch) - Auto-deployed with `RAILWAY_TOKEN_PROD`

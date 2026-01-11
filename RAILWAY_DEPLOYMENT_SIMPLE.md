@@ -76,11 +76,11 @@ open https://yoto-smart-stream-development.up.railway.app/docs
 
 ## Optional Configuration
 
-### YOTO_CLIENT_ID
+### YOTO_SERVER_CLIENT_ID
 
 To enable full Yoto API functionality:
 1. Get Client ID from https://yoto.dev/
-2. Add as GitHub Secret: `YOTO_CLIENT_ID`
+2. Add as GitHub Secret: `YOTO_SERVER_CLIENT_ID`
 3. Re-run deployment (it will automatically inject into Railway)
 
 ## What About Staging and Production?

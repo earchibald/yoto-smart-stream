@@ -128,12 +128,12 @@ For full functionality with real Yoto devices:
 cp .env.example .env
 
 # Edit .env file and add your client ID
-# YOTO_CLIENT_ID=your_client_id_here
+# YOTO_SERVER_CLIENT_ID=your_client_id_here
 ```
 
 Or set it directly:
 ```bash
-export YOTO_CLIENT_ID=your_client_id_here
+export YOTO_SERVER_CLIENT_ID=your_client_id_here
 ```
 
 #### 3. Authenticate
@@ -391,7 +391,7 @@ uvicorn examples.basic_server:app --port 8001
 
 ```bash
 # Verify client ID is set
-echo $YOTO_CLIENT_ID
+echo $YOTO_SERVER_CLIENT_ID
 
 # Check if .env file exists and is configured
 cat .env

@@ -194,7 +194,7 @@ pytest tests/test_token_refresh.py -v
 1. Check the refresh interval is set correctly
 2. Verify the refresh token file exists and is valid
 3. Check logs for refresh failures
-4. Ensure `YOTO_CLIENT_ID` is configured
+4. Ensure `YOTO_SERVER_CLIENT_ID` is configured
 
 ### Background Task Not Running
 

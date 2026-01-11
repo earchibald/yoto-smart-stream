@@ -241,7 +241,7 @@ railway variables set LOG_ENV_ON_STARTUP=true -e development
 Environment Variables:
 ================================================================================
   RAILWAY_ENVIRONMENT_NAME=development
-  YOTO_CLIENT_ID=1234...5678
+  YOTO_SERVER_CLIENT_ID=1234...5678
   ...
 ================================================================================
 ```

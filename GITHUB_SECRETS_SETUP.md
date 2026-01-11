@@ -33,25 +33,25 @@ You need to add these secrets to your GitHub repository:
 6. Value: Paste the token from Railway
 7. Click **Add secret**
 
-## YOTO_CLIENT_ID Configuration
+## YOTO_SERVER_CLIENT_ID Configuration
 
-**Important**: `YOTO_CLIENT_ID` is **NOT** stored as a GitHub Secret. Instead, it is:
+**Important**: `YOTO_SERVER_CLIENT_ID` is **NOT** stored as a GitHub Secret. Instead, it is:
 1. Set directly in the Railway production environment as a **Shared Variable**
-2. PR Environments automatically reference it using Railway's template syntax: `${{shared.YOTO_CLIENT_ID}}`
+2. PR Environments automatically reference it using Railway's template syntax: `${{shared.YOTO_SERVER_CLIENT_ID}}`
 
-### How to Set YOTO_CLIENT_ID in Railway:
+### How to Set YOTO_SERVER_CLIENT_ID in Railway:
 
 1. Go to https://railway.app/dashboard
 2. Select your project
 3. Go to the **production** environment
 4. Navigate to **Variables** tab
 5. Add a new variable:
-   - **Name**: `YOTO_CLIENT_ID`
+   - **Name**: `YOTO_SERVER_CLIENT_ID`
    - **Value**: Your Yoto Client ID from https://yoto.dev/
    - **Type**: Select "Shared Variable" (this allows PR environments to reference it)
 6. Save the variable
 
-PR Environments will automatically inherit this value through the `${{shared.YOTO_CLIENT_ID}}` reference that is set by the GitHub Actions workflow.
+PR Environments will automatically inherit this value through the `${{shared.YOTO_SERVER_CLIENT_ID}}` reference that is set by the GitHub Actions workflow.
 
 ## Visual Guide
 
@@ -97,7 +97,7 @@ Railway automatically creates ephemeral environments for every pull request:
 
 1. Open a PR targeting `main`
 2. Railway automatically creates a `pr-{number}` environment
-3. The PR environment inherits `YOTO_CLIENT_ID` from production via shared variables
+3. The PR environment inherits `YOTO_SERVER_CLIENT_ID` from production via shared variables
 4. GitHub Actions validates the deployment
 5. When you close/merge the PR, Railway automatically destroys the environment
 
@@ -128,13 +128,13 @@ The values are hidden for security, but you should see the secret names listed.
 2. Update the secret in GitHub (you can edit existing secrets)
 3. Make sure the token has permissions for your Railway project
 
-### YOTO_CLIENT_ID not working in PR environments
+### YOTO_SERVER_CLIENT_ID not working in PR environments
 
 **Problem**: PR environments can't access Yoto API.
 
 **Solution**:
-1. Verify `YOTO_CLIENT_ID` is set as a **Shared Variable** in Railway production environment
-2. Check that PR environment has `YOTO_CLIENT_ID` set to `${{shared.YOTO_CLIENT_ID}}`
+1. Verify `YOTO_SERVER_CLIENT_ID` is set as a **Shared Variable** in Railway production environment
+2. Check that PR environment has `YOTO_SERVER_CLIENT_ID` set to `${{shared.YOTO_SERVER_CLIENT_ID}}`
 3. Ensure the production environment is named exactly "production" in Railway
 
 ### Where are Codespace secrets different from repository secrets?
@@ -157,21 +157,21 @@ For this project, you only need **repository secrets** for automated deployments
 
 - [ ] Get Railway token from https://railway.app/account/tokens
 - [ ] Add `RAILWAY_TOKEN_PROD` to repository secrets
-- [ ] Set `YOTO_CLIENT_ID` as a Shared Variable in Railway production environment
+- [ ] Set `YOTO_SERVER_CLIENT_ID` as a Shared Variable in Railway production environment
 - [ ] Merge to `main` branch to trigger automatic production deployment
 - [ ] Open a PR to test PR Environment creation
 
 **Important Notes:**
 - Production deployments are automatic on push to `main` branch
 - PR Environments are automatically created by Railway for each pull request
-- `YOTO_CLIENT_ID` is stored in Railway (as a Shared Variable), not in GitHub Secrets
+- `YOTO_SERVER_CLIENT_ID` is stored in Railway (as a Shared Variable), not in GitHub Secrets
 - There are no staging or development environments
 
 **Still confused?** 
 - Repository secrets location: https://github.com/earchibald/yoto-smart-stream/settings/secrets/actions
 - You need **repository-level** secrets for GitHub Actions to work
 - The secret must be named exactly: `RAILWAY_TOKEN_PROD`
-- Railway production environment must have `YOTO_CLIENT_ID` set as a Shared Variable
+- Railway production environment must have `YOTO_SERVER_CLIENT_ID` set as a Shared Variable
 
 ---
 

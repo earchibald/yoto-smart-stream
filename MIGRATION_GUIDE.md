@@ -272,7 +272,7 @@ A: Manual trigger available, but won't work with Yoto OAuth
 A: Use force option in acquire-and-deploy (coordinate with lock owner first)
 
 **Q: Do I need separate Yoto API credentials per environment?**
-A: No, same YOTO_CLIENT_ID works for all. Register all URLs in Yoto portal.
+A: No, same YOTO_SERVER_CLIENT_ID works for all. Register all URLs in Yoto portal.
 
 **Q: What happens to my existing PR environments?**
 A: They still exist in Railway. Manually delete them if needed.

@@ -1,8 +1,8 @@
 # Railway Shared Variables Troubleshooting Guide
 
-## Problem: `${{shared.YOTO_CLIENT_ID}}` Returns Empty String
+## Problem: `${{shared.YOTO_SERVER_CLIENT_ID}}` Returns Empty String
 
-When using Railway's shared variables feature with the syntax `${{shared.YOTO_CLIENT_ID}}` in PR environments, the variable resolves to an empty string instead of the expected value from the production environment.
+When using Railway's shared variables feature with the syntax `${{shared.YOTO_SERVER_CLIENT_ID}}` in PR environments, the variable resolves to an empty string instead of the expected value from the production environment.
 
 ## Root Cause Analysis
 
@@ -35,10 +35,10 @@ The GitHub workflows (`.github/workflows/railway-pr-checks.yml`) currently work 
 - name: Configure PR Environment Variables
   env:
     RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-    YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
+    YOTO_SERVER_CLIENT_ID: ${{ secrets.YOTO_SERVER_CLIENT_ID }}
   run: |
-    if [ -n "$YOTO_CLIENT_ID" ]; then
-      railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "pr-${PR_NUMBER}"
+    if [ -n "$YOTO_SERVER_CLIENT_ID" ]; then
+      railway variables set YOTO_SERVER_CLIENT_ID="$YOTO_SERVER_CLIENT_ID" -e "pr-${PR_NUMBER}"
     fi
 ```
 
@@ -62,7 +62,7 @@ To properly use Railway's shared variables feature:
 ### Step 2: Share the Variable
 
 1. Click on the **Variables** tab in production environment
-2. Find the `YOTO_CLIENT_ID` variable
+2. Find the `YOTO_SERVER_CLIENT_ID` variable
 3. Click the **⋮** (three dots) menu next to the variable
 4. Select **"Share variable"**
 
@@ -89,7 +89,7 @@ You have two options:
 ### Step 4: Verify Configuration
 
 1. Go to: **Settings** → **Shared Variables**
-2. Find `YOTO_CLIENT_ID` in the list
+2. Find `YOTO_SERVER_CLIENT_ID` in the list
 3. Verify:
    - **Source**: production
    - **Shared with**: Shows "All environments" or your selected environments
@@ -99,8 +99,8 @@ You have two options:
 1. Open or update a PR to create/refresh a PR environment
 2. Go to the PR environment in Railway dashboard
 3. Click **Variables** tab
-4. Look for `YOTO_CLIENT_ID`
-5. The value should display as: `${{shared.YOTO_CLIENT_ID}}`
+4. Look for `YOTO_SERVER_CLIENT_ID`
+5. The value should display as: `${{shared.YOTO_SERVER_CLIENT_ID}}`
 6. **Hover over it** to see the resolved value
 7. If it shows the actual value (not empty), it's working!
 
@@ -113,10 +113,10 @@ Once shared variables are working, you can optionally remove the workaround from
 # - name: Configure PR Environment Variables
 #   env:
 #     RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-#     YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
+#     YOTO_SERVER_CLIENT_ID: ${{ secrets.YOTO_SERVER_CLIENT_ID }}
 #   run: |
-#     if [ -n "$YOTO_CLIENT_ID" ]; then
-#       railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "pr-${PR_NUMBER}"
+#     if [ -n "$YOTO_SERVER_CLIENT_ID" ]; then
+#       railway variables set YOTO_SERVER_CLIENT_ID="$YOTO_SERVER_CLIENT_ID" -e "pr-${PR_NUMBER}"
 #     fi
 ```
 
@@ -136,8 +136,8 @@ However, keeping it provides a safety net if shared variables fail.
    - Solution: Use "All environments" scope
 
 3. **Typo in Variable Reference**
-   - Incorrect syntax: `${{production.YOTO_CLIENT_ID}}`
-   - Correct syntax: `${{shared.YOTO_CLIENT_ID}}`
+   - Incorrect syntax: `${{production.YOTO_SERVER_CLIENT_ID}}`
+   - Correct syntax: `${{shared.YOTO_SERVER_CLIENT_ID}}`
    - Note: Variable name is case-sensitive
 
 4. **Variable Propagation Delay**
@@ -165,7 +165,7 @@ python scripts/diagnose_railway_shared_variables.py
 The tool will:
 - ✅ Check Railway CLI installation and authentication
 - ✅ List all environments in your project
-- ✅ Check YOTO_CLIENT_ID in each environment
+- ✅ Check YOTO_SERVER_CLIENT_ID in each environment
 - ✅ Provide detailed troubleshooting steps
 - ✅ Explain correct syntax and configuration
 
@@ -214,8 +214,8 @@ Include variable setting in your Docker build or start command:
 
 ```dockerfile
 # In Dockerfile or railway.toml
-CMD railway variables get YOTO_CLIENT_ID -e production | \
-    xargs -I {} railway variables set YOTO_CLIENT_ID={} && \
+CMD railway variables get YOTO_SERVER_CLIENT_ID -e production | \
+    xargs -I {} railway variables set YOTO_SERVER_CLIENT_ID={} && \
     uvicorn app:app
 ```
 
@@ -264,7 +264,7 @@ If the issue persists after proper configuration:
 
 ## Conclusion
 
-The `${{shared.YOTO_CLIENT_ID}}` empty string issue is most likely due to:
+The `${{shared.YOTO_SERVER_CLIENT_ID}}` empty string issue is most likely due to:
 - Missing shared variable configuration in Railway UI, OR
 - Sharing scope that doesn't include PR environments
 

@@ -191,7 +191,7 @@ test_periodic_token_refresh_respects_interval PASSED
 **For New Deployments**:
 - Feature is enabled by default
 - Works out of the box
-- Just ensure `YOTO_CLIENT_ID` is configured
+- Just ensure `YOTO_SERVER_CLIENT_ID` is configured
 
 ## Files Changed
 

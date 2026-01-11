@@ -22,7 +22,7 @@ Before deploying to Railway development, ensure:
 - [x] Railway CLI installed (`npm i -g @railway/cli`)
 - [x] Production server code is ready (on branch `copilot/build-server-and-setup-railway`)
 - [ ] `RAILWAY_TOKEN_DEV` configured as GitHub Secret
-- [ ] `YOTO_CLIENT_ID` configured as GitHub Secret (optional for basic deployment)
+- [ ] `YOTO_SERVER_CLIENT_ID` configured as GitHub Secret (optional for basic deployment)
 - [ ] Railway project has a `development` environment configured
 
 ## Deployment Options
@@ -77,7 +77,7 @@ export RAILWAY_TOKEN="your_token_here"
 railway up -e development
 
 # Set environment variables
-railway variables set YOTO_CLIENT_ID="your_client_id" -e development
+railway variables set YOTO_SERVER_CLIENT_ID="your_client_id" -e development
 # Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "development")
 railway variables set DEBUG="true" -e development
 ```
@@ -97,7 +97,7 @@ Set these in Railway dashboard or via CLI before first deployment:
 
 ```bash
 # Required
-YOTO_CLIENT_ID="your_yoto_client_id"
+YOTO_SERVER_CLIENT_ID="your_yoto_client_id"
 
 # Optional (for production server)
 PUBLIC_URL="https://yoto-smart-stream-development.up.railway.app"

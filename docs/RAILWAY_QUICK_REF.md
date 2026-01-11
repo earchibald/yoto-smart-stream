@@ -63,7 +63,7 @@ Set via Railway CLI or Dashboard:
 
 ```bash
 # Required
-railway variables set YOTO_CLIENT_ID="your_id" -e staging
+railway variables set YOTO_SERVER_CLIENT_ID="your_id" -e staging
 
 # Optional
 railway variables set DEBUG=true -e staging

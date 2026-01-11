@@ -29,7 +29,7 @@ Yoto Smart Stream uses Railway.app for hosting with a simplified two-environment
 
 - **Automatic deployments** to production on push to `main`
 - **Native PR Environments** - Railway automatically creates ephemeral environments for PRs
-- **Shared Variables** - PR environments inherit `YOTO_CLIENT_ID` from production
+- **Shared Variables** - PR environments inherit `YOTO_SERVER_CLIENT_ID` from production
 - **Zero-config PR lifecycle** - Environments automatically created/destroyed by Railway
 
 ## Prerequisites
@@ -52,7 +52,7 @@ Yoto Smart Stream uses Railway.app for hosting with a simplified two-environment
 2. Connect to GitHub repository: `earchibald/yoto-smart-stream`
 3. Create the production environment
 4. Enable Railway PR Environments feature in project settings
-5. Configure `YOTO_CLIENT_ID` as a Shared Variable in production environment
+5. Configure `YOTO_SERVER_CLIENT_ID` as a Shared Variable in production environment
 
 ## Initial Setup
 
@@ -81,15 +81,15 @@ RAILWAY_TOKEN_PROD=your_railway_token_here
 
 See [GITHUB_SECRETS_SETUP.md](../GITHUB_SECRETS_SETUP.md) for detailed instructions.
 
-### 3. Configure YOTO_CLIENT_ID in Railway
+### 3. Configure YOTO_SERVER_CLIENT_ID in Railway
 
-**Important**: `YOTO_CLIENT_ID` is stored in Railway, not in GitHub Secrets.
+**Important**: `YOTO_SERVER_CLIENT_ID` is stored in Railway, not in GitHub Secrets.
 
 1. Go to https://railway.app/dashboard
 2. Select your project → production environment
 3. Navigate to **Variables** tab
 4. Add a new **Shared Variable**:
-   - Name: `YOTO_CLIENT_ID`
+   - Name: `YOTO_SERVER_CLIENT_ID`
    - Value: Your Yoto Client ID from https://yoto.dev/
    - Type: **Shared Variable** (so PR environments can reference it)
 
@@ -166,7 +166,7 @@ git push origin feature/test-feature
 # Railway automatically:
 # - Creates pr-{number} environment
 # - Deploys your code
-# - Inherits YOTO_CLIENT_ID from production (via shared variables)
+# - Inherits YOTO_SERVER_CLIENT_ID from production (via shared variables)
 # - Posts deployment status to PR
 
 # 3. Access your PR environment at:
@@ -199,7 +199,7 @@ Railway needs these variables set in the production environment:
 
 ```bash
 # Core Application
-YOTO_CLIENT_ID=your_client_id_here  # Set as Shared Variable
+YOTO_SERVER_CLIENT_ID=your_client_id_here  # Set as Shared Variable
 PORT=8080  # Auto-set by Railway
 HOST=0.0.0.0
 
@@ -218,27 +218,27 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}  # If using PostgreSQL
 PR environments automatically inherit configuration from production:
 
 - `RAILWAY_ENVIRONMENT_NAME`: Automatically set to `pr-{number}` by Railway
-- `YOTO_CLIENT_ID`: Set to `${{shared.YOTO_CLIENT_ID}}` by GitHub Actions workflow
+- `YOTO_SERVER_CLIENT_ID`: Set to `${{shared.YOTO_SERVER_CLIENT_ID}}` by GitHub Actions workflow
   - This references the Shared Variable from production
 - Other variables can be configured per-PR if needed
 
 ### Setting Shared Variables in Railway
 
-**Important**: For `YOTO_CLIENT_ID` to work in PR environments, it must be a Shared Variable:
+**Important**: For `YOTO_SERVER_CLIENT_ID` to work in PR environments, it must be a Shared Variable:
 
 1. Go to Railway Dashboard → Your Project → production environment
 2. Click "Variables" tab
-3. Add/Edit `YOTO_CLIENT_ID`
+3. Add/Edit `YOTO_SERVER_CLIENT_ID`
 4. **Select "Shared Variable" type**
 5. Save
 
-This allows PR environments to reference it using `${{shared.YOTO_CLIENT_ID}}`.
+This allows PR environments to reference it using `${{shared.YOTO_SERVER_CLIENT_ID}}`.
 
 **⚠️ Warning**: If the shared variable is not properly configured:
 - PR environments will fail to authenticate with the Yoto API
 - You'll see authentication errors in PR environment logs
 - The application may start but Yoto features won't work
-- Fix by setting `YOTO_CLIENT_ID` as a Shared Variable in production environment
+- Fix by setting `YOTO_SERVER_CLIENT_ID` as a Shared Variable in production environment
 
 ### Setting Variables via CLI
 
@@ -247,7 +247,7 @@ This allows PR environments to reference it using `${{shared.YOTO_CLIENT_ID}}`.
 railway variables set DEBUG=false -e production
 railway variables set LOG_LEVEL=warning -e production
 
-# Set a shared variable (YOTO_CLIENT_ID should be set via dashboard as "Shared Variable")
+# Set a shared variable (YOTO_SERVER_CLIENT_ID should be set via dashboard as "Shared Variable")
 # Note: CLI doesn't support setting shared variable type, use dashboard
 
 # View all variables
@@ -264,7 +264,7 @@ railway variables set DEBUG=true -e pr-123
 3. Choose environment (production or pr-{number})
 4. Click "Variables" tab
 5. Add/Edit variables
-6. For `YOTO_CLIENT_ID` in production: Select "Shared Variable" type
+6. For `YOTO_SERVER_CLIENT_ID` in production: Select "Shared Variable" type
 
 ## Monitoring
 
@@ -383,17 +383,17 @@ RAILWAY_TOKEN=your_token railway whoami
 
 ### Variables Not Loading in PR Environments
 
-**Issue**: `YOTO_CLIENT_ID` not available in PR environment
+**Issue**: `YOTO_SERVER_CLIENT_ID` not available in PR environment
 
 **Solutions**:
 ```bash
-# 1. Verify YOTO_CLIENT_ID is a Shared Variable in production
+# 1. Verify YOTO_SERVER_CLIENT_ID is a Shared Variable in production
 railway variables -e production
 # It should show as a shared variable
 
 # 2. Check PR environment has the reference set
 railway variables -e pr-123
-# Should show: YOTO_CLIENT_ID=${{shared.YOTO_CLIENT_ID}}
+# Should show: YOTO_SERVER_CLIENT_ID=${{shared.YOTO_SERVER_CLIENT_ID}}
 
 # 3. Ensure production environment is named exactly "production"
 railway status
@@ -445,7 +445,7 @@ GitHub Actions workflow for automated production deployments:
 - **Triggers**: Push to `main` branch, PRs to `main`
 - **Jobs**: Test → Deploy to Production
 - **Security**: Uses `RAILWAY_TOKEN_PROD` from GitHub Secrets
-- **Variables**: Production uses Shared Variable for `YOTO_CLIENT_ID`
+- **Variables**: Production uses Shared Variable for `YOTO_SERVER_CLIENT_ID`
 
 ### .github/workflows/railway-pr-checks.yml
 
@@ -453,7 +453,7 @@ GitHub Actions workflow for PR environment validation:
 
 - **Triggers**: Pull requests to `main`
 - **Purpose**: Validates PR environment after Railway creates it
-- **Configuration**: Sets `YOTO_CLIENT_ID` to reference production's shared variable
+- **Configuration**: Sets `YOTO_SERVER_CLIENT_ID` to reference production's shared variable
 
 ## Best Practices
 

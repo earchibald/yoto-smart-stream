@@ -106,11 +106,13 @@ async def start_auth_flow():
 
     if not settings.yoto_client_id:
         import os
-        env_value = os.environ.get('YOTO_CLIENT_ID', 'NOT SET')
-        logger.error(f"YOTO_CLIENT_ID not configured. Environment variable: {env_value}, Settings value: {settings.yoto_client_id}")
+        # Check both new and legacy variable names
+        server_client_id = os.environ.get('YOTO_SERVER_CLIENT_ID', 'NOT SET')
+        legacy_client_id = os.environ.get('YOTO_CLIENT_ID', 'NOT SET')
+        logger.error(f"Yoto client ID not configured. YOTO_SERVER_CLIENT_ID: {server_client_id}, YOTO_CLIENT_ID (deprecated): {legacy_client_id}, Settings value: {settings.yoto_client_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"YOTO_CLIENT_ID not configured. Environment check: {env_value}. Please ensure the environment variable is set correctly."
+            detail=f"Yoto client ID not configured. Please set YOTO_SERVER_CLIENT_ID environment variable. Environment check - YOTO_SERVER_CLIENT_ID: {server_client_id}, YOTO_CLIENT_ID: {legacy_client_id}"
         )
 
     try:

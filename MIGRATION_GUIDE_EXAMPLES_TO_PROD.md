@@ -18,7 +18,7 @@ The production server uses the same environment variables, so no changes needed:
 
 ```bash
 # .env file (same for both)
-YOTO_CLIENT_ID=your_client_id
+YOTO_SERVER_CLIENT_ID=your_client_id
 PUBLIC_URL=https://your-server.com
 ENVIRONMENT=development
 LOG_LEVEL=INFO
@@ -190,7 +190,7 @@ pip install -r requirements.txt
 **Solution**:
 ```bash
 # Check environment variables
-echo $YOTO_CLIENT_ID
+echo $YOTO_SERVER_CLIENT_ID
 
 # Or use .env file
 cp .env.example .env

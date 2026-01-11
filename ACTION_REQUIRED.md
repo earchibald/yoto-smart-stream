@@ -1,12 +1,12 @@
-# Action Required: Deploy and Test YOTO_CLIENT_ID Fix
+# Action Required: Deploy and Test YOTO_SERVER_CLIENT_ID Fix
 
 ## Status: ✅ Code Fix Complete, ⏳ Deployment Pending
 
-The fix for YOTO_CLIENT_ID not being passed to Railway deployments has been implemented and is ready for testing.
+The fix for YOTO_SERVER_CLIENT_ID not being passed to Railway deployments has been implemented and is ready for testing.
 
 ## What Was Fixed
 
-All Railway deployment workflows now set environment variables (including YOTO_CLIENT_ID) **BEFORE** running `railway up`, ensuring the service starts with the correct configuration.
+All Railway deployment workflows now set environment variables (including YOTO_SERVER_CLIENT_ID) **BEFORE** running `railway up`, ensuring the service starts with the correct configuration.
 
 ## How to Deploy and Test
 
@@ -25,7 +25,7 @@ All Railway deployment workflows now set environment variables (including YOTO_C
 
 3. **Monitor the Deployment**
    - Watch the workflow execution
-   - Check for "Setting YOTO_CLIENT_ID..." in the logs
+   - Check for "Setting YOTO_SERVER_CLIENT_ID..." in the logs
    - Wait for completion (~3-5 minutes)
 
 ### Option 2: Merge to Auto-Deploy Branch
@@ -47,7 +47,7 @@ If you have Railway CLI and token configured:
 
 ```bash
 export RAILWAY_TOKEN="your_dev_token"
-railway variables set YOTO_CLIENT_ID="your_client_id" -e development
+railway variables set YOTO_SERVER_CLIENT_ID="your_client_id" -e development
 railway up -e development
 railway logs -e development --tail 50
 ```
@@ -58,14 +58,14 @@ After deployment completes:
 
 ### 1. Check Workflow Logs
 Look for these in the GitHub Actions workflow:
-- ✅ "Setting YOTO_CLIENT_ID..."
-- ❌ No warning about YOTO_CLIENT_ID not set
+- ✅ "Setting YOTO_SERVER_CLIENT_ID..."
+- ❌ No warning about YOTO_SERVER_CLIENT_ID not set
 
 ### 2. Check Railway Dashboard
 - Go to https://railway.app
 - Open Yoto Smart Stream project → development environment
 - Navigate to Variables tab
-- Verify YOTO_CLIENT_ID is listed
+- Verify YOTO_SERVER_CLIENT_ID is listed
 
 ### 3. Check Application Logs
 In Railway deployment logs, look for:
@@ -96,7 +96,7 @@ open https://yoto-smart-stream-development.up.railway.app/docs
 All of these should be true after deployment:
 - [x] Code changes committed and pushed
 - [ ] Deployment workflow runs without errors
-- [ ] YOTO_CLIENT_ID appears in Railway variables
+- [ ] YOTO_SERVER_CLIENT_ID appears in Railway variables
 - [ ] Service starts successfully
 - [ ] Logs show "✓ Yoto API connected successfully"
 - [ ] Health endpoint returns healthy status
@@ -114,7 +114,7 @@ All of these should be true after deployment:
 
 - `DEPLOY_AND_TEST_INSTRUCTIONS.md` - Detailed deployment guide
 - `DEPLOYMENT_TEST_PLAN.md` - Comprehensive testing checklist
-- `IMPLEMENTATION_COMPLETE_YOTO_CLIENT_ID.md` - Technical summary
+- `IMPLEMENTATION_COMPLETE_YOTO_SERVER_CLIENT_ID.md` - Technical summary
 - `ACTION_REQUIRED.md` - This file
 
 ## What to Do Next
@@ -128,7 +128,7 @@ All of these should be true after deployment:
 ## Need Help?
 
 If you encounter issues:
-- Check that YOTO_CLIENT_ID is set in GitHub Secrets (Settings → Secrets → Actions)
+- Check that YOTO_SERVER_CLIENT_ID is set in GitHub Secrets (Settings → Secrets → Actions)
 - Verify RAILWAY_TOKEN_DEV is configured in GitHub Secrets
 - Ensure the Railway development environment exists and is accessible
 - Review Railway dashboard for any service errors
@@ -142,7 +142,7 @@ If you encounter issues:
   Yes - only workflow files were changed, no application code. The change is minimal and well-tested in design. Railway variables are persistent and safe to set multiple times.
 
 - **What if it doesn't work?**
-  You can revert the commits, or manually set YOTO_CLIENT_ID in Railway dashboard as a workaround. The application code is unchanged, so there's no code rollback needed.
+  You can revert the commits, or manually set YOTO_SERVER_CLIENT_ID in Railway dashboard as a workaround. The application code is unchanged, so there's no code rollback needed.
 
 ---
 

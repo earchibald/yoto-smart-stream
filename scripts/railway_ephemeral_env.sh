@@ -97,9 +97,9 @@ deploy_environment() {
     railway variables set LOG_LEVEL="debug" -e "$ENV_NAME" || log_warning "Could not set LOG_LEVEL variable"
     
     # Copy secrets from GitHub Actions if available
-    if [ -n "$YOTO_CLIENT_ID" ]; then
-        log_info "Syncing YOTO_CLIENT_ID to Railway..."
-        railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "$ENV_NAME" || log_warning "Could not sync YOTO_CLIENT_ID"
+    if [ -n "$YOTO_SERVER_CLIENT_ID" ]; then
+        log_info "Syncing YOTO_SERVER_CLIENT_ID to Railway..."
+        railway variables set YOTO_SERVER_CLIENT_ID="$YOTO_SERVER_CLIENT_ID" -e "$ENV_NAME" || log_warning "Could not sync YOTO_SERVER_CLIENT_ID"
     fi
     
     # Deploy the application
@@ -214,7 +214,7 @@ EXAMPLES:
 
 ENVIRONMENT VARIABLES:
     RAILWAY_TOKEN      Railway API token (required for CI/CD)
-    YOTO_CLIENT_ID     Yoto API client ID (synced to Railway)
+    YOTO_SERVER_CLIENT_ID     Yoto API client ID (synced to Railway)
 
 AUTHENTICATION:
     - For local use: Run 'railway login' first

@@ -59,7 +59,7 @@ In your Codespace terminal:
 echo $RAILWAY_TOKEN  # Should show your token (or part of it)
 
 # Check if Yoto Client ID is available
-echo $YOTO_CLIENT_ID  # Should show your client ID
+echo $YOTO_SERVER_CLIENT_ID  # Should show your client ID
 
 # Verify Railway authentication
 railway whoami
@@ -70,7 +70,7 @@ python examples/simple_client.py
 
 **Expected behavior:**
 - RAILWAY_TOKEN should be set (for deployments)
-- YOTO_CLIENT_ID should be set (for API access)
+- YOTO_SERVER_CLIENT_ID should be set (for API access)
 - `simple_client.py` should start device flow authentication
 
 ## For Yoto API Credentials (Required for Testing)
@@ -98,7 +98,7 @@ Same process as Railway token:
 1. Go to https://github.com/settings/codespaces
 2. Click **"New secret"**
 3. Fill in:
-   - **Name:** `YOTO_CLIENT_ID`
+   - **Name:** `YOTO_SERVER_CLIENT_ID`
    - **Value:** Paste your Yoto Client ID (from yoto.dev)
    - **Repository access:** Select this repository (`earchibald/yoto-smart-stream`)
 4. Click **"Add secret"**
@@ -106,9 +106,9 @@ Same process as Railway token:
 **Why it's needed:**
 - All Yoto API interactions require authentication
 - Authentication requires a Client ID
-- Examples like `simple_client.py`, `basic_server.py` all check for YOTO_CLIENT_ID
-- Without it: `Error: YOTO_CLIENT_ID environment variable not set`
-   - **Name:** `YOTO_CLIENT_ID`
+- Examples like `simple_client.py`, `basic_server.py` all check for YOTO_SERVER_CLIENT_ID
+- Without it: `Error: YOTO_SERVER_CLIENT_ID environment variable not set`
+   - **Name:** `YOTO_SERVER_CLIENT_ID`
    - **Value:** Paste your Yoto Client ID
    - **Repository access:** Select this repository
 4. Click **"Add secret"**
@@ -245,17 +245,17 @@ Understanding where secrets are used:
 ```
 1. GitHub Repository Secrets
    ├── Used by: GitHub Actions workflows
-   ├── Examples: RAILWAY_TOKEN, YOTO_CLIENT_ID
+   ├── Examples: RAILWAY_TOKEN, YOTO_SERVER_CLIENT_ID
    └── Managed at: Repo Settings → Secrets and variables → Actions
 
 2. GitHub Codespaces Secrets (User-level)
    ├── Used by: Your personal Codespaces
-   ├── Examples: RAILWAY_TOKEN, YOTO_CLIENT_ID
+   ├── Examples: RAILWAY_TOKEN, YOTO_SERVER_CLIENT_ID
    └── Managed at: https://github.com/settings/codespaces
 
 3. Railway Environment Variables
    ├── Used by: Deployed applications
-   ├── Examples: DATABASE_URL, YOTO_CLIENT_ID
+   ├── Examples: DATABASE_URL, YOTO_SERVER_CLIENT_ID
    └── Managed at: Railway Dashboard or via CLI
 ```
 

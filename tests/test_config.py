@@ -174,6 +174,42 @@ class TestLogEnvOnStartup:
         assert settings.log_env_on_startup is False
 
 
+class TestYotoClientIdConfiguration:
+    """Test Yoto client ID configuration with backward compatibility."""
+
+    def test_yoto_server_client_id_preferred(self, monkeypatch):
+        """Test that YOTO_SERVER_CLIENT_ID is loaded correctly."""
+        monkeypatch.setenv("YOTO_SERVER_CLIENT_ID", "test_server_client_id")
+        monkeypatch.delenv("YOTO_CLIENT_ID", raising=False)
+
+        settings = Settings()
+        assert settings.yoto_client_id == "test_server_client_id"
+
+    def test_yoto_client_id_backward_compatibility(self, monkeypatch):
+        """Test that YOTO_CLIENT_ID still works for backward compatibility."""
+        monkeypatch.setenv("YOTO_CLIENT_ID", "test_legacy_client_id")
+        monkeypatch.delenv("YOTO_SERVER_CLIENT_ID", raising=False)
+
+        settings = Settings()
+        assert settings.yoto_client_id == "test_legacy_client_id"
+
+    def test_yoto_server_client_id_takes_priority(self, monkeypatch):
+        """Test that YOTO_SERVER_CLIENT_ID takes priority over YOTO_CLIENT_ID."""
+        monkeypatch.setenv("YOTO_SERVER_CLIENT_ID", "new_server_client_id")
+        monkeypatch.setenv("YOTO_CLIENT_ID", "old_client_id")
+
+        settings = Settings()
+        assert settings.yoto_client_id == "new_server_client_id"
+
+    def test_no_client_id_configured(self, monkeypatch):
+        """Test that yoto_client_id is None when not configured."""
+        monkeypatch.delenv("YOTO_SERVER_CLIENT_ID", raising=False)
+        monkeypatch.delenv("YOTO_CLIENT_ID", raising=False)
+
+        settings = Settings()
+        assert settings.yoto_client_id is None
+
+
 class TestTokenFilePath:
     """Test token file path configuration based on environment."""
 

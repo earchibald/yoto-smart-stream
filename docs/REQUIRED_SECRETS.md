@@ -5,9 +5,9 @@
 This project requires **two types of secrets** for full functionality:
 
 1. **RAILWAY_TOKEN** - For Railway deployments (optional for local development)
-2. **YOTO_CLIENT_ID** - For Yoto API access (**REQUIRED for any testing**)
+2. **YOTO_SERVER_CLIENT_ID** - For Yoto API access (**REQUIRED for any testing**)
 
-## Quick Answer: Do I Need YOTO_CLIENT_ID in Codespaces?
+## Quick Answer: Do I Need YOTO_SERVER_CLIENT_ID in Codespaces?
 
 **YES - ABSOLUTELY REQUIRED** if you want to:
 - ✅ Run any examples (`simple_client.py`, `basic_server.py`, etc.)
@@ -17,8 +17,8 @@ This project requires **two types of secrets** for full functionality:
 - ✅ Create MYO cards
 - ✅ Test MQTT event handling
 
-**Without YOTO_CLIENT_ID:**
-- ❌ All examples will fail with: `Error: YOTO_CLIENT_ID environment variable not set`
+**Without YOTO_SERVER_CLIENT_ID:**
+- ❌ All examples will fail with: `Error: YOTO_SERVER_CLIENT_ID environment variable not set`
 - ❌ Cannot authenticate with Yoto API
 - ❌ Cannot test any Yoto functionality
 - ❌ Can only work on documentation or non-Yoto code
@@ -29,7 +29,7 @@ This project requires **two types of secrets** for full functionality:
 
 **Required:**
 ```bash
-export YOTO_CLIENT_ID="your_client_id_from_yoto_dev"
+export YOTO_SERVER_CLIENT_ID="your_client_id_from_yoto_dev"
 ```
 
 **Optional:**
@@ -41,7 +41,7 @@ export RAILWAY_TOKEN="your_railway_token"  # Only if deploying
 
 **Required Codespaces Secrets:**
 
-1. **YOTO_CLIENT_ID** (REQUIRED)
+1. **YOTO_SERVER_CLIENT_ID** (REQUIRED)
    - Location: https://github.com/settings/codespaces
    - Why: Needed for ALL Yoto API interactions
    - Get from: https://yoto.dev/
@@ -58,9 +58,9 @@ export RAILWAY_TOKEN="your_railway_token"  # Only if deploying
 1. **RAILWAY_TOKEN_PROD** - Production deployments
 2. **RAILWAY_TOKEN_STAGING** - Staging deployments
 3. **RAILWAY_TOKEN_DEV** - Development deployments
-4. **YOTO_CLIENT_ID** - Used to set Railway environment variables
+4. **YOTO_SERVER_CLIENT_ID** - Used to set Railway environment variables
 
-## How YOTO_CLIENT_ID is Used
+## How YOTO_SERVER_CLIENT_ID is Used
 
 ### In Examples
 
@@ -68,9 +68,9 @@ Every example requires it to initialize the Yoto API client:
 
 ```python
 # examples/simple_client.py
-client_id = os.getenv("YOTO_CLIENT_ID")
+client_id = os.getenv("YOTO_SERVER_CLIENT_ID")
 if not client_id:
-    logger.error("YOTO_CLIENT_ID environment variable not set")
+    logger.error("YOTO_SERVER_CLIENT_ID environment variable not set")
     logger.info("Get your client ID from: https://yoto.dev/")
     sys.exit(1)
 
@@ -83,24 +83,24 @@ The FastAPI server requires it to function:
 
 ```python
 # examples/basic_server.py
-client_id = os.getenv("YOTO_CLIENT_ID")
+client_id = os.getenv("YOTO_SERVER_CLIENT_ID")
 if not client_id:
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="YOTO_CLIENT_ID not configured",
+        detail="YOTO_SERVER_CLIENT_ID not configured",
     )
 ```
 
 ### Authentication Flow
 
-1. Application uses YOTO_CLIENT_ID to request device code
+1. Application uses YOTO_SERVER_CLIENT_ID to request device code
 2. User visits https://login.yotoplay.com/activate
 3. User enters code
 4. Application polls Yoto server
 5. Receives access token and refresh token
 6. Refresh token stored in `.yoto_refresh_token` file
 
-**Without YOTO_CLIENT_ID:** Cannot even start this flow!
+**Without YOTO_SERVER_CLIENT_ID:** Cannot even start this flow!
 
 ## Setup Instructions
 
@@ -121,7 +121,7 @@ if not client_id:
 1. Go to https://github.com/settings/codespaces
 2. Click "New secret"
 3. Fill in:
-   - Name: `YOTO_CLIENT_ID`
+   - Name: `YOTO_SERVER_CLIENT_ID`
    - Value: Your client ID from step 1
    - Repository access: `earchibald/yoto-smart-stream`
 4. Click "Add secret"
@@ -144,7 +144,7 @@ In your Codespace terminal:
 
 ```bash
 # Check if both secrets are set
-echo $YOTO_CLIENT_ID  # Should show your client ID
+echo $YOTO_SERVER_CLIENT_ID  # Should show your client ID
 echo $RAILWAY_TOKEN   # Should show your token (if set)
 
 # Test Yoto authentication
@@ -152,19 +152,19 @@ python examples/simple_client.py
 # Should start device flow authentication
 ```
 
-## What Happens Without YOTO_CLIENT_ID
+## What Happens Without YOTO_SERVER_CLIENT_ID
 
 ### Error Messages You'll See
 
 ```
-Error: YOTO_CLIENT_ID environment variable not set
+Error: YOTO_SERVER_CLIENT_ID environment variable not set
 Get your client ID from: https://yoto.dev/get-started/start-here/
 ```
 
 Or:
 
 ```
-HTTPException: YOTO_CLIENT_ID not configured
+HTTPException: YOTO_SERVER_CLIENT_ID not configured
 ```
 
 ### What Won't Work
@@ -182,9 +182,9 @@ HTTPException: YOTO_CLIENT_ID not configured
 - ✅ Railway infrastructure code (if you have RAILWAY_TOKEN)
 - ✅ Running linters, formatters
 
-## Comparison: RAILWAY_TOKEN vs YOTO_CLIENT_ID
+## Comparison: RAILWAY_TOKEN vs YOTO_SERVER_CLIENT_ID
 
-| Feature | RAILWAY_TOKEN | YOTO_CLIENT_ID |
+| Feature | RAILWAY_TOKEN | YOTO_SERVER_CLIENT_ID |
 |---------|---------------|----------------|
 | **Purpose** | Deploy to Railway | Access Yoto API |
 | **Required For** | Deployments only | ALL Yoto testing |
@@ -195,29 +195,29 @@ HTTPException: YOTO_CLIENT_ID not configured
 
 ## Troubleshooting
 
-### "YOTO_CLIENT_ID not set" Error
+### "YOTO_SERVER_CLIENT_ID not set" Error
 
-**Problem:** Examples fail with missing YOTO_CLIENT_ID
+**Problem:** Examples fail with missing YOTO_SERVER_CLIENT_ID
 
 **Solution:**
 1. Verify secret is added at https://github.com/settings/codespaces
 2. Check repository access is granted
 3. Restart Codespace
-4. Test: `echo $YOTO_CLIENT_ID`
+4. Test: `echo $YOTO_SERVER_CLIENT_ID`
 
 ### Secret Not Available in Codespace
 
-**Problem:** `echo $YOTO_CLIENT_ID` shows nothing
+**Problem:** `echo $YOTO_SERVER_CLIENT_ID` shows nothing
 
 **Solution:**
-1. Verify secret name is exactly `YOTO_CLIENT_ID` (case-sensitive)
+1. Verify secret name is exactly `YOTO_SERVER_CLIENT_ID` (case-sensitive)
 2. Verify repository access includes this repo
 3. Restart Codespace (secrets only load on start)
 4. Check `.devcontainer/devcontainer.json` has remoteEnv config
 
 ### Authentication Fails Even With Client ID
 
-**Problem:** Have YOTO_CLIENT_ID but authentication fails
+**Problem:** Have YOTO_SERVER_CLIENT_ID but authentication fails
 
 **Solution:**
 1. Verify the Client ID is correct (copy from yoto.dev)
@@ -229,7 +229,7 @@ HTTPException: YOTO_CLIENT_ID not configured
 
 ### ✅ DO:
 
-- Add YOTO_CLIENT_ID to Codespaces secrets immediately
+- Add YOTO_SERVER_CLIENT_ID to Codespaces secrets immediately
 - Document your Client ID (not a secret, but keep private)
 - Use separate Client IDs for dev/staging/prod if available
 - Store refresh token securely (`.yoto_refresh_token`)
@@ -237,14 +237,14 @@ HTTPException: YOTO_CLIENT_ID not configured
 
 ### ❌ DON'T:
 
-- Commit YOTO_CLIENT_ID to git (even though it's not a secret)
+- Commit YOTO_SERVER_CLIENT_ID to git (even though it's not a secret)
 - Share your Client ID publicly
 - Use production credentials for development testing
-- Skip adding YOTO_CLIENT_ID and expect testing to work
+- Skip adding YOTO_SERVER_CLIENT_ID and expect testing to work
 
 ## Summary
 
-**YOTO_CLIENT_ID is MANDATORY for any Yoto API testing.**
+**YOTO_SERVER_CLIENT_ID is MANDATORY for any Yoto API testing.**
 
 Without it, you can only work on:
 - Documentation

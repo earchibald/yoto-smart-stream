@@ -75,12 +75,13 @@ class EventLogger:
 def main():
     """Main function to listen for MQTT events."""
 
-    # Get client ID from environment or token file
-    client_id = os.getenv("YOTO_CLIENT_ID")
+    # Get client ID from environment or token file (prefer YOTO_SERVER_CLIENT_ID, fallback to legacy YOTO_CLIENT_ID)
+    client_id = os.getenv("YOTO_SERVER_CLIENT_ID") or os.getenv("YOTO_CLIENT_ID")
     token_file = Path(".yoto_refresh_token")
 
     if not client_id:
-        logger.error("YOTO_CLIENT_ID environment variable not set")
+        logger.error("YOTO_SERVER_CLIENT_ID or YOTO_CLIENT_ID environment variable not set")
+        logger.info("Set with: export YOTO_SERVER_CLIENT_ID=your_client_id")
         sys.exit(1)
 
     if not token_file.exists():

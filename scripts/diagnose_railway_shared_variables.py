@@ -2,7 +2,7 @@
 """
 Diagnostic script to investigate Railway shared variables issue.
 
-This script comprehensively checks why ${{shared.YOTO_CLIENT_ID}} might be
+This script comprehensively checks why ${{shared.YOTO_SERVER_CLIENT_ID}} might be
 coming through as an empty string in PR environments.
 """
 
@@ -118,7 +118,7 @@ def list_environments(project_id: Optional[str] = None) -> List[Dict[str, Any]]:
     return environments
 
 
-def check_variable_in_environment(env_name: str, var_name: str = "YOTO_CLIENT_ID") -> Optional[str]:
+def check_variable_in_environment(env_name: str, var_name: str = "YOTO_SERVER_CLIENT_ID") -> Optional[str]:
     """Check if a variable exists in a specific environment."""
     print(f"\n  Checking {var_name} in '{env_name}':")
     
@@ -163,7 +163,7 @@ def check_shared_variables() -> Dict[str, Any]:
     print("\n📋 What to check in Railway Web UI:")
     print("  1. Go to your project dashboard")
     print("  2. Click 'Settings' → 'Shared Variables'")
-    print("  3. Verify YOTO_CLIENT_ID is listed")
+    print("  3. Verify YOTO_SERVER_CLIENT_ID is listed")
     print("  4. Check which environments it's shared WITH")
     print("  5. Verify the 'Source Environment' (should be 'production')")
     
@@ -181,12 +181,12 @@ def check_variable_references() -> None:
     
     print("\n✅ CORRECT syntax for shared variables:")
     print("  ${{shared.VARIABLE_NAME}}")
-    print("  Example: ${{shared.YOTO_CLIENT_ID}}")
+    print("  Example: ${{shared.YOTO_SERVER_CLIENT_ID}}")
     
     print("\n❌ INCORRECT syntax:")
-    print("  ${{production.YOTO_CLIENT_ID}}  # Wrong - references environment, not shared")
-    print("  ${YOTO_CLIENT_ID}                # Wrong - shell syntax")
-    print("  $YOTO_CLIENT_ID                  # Wrong - direct reference")
+    print("  ${{production.YOTO_SERVER_CLIENT_ID}}  # Wrong - references environment, not shared")
+    print("  ${YOTO_SERVER_CLIENT_ID}                # Wrong - shell syntax")
+    print("  $YOTO_SERVER_CLIENT_ID                  # Wrong - direct reference")
     
     print("\n🔍 Common Issues:")
     print("  1. Typo in variable name (case-sensitive)")
@@ -213,7 +213,7 @@ def check_pr_environment_setup() -> None:
     print("\n⚠️  CRITICAL: Shared variables propagation")
     print("  - Shared variables are NOT automatically available to PR environments")
     print("  - You must explicitly configure sharing scope in Railway UI")
-    print("  - Check: Settings → Shared Variables → Click on YOTO_CLIENT_ID")
+    print("  - Check: Settings → Shared Variables → Click on YOTO_SERVER_CLIENT_ID")
     print("  - Verify: 'Shared with' includes PR environments or 'All environments'")
 
 
@@ -231,7 +231,7 @@ def provide_troubleshooting_steps() -> None:
     print("  2. Select your project: yoto-smart-stream")
     print("  3. Click: Settings (left sidebar)")
     print("  4. Click: Shared Variables")
-    print("  5. Find: YOTO_CLIENT_ID")
+    print("  5. Find: YOTO_SERVER_CLIENT_ID")
     print("     - If NOT listed: Variable is not shared! See STEP 2")
     print("     - If listed: Check 'Shared with' column")
     
@@ -239,7 +239,7 @@ def provide_troubleshooting_steps() -> None:
     print("  ───────────────────────────────────")
     print("  1. In Railway dashboard, go to 'production' environment")
     print("  2. Click 'Variables' tab")
-    print("  3. Find YOTO_CLIENT_ID variable")
+    print("  3. Find YOTO_SERVER_CLIENT_ID variable")
     print("  4. Click the ⋮ (three dots) menu next to it")
     print("  5. Select 'Share variable'")
     print("  6. Choose sharing scope:")
@@ -250,7 +250,7 @@ def provide_troubleshooting_steps() -> None:
     print("\n  STEP 3: Verify Sharing Configuration")
     print("  ────────────────────────────────────")
     print("  1. Go back to: Settings → Shared Variables")
-    print("  2. Click on 'YOTO_CLIENT_ID' row")
+    print("  2. Click on 'YOTO_SERVER_CLIENT_ID' row")
     print("  3. Verify:")
     print("     - Source: production")
     print("     - Shared with: Shows 'All environments' or includes PR envs")
@@ -259,14 +259,14 @@ def provide_troubleshooting_steps() -> None:
     print("  ──────────────────────────────")
     print("  1. Go to a PR environment (e.g., pr-123)")
     print("  2. Click 'Variables' tab")
-    print("  3. Look for YOTO_CLIENT_ID")
-    print("  4. Value should show: ${{shared.YOTO_CLIENT_ID}}")
+    print("  3. Look for YOTO_SERVER_CLIENT_ID")
+    print("  4. Value should show: ${{shared.YOTO_SERVER_CLIENT_ID}}")
     print("  5. Hover over it to see resolved value")
     
     print("\n  STEP 5: Alternative - Set Directly (Not Recommended)")
     print("  ────────────────────────────────────────────────────")
     print("  If shared variables don't work, temporarily set directly:")
-    print("  $ railway variables set YOTO_CLIENT_ID='your_value' -e pr-123")
+    print("  $ railway variables set YOTO_SERVER_CLIENT_ID='your_value' -e pr-123")
     print("  ⚠️  This is a workaround - proper fix is sharing from production")
 
 
@@ -283,20 +283,20 @@ def check_github_workflow_config() -> None:
         with open(workflow_file, 'r') as f:
             content = f.read()
             
-        if 'YOTO_CLIENT_ID' in content:
-            print("✅ Workflow references YOTO_CLIENT_ID")
+        if 'YOTO_SERVER_CLIENT_ID' in content:
+            print("✅ Workflow references YOTO_SERVER_CLIENT_ID")
             
             # Check if it's using GitHub secrets
-            if '${{ secrets.YOTO_CLIENT_ID }}' in content:
-                print("✅ Uses GitHub Secrets for YOTO_CLIENT_ID")
+            if '${{ secrets.YOTO_SERVER_CLIENT_ID }}' in content:
+                print("✅ Uses GitHub Secrets for YOTO_SERVER_CLIENT_ID")
                 print("\n⚠️  NOTE: Workflow sets variable directly, not using shared variables!")
                 print("   This is a WORKAROUND for the shared variables issue.")
                 print("   Line in workflow:")
                 for i, line in enumerate(content.split('\n'), 1):
-                    if 'YOTO_CLIENT_ID' in line and 'railway variables set' in content[max(0, content.find(line)-200):content.find(line)+200]:
+                    if 'YOTO_SERVER_CLIENT_ID' in line and 'railway variables set' in content[max(0, content.find(line)-200):content.find(line)+200]:
                         print(f"   {i}: {line.strip()}")
         else:
-            print("⚠️  Workflow doesn't reference YOTO_CLIENT_ID")
+            print("⚠️  Workflow doesn't reference YOTO_SERVER_CLIENT_ID")
     else:
         print(f"❌ Workflow file not found: {workflow_file}")
 
@@ -305,7 +305,7 @@ def main():
     """Main diagnostic function."""
     print("\n" + "=" * 80)
     print("Railway Shared Variables Diagnostic Tool")
-    print("Investigating: Why ${{shared.YOTO_CLIENT_ID}} is empty in PR environments")
+    print("Investigating: Why ${{shared.YOTO_SERVER_CLIENT_ID}} is empty in PR environments")
     print("=" * 80)
     
     # Check Railway CLI
@@ -320,10 +320,10 @@ def main():
     # List environments
     environments = list_environments(project_id)
     
-    # Check YOTO_CLIENT_ID in each environment
+    # Check YOTO_SERVER_CLIENT_ID in each environment
     if environments:
         print("\n" + "=" * 80)
-        print("4. Checking YOTO_CLIENT_ID in Each Environment")
+        print("4. Checking YOTO_SERVER_CLIENT_ID in Each Environment")
         print("=" * 80)
         
         for env in environments:
@@ -351,7 +351,7 @@ def main():
     print("=" * 80)
     print("\n📊 Summary:")
     print("  1. Check Railway Web UI for shared variable configuration")
-    print("  2. Verify YOTO_CLIENT_ID is marked as 'shared' from production")
+    print("  2. Verify YOTO_SERVER_CLIENT_ID is marked as 'shared' from production")
     print("  3. Ensure sharing scope includes PR environments")
     print("  4. GitHub workflow currently sets variables directly as workaround")
     print("\n🔗 Useful Links:")

@@ -199,13 +199,13 @@ After registering your Yoto app, verify you receive:
 Store your Client ID securely:
 ```bash
 # In .env file (don't commit!)
-YOTO_CLIENT_ID=your_client_id_here
+YOTO_SERVER_CLIENT_ID=your_client_id_here
 
 # In GitHub Secrets
-YOTO_CLIENT_ID (value: your_client_id_here)
+YOTO_SERVER_CLIENT_ID (value: your_client_id_here)
 
 # In Railway Variables
-YOTO_CLIENT_ID (value: your_client_id_here)
+YOTO_SERVER_CLIENT_ID (value: your_client_id_here)
 ```
 
 ## Testing Authentication
@@ -239,7 +239,7 @@ python examples/simple_client.py
 ### Issue: Authentication works locally but fails on Railway
 
 **Solution:** Device Flow authentication doesn't depend on deployment URLs. Check:
-1. YOTO_CLIENT_ID environment variable is set in Railway
+1. YOTO_SERVER_CLIENT_ID environment variable is set in Railway
 2. Railway environment has network access to login.yotoplay.com
 3. Refresh token is stored correctly
 

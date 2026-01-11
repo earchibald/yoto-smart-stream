@@ -126,7 +126,7 @@ LOG_LEVEL=debug
 PR_NUMBER=123
 PR_TITLE="Add new feature"
 GIT_SHA=abc123def456
-YOTO_CLIENT_ID={synced from GitHub Secrets}
+YOTO_SERVER_CLIENT_ID={synced from GitHub Secrets}
 ```
 
 ## Copilot Session Environments
@@ -189,7 +189,7 @@ LOG_LEVEL=debug
 SESSION_TYPE=copilot
 BRANCH_NAME=copilot/feature-name
 GIT_SHA=abc123def456
-YOTO_CLIENT_ID={synced from GitHub Secrets}
+YOTO_SERVER_CLIENT_ID={synced from GitHub Secrets}
 ```
 
 ## Setup Requirements
@@ -203,7 +203,7 @@ Configure these secrets in your GitHub repository:
 Required secrets:
 ```
 RAILWAY_TOKEN       - Railway API token for deployments
-YOTO_CLIENT_ID      - Yoto API client ID (for testing)
+YOTO_SERVER_CLIENT_ID      - Yoto API client ID (for testing)
 ```
 
 To get RAILWAY_TOKEN:
@@ -269,7 +269,7 @@ The script uses these environment variables:
 
 ```bash
 RAILWAY_TOKEN       # Railway API token (required for CI/CD)
-YOTO_CLIENT_ID      # Yoto API credentials (synced to Railway)
+YOTO_SERVER_CLIENT_ID      # Yoto API credentials (synced to Railway)
 ```
 
 ### Authentication
@@ -443,7 +443,7 @@ railway whoami       # Should show authenticated user
 
 ### Secrets Management
 
-- **GitHub Secrets** - Secure storage for RAILWAY_TOKEN, YOTO_CLIENT_ID
+- **GitHub Secrets** - Secure storage for RAILWAY_TOKEN, YOTO_SERVER_CLIENT_ID
 - **Railway Variables** - Synced automatically, never exposed in logs
 - **Codespaces Secrets** - User-level, not repository-level
 

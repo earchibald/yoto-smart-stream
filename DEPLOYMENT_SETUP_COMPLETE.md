@@ -69,7 +69,7 @@ Required:
 - `RAILWAY_TOKEN` - Get from https://railway.app/account/tokens
 
 Optional:
-- `YOTO_CLIENT_ID` - Your Yoto API client ID (for staging/dev testing)
+- `YOTO_SERVER_CLIENT_ID` - Your Yoto API client ID (for staging/dev testing)
 
 ### Step 3: Configure Railway Variables
 
@@ -83,13 +83,13 @@ railway login
 railway link
 
 # Set variables for staging
-railway variables set YOTO_CLIENT_ID="your_client_id" -e staging
+railway variables set YOTO_SERVER_CLIENT_ID="your_client_id" -e staging
 railway variables set DEBUG=true -e staging
 railway variables set LOG_LEVEL=DEBUG -e staging
 # Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "staging")
 
 # Repeat for development environment if needed
-railway variables set YOTO_CLIENT_ID="your_client_id" -e development
+railway variables set YOTO_SERVER_CLIENT_ID="your_client_id" -e development
 railway variables set DEBUG=true -e development
 ```
 

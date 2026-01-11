@@ -9,7 +9,7 @@
 > 
 > ---
 > 
-# How to Deploy and Test the YOTO_CLIENT_ID Fix
+# How to Deploy and Test the YOTO_SERVER_CLIENT_ID Fix
 
 ## Quick Start - Deploy to Development
 
@@ -34,16 +34,16 @@ Since you have repository access, you can trigger the deployment via GitHub Acti
    - The workflow will start running
    - Click on the workflow run to see progress
    - Watch for the "Set Railway Environment Variables" step
-   - Verify it shows: "Setting YOTO_CLIENT_ID..."
+   - Verify it shows: "Setting YOTO_SERVER_CLIENT_ID..."
 
-### Step 2: Verify YOTO_CLIENT_ID is Set
+### Step 2: Verify YOTO_SERVER_CLIENT_ID is Set
 
 **Method A: Check Workflow Output**
 
 In the GitHub Actions workflow output:
 - Look at the "Set Railway Environment Variables" step
-- You should see: `Setting YOTO_CLIENT_ID...`
-- You should NOT see: `⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets`
+- You should see: `Setting YOTO_SERVER_CLIENT_ID...`
+- You should NOT see: `⚠️ Warning: YOTO_SERVER_CLIENT_ID not set in GitHub secrets`
 
 **Method B: Check Railway Dashboard**
 
@@ -52,7 +52,7 @@ In the GitHub Actions workflow output:
 3. Select the "development" environment
 4. Click on the service
 5. Go to "Variables" tab
-6. Verify `YOTO_CLIENT_ID` is listed with a value
+6. Verify `YOTO_SERVER_CLIENT_ID` is listed with a value
 
 ### Step 3: Check Deployment Logs
 
@@ -101,7 +101,7 @@ Expected response:
 curl https://yoto-smart-stream-development.up.railway.app/ready
 ```
 
-Expected response (if YOTO_CLIENT_ID is set correctly):
+Expected response (if YOTO_SERVER_CLIENT_ID is set correctly):
 ```json
 {
   "ready": true
@@ -118,11 +118,11 @@ You should see the FastAPI Swagger UI with all endpoints.
 
 ## Troubleshooting
 
-### If YOTO_CLIENT_ID is still not working
+### If YOTO_SERVER_CLIENT_ID is still not working
 
 1. **Verify the GitHub Secret exists:**
    - Go to repository Settings → Secrets and variables → Actions
-   - Verify `YOTO_CLIENT_ID` is listed under "Repository secrets"
+   - Verify `YOTO_SERVER_CLIENT_ID` is listed under "Repository secrets"
    - If missing, add it with your Yoto API client ID
    - **Security Note**: Only repository administrators should have access to secrets. Never expose secrets in logs or commit them to the repository. The workflows use environment variables to pass secrets securely to Railway.
 
@@ -156,7 +156,7 @@ If you have the Railway CLI installed and a token:
 export RAILWAY_TOKEN="your_railway_token_for_dev"
 
 # Set Yoto client ID before deploying
-railway variables set YOTO_CLIENT_ID="your_yoto_client_id" -e development
+railway variables set YOTO_SERVER_CLIENT_ID="your_yoto_client_id" -e development
 
 # Deploy
 railway up -e development
@@ -168,9 +168,9 @@ railway logs -e development --tail 50
 ## Success Indicators
 
 ✅ Workflow completes without errors
-✅ "Setting YOTO_CLIENT_ID..." appears in logs
-✅ No warning about missing YOTO_CLIENT_ID
-✅ Railway shows YOTO_CLIENT_ID in environment variables
+✅ "Setting YOTO_SERVER_CLIENT_ID..." appears in logs
+✅ No warning about missing YOTO_SERVER_CLIENT_ID
+✅ Railway shows YOTO_SERVER_CLIENT_ID in environment variables
 ✅ Service starts successfully
 ✅ Logs show "✓ Yoto API connected successfully"
 ✅ Health endpoint returns healthy status

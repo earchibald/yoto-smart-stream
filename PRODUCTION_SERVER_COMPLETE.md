@@ -94,7 +94,7 @@ The Yoto Smart Stream server has been successfully migrated from sample code in 
 
 ```bash
 # Set environment variables
-export YOTO_CLIENT_ID="your_client_id_here"
+export YOTO_SERVER_CLIENT_ID="your_client_id_here"
 export PUBLIC_URL="https://your-server.railway.app"  # For Railway
 
 # Run the server
@@ -126,7 +126,7 @@ Set these in Railway for each environment:
 
 ```bash
 # Required - Yoto API credentials
-YOTO_CLIENT_ID="your_client_id_from_yoto_dev"
+YOTO_SERVER_CLIENT_ID="your_client_id_from_yoto_dev"
 
 # Required - Public URL for audio streaming
 PUBLIC_URL="https://your-app.up.railway.app"
@@ -143,7 +143,7 @@ MQTT_ENABLED="true"
 **Via Railway CLI**:
 ```bash
 # Set for development environment
-railway variables set YOTO_CLIENT_ID="your_client_id" -e development
+railway variables set YOTO_SERVER_CLIENT_ID="your_client_id" -e development
 railway variables set PUBLIC_URL="https://yoto-smart-stream-dev.up.railway.app" -e development
 # Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "development")
 railway variables set LOG_LEVEL="DEBUG" -e development
@@ -180,7 +180,7 @@ railway login
 railway link
 
 # Set environment variables
-railway variables set YOTO_CLIENT_ID="your_client_id" -e development
+railway variables set YOTO_SERVER_CLIENT_ID="your_client_id" -e development
 railway variables set PUBLIC_URL="$(railway status -e development | grep 'Deployment URL' | awk '{print $3}')" -e development
 # Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "development")
 railway variables set LOG_LEVEL="DEBUG" -e development
@@ -284,7 +284,7 @@ railway logs -e development -f
 
 **Server won't start**:
 - Check logs: `python -m yoto_smart_stream` or `railway logs`
-- Verify YOTO_CLIENT_ID is set
+- Verify YOTO_SERVER_CLIENT_ID is set
 - Ensure refresh token file exists: `.yoto_refresh_token`
 
 **Authentication errors**:

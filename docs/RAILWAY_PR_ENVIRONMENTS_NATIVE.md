@@ -34,7 +34,7 @@ Railway's PR Environments is a built-in platform feature that automatically crea
 
 This project uses:
 - ✅ **Native PR Environments**: Enabled in Railway dashboard, base environment is **production**
-- ✅ **Shared Variables**: PR environments inherit `YOTO_CLIENT_ID` from production
+- ✅ **Shared Variables**: PR environments inherit `YOTO_SERVER_CLIENT_ID` from production
 - ✅ **GitHub Actions Validation**: `railway-pr-checks.yml` validates each PR environment
 - 🚫 **Custom Workflows**: Deprecated and marked as obsolete
 
@@ -63,15 +63,15 @@ This project uses:
 
 **Important**: Since PR environments inherit from production, ensure your production environment is properly configured and stable. Any configuration issues in production will propagate to all PR environments.
 
-### Step 2: Configure YOTO_CLIENT_ID as Shared Variable
+### Step 2: Configure YOTO_SERVER_CLIENT_ID as Shared Variable
 
 1. Go to Railway Dashboard → Your Project → **production** environment
 2. Navigate to **Variables** tab
-3. Find or create `YOTO_CLIENT_ID` variable
+3. Find or create `YOTO_SERVER_CLIENT_ID` variable
 4. Set its type to **Shared Variable**
 5. Save
 
-PR environments will automatically reference this using `${{shared.YOTO_CLIENT_ID}}`.
+PR environments will automatically reference this using `${{shared.YOTO_SERVER_CLIENT_ID}}`.
 
 ### Step 3: Test It
 
@@ -103,7 +103,7 @@ PR environments will automatically reference this using `${{shared.YOTO_CLIENT_I
 **When you open a PR:**
 
 1. Railway automatically creates `pr-{number}` environment
-2. Environment inherits `YOTO_CLIENT_ID` from production (via shared variable)
+2. Environment inherits `YOTO_SERVER_CLIENT_ID` from production (via shared variable)
 3. GitHub Actions validates the deployment
 4. Check the PR status checks for deployment link
 5. Wait 1-2 minutes for deployment to complete
@@ -207,7 +207,7 @@ pytest tests/integration/ --base-url=https://yoto-smart-stream-pr-{NUMBER}.up.ra
 PR environments automatically inherit variables from the base environment (staging):
 
 **Inherited:**
-- `YOTO_CLIENT_ID`
+- `YOTO_SERVER_CLIENT_ID`
 - `DATABASE_URL` (new ephemeral database)
 - `PORT` (auto-assigned by Railway)
 - All other staging variables
@@ -218,7 +218,7 @@ PR environments automatically inherit variables from the base environment (stagi
 - `RAILWAY_GIT_BRANCH={source branch}`
 
 **Automatically Configured by GitHub Actions:**
-- `YOTO_CLIENT_ID` - Synced from GitHub secrets by workflow
+- `YOTO_SERVER_CLIENT_ID` - Synced from GitHub secrets by workflow
 
 The `railway-pr-checks.yml` workflow automatically configures these essential variables when a PR is opened or updated, ensuring the PR environment has the correct configuration for testing. The application now uses `RAILWAY_ENVIRONMENT_NAME` directly instead of a custom `ENVIRONMENT` variable.
 

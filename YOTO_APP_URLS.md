@@ -91,7 +91,7 @@ Deployment URLs (reference only):
 ## After Registration
 
 You'll receive:
-- **Client ID** - Store as `YOTO_CLIENT_ID` environment variable
+- **Client ID** - Store as `YOTO_SERVER_CLIENT_ID` environment variable
 - Verification URI: `https://login.yotoplay.com/activate` (already known)
 
 **No Client Secret** typically (Device Flow doesn't need it)
@@ -99,7 +99,7 @@ You'll receive:
 ## Test Authentication
 
 ```bash
-export YOTO_CLIENT_ID="your_client_id_here"
+export YOTO_SERVER_CLIENT_ID="your_client_id_here"
 python examples/simple_client.py
 
 # Follow prompts to complete Device Flow

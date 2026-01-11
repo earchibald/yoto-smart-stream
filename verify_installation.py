@@ -224,7 +224,7 @@ def main():
         print("\n  Your Yoto Smart Stream installation is ready to use!")
         print("\n  Next steps:")
         print("    1. Read docs/QUICK_START.md")
-        print("    2. Configure your YOTO_CLIENT_ID")
+        print("    2. Configure your YOTO_SERVER_CLIENT_ID (or YOTO_CLIENT_ID for backward compatibility)")
         print("    3. Run: python examples/simple_client.py")
         print("\n✅ " * 10)
         return 0

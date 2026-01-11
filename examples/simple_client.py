@@ -9,7 +9,7 @@ This demonstrates:
 
 Requirements:
 - yoto_api library installed
-- YOTO_CLIENT_ID environment variable set
+- YOTO_SERVER_CLIENT_ID environment variable set (or legacy YOTO_CLIENT_ID)
 """
 
 import logging
@@ -35,11 +35,12 @@ logger = logging.getLogger(__name__)
 def main():
     """Main function to demonstrate Yoto API usage."""
 
-    # Get client ID from environment
-    client_id = os.getenv("YOTO_CLIENT_ID")
+    # Get client ID from environment (prefer YOTO_SERVER_CLIENT_ID, fallback to legacy YOTO_CLIENT_ID)
+    client_id = os.getenv("YOTO_SERVER_CLIENT_ID") or os.getenv("YOTO_CLIENT_ID")
     if not client_id:
-        logger.error("YOTO_CLIENT_ID environment variable not set")
+        logger.error("YOTO_SERVER_CLIENT_ID or YOTO_CLIENT_ID environment variable not set")
         logger.info("Get your client ID from: https://yoto.dev/get-started/start-here/")
+        logger.info("Set it with: export YOTO_SERVER_CLIENT_ID=your_client_id")
         sys.exit(1)
 
     # Initialize Yoto Manager
