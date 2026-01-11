@@ -23,6 +23,29 @@ class PlayerInfo(BaseModel):
     volume: int = Field(..., ge=0, le=100)
     playing: bool = False
     battery_level: Optional[int] = None
+    
+    # Charging status
+    is_charging: Optional[bool] = None
+    
+    # Temperature
+    temperature: Optional[float] = None
+    
+    # Sleep timer
+    sleep_timer_active: Optional[bool] = None
+    sleep_timer_seconds_remaining: Optional[int] = None
+    
+    # Audio connections
+    bluetooth_audio_connected: Optional[bool] = None
+    
+    # Active playback
+    active_card: Optional[str] = None
+    chapter_title: Optional[str] = None
+    track_title: Optional[str] = None
+    
+    # Card/Album Info (from library)
+    card_title: Optional[str] = None  # Album name
+    card_author: Optional[str] = None  # Artist name
+    card_cover_url: Optional[str] = None  # Album art
 
 
 class PlayerDetailInfo(BaseModel):
@@ -88,7 +111,7 @@ class PlayerControl(BaseModel):
     volume: Optional[int] = Field(None, ge=0, le=100, description="Volume level (0-100)")
 
 
-def extract_player_info(player_id: str, player) -> PlayerInfo:
+def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
     """
     Extract PlayerInfo from a YotoPlayer object.
 
@@ -98,6 +121,7 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
     Args:
         player_id: The player's unique identifier
         player: YotoPlayer object from yoto_api library
+        manager: YotoManager object (optional, for library access)
 
     Returns:
         PlayerInfo with extracted data
@@ -108,6 +132,12 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
         volume = getattr(player, 'user_volume', None)
     if volume is None:
         volume = 8
+    
+    # Convert volume from 0-16 scale to 0-100 percentage
+    if volume is not None:
+        volume = int((volume / 16) * 100)
+    else:
+        volume = 50  # Default to 50%
 
     # Get playing status: check playback_status string or is_playing boolean
     playing = False
@@ -121,6 +151,42 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
 
     # Get battery level from battery_level_percentage attribute
     battery_level = getattr(player, 'battery_level_percentage', None)
+    
+    # Charging status
+    is_charging = getattr(player, 'charging', None)
+    
+    # Temperature
+    temperature = getattr(player, 'temperature_celcius', None)
+    
+    # Sleep timer
+    sleep_timer_active = getattr(player, 'sleep_timer_active', None)
+    sleep_timer_seconds_remaining = getattr(player, 'sleep_timer_seconds_remaining', None)
+    
+    # Audio connections
+    bluetooth_audio_connected = getattr(player, 'bluetooth_audio_connected', None)
+    
+    # Active playback
+    active_card = getattr(player, 'card_id', None)
+    chapter_title = getattr(player, 'chapter_title', None)
+    track_title = getattr(player, 'track_title', None)
+    
+    # Card/Album info from library (like yoto_ha media_album_name, media_artist, media_image_url)
+    card_title = None
+    card_author = None
+    card_cover_url = None
+    
+    # Look up card metadata from library if we have an active card
+    if active_card and manager and hasattr(manager, 'library'):
+        try:
+            # Use dictionary access like yoto_ha does
+            if active_card in manager.library:
+                card = manager.library[active_card]
+                card_title = getattr(card, 'title', None)
+                card_author = getattr(card, 'author', None)
+                # yoto_ha uses cover_image_large
+                card_cover_url = getattr(card, 'cover_image_large', None)
+        except Exception as e:
+            logger.warning(f"Failed to get card info for {active_card}: {e}")
 
     return PlayerInfo(
         id=player_id,
@@ -129,6 +195,17 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
         volume=volume,
         playing=playing,
         battery_level=battery_level,
+        is_charging=is_charging,
+        temperature=temperature,
+        sleep_timer_active=sleep_timer_active,
+        sleep_timer_seconds_remaining=sleep_timer_seconds_remaining,
+        bluetooth_audio_connected=bluetooth_audio_connected,
+        active_card=active_card,
+        chapter_title=chapter_title,
+        track_title=track_title,
+        card_title=card_title,
+        card_author=card_author,
+        card_cover_url=card_cover_url,
     )
 
 
@@ -290,6 +367,13 @@ async def list_players():
     try:
         # Refresh player status
         client.update_player_status()
+        
+        # Update library to get card metadata
+        try:
+            client.update_library()
+        except Exception as e:
+            logger.warning(f"Failed to update library: {e}")
+        
         manager = client.get_manager()
 
         if not manager.players:
@@ -298,7 +382,7 @@ async def list_players():
         # Convert to response models
         players = []
         for player_id, player in manager.players.items():
-            players.append(extract_player_info(player_id, player))
+            players.append(extract_player_info(player_id, player, manager))
 
         return players
 
@@ -328,6 +412,12 @@ async def get_player(player_id: str):
         client.update_player_status()
     except Exception as e:
         logger.warning(f"Failed to refresh player status: {e}")
+
+    # Update library to get card metadata (needed for card_title, card_author, card_cover_url)
+    try:
+        client.update_library()
+    except Exception as e:
+        logger.warning(f"Failed to update library: {e}")
 
     manager = client.get_manager()
 

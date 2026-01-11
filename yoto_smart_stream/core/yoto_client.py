@@ -108,6 +108,12 @@ class YotoClient:
         self.manager.update_players_status()
         logger.debug(f"Updated status for {len(self.manager.players)} players")
 
+    def update_library(self) -> None:
+        """Update library from API to get card metadata."""
+        self.ensure_authenticated()
+        self.manager.update_library()
+        logger.debug(f"Updated library with {len(self.manager.library)} items")
+
     def connect_mqtt(self) -> None:
         """Connect to MQTT for real-time events."""
         self.ensure_authenticated()
