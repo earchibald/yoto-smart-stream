@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
     """Initialize services on startup and cleanup on shutdown."""
     try:
         ym = get_yoto_manager()
-        ym.update_player_status()
+        ym.update_players_status()
         print("✓ Yoto API connected successfully")
 
         # Connect to MQTT
@@ -190,7 +190,7 @@ async def list_players():
 
     try:
         # Refresh player status
-        ym.update_player_status()
+        ym.update_players_status()
 
         if not ym.players:
             return []
@@ -202,7 +202,7 @@ async def list_players():
                 id=player_id,
                 name=player.name,
                 online=player.online,
-                volume=player.volume if hasattr(player, "volume") else 8,
+                volume=player.volume if hasattr(player, "volume") and player.volume is not None else 8,
                 playing=player.playing if hasattr(player, "playing") else False,
                 battery_level=player.battery_level if hasattr(player, "battery_level") else None,
             )
@@ -240,7 +240,7 @@ async def get_player(player_id: str):
         id=player_id,
         name=player.name,
         online=player.online,
-        volume=player.volume if hasattr(player, "volume") else 8,
+        volume=player.volume if hasattr(player, "volume") and player.volume is not None else 8,
         playing=player.playing if hasattr(player, "playing") else False,
         battery_level=player.battery_level if hasattr(player, "battery_level") else None,
     )

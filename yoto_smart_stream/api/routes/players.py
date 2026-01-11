@@ -1,5 +1,6 @@
 """Player control endpoints."""
 
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from ..dependencies import get_yoto_client
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -43,7 +45,14 @@ async def list_players():
     - Playing status
     - Battery level (if available)
     """
-    client = get_yoto_client()
+    try:
+        client = get_yoto_client()
+    except RuntimeError as e:
+        logger.error(f"Failed to get Yoto client: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Yoto client not initialized. Please authenticate first: {str(e)}",
+        ) from e
 
     try:
         # Refresh player status
@@ -60,7 +69,7 @@ async def list_players():
                 id=player_id,
                 name=player.name,
                 online=player.online,
-                volume=player.volume if hasattr(player, "volume") else 8,
+                volume=player.volume if hasattr(player, "volume") and player.volume is not None else 8,
                 playing=player.playing if hasattr(player, "playing") else False,
                 battery_level=player.battery_level if hasattr(player, "battery_level") else None,
             )
@@ -69,6 +78,7 @@ async def list_players():
         return players
 
     except Exception as e:
+        logger.error(f"Failed to fetch players: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch players: {str(e)}",
@@ -99,7 +109,7 @@ async def get_player(player_id: str):
         id=player_id,
         name=player.name,
         online=player.online,
-        volume=player.volume if hasattr(player, "volume") else 8,
+        volume=player.volume if hasattr(player, "volume") and player.volume is not None else 8,
         playing=player.playing if hasattr(player, "playing") else False,
         battery_level=player.battery_level if hasattr(player, "battery_level") else None,
     )

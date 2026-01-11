@@ -94,7 +94,7 @@ def main():
 
     # Get and display player information
     logger.info("Fetching player status...")
-    ym.update_player_status()
+    ym.update_players_status()
 
     if not ym.players:
         logger.warning("No players found on your account")
@@ -108,7 +108,8 @@ def main():
         print(f"Player: {player.name}")
         print(f"  ID: {player_id}")
         print(f"  Online: {player.online}")
-        print(f"  Volume: {player.volume}/16")
+        volume = player.volume if hasattr(player, "volume") and player.volume is not None else 8
+        print(f"  Volume: {volume}/16")
 
         if hasattr(player, "playing") and player.playing:
             print("  Status: Playing")
