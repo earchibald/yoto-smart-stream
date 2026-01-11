@@ -21,7 +21,7 @@ Effective configuration management is crucial for maintaining multiple environme
 ```bash
 # Always available
 PORT                      # Port your service should listen on (required)
-RAILWAY_ENVIRONMENT       # Current environment name
+RAILWAY_ENVIRONMENT_NAME  # Current environment name (e.g., "staging", "production", "pr-123")
 RAILWAY_SERVICE_NAME      # Service name
 RAILWAY_PROJECT_ID        # Unique project identifier
 RAILWAY_DEPLOYMENT_ID     # Current deployment identifier
@@ -52,8 +52,8 @@ class Config:
     # Use Railway-provided PORT
     PORT = int(os.getenv("PORT", 8000))
     
-    # Environment detection
-    ENVIRONMENT = os.getenv("RAILWAY_ENVIRONMENT", "development")
+    # Environment detection - Use RAILWAY_ENVIRONMENT_NAME
+    ENVIRONMENT = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
     
     # Service information
     SERVICE_NAME = os.getenv("RAILWAY_SERVICE_NAME", "unknown")
@@ -81,7 +81,7 @@ class BaseConfig:
     
     # Railway automatic variables
     PORT = int(os.getenv("PORT", 8000))
-    ENVIRONMENT = os.getenv("RAILWAY_ENVIRONMENT", "development")
+    ENVIRONMENT = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
     
     # Yoto API
     YOTO_CLIENT_ID = os.getenv("YOTO_CLIENT_ID", "")
@@ -148,11 +148,10 @@ class ProductionConfig(BaseConfig):
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
 
-
 # Configuration factory
 def get_config():
-    """Get configuration based on RAILWAY_ENVIRONMENT"""
-    env = os.getenv("RAILWAY_ENVIRONMENT", "development").lower()
+    """Get configuration based on RAILWAY_ENVIRONMENT_NAME"""
+    env = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development").lower()
     
     config_map = {
         "development": DevelopmentConfig,
@@ -377,7 +376,8 @@ DATABASE_URL=postgresql://localhost:5432/yoto_dev
 REDIS_URL=redis://localhost:6379
 
 # Application Configuration
-ENVIRONMENT=development
+# Note: In Railway, use RAILWAY_ENVIRONMENT_NAME (automatically set)
+# For local development, you can set ENVIRONMENT if needed
 DEBUG=true
 LOG_LEVEL=debug
 PORT=8000
@@ -397,7 +397,7 @@ SENTRY_DSN=
 
 ```bash
 # Development - use test/local values
-ENVIRONMENT=development
+# Note: In Railway, RAILWAY_ENVIRONMENT_NAME is automatically set to "development"
 DEBUG=true
 LOG_LEVEL=debug
 WORKERS=1
@@ -424,7 +424,7 @@ SENTRY_DSN=
 
 ```bash
 # Staging - production-like settings
-ENVIRONMENT=staging
+# Note: In Railway, RAILWAY_ENVIRONMENT_NAME is automatically set to "staging"
 DEBUG=true  # Keep some debugging for QA
 LOG_LEVEL=info
 WORKERS=2
@@ -451,7 +451,7 @@ SENTRY_DSN=${{ secrets.SENTRY_DSN_STAGING }}
 
 ```bash
 # Production - optimized for performance and security
-ENVIRONMENT=production
+# Note: In Railway, RAILWAY_ENVIRONMENT_NAME is automatically set to "production"
 DEBUG=false
 LOG_LEVEL=warning
 WORKERS=4
@@ -560,7 +560,7 @@ def validate_config():
             errors.append(f"Missing required variable: {var}")
     
     # Environment-specific requirements
-    environment = os.getenv("RAILWAY_ENVIRONMENT", "development")
+    environment = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
     
     if environment == "production":
         if os.getenv("DEBUG", "false").lower() == "true":
