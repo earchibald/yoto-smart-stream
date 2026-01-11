@@ -59,6 +59,51 @@ class PlayerControl(BaseModel):
     volume: Optional[int] = Field(None, ge=0, le=16, description="Volume level (0-16)")
 
 
+def extract_player_info(player_id: str, player) -> PlayerInfo:
+    """
+    Extract PlayerInfo from a YotoPlayer object.
+
+    This helper function handles the extraction of player data from the yoto_api
+    library's YotoPlayer object, with proper fallbacks for missing data.
+
+    Args:
+        player_id: The player's unique identifier
+        player: YotoPlayer object from yoto_api library
+
+    Returns:
+        PlayerInfo with extracted data
+    """
+    # Get volume: prefer MQTT volume, fallback to user_volume, then default to 8
+    volume = getattr(player, 'volume', None)
+    if volume is None:
+        volume = getattr(player, 'user_volume', None)
+    if volume is None:
+        volume = 8
+
+    # Get playing status: check playback_status string or is_playing boolean
+    playing = False
+    playback_status = getattr(player, 'playback_status', None)
+    if playback_status is not None:
+        playing = playback_status == "playing"
+    else:
+        is_playing = getattr(player, 'is_playing', None)
+        if is_playing is not None:
+            playing = is_playing
+
+    # Get battery level from battery_level_percentage attribute
+    battery_level = getattr(player, 'battery_level_percentage', None)
+
+    return PlayerInfo(
+        id=player_id,
+        name=player.name,
+        online=player.online,
+        volume=volume,
+        playing=playing,
+        battery_level=battery_level,
+    )
+
+
+
 class ErrorResponse(BaseModel):
     """Error response model."""
 
@@ -198,15 +243,7 @@ async def list_players():
         # Convert to response models
         players = []
         for player_id, player in ym.players.items():
-            player_info = PlayerInfo(
-                id=player_id,
-                name=player.name,
-                online=player.online,
-                volume=player.volume if hasattr(player, "volume") and player.volume is not None else 8,
-                playing=player.playing if hasattr(player, "playing") else False,
-                battery_level=player.battery_level if hasattr(player, "battery_level") else None,
-            )
-            players.append(player_info)
+            players.append(extract_player_info(player_id, player))
 
         return players
 
@@ -236,14 +273,8 @@ async def get_player(player_id: str):
         )
 
     player = ym.players[player_id]
-    return PlayerInfo(
-        id=player_id,
-        name=player.name,
-        online=player.online,
-        volume=player.volume if hasattr(player, "volume") and player.volume is not None else 8,
-        playing=player.playing if hasattr(player, "playing") else False,
-        battery_level=player.battery_level if hasattr(player, "battery_level") else None,
-    )
+    return extract_player_info(player_id, player)
+
 
 
 @app.post("/api/players/{player_id}/control", tags=["Players"])
