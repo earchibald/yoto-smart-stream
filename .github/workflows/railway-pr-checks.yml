@@ -81,8 +81,8 @@ jobs:
           
           ENV_NAME="pr-${PR_NUMBER}"
           
-          # Set ENVIRONMENT variable for PR
-          railway variables set ENVIRONMENT="preview" -e "$ENV_NAME" || echo "Note: Environment may not exist yet"
+          # Note: ENVIRONMENT is now auto-populated from RAILWAY_ENVIRONMENT_NAME (e.g., "pr-123")
+          # No need to manually set ENVIRONMENT variable
           
           # Set YOTO_CLIENT_ID if available
           if [ -n "$YOTO_CLIENT_ID" ]; then
@@ -149,7 +149,7 @@ jobs:
             **Validation:** ${statusText}
             
             ### Environment Configuration
-            - ✅ \`ENVIRONMENT\` set to \`preview\`
+            - ✅ \`RAILWAY_ENVIRONMENT_NAME\` automatically set to \`pr-${prNumber}\`
             - ✅ \`YOTO_CLIENT_ID\` configured from secrets
             
             ### Validation Checks

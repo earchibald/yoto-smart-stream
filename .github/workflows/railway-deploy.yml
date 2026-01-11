@@ -83,7 +83,7 @@ jobs:
           # Set DEBUG mode for staging
           railway variables set DEBUG=true -e staging
           railway variables set LOG_LEVEL=DEBUG -e staging
-          railway variables set ENVIRONMENT=staging -e staging
+          # Note: ENVIRONMENT is now auto-populated from RAILWAY_ENVIRONMENT_NAME
           
           # Set Yoto API credentials if available
           if [ -n "$YOTO_CLIENT_ID" ]; then
@@ -161,7 +161,7 @@ jobs:
           # Set production configuration
           railway variables set DEBUG=false -e production
           railway variables set LOG_LEVEL=warning -e production
-          railway variables set ENVIRONMENT=production -e production
+          # Note: ENVIRONMENT is now auto-populated from RAILWAY_ENVIRONMENT_NAME
           
           # Set Yoto API credentials if available
           if [ -n "$YOTO_CLIENT_ID" ]; then
