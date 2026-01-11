@@ -509,3 +509,137 @@ header h2 {
         grid-template-columns: 1fr;
     }
 }
+
+/* Authentication Styles */
+.auth-container {
+    text-align: center;
+    padding: 2rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.auth-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.auth-container h3 {
+    color: #2d3748;
+    margin-bottom: 1rem;
+}
+
+.auth-container p {
+    color: #718096;
+    margin-bottom: 1.5rem;
+}
+
+.auth-code-display {
+    background: #f7fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 2rem;
+    margin: 2rem 0;
+}
+
+.auth-code-display p {
+    margin: 0.5rem 0;
+    color: #2d3748;
+}
+
+.auth-link {
+    display: inline-block;
+    color: #667eea;
+    text-decoration: none;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0.5rem 0 1.5rem;
+    word-break: break-all;
+}
+
+.auth-link:hover {
+    text-decoration: underline;
+}
+
+.user-code {
+    display: inline-block;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.2rem;
+    color: #667eea;
+    background: white;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    border: 3px dashed #667eea;
+    margin: 1rem 0;
+    font-family: 'Courier New', monospace;
+}
+
+.auth-status {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 8px;
+}
+
+.auth-status p {
+    color: #718096;
+    margin-top: 1rem;
+}
+
+.spinner {
+    border: 4px solid #e2e8f0;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.auth-success {
+    padding: 2rem;
+}
+
+.success-icon {
+    display: inline-block;
+    width: 80px;
+    height: 80px;
+    line-height: 80px;
+    font-size: 3rem;
+    color: white;
+    background: #48bb78;
+    border-radius: 50%;
+    margin-bottom: 1rem;
+}
+
+.auth-success p {
+    color: #22543d;
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+.action-button.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+}
+
+.action-button.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.action-button.primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#auth-actions {
+    margin-top: 1.5rem;
+}
+

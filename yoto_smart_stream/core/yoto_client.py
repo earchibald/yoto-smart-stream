@@ -120,3 +120,24 @@ class YotoClient:
         if not self.is_authenticated():
             raise RuntimeError("Client not authenticated. Call authenticate() first.")
         return self.manager
+
+    def set_authenticated(self, authenticated: bool) -> None:
+        """
+        Set authentication status.
+
+        Args:
+            authenticated: Authentication status
+        """
+        self._authenticated = authenticated
+        logger.debug(f"Authentication status set to: {authenticated}")
+
+    def reset(self) -> None:
+        """
+        Reset client state and clear authentication.
+
+        This clears the authentication flag and resets the manager instance.
+        Used during logout or when needing to re-authenticate.
+        """
+        self._authenticated = False
+        self.manager = None
+        logger.info("Client state reset")
