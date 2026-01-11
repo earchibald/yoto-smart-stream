@@ -4,7 +4,6 @@ Tests for API endpoints and web UI.
 Tests the new web UI endpoints and verifies API endpoints are correctly organized.
 """
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -129,6 +128,21 @@ class TestStaticFiles:
         # Check it's JavaScript
         content = response.text
         assert "API_BASE" in content or "function" in content
+
+    def test_dashboard_js_has_auto_refresh(self, client):
+        """Test dashboard.js contains auto-refresh functionality."""
+        response = client.get("/static/js/dashboard.js")
+        assert response.status_code == 200
+        content = response.text
+        # Check for auto-refresh related code
+        assert "playerRefreshInterval" in content
+        assert "startPlayerAutoRefresh" in content
+        assert "5000" in content  # 5 second interval
+        # Check for concurrent call prevention
+        assert "isLoadingPlayers" in content
+        # Check for cleanup on page unload
+        assert "beforeunload" in content
+        assert "stopPlayerAutoRefresh" in content
 
 
 class TestAPIEndpointOrganization:

@@ -7,12 +7,24 @@ const API_BASE = '/api';
 let authPollInterval = null;
 let deviceCode = null;
 
+// Player refresh polling state
+let playerRefreshInterval = null;
+let isLoadingPlayers = false;
+
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
     checkAuthStatus();
     loadSystemStatus();
     loadPlayers();
     loadAudioFiles();
+    
+    // Start auto-refresh for players every 5 seconds
+    startPlayerAutoRefresh();
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    stopPlayerAutoRefresh();
 });
 
 // Check authentication status
@@ -198,6 +210,13 @@ async function loadSystemStatus() {
 async function loadPlayers() {
     const container = document.getElementById('players-list');
     
+    // Prevent concurrent API calls
+    if (isLoadingPlayers) {
+        return;
+    }
+    
+    isLoadingPlayers = true;
+    
     try {
         const response = await fetch(`${API_BASE}/players`);
         if (!response.ok) throw new Error('Failed to fetch players');
@@ -232,6 +251,34 @@ async function loadPlayers() {
     } catch (error) {
         console.error('Error loading players:', error);
         container.innerHTML = '<p class="error-message">Failed to load players. Check your Yoto API authentication.</p>';
+    } finally {
+        isLoadingPlayers = false;
+    }
+}
+
+// Start automatic player refresh every 5 seconds
+function startPlayerAutoRefresh() {
+    // Clear any existing interval
+    if (playerRefreshInterval) {
+        clearInterval(playerRefreshInterval);
+    }
+    
+    // Refresh players every 5 seconds
+    playerRefreshInterval = setInterval(async () => {
+        try {
+            await loadPlayers();
+        } catch (error) {
+            // Log error but don't stop the interval
+            console.error('Auto-refresh error:', error);
+        }
+    }, 5000);
+}
+
+// Stop automatic player refresh
+function stopPlayerAutoRefresh() {
+    if (playerRefreshInterval) {
+        clearInterval(playerRefreshInterval);
+        playerRefreshInterval = null;
     }
 }
 
