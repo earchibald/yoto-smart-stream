@@ -54,10 +54,11 @@ async def get_library():
             # Note: yoto_api library doesn't have a built-in method for this yet
             token = manager.token
             if token and hasattr(token, 'access_token'):
+                # Use the same authentication headers format as yoto_api
                 headers = {
-                    'Authorization': f'Bearer {token.access_token}',
+                    'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
                     'Content-Type': 'application/json',
-                    'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4'
+                    'Authorization': f'{token.token_type} {token.access_token}',
                 }
                 logger.info("Fetching groups from /groups endpoint...")
                 response = requests.get('https://api.yotoplay.com/groups', headers=headers, timeout=10)

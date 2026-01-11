@@ -453,9 +453,10 @@ class TestLibraryEndpoints:
             # Setup library as a dictionary (how yoto_api actually works)
             mock_manager.library = {"card-123": mock_card}
             
-            # Setup token
+            # Setup token with token_type (as yoto_api Token object has)
             mock_token = MagicMock()
             mock_token.access_token = "test_token"
+            mock_token.token_type = "Bearer"
             mock_manager.token = mock_token
             
             # Mock requests.get for /groups endpoint
@@ -508,9 +509,10 @@ class TestLibraryEndpoints:
             # Empty library dictionary
             mock_manager.library = {}
             
-            # Setup token
+            # Setup token with token_type (as yoto_api Token object has)
             mock_token = MagicMock()
             mock_token.access_token = "test_token"
+            mock_token.token_type = "Bearer"
             mock_manager.token = mock_token
             
             # Mock empty groups response
