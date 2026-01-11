@@ -5,7 +5,6 @@ Command-line entry point for Yoto Smart Stream server.
 This script starts the production server with proper configuration.
 """
 
-import os
 import sys
 import time
 from pathlib import Path
@@ -13,38 +12,7 @@ from pathlib import Path
 import uvicorn
 
 from yoto_smart_stream.config import get_settings
-
-
-def log_environment_variables():
-    """Log all environment variables for debugging Railway variable initialization."""
-    print("\n" + "=" * 80)
-    print("Environment Variables:")
-    print("=" * 80)
-
-    # Get all environment variables and sort them for easier reading
-    env_vars = sorted(os.environ.items())
-
-    # Mask sensitive values
-    sensitive_keys = {
-        'TOKEN', 'SECRET', 'PASSWORD', 'KEY', 'CREDENTIAL',
-        'AUTH', 'API_KEY', 'REFRESH_TOKEN', 'ACCESS_TOKEN'
-    }
-
-    for key, value in env_vars:
-        # Check if key contains sensitive information
-        is_sensitive = any(sensitive in key.upper() for sensitive in sensitive_keys)
-
-        if is_sensitive:
-            # Show only first and last 4 characters for sensitive values
-            if len(value) > 8:
-                masked_value = f"{value[:4]}...{value[-4:]}"
-            else:
-                masked_value = "***"
-            print(f"  {key}={masked_value}")
-        else:
-            print(f"  {key}={value}")
-
-    print("=" * 80 + "\n")
+from yoto_smart_stream.utils import log_environment_variables
 
 
 def main():
@@ -59,7 +27,9 @@ def main():
 
     # Log environment variables if configured
     if settings.log_env_on_startup:
-        log_environment_variables()
+        print()  # Add newline before env vars
+        log_environment_variables(print)
+        print()  # Add newline after env vars
 
     print("\n" + "=" * 80)
     print(f"Starting {settings.app_name} v{settings.app_version}")
