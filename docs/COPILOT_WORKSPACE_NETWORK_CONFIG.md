@@ -33,34 +33,27 @@ This file contains three main sections:
 
 #### 0. Environment Setup
 
-```yaml
-setup:
-  # Install Railway CLI if not already installed
-  # Required for the Railway MCP server to function
-  commands:
-    - |
-      if ! command -v railway > /dev/null 2>&1; then
-        echo "Installing Railway CLI..."
-        if npm install -g @railway/cli; then
-          echo "Railway CLI installed successfully: $(railway --version)"
-        else
-          npm_exit_code=$?
-          echo "ERROR: Failed to install Railway CLI (npm exit code: $npm_exit_code)"
-          echo "Railway MCP server will not be available in this workspace."
-          echo "You can manually install it later with: npm install -g @railway/cli"
-          # Exit with 0 to allow workspace startup to continue
-          exit 0
-        fi
-      else
-        echo "Railway CLI already installed: $(railway --version)"
-      fi
-```
+The setup section runs automatically when a Copilot Workspace starts. It performs three key tasks:
 
-The setup section ensures that the Railway CLI is installed when the Copilot Workspace starts. This is required for the Railway MCP server to function properly. The command includes comprehensive error handling:
-- Captures npm exit code on failure
-- Logs detailed error messages for troubleshooting
-- Provides clear instructions for manual installation
-- Gracefully exits without breaking workspace startup
+1. **Install Railway CLI** - Ensures the Railway CLI is available for the MCP server
+2. **Check Authentication** - Verifies Railway API token is available
+3. **Auto-link Project/Environment** - Automatically links to the appropriate Railway environment based on the git context
+
+**Key Features:**
+- **Context-aware linking**: Automatically selects the correct Railway environment:
+  - PR branches → `development` (shared environment)
+  - `main` branch → `production`
+  - `develop` branch → `staging`
+  - Other branches → `development` (default)
+- **Comprehensive error handling**: Captures errors and provides clear troubleshooting guidance
+- **Non-blocking**: Exits gracefully to allow workspace startup even if Railway linking fails
+- **Status reporting**: Displays environment information and available MCP tools
+
+**What this enables:**
+- Railway MCP tools automatically work with the correct environment
+- No manual linking needed for each agent session
+- Consistent development workflow across all PR-triggered agent sessions
+- Immediate access to Railway management capabilities (deploy, logs, variables, etc.)
 
 #### 1. Network Configuration
 

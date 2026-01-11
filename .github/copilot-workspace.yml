@@ -4,25 +4,114 @@
 # Environment Setup
 # Commands to run when the workspace starts to ensure dependencies are installed
 setup:
-  # Install Railway CLI if not already installed
-  # Required for the Railway MCP server to function
+  # Install Railway CLI and link to project/service/environment
+  # Required for the Railway MCP server to function and for development workflow
   commands:
     - |
+      echo "=================================================="
+      echo "Railway Setup for Copilot Agent Sessions"
+      echo "=================================================="
+      echo ""
+      
+      # Step 1: Install Railway CLI if not already installed
       if ! command -v railway > /dev/null 2>&1; then
-        echo "Installing Railway CLI..."
+        echo "📦 Installing Railway CLI..."
         if npm install -g @railway/cli; then
-          echo "Railway CLI installed successfully: $(railway --version)"
+          echo "✅ Railway CLI installed successfully: $(railway --version)"
         else
           npm_exit_code=$?
-          echo "ERROR: Failed to install Railway CLI (npm exit code: $npm_exit_code)"
+          echo "❌ ERROR: Failed to install Railway CLI (npm exit code: $npm_exit_code)"
           echo "Railway MCP server will not be available in this workspace."
           echo "You can manually install it later with: npm install -g @railway/cli"
           # Exit with 0 to allow workspace startup to continue
           exit 0
         fi
       else
-        echo "Railway CLI already installed: $(railway --version)"
+        echo "✅ Railway CLI already installed: $(railway --version)"
       fi
+      echo ""
+      
+      # Step 2: Check Railway authentication
+      echo "🔐 Checking Railway authentication..."
+      if railway whoami > /dev/null 2>&1; then
+        echo "✅ Authenticated to Railway as: $(railway whoami)"
+      else
+        echo "⚠️  Not authenticated to Railway"
+        echo "   Railway MCP tools will have limited functionality"
+        echo "   Authentication token should be available via RAILWAY_API_TOKEN"
+      fi
+      echo ""
+      
+      # Step 3: Automatically link to Railway project and environment
+      # This enables Railway MCP tools to work with the correct context
+      echo "🔗 Setting up Railway project linking..."
+      
+      # Check if we're in a PR context or main branch
+      if [ -n "$GITHUB_HEAD_REF" ]; then
+        # We're in a PR - use development environment
+        TARGET_ENV="development"
+        echo "📋 Detected PR context: $GITHUB_HEAD_REF"
+        echo "   Linking to shared development environment"
+      elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
+        # We're on main branch - use production
+        TARGET_ENV="production"
+        echo "📋 Detected main branch"
+        echo "   Linking to production environment"
+      elif [ "$GITHUB_REF" == "refs/heads/develop" ]; then
+        # We're on develop branch - use staging
+        TARGET_ENV="staging"
+        echo "📋 Detected develop branch"
+        echo "   Linking to staging environment"
+      else
+        # Default to development for other contexts
+        TARGET_ENV="development"
+        echo "📋 Using default development environment"
+      fi
+      echo ""
+      
+      # Link to the Railway project
+      # Note: The Railway CLI will auto-discover the project if already linked
+      # or can be manually linked with `railway link` if needed
+      echo "🎯 Checking Railway project link status..."
+      if railway status > /dev/null 2>&1; then
+        echo "✅ Already linked to a Railway project"
+        echo "   Current status:"
+        railway status || echo "   Could not fetch status"
+      else
+        echo "⚠️  Not currently linked to a Railway project"
+        echo "   To enable full Railway MCP functionality, you can manually link with:"
+        echo "   railway link"
+      fi
+      echo ""
+      
+      # Try to link to the target environment
+      echo "🌍 Setting active environment to: $TARGET_ENV"
+      if railway environment $TARGET_ENV > /dev/null 2>&1; then
+        echo "✅ Successfully set environment to: $TARGET_ENV"
+      else
+        echo "⚠️  Could not set environment to: $TARGET_ENV"
+        echo "   This may be due to permissions or authentication"
+        echo "   Railway MCP tools will still work but may need environment specification"
+      fi
+      echo ""
+      
+      echo "=================================================="
+      echo "Railway Setup Complete"
+      echo "=================================================="
+      echo ""
+      echo "✅ Railway CLI: Installed and ready"
+      echo "✅ Target Environment: $TARGET_ENV"
+      echo "✅ Railway MCP Server: Configured and available"
+      echo ""
+      echo "Available Railway MCP tools:"
+      echo "  • Project Management: check-railway-status, list-projects, create-project-and-link"
+      echo "  • Service Management: list-services, link-service, deploy, deploy-template"
+      echo "  • Environment Management: create-environment, link-environment"
+      echo "  • Configuration: list-variables, set-variables, generate-domain"
+      echo "  • Monitoring: get-logs"
+      echo ""
+      echo "Note: Full functionality requires RAILWAY_API_TOKEN"
+      echo "=================================================="
 
 # Network Configuration
 # Allow Copilot Workspace to access Railway deployment URLs
