@@ -135,3 +135,73 @@ async def get_library():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch library: {str(e)}"
         ) from e
+
+
+@router.get("/library/content/{content_id}")
+async def get_content_details(content_id: str):
+    """
+    Get detailed information about a specific card or MYO content.
+    
+    Args:
+        content_id: The ID of the card or MYO content
+        
+    Returns:
+        Dictionary with detailed content information including chapters/tracks
+    """
+    try:
+        client = get_yoto_client()
+        manager = client.get_manager()
+        
+        # Get token for authentication
+        token = manager.token
+        if not token or not hasattr(token, 'access_token'):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated. Please log in to Yoto first."
+            )
+        
+        # Make direct API call to content endpoint
+        headers = {
+            'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
+            'Content-Type': 'application/json',
+            'Authorization': f'{token.token_type} {token.access_token}',
+        }
+        
+        logger.info(f"Fetching content details for ID: {content_id}")
+        response = requests.get(
+            f'https://api.yotoplay.com/content/{content_id}',
+            headers=headers,
+            timeout=10
+        )
+        
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Content with ID {content_id} not found"
+            )
+        
+        if response.status_code != 200:
+            logger.warning(f"Failed to fetch content details: HTTP {response.status_code}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Failed to fetch content details: {response.text[:200]}"
+            )
+        
+        content_data = response.json()
+        logger.info(f"Successfully fetched content details for {content_id}")
+        
+        return content_data
+        
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Please log in to Yoto first."
+        ) from e
+    except Exception as e:
+        logger.error(f"Error fetching content details: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch content details: {str(e)}"
+        ) from e

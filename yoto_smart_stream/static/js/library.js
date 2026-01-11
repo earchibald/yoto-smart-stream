@@ -96,7 +96,7 @@ function displayCards(cards) {
         const coverImage = card.cover || 'https://via.placeholder.com/150?text=No+Cover';
         
         return `
-            <div class="library-card">
+            <div class="library-card" onclick="showContentDetails('${escapeHtml(card.id)}', '${escapeHtml(card.title)}')">
                 <div class="library-card-image">
                     <img src="${escapeHtml(coverImage)}" alt="${escapeHtml(card.title)}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
                 </div>
@@ -120,7 +120,7 @@ function displayPlaylists(playlists) {
     }
     
     playlistsList.innerHTML = playlists.map(playlist => `
-        <div class="list-item">
+        <div class="list-item" onclick="showContentDetails('${escapeHtml(playlist.id)}', '${escapeHtml(playlist.name)}')">
             <div class="list-item-header">
                 <span class="list-item-title">📁 ${escapeHtml(playlist.name)}</span>
                 <span class="badge enabled">${playlist.itemCount} items</span>
@@ -133,6 +133,106 @@ function displayPlaylists(playlists) {
 // Refresh library
 function refreshLibrary() {
     loadLibrary();
+}
+
+// Show content details in modal
+async function showContentDetails(contentId, contentTitle) {
+    const modal = document.getElementById('content-modal');
+    const modalTitle = document.getElementById('modal-content-title');
+    const modalBody = document.getElementById('modal-content-body');
+    
+    // Show modal with loading state
+    modalTitle.textContent = contentTitle;
+    modalBody.innerHTML = '<p class="loading">Loading content details...</p>';
+    modal.style.display = 'flex';
+    
+    try {
+        const response = await fetch(`${API_BASE}/library/content/${contentId}`);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch content details: ${response.statusText}`);
+        }
+        
+        const content = await response.json();
+        
+        // Build content details HTML
+        let detailsHtml = '';
+        
+        // Show cover image if available
+        if (content.coverImage || content.coverImageLarge) {
+            const coverUrl = content.coverImageLarge || content.coverImage;
+            detailsHtml += `
+                <div class="modal-cover-image">
+                    <img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(contentTitle)}" onerror="this.style.display='none'">
+                </div>
+            `;
+        }
+        
+        // Show basic information
+        detailsHtml += '<div class="modal-info-section">';
+        if (content.author) {
+            detailsHtml += `<p><strong>Author:</strong> ${escapeHtml(content.author)}</p>`;
+        }
+        if (content.description) {
+            detailsHtml += `<p><strong>Description:</strong> ${escapeHtml(content.description)}</p>`;
+        }
+        if (content.language) {
+            detailsHtml += `<p><strong>Language:</strong> ${escapeHtml(content.language)}</p>`;
+        }
+        if (content.duration) {
+            const minutes = Math.floor(content.duration / 60);
+            detailsHtml += `<p><strong>Duration:</strong> ${minutes} minutes</p>`;
+        }
+        detailsHtml += '</div>';
+        
+        // Show chapters/tracks if available
+        if (content.chapters && content.chapters.length > 0) {
+            detailsHtml += `
+                <div class="modal-chapters-section">
+                    <h4>Chapters (${content.chapters.length})</h4>
+                    <div class="chapters-list">
+                        ${content.chapters.map((chapter, index) => `
+                            <div class="chapter-item">
+                                <span class="chapter-number">${index + 1}</span>
+                                <div class="chapter-info">
+                                    <div class="chapter-title">${escapeHtml(chapter.title || chapter.display || 'Untitled')}</div>
+                                    ${chapter.duration ? `<div class="chapter-duration">${formatDuration(chapter.duration)}</div>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        modalBody.innerHTML = detailsHtml;
+        
+    } catch (error) {
+        console.error('Error loading content details:', error);
+        modalBody.innerHTML = `<p class="error-message">Failed to load content details: ${error.message}</p>`;
+    }
+}
+
+// Close modal
+function closeContentModal() {
+    const modal = document.getElementById('content-modal');
+    modal.style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('content-modal');
+    if (event.target === modal) {
+        closeContentModal();
+    }
+}
+
+// Format duration in seconds to readable format
+function formatDuration(seconds) {
+    if (!seconds) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Utility functions
