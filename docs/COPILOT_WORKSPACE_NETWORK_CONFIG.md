@@ -23,7 +23,7 @@ GitHub Copilot Workspace has restricted network access by default for security r
 
 ## Solution
 
-The configuration is defined in `.github/copilot-workspace.yml`, which includes both network access and MCP server setup.
+The configuration is defined in `.github/copilot-workspace.yml`, which includes environment setup, network access, and MCP server configuration. Additionally, the railway.app domain has been whitelisted in the GitHub Copilot firewall to enable full Railway CLI functionality.
 
 ### Configuration File
 
