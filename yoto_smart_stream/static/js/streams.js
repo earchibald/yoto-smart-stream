@@ -61,11 +61,24 @@ async function loadAudioFiles() {
                 <p class="stream-url">/api/audio/${escapeHtml(file.filename)}</p>
                 <p class="stream-size">Size: ${formatFileSize(file.size)}</p>
                 <div class="stream-actions">
-                    <button class="btn-small" onclick="copyUrl('/api/audio/${escapeHtml(file.filename, true)}')">📋 Copy URL</button>
-                    <button class="btn-small" onclick="playAudio('/api/audio/${escapeHtml(file.filename, true)}')">▶️ Preview</button>
+                    <button class="btn-small" data-action="copy" data-url="/api/audio/${escapeHtml(file.filename, true)}">📋 Copy URL</button>
+                    <button class="btn-small" data-action="play" data-url="/api/audio/${escapeHtml(file.filename, true)}">▶️ Preview</button>
                 </div>
             </div>
         `).join('');
+        
+        // Add event listeners to all action buttons
+        container.querySelectorAll('[data-action]').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const action = e.currentTarget.dataset.action;
+                const url = e.currentTarget.dataset.url;
+                if (action === 'copy') {
+                    copyUrl(url);
+                } else if (action === 'play') {
+                    playAudio(url);
+                }
+            });
+        });
         
     } catch (error) {
         console.error('Error loading audio files:', error);

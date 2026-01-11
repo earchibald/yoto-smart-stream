@@ -103,8 +103,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Mount static files directory
+    # Define static directory path once
     static_dir = Path(__file__).parent.parent / "static"
+
+    # Mount static files directory
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
@@ -116,7 +118,6 @@ def create_app() -> FastAPI:
     @app.get("/", tags=["Web UI"])
     async def root():
         """Serve the admin dashboard web UI."""
-        static_dir = Path(__file__).parent.parent / "static"
         index_path = static_dir / "index.html"
         if index_path.exists():
             return FileResponse(index_path)
@@ -130,7 +131,6 @@ def create_app() -> FastAPI:
     @app.get("/streams", tags=["Web UI"])
     async def streams():
         """Serve the music streams interface."""
-        static_dir = Path(__file__).parent.parent / "static"
         streams_path = static_dir / "streams.html"
         if streams_path.exists():
             return FileResponse(streams_path)

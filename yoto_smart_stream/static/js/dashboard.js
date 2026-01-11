@@ -27,8 +27,7 @@ async function loadSystemStatus() {
         statusEl.classList.remove('error');
         statusTextEl.textContent = 'System Running';
         
-        // Update stats
-        document.getElementById('audio-count').textContent = data.features?.audio_streaming ? 'Enabled' : 'Disabled';
+        // Update stats - leave audio count for loadAudioFiles to set
         document.getElementById('mqtt-status').textContent = data.features?.mqtt_events ? 'Enabled' : 'Disabled';
         document.getElementById('environment').textContent = data.environment || 'Unknown';
         
