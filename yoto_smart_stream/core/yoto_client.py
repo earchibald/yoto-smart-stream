@@ -85,7 +85,7 @@ class YotoClient:
     def update_player_status(self) -> None:
         """Update player status from API."""
         self.ensure_authenticated()
-        self.manager.update_player_status()
+        self.manager.update_players_status()
         logger.debug(f"Updated status for {len(self.manager.players)} players")
 
     def connect_mqtt(self) -> None:
