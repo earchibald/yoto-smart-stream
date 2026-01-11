@@ -7,9 +7,12 @@ middleware, and lifecycle management.
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings
 from ..core import YotoClient
@@ -100,14 +103,42 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Mount static files directory
+    static_dir = Path(__file__).parent.parent / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
     # Include routers
-    app.include_router(health.router, tags=["Health"])
+    app.include_router(health.router, prefix="/api", tags=["Health"])
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
 
-    @app.get("/", tags=["General"])
+    @app.get("/", tags=["Web UI"])
     async def root():
-        """Root endpoint with API information."""
+        """Serve the admin dashboard web UI."""
+        static_dir = Path(__file__).parent.parent / "static"
+        index_path = static_dir / "index.html"
+        if index_path.exists():
+            return FileResponse(index_path)
+        # Fallback if static files don't exist
+        return {
+            "message": "Web UI not available",
+            "docs": "/docs",
+            "api": "/api/status",
+        }
+
+    @app.get("/streams", tags=["Web UI"])
+    async def streams():
+        """Serve the music streams interface."""
+        static_dir = Path(__file__).parent.parent / "static"
+        streams_path = static_dir / "streams.html"
+        if streams_path.exists():
+            return FileResponse(streams_path)
+        return {"message": "Streams UI not available", "docs": "/docs"}
+
+    @app.get("/api/status", tags=["General"])
+    async def api_status():
+        """API status endpoint with system information."""
         return {
             "name": settings.app_name,
             "version": settings.app_version,
