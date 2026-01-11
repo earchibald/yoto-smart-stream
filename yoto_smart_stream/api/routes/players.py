@@ -105,6 +105,9 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
 def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
     """
     Extract comprehensive PlayerDetailInfo from a YotoPlayer object.
+    
+    Based on yoto_ha Home Assistant integration attribute mapping.
+    The yoto_api library uses snake_case for attributes populated from status/config.
 
     Args:
         player_id: The player's unique identifier
@@ -113,92 +116,51 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
     Returns:
         PlayerDetailInfo with all available data
     """
-    # Get volume - try both snake_case and camelCase
-    volume = getattr(player, 'volume', None)
-    if volume is None:
-        volume = getattr(player, 'user_volume', None)
-    if volume is None:
-        volume = getattr(player, 'userVolume', None)
-    if volume is None:
-        volume = 8
-
-    # Get playing status
-    playing = False
-    playback_status = getattr(player, 'playback_status', None) or getattr(player, 'playbackStatus', None)
-    if playback_status is not None:
-        playing = playback_status == "playing"
+    # Volume - yoto_api normalizes to 0-16 scale
+    volume = getattr(player, 'volume', 8)
+    
+    # Convert volume from 0-16 scale to 0-100 percentage
+    if volume is not None:
+        volume = int((volume / 16) * 100)
     else:
-        is_playing = getattr(player, 'is_playing', None) or getattr(player, 'isPlaying', None)
-        if is_playing is not None:
-            playing = is_playing
+        volume = 50  # Default to 50%
 
-    # Map power source integer to string
-    power_source_map = {0: "Battery", 1: "V2 Dock", 2: "USB-C", 3: "Qi Dock"}
-    power_source_int = getattr(player, 'power_source', None) or getattr(player, 'powerSource', None)
-    power_source = power_source_map.get(power_source_int) if power_source_int is not None else None
+    # Get playing status from playback_status
+    playback_status = getattr(player, 'playback_status', None)
+    playing = playback_status == "playing" if playback_status is not None else False
 
-    # Get charging status - try both naming conventions
-    is_charging = getattr(player, 'is_charging', None)
-    if is_charging is None:
-        is_charging = getattr(player, 'isCharging', None)
-    # Convert from integer if needed (0=not charging, 1=charging)
-    if isinstance(is_charging, int):
-        is_charging = bool(is_charging)
+    # Charging status - yoto_ha uses player.charging (boolean)
+    is_charging = getattr(player, 'charging', None)
 
-    # Get battery level
+    # Battery level - yoto_ha uses player.battery_level_percentage
     battery_level = getattr(player, 'battery_level_percentage', None)
-    if battery_level is None:
-        battery_level = getattr(player, 'batteryLevelPercentage', None)
 
-    # Get firmware version
+    # Firmware version - yoto_ha uses player.firmware_version
     firmware_version = getattr(player, 'firmware_version', None)
-    if firmware_version is None:
-        firmware_version = getattr(player, 'firmwareVersion', None)
 
-    # Get wifi strength
+    # WiFi strength - yoto_ha uses player.wifi_strength
     wifi_strength = getattr(player, 'wifi_strength', None)
-    if wifi_strength is None:
-        wifi_strength = getattr(player, 'wifiStrength', None)
 
-    # Get temperature
-    temperature = getattr(player, 'temperature_celsius', None)
-    if temperature is None:
-        temperature = getattr(player, 'temperatureCelsius', None)
+    # Temperature - yoto_ha uses player.temperature_celcius (note the typo in API)
+    temperature = getattr(player, 'temperature_celcius', None)
 
-    # Get active card
-    active_card = getattr(player, 'active_card', None)
-    if active_card is None:
-        active_card = getattr(player, 'activeCard', None)
-
-    # Get playback position
-    playback_position = getattr(player, 'playback_position', None)
-    if playback_position is None:
-        playback_position = getattr(player, 'playbackPosition', None)
-
-    # Get track length
+    # Card and playback info - yoto_ha uses these exact names
+    active_card = getattr(player, 'card_id', None)
+    playback_position = getattr(player, 'track_position', None)
     track_length = getattr(player, 'track_length', None)
-    if track_length is None:
-        track_length = getattr(player, 'trackLength', None)
+    current_chapter = getattr(player, 'chapter_key', None)
 
-    # Get current chapter
-    current_chapter = getattr(player, 'current_chapter', None)
-    if current_chapter is None:
-        current_chapter = getattr(player, 'currentChapter', None)
+    # Nightlight mode - yoto_ha uses player.night_light_mode
+    nightlight_mode = getattr(player, 'night_light_mode', None)
 
-    # Get nightlight mode
-    nightlight_mode = getattr(player, 'nightlight_mode', None)
-    if nightlight_mode is None:
-        nightlight_mode = getattr(player, 'nightlightMode', None)
+    # Day mode - yoto_ha uses player.day_mode_on (boolean)
+    day_mode = getattr(player, 'day_mode_on', None)
 
-    # Get day mode
-    day_mode = getattr(player, 'day_mode', None)
-    if day_mode is None:
-        day_mode = getattr(player, 'dayMode', None)
-
-    # Get device type
+    # Device type - yoto_ha uses player.device_type
     device_type = getattr(player, 'device_type', None)
-    if device_type is None:
-        device_type = getattr(player, 'deviceType', None)
+    
+    # Power source - not directly exposed as attribute, would need config parsing
+    power_source = None
 
     return PlayerDetailInfo(
         id=player_id,
