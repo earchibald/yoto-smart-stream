@@ -179,6 +179,11 @@ LOG_LEVEL=DEBUG  # or INFO for production
 RAILWAY_STARTUP_WAIT_SECONDS=10  # Wait 5-10 seconds for shared variables (0-30)
 # Default is 0 (no wait). Only needed for shared development environments.
 
+# Log environment variables on startup (for debugging)
+LOG_ENV_ON_STARTUP=true  # Set to true to see all env vars at startup
+# Sensitive values (tokens, secrets, keys) are automatically masked.
+# Default is false. Enable for debugging Railway variable initialization.
+
 # Optional
 PUBLIC_URL=https://your-app.up.railway.app
 DATABASE_URL=${{Postgres.DATABASE_URL}}  # If using PostgreSQL
@@ -193,20 +198,28 @@ When using Railway's shared development environment with multiple deployments, e
    railway variables set RAILWAY_STARTUP_WAIT_SECONDS=10 -e development
    ```
 
-2. **Recommended values**:
+2. **Enable environment logging for debugging**:
+   ```bash
+   railway variables set LOG_ENV_ON_STARTUP=true -e development
+   ```
+   This logs all environment variables at startup (sensitive values are masked).
+
+3. **Recommended values**:
    - Production/Staging: `0` (no wait needed for stable environments)
    - Development (shared): `5-10` seconds
    - Maximum allowed: `30` seconds
 
-3. **How it works**:
+4. **How it works**:
    - The application waits at startup before loading configuration
    - Logs show: "⏳ Waiting N seconds for Railway variables to initialize..."
    - After wait completes: "✓ Railway startup wait complete"
+   - If LOG_ENV_ON_STARTUP=true, all environment variables are logged (with sensitive values masked)
    - Then normal startup continues
 
-4. **When to use**:
+5. **When to use**:
    - ✅ Shared development environments with coordinated deployments
    - ✅ When variables are not immediately available at startup
+   - ✅ Enable LOG_ENV_ON_STARTUP when debugging variable initialization issues
    - ❌ Not needed for production or staging (stable, dedicated environments)
 
 ### Setting Variables via CLI

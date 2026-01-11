@@ -7,6 +7,7 @@ middleware, and lifecycle management.
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -21,6 +22,38 @@ from .dependencies import set_yoto_client
 from .routes import cards, health, players
 
 logger = logging.getLogger(__name__)
+
+
+def log_environment_variables_to_logger():
+    """Log all environment variables for debugging Railway variable initialization."""
+    logger.info("=" * 80)
+    logger.info("Environment Variables:")
+    logger.info("=" * 80)
+
+    # Get all environment variables and sort them for easier reading
+    env_vars = sorted(os.environ.items())
+
+    # Mask sensitive values
+    sensitive_keys = {
+        'TOKEN', 'SECRET', 'PASSWORD', 'KEY', 'CREDENTIAL',
+        'AUTH', 'API_KEY', 'REFRESH_TOKEN', 'ACCESS_TOKEN'
+    }
+
+    for key, value in env_vars:
+        # Check if key contains sensitive information
+        is_sensitive = any(sensitive in key.upper() for sensitive in sensitive_keys)
+
+        if is_sensitive:
+            # Show only first and last 4 characters for sensitive values
+            if len(value) > 8:
+                masked_value = f"{value[:4]}...{value[-4:]}"
+            else:
+                masked_value = "***"
+            logger.info(f"  {key}={masked_value}")
+        else:
+            logger.info(f"  {key}={value}")
+
+    logger.info("=" * 80)
 
 
 @asynccontextmanager
@@ -46,6 +79,10 @@ async def lifespan(app: FastAPI):
         # Use asyncio.sleep for async context
         await asyncio.sleep(settings.railway_startup_wait_seconds)
         logger.info("Railway startup wait complete")
+
+    # Log environment variables if configured
+    if settings.log_env_on_startup:
+        log_environment_variables_to_logger()
 
     # Startup
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")

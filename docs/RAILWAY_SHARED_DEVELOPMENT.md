@@ -179,10 +179,12 @@ When deploying to the shared development environment, Railway shared variables m
 1. Go to Railway → Yoto Smart Stream → development environment
 2. Navigate to Variables tab
 3. Add: `RAILWAY_STARTUP_WAIT_SECONDS=10`
+4. Add: `LOG_ENV_ON_STARTUP=true` (for debugging)
 
 **Or via Railway CLI:**
 ```bash
 railway variables set RAILWAY_STARTUP_WAIT_SECONDS=10 -e development
+railway variables set LOG_ENV_ON_STARTUP=true -e development
 ```
 
 **Recommended Values:**
@@ -194,11 +196,19 @@ railway variables set RAILWAY_STARTUP_WAIT_SECONDS=10 -e development
 - Adds a configurable delay at application startup
 - Ensures environment variables are loaded before use
 - Logs startup wait progress for visibility
+- If LOG_ENV_ON_STARTUP=true, logs all environment variables (sensitive values masked)
 
 **When enabled, you'll see in logs:**
 ```
 ⏳ Waiting 10 seconds for Railway variables to initialize...
 ✓ Railway startup wait complete
+================================================================================
+Environment Variables:
+================================================================================
+  RAILWAY_ENVIRONMENT_NAME=development
+  YOTO_CLIENT_ID=1234...5678
+  ...
+================================================================================
 ```
 
 ## Troubleshooting
@@ -213,25 +223,39 @@ railway variables set RAILWAY_STARTUP_WAIT_SECONDS=10 -e development
 - Errors accessing expected environment variables
 
 **Solution:**
-1. **Increase startup wait time:**
+1. **Enable environment variable logging:**
+   ```bash
+   railway variables set LOG_ENV_ON_STARTUP=true -e development
+   ```
+   This will show all environment variables at startup (sensitive values masked).
+
+2. **Increase startup wait time:**
    ```bash
    railway variables set RAILWAY_STARTUP_WAIT_SECONDS=10 -e development
    ```
 
-2. **Verify variables are set:**
+3. **Verify variables are set:**
    ```bash
    railway variables -e development
    ```
 
-3. **Check deployment logs:**
+4. **Check deployment logs:**
    - Look for "⏳ Waiting N seconds..." message
+   - Review the Environment Variables section in logs
    - Verify wait completes before variable access
    - Check if variables are available after wait
 
-4. **If still failing:**
+5. **If still failing:**
    - Increase wait time to 15-20 seconds
    - Check Railway status page for service issues
    - Try redeploying the service
+   - Keep LOG_ENV_ON_STARTUP enabled to monitor variable availability
+
+6. **After debugging:**
+   - Disable LOG_ENV_ON_STARTUP to reduce log verbosity:
+   ```bash
+   railway variables set LOG_ENV_ON_STARTUP=false -e development
+   ```
 
 ### Lock is held by another session
 

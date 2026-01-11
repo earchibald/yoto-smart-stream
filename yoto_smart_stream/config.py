@@ -78,6 +78,10 @@ class Settings(BaseSettings):
         ge=0,
         le=30,
     )
+    log_env_on_startup: bool = Field(
+        default=False,
+        description="Log all environment variables on startup (useful for debugging Railway variables)",
+    )
 
     # CORS settings
     cors_origins: list[str] = Field(

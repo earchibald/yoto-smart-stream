@@ -147,3 +147,28 @@ class TestRailwayStartupWait:
 
         settings = Settings()
         assert settings.railway_startup_wait_seconds == 0
+
+
+class TestLogEnvOnStartup:
+    """Test log_env_on_startup configuration."""
+
+    def test_default_log_env_on_startup(self, monkeypatch):
+        """Test that default log_env_on_startup is False."""
+        monkeypatch.delenv("LOG_ENV_ON_STARTUP", raising=False)
+
+        settings = Settings()
+        assert settings.log_env_on_startup is False
+
+    def test_log_env_on_startup_enabled(self, monkeypatch):
+        """Test that LOG_ENV_ON_STARTUP can be enabled."""
+        monkeypatch.setenv("LOG_ENV_ON_STARTUP", "true")
+
+        settings = Settings()
+        assert settings.log_env_on_startup is True
+
+    def test_log_env_on_startup_disabled(self, monkeypatch):
+        """Test that LOG_ENV_ON_STARTUP can be explicitly disabled."""
+        monkeypatch.setenv("LOG_ENV_ON_STARTUP", "false")
+
+        settings = Settings()
+        assert settings.log_env_on_startup is False
