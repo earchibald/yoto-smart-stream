@@ -14,17 +14,23 @@ This guide covers deploying Yoto Smart Stream to Railway.app with automated CI/C
 
 ## Overview
 
-Yoto Smart Stream uses Railway.app for hosting with the following architecture:
+Yoto Smart Stream uses Railway.app for hosting with a simplified two-environment architecture:
 
-- **Staging Environment**: Auto-deploys from `develop` branch
-- **Production Environment**: Currently **DISABLED** - awaiting approval for production deployments
-- **Development Environment**: Manual deployments for testing
+- **Production Environment**: Auto-deploys from `main` branch
+- **PR Environments**: Automatically created by Railway for each pull request
 
 ### Current Status
 
-✅ **Active**: Staging deployments from `develop` branch  
-⏸️ **Disabled**: Production deployments from `main` branch  
-✅ **Available**: Manual deployments to development environment
+✅ **Active**: Production deployments from `main` branch  
+✅ **Active**: Automatic PR environments for pull requests  
+🚫 **Removed**: No staging or development environments
+
+### Key Features
+
+- **Automatic deployments** to production on push to `main`
+- **Native PR Environments** - Railway automatically creates ephemeral environments for PRs
+- **Shared Variables** - PR environments inherit `YOTO_CLIENT_ID` from production
+- **Zero-config PR lifecycle** - Environments automatically created/destroyed by Railway
 
 ## Prerequisites
 
@@ -38,45 +44,67 @@ Yoto Smart Stream uses Railway.app for hosting with the following architecture:
 2. **Railway Account** - Sign up at [railway.app](https://railway.app)
 
 3. **GitHub Secrets** (for CI/CD)
-   - `RAILWAY_TOKEN` - Railway API token
-   - `YOTO_CLIENT_ID` - Yoto API client ID (optional for staging)
+   - `RAILWAY_TOKEN_PROD` - Railway API token for production deployments
 
 ### Railway Project Setup
 
 1. Create a new Railway project: https://railway.app/new
 2. Connect to GitHub repository: `earchibald/yoto-smart-stream`
-3. Create environments:
-   - `staging` - connected to `develop` branch
-   - `development` - for manual testing
-   - `production` - (not yet active)
+3. Create the production environment
+4. Enable Railway PR Environments feature in project settings
+5. Configure `YOTO_CLIENT_ID` as a Shared Variable in production environment
 
 ## Initial Setup
 
 ### 1. Get Railway Token
 
-Generate a Railway API token for deployments:
+Generate a Railway API token for production deployments:
 
 ```bash
 # Via Railway Dashboard
 # 1. Go to https://railway.app/account/tokens
 # 2. Click "Create Token"
-# 3. Name it "GitHub Actions" or "CI/CD"
+# 3. Name it "GitHub Actions Production"
 # 4. Copy the token
 ```
 
 ### 2. Configure GitHub Secrets
 
-Add secrets to your GitHub repository:
+Add the production token to your GitHub repository:
 
 ```bash
 # Go to: GitHub Repository → Settings → Secrets and variables → Actions
 
-# Add these secrets:
-RAILWAY_TOKEN=your_railway_token_here
-YOTO_CLIENT_ID=your_yoto_client_id_here  # Optional
+# Add this secret:
+RAILWAY_TOKEN_PROD=your_railway_token_here
 ```
 
-### 3. Authenticate Railway CLI (for local deployments)
+See [GITHUB_SECRETS_SETUP.md](../GITHUB_SECRETS_SETUP.md) for detailed instructions.
+
+### 3. Configure YOTO_CLIENT_ID in Railway
+
+**Important**: `YOTO_CLIENT_ID` is stored in Railway, not in GitHub Secrets.
+
+1. Go to https://railway.app/dashboard
+2. Select your project → production environment
+3. Navigate to **Variables** tab
+4. Add a new **Shared Variable**:
+   - Name: `YOTO_CLIENT_ID`
+   - Value: Your Yoto Client ID from https://yoto.dev/
+   - Type: **Shared Variable** (so PR environments can reference it)
+
+### 4. Enable Railway PR Environments
+
+1. Go to Railway project **Settings**
+2. Navigate to **GitHub** section
+3. Enable **PR Environments**
+4. Configure:
+   - Base Environment: `production`
+   - Auto-deploy on PR updates: ✓
+   - Auto-destroy on PR close: ✓
+   - Target branches: `main`
+
+### 5. Authenticate Railway CLI (for local testing)
 
 ```bash
 # In your devcontainer or local environment
@@ -86,7 +114,7 @@ railway login
 railway whoami
 ```
 
-### 4. Link to Railway Project
+### 6. Link to Railway Project
 
 ```bash
 # Link your local directory to Railway project
@@ -98,180 +126,169 @@ railway init
 
 ## Deployment Methods
 
-### Method 1: Automated Deployment (Recommended)
+### Method 1: Automated Production Deployment (Recommended)
 
-**Via GitHub Actions** - Automatic deployment on push to `develop` branch:
+**Via GitHub Actions** - Automatic deployment on push to `main` branch:
 
 ```bash
-# 1. Make your changes
-git checkout develop
+# 1. Create a PR with your changes
+git checkout -b feature/my-feature
 git add .
 git commit -m "Your changes"
+git push origin feature/my-feature
 
-# 2. Push to trigger deployment
-git push origin develop
+# 2. Open PR on GitHub targeting main branch
+# Railway automatically creates a PR environment for testing
 
-# 3. Monitor in GitHub Actions tab
-# https://github.com/earchibald/yoto-smart-stream/actions
+# 3. After PR approval and merge to main
+# GitHub Actions automatically deploys to production
 ```
 
-The workflow will:
+The production workflow will:
 1. ✅ Run tests
 2. ✅ Run linters (ruff, black)
-3. ✅ Deploy to Railway staging
+3. ✅ Deploy to Railway production
 4. ✅ Configure environment variables
 5. ✅ Show deployment logs
 
-### Method 2: Manual Deployment (Development)
+### Method 2: PR Environments (Automatic)
 
-**From Devcontainer** - Use the deployment script:
+**Railway Native Feature** - Automatic ephemeral environments for PRs:
 
 ```bash
-# Deploy to staging
-./scripts/deploy.sh staging
+# 1. Create and push a branch
+git checkout -b feature/test-feature
+git add .
+git commit -m "Test feature"
+git push origin feature/test-feature
 
-# Deploy to development
-./scripts/deploy.sh development
+# 2. Open a PR targeting main
+# Railway automatically:
+# - Creates pr-{number} environment
+# - Deploys your code
+# - Inherits YOTO_CLIENT_ID from production (via shared variables)
+# - Posts deployment status to PR
 
-# Dry run (see what would happen)
-./scripts/deploy.sh staging --dry-run
+# 3. Access your PR environment at:
+# https://yoto-smart-stream-pr-{number}.up.railway.app
 
-# NOTE: Production deployments are blocked
-./scripts/deploy.sh production  # ❌ Will fail
+# 4. When PR is closed/merged:
+# Railway automatically destroys the environment
 ```
 
-### Method 3: Railway CLI Direct
+### Method 3: Railway CLI Direct (Advanced)
 
-**For Advanced Users**:
+**For testing and debugging**:
 
 ```bash
-# Deploy current directory to staging
-railway up -e staging
+# Deploy current directory to production (use with caution!)
+railway up -e production
 
-# Deploy specific service
-railway up -s web -e staging
+# View logs
+railway logs -e production -f
 
-# Watch deployment logs
-railway logs -e staging -f
+# Check status
+railway status -e production
 ```
 
 ## Environment Configuration
 
-### Required Environment Variables
+### Production Environment Variables
 
-Railway needs these variables set in each environment:
+Railway needs these variables set in the production environment:
 
 ```bash
 # Core Application
-YOTO_CLIENT_ID=your_client_id_here
+YOTO_CLIENT_ID=your_client_id_here  # Set as Shared Variable
 PORT=8080  # Auto-set by Railway
 HOST=0.0.0.0
 
 # Environment Settings
-# Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway
-# (e.g., "staging", "production", "pr-123")
-DEBUG=true  # for non-production
-LOG_LEVEL=DEBUG  # or INFO for production
-
-# Railway Shared Variables Startup Wait
-# IMPORTANT: For Railway shared development environments, shared variables
-# may take time to initialize. Set this to wait before accessing variables:
-RAILWAY_STARTUP_WAIT_SECONDS=10  # Wait 5-10 seconds for shared variables (0-30)
-# Default is 0 (no wait). Only needed for shared development environments.
-
-# Log environment variables on startup (for debugging)
-LOG_ENV_ON_STARTUP=true  # Set to true to see all env vars at startup
-# Sensitive values (tokens, secrets, keys) are automatically masked.
-# Default is false. Enable for debugging Railway variable initialization.
+# Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway ("production")
+DEBUG=false
+LOG_LEVEL=warning
 
 # Optional
 PUBLIC_URL=https://your-app.up.railway.app
 DATABASE_URL=${{Postgres.DATABASE_URL}}  # If using PostgreSQL
 ```
 
-### Railway Shared Variables Startup Wait
+### PR Environment Variables
 
-When using Railway's shared development environment with multiple deployments, environment variables may take a few seconds to initialize. To prevent the application from starting before variables are available:
+PR environments automatically inherit configuration from production:
 
-1. **Set the wait time** in Railway dashboard or via CLI:
-   ```bash
-   railway variables set RAILWAY_STARTUP_WAIT_SECONDS=10 -e development
-   ```
+- `RAILWAY_ENVIRONMENT_NAME`: Automatically set to `pr-{number}` by Railway
+- `YOTO_CLIENT_ID`: Set to `${{shared.YOTO_CLIENT_ID}}` by GitHub Actions workflow
+  - This references the Shared Variable from production
+- Other variables can be configured per-PR if needed
 
-2. **Enable environment logging for debugging**:
-   ```bash
-   railway variables set LOG_ENV_ON_STARTUP=true -e development
-   ```
-   This logs all environment variables at startup (sensitive values are masked).
+### Setting Shared Variables in Railway
 
-3. **Recommended values**:
-   - Production/Staging: `0` (no wait needed for stable environments)
-   - Development (shared): `5-10` seconds
-   - Maximum allowed: `30` seconds
+**Important**: For `YOTO_CLIENT_ID` to work in PR environments, it must be a Shared Variable:
 
-4. **How it works**:
-   - The application waits at startup before loading configuration
-   - Logs show: "⏳ Waiting N seconds for Railway variables to initialize..."
-   - After wait completes: "✓ Railway startup wait complete"
-   - If LOG_ENV_ON_STARTUP=true, all environment variables are logged (with sensitive values masked)
-   - Then normal startup continues
+1. Go to Railway Dashboard → Your Project → production environment
+2. Click "Variables" tab
+3. Add/Edit `YOTO_CLIENT_ID`
+4. **Select "Shared Variable" type**
+5. Save
 
-5. **When to use**:
-   - ✅ Shared development environments with coordinated deployments
-   - ✅ When variables are not immediately available at startup
-   - ✅ Enable LOG_ENV_ON_STARTUP when debugging variable initialization issues
-   - ❌ Not needed for production or staging (stable, dedicated environments)
+This allows PR environments to reference it using `${{shared.YOTO_CLIENT_ID}}`.
 
 ### Setting Variables via CLI
 
 ```bash
-# Set a variable in staging
-railway variables set YOTO_CLIENT_ID="your_id" -e staging
+# Set a variable in production
+railway variables set DEBUG=false -e production
+railway variables set LOG_LEVEL=warning -e production
 
-# Set multiple variables
-railway variables set DEBUG=true LOG_LEVEL=DEBUG -e staging
+# Set a shared variable (YOTO_CLIENT_ID should be set via dashboard as "Shared Variable")
+# Note: CLI doesn't support setting shared variable type, use dashboard
 
 # View all variables
-railway variables -e staging
+railway variables -e production
 
-# Use Railway service references
-railway variables set DATABASE_URL='${{Postgres.DATABASE_URL}}' -e staging
+# Set variable in a PR environment (if needed for testing)
+railway variables set DEBUG=true -e pr-123
 ```
 
 ### Setting Variables via Dashboard
 
 1. Go to Railway Dashboard: https://railway.app/dashboard
 2. Select your project
-3. Choose environment (staging/development)
+3. Choose environment (production or pr-{number})
 4. Click "Variables" tab
 5. Add/Edit variables
+6. For `YOTO_CLIENT_ID` in production: Select "Shared Variable" type
 
 ## Monitoring
 
 ### View Deployment Logs
 
 ```bash
-# Stream logs in real-time
-railway logs -e staging -f
+# Stream production logs in real-time
+railway logs -e production -f
 
 # View last 100 lines
-railway logs -e staging --limit 100
+railway logs -e production --limit 100
+
+# View PR environment logs
+railway logs -e pr-123 -f
 
 # Filter by error level
-railway logs -e staging --filter "ERROR"
+railway logs -e production --filter "ERROR"
 ```
 
 ### Check Deployment Status
 
 ```bash
 # Get current deployment status
-railway status -e staging
+railway status -e production
 
-# List all deployments
-railway list -e staging
+# Check PR environment status
+railway status -e pr-123
 
 # Open Railway dashboard
-railway open -e staging
+railway open -e production
 ```
 
 ### Health Check
@@ -279,14 +296,17 @@ railway open -e staging
 Your deployment includes a health check endpoint:
 
 ```bash
-# Check application health
-curl https://your-app.up.railway.app/health
+# Check production health
+curl https://yoto-smart-stream-production.up.railway.app/api/health
+
+# Check PR environment health
+curl https://yoto-smart-stream-pr-123.up.railway.app/api/health
 
 # Expected response:
 {
   "status": "healthy",
-  "yoto_api": "connected",
-  "audio_files": 0
+  "environment": "production",
+  ...
 }
 ```
 
@@ -297,7 +317,7 @@ curl https://your-app.up.railway.app/health
 **Issue**: Deployment fails in Railway
 
 **Solutions**:
-1. Check build logs: `railway logs -e staging`
+1. Check build logs: `railway logs -e production`
 2. Verify `railway.toml` is correct
 3. Ensure all dependencies are in `requirements.txt`
 4. Check Python version compatibility (3.9+)
@@ -338,9 +358,9 @@ railway --version
 # For local development
 railway login
 
-# For CI/CD, verify RAILWAY_TOKEN secret
+# For CI/CD, verify RAILWAY_TOKEN_PROD secret
 # Go to: GitHub Repository → Settings → Secrets and variables → Actions
-# Ensure RAILWAY_TOKEN is set correctly
+# Ensure RAILWAY_TOKEN_PROD is set correctly
 
 # Test token
 RAILWAY_TOKEN=your_token railway whoami
@@ -348,41 +368,43 @@ RAILWAY_TOKEN=your_token railway whoami
 
 ### Environment Not Found
 
-**Issue**: `Environment 'staging' not found`
+**Issue**: `Environment 'production' not found`
 
 **Solutions**:
 1. Create environment in Railway Dashboard
-2. Link it to correct branch (develop → staging)
+2. Link it to correct branch (main → production)
 3. Verify project is linked: `railway status`
 
-### Variables Not Loading
+### Variables Not Loading in PR Environments
 
-**Issue**: Environment variables not available in application
+**Issue**: `YOTO_CLIENT_ID` not available in PR environment
 
 **Solutions**:
 ```bash
-# Verify variables are set
-railway variables -e staging
+# 1. Verify YOTO_CLIENT_ID is a Shared Variable in production
+railway variables -e production
+# It should show as a shared variable
 
-# Re-set variables
-railway variables set YOTO_CLIENT_ID="your_id" -e staging
+# 2. Check PR environment has the reference set
+railway variables -e pr-123
+# Should show: YOTO_CLIENT_ID=${{shared.YOTO_CLIENT_ID}}
 
-# Trigger a redeploy
-railway redeploy -e staging
+# 3. Ensure production environment is named exactly "production"
+railway status
+
+# 4. Trigger a redeploy of PR environment
+railway redeploy -e pr-123
 ```
 
-### Production Deployments Blocked
+### PR Environment Not Created
 
-**Issue**: Trying to deploy to production
+**Issue**: Railway doesn't create PR environment automatically
 
-**Expected Behavior**: This is intentional! Production deployments are currently disabled.
-
-**To Enable** (when ready):
-1. Get approval for production deployments
-2. Update `.github/workflows/railway-deploy.yml`
-3. Add production deployment job
-4. Configure production environment in Railway
-5. Test thoroughly in staging first
+**Solutions**:
+1. Verify PR Environments feature is enabled in Railway Dashboard → Settings → GitHub
+2. Ensure PR targets `main` branch (or configured target branch)
+3. Check that base environment is set to `production`
+4. Verify GitHub integration is connected properly
 
 ## Configuration Files
 
@@ -396,8 +418,8 @@ builder = "NIXPACKS"
 buildCommand = "pip install -r requirements.txt"
 
 [deploy]
-startCommand = "uvicorn examples.basic_server:app --host 0.0.0.0 --port $PORT"
-healthcheckPath = "/health"
+startCommand = "uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
@@ -405,66 +427,83 @@ restartPolicyMaxRetries = 10
 
 ### .github/workflows/railway-deploy.yml
 
-GitHub Actions workflow for automated deployments:
+GitHub Actions workflow for automated production deployments:
 
-- **Triggers**: Push to `develop` branch, PRs to `develop`/`main`
-- **Jobs**: Test → Deploy to Staging
-- **Security**: Uses GitHub Secrets for sensitive data
+- **Triggers**: Push to `main` branch, PRs to `main`
+- **Jobs**: Test → Deploy to Production
+- **Security**: Uses `RAILWAY_TOKEN_PROD` from GitHub Secrets
+- **Variables**: Production uses Shared Variable for `YOTO_CLIENT_ID`
+
+### .github/workflows/railway-pr-checks.yml
+
+GitHub Actions workflow for PR environment validation:
+
+- **Triggers**: Pull requests to `main`
+- **Purpose**: Validates PR environment after Railway creates it
+- **Configuration**: Sets `YOTO_CLIENT_ID` to reference production's shared variable
 
 ## Best Practices
 
 ### ✅ DO:
 
 - Run tests locally before pushing: `pytest tests/`
-- Use staging environment for testing: `./scripts/deploy.sh staging`
-- Monitor logs after deployment: `railway logs -e staging -f`
-- Keep secrets in GitHub Secrets, not in code
-- Use `--dry-run` to preview deployments
-- Document environment-specific configuration
-- Set appropriate LOG_LEVEL for each environment
+- Use PR environments for testing features
+- Monitor logs after deployment: `railway logs -e production -f`
+- Keep secrets in Railway (as Shared Variables), not in GitHub Secrets
+- Use Railway's native PR Environments feature
+- Test in PR environment before merging to main
+- Set appropriate LOG_LEVEL for production (warning or error)
 
 ### ❌ DON'T:
 
 - Commit `.env` files or secrets to version control
-- Deploy directly to production without testing
+- Deploy directly to production without testing in PR environment
 - Skip the test step in deployments
-- Use production credentials in staging/development
+- Store sensitive values in GitHub Secrets if Railway Shared Variables will work
 - Ignore deployment failures or warnings
 - Deploy with failing tests
+- Manually create or manage PR environments (let Railway handle it)
 
 ## Next Steps
 
-1. **Test Staging Deployment**:
+1. **Test PR Environment**:
    ```bash
-   ./scripts/deploy.sh staging --dry-run
-   ./scripts/deploy.sh staging
+   # Create a test branch and PR
+   git checkout -b test/deployment-check
+   git commit --allow-empty -m "Test PR environment"
+   git push origin test/deployment-check
+   # Open PR on GitHub - Railway will create environment automatically
    ```
 
 2. **Monitor First Deployment**:
    ```bash
-   railway logs -e staging -f
+   # Watch production deployment
+   railway logs -e production -f
+   
+   # Or watch PR environment
+   railway logs -e pr-123 -f
    ```
 
 3. **Verify Health Check**:
    ```bash
-   curl https://your-app.up.railway.app/health
+   # Production
+   curl https://yoto-smart-stream-production.up.railway.app/api/health
+   
+   # PR environment
+   curl https://yoto-smart-stream-pr-123.up.railway.app/api/health
    ```
 
 4. **Set Up Monitoring**:
    - Configure alerts in Railway Dashboard
+   - Monitor deployment notifications in GitHub PRs
    - Set up uptime monitoring (optional)
-
-5. **Plan Production**:
-   - Review staging thoroughly
-   - Document production requirements
-   - Request approval for production deployments
-   - Create production runbook
 
 ## Resources
 
 - **Railway Documentation**: https://docs.railway.app/
 - **Railway Dashboard**: https://railway.app/dashboard
 - **Railway CLI Reference**: https://docs.railway.app/reference/cli
+- **Railway PR Environments**: https://docs.railway.app/reference/pr-environments
 - **GitHub Actions Documentation**: https://docs.github.com/actions
 - **Railway Discord**: https://discord.gg/railway
 
@@ -472,8 +511,8 @@ GitHub Actions workflow for automated deployments:
 
 - **Repository Issues**: https://github.com/earchibald/yoto-smart-stream/issues
 - **Railway Support**: https://railway.app/help
-- **Deployment Script**: `./scripts/deploy.sh --help`
+- **GitHub Secrets Setup**: See [GITHUB_SECRETS_SETUP.md](../GITHUB_SECRETS_SETUP.md)
 
 ---
 
-**Remember**: Production deployments are currently disabled. Only staging and development environments are active.
+**Architecture Summary**: Production only (main branch) + automatic PR environments for all pull requests. No staging or development environments.
