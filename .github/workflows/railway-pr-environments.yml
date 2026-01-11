@@ -1,8 +1,32 @@
-name: Railway PR Ephemeral Environments
+name: Railway PR Ephemeral Environments (Custom)
 
-# DISABLED: Yoto OAuth requires static callback URLs
-# Ephemeral environments with dynamic URLs cannot authenticate
-# Use the shared development environment instead with manual coordination
+# =============================================================================
+# NOTE: This workflow is for CUSTOM ephemeral environment management
+# =============================================================================
+# 
+# Railway now provides NATIVE PR Environments that handle this automatically!
+# See: docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md
+#
+# This custom workflow is DISABLED and kept for reference/special cases only.
+#
+# WHY DISABLED:
+# 1. Railway's native PR Environments provide the same functionality with zero config
+# 2. Native approach is more reliable and better integrated with GitHub
+# 3. Yoto OAuth requires static callback URLs (limitation applies to both)
+# 4. Custom scripts add maintenance overhead
+#
+# WHEN TO USE THIS:
+# - Custom environment naming requirements
+# - Non-PR triggered deployments (Copilot sessions, etc.)
+# - Advanced deployment strategies not supported by Railway native
+#
+# FOR STANDARD PR WORKFLOWS:
+# Use Railway's native PR Environments instead:
+# - Enabled in Railway Dashboard → Settings → GitHub → PR Environments
+# - Zero GitHub Actions configuration required
+# - Automatic lifecycle management
+# - See: .github/workflows/railway-pr-checks.yml for testing workflow
+# =============================================================================
 
 on:
   workflow_dispatch:
