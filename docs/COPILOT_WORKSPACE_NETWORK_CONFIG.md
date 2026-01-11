@@ -107,6 +107,11 @@ To enable Railway operations:
 2. The token will be automatically available to Copilot Workspace
 3. The MCP server will use it for authentication
 
+**Note on Token Types:**
+- `RAILWAY_API_TOKEN` - Used by Copilot Workspace MCP server for interactive Railway operations
+- `RAILWAY_TOKEN_PROD`, `RAILWAY_TOKEN_STAGING`, `RAILWAY_TOKEN_DEV` - Used by GitHub Actions workflows for automated deployments (see `docs/RAILWAY_TOKEN_SETUP.md`)
+- For Copilot Workspace, you can use any Railway token (dev token recommended for safety)
+
 ### Allowed Domains
 
 The configuration allows access to:
@@ -485,6 +490,8 @@ Only remove domains if:
    - Go to your repository settings → Secrets
    - Ensure RAILWAY_API_TOKEN is added
    - The token should be from https://railway.app/account/tokens
+   - **Note:** This is separate from `RAILWAY_TOKEN_PROD/STAGING/DEV` used by GitHub Actions workflows
+   - For Copilot Workspace, a development token is recommended for safety
 
 3. **Check if token is available in environment:**
    ```bash
