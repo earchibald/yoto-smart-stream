@@ -311,7 +311,7 @@ from pathlib import Path
 
 def get_token_path():
     # Use /data volume on Railway, local path in development
-    if os.environ.get("RAILWAY_ENVIRONMENT"):
+    if os.environ.get("RAILWAY_ENVIRONMENT_NAME"):
         return Path("/data/.yoto_refresh_token")
     return Path(".yoto_refresh_token")
 ```

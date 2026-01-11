@@ -74,8 +74,8 @@ class Settings(BaseSettings):
         Uses /data directory for Railway deployments (persistent volume),
         falls back to local path for development.
         """
-        # Check if running on Railway (has RAILWAY_ENVIRONMENT set)
-        railway_env = os.environ.get("RAILWAY_ENVIRONMENT")
+        # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
+        railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
 
         if railway_env:
             # On Railway, use persistent volume at /data

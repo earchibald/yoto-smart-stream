@@ -81,7 +81,7 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
             "service": os.getenv("RAILWAY_SERVICE_NAME", "unknown"),
-            "environment": os.getenv("RAILWAY_ENVIRONMENT", "unknown"),
+            "environment": os.getenv("RAILWAY_ENVIRONMENT_NAME", "unknown"),
             "deployment_id": os.getenv("RAILWAY_DEPLOYMENT_ID", "unknown"),
         }
         
@@ -199,7 +199,7 @@ def init_sentry():
     if not sentry_dsn:
         return
     
-    environment = os.getenv("RAILWAY_ENVIRONMENT", "development")
+    environment = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
     
     sentry_sdk.init(
         dsn=sentry_dsn,
