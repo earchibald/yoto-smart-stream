@@ -436,7 +436,8 @@ class TestLibraryEndpoints:
 
     def test_library_api_returns_cards_and_playlists(self, client):
         """Test /api/library returns cards and playlists data."""
-        with patch("yoto_smart_stream.api.routes.library.get_yoto_client") as mock_get_client:
+        with patch("yoto_smart_stream.api.routes.library.get_yoto_client") as mock_get_client, \
+             patch("yoto_smart_stream.api.routes.library.requests") as mock_requests:
             # Create mock card (Card dataclass)
             mock_card = MagicMock()
             mock_card.id = "card-123"
@@ -451,6 +452,24 @@ class TestLibraryEndpoints:
             
             # Setup library as a dictionary (how yoto_api actually works)
             mock_manager.library = {"card-123": mock_card}
+            
+            # Setup token
+            mock_token = MagicMock()
+            mock_token.access_token = "test_token"
+            mock_manager.token = mock_token
+            
+            # Mock requests.get for /groups endpoint
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = [
+                {
+                    'id': 'group-456',
+                    'name': 'Test Playlist',
+                    'imageId': 'fp-cards',
+                    'items': [{'contentId': 'card-1'}, {'contentId': 'card-2'}]
+                }
+            ]
+            mock_requests.get.return_value = mock_response
             
             mock_client.get_manager.return_value = mock_manager
             mock_get_client.return_value = mock_client
@@ -472,17 +491,33 @@ class TestLibraryEndpoints:
             assert card["author"] == "Test Author"
             assert card["cover"] == "https://example.com/image.jpg"
             
-            # Check playlist data (empty for now as groups not yet implemented)
-            assert len(data["playlists"]) == 0
+            # Check playlist data (now fetched from /groups endpoint)
+            assert len(data["playlists"]) == 1
+            playlist = data["playlists"][0]
+            assert playlist["id"] == "group-456"
+            assert playlist["name"] == "Test Playlist"
+            assert playlist["itemCount"] == 2
 
     def test_library_api_handles_empty_library(self, client):
         """Test /api/library handles empty library gracefully."""
-        with patch("yoto_smart_stream.api.routes.library.get_yoto_client") as mock_get_client:
+        with patch("yoto_smart_stream.api.routes.library.get_yoto_client") as mock_get_client, \
+             patch("yoto_smart_stream.api.routes.library.requests") as mock_requests:
             mock_client = MagicMock()
             mock_manager = MagicMock()
             
             # Empty library dictionary
             mock_manager.library = {}
+            
+            # Setup token
+            mock_token = MagicMock()
+            mock_token.access_token = "test_token"
+            mock_manager.token = mock_token
+            
+            # Mock empty groups response
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = []
+            mock_requests.get.return_value = mock_response
             
             mock_client.get_manager.return_value = mock_manager
             mock_get_client.return_value = mock_client

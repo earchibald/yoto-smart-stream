@@ -2,6 +2,7 @@
 
 import logging
 
+import requests
 from fastapi import APIRouter, HTTPException, status
 
 from ..dependencies import get_yoto_client
@@ -43,11 +44,35 @@ async def get_library():
                 
                 cards.append(card_info)
         
-        # Extract playlists (groups) - Note: groups are not directly supported by yoto_api library
-        # They would need to be fetched via direct API calls to /groups endpoint
-        # For now, return empty list until groups support is added
+        # Extract playlists (groups) - fetch from /groups endpoint
         playlists = []
-        # Future enhancement: Add direct API call to GET /groups endpoint
+        try:
+            # Make direct API call to /groups endpoint
+            # Note: yoto_api library doesn't have a built-in method for this yet
+            token = manager.token
+            if token and hasattr(token, 'access_token'):
+                headers = {
+                    'Authorization': f'Bearer {token.access_token}',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4'
+                }
+                response = requests.get('https://api.yotoplay.com/groups', headers=headers, timeout=10)
+                if response.status_code == 200:
+                    groups_data = response.json()
+                    if isinstance(groups_data, list):
+                        for group in groups_data:
+                            playlist_info = {
+                                'id': group.get('id'),
+                                'name': group.get('name', 'Unknown Playlist'),
+                                'imageId': group.get('imageId'),
+                                'itemCount': len(group.get('items', [])),
+                            }
+                            playlists.append(playlist_info)
+                    logger.info(f"Fetched {len(playlists)} playlists from /groups endpoint")
+                else:
+                    logger.warning(f"Failed to fetch groups: HTTP {response.status_code}")
+        except Exception as e:
+            logger.warning(f"Could not fetch groups/playlists: {e}")
         
         return {
             'cards': cards,
