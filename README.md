@@ -335,18 +335,15 @@ git push origin develop
 
 **Static Environments**: Uses pre-registered callback URLs for Yoto OAuth compatibility.
 
-**Token Security**: Separate Railway tokens for prod/staging/dev environments. See [Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md).
+**Token Security**: Production uses a single Railway token (`RAILWAY_TOKEN_PROD`). Application secrets like `YOTO_CLIENT_ID` are stored as Railway Shared Variables. See [GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md).
 
 **Status**: 
-- ✅ PR Environments (all PRs) - Auto-deployed by Railway native feature
-- ✅ Staging (develop branch) - Auto-deployed with `RAILWAY_TOKEN_STAGING`
-- ✅ Development (shared) - Manual coordination with `RAILWAY_TOKEN_DEV`
-- ⚠️ Production (main branch) - Manual only with `RAILWAY_TOKEN_PROD`
-- ⏸️ Production (main branch) - Disabled
+- ✅ Production (main branch) - Auto-deployed with `RAILWAY_TOKEN_PROD`
+- ✅ PR Environments (all PRs) - Auto-created by Railway native feature, inherits secrets via Shared Variables
 
 **Resources**:
-- **[PR Environments Guide](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)** - Automatic PR deployments (NEW)
-- **[PR Environments Comparison](docs/RAILWAY_PR_ENVIRONMENTS_COMPARISON.md)** - Native vs custom approaches
+- **[GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md)** - Configure deployment secrets
+- **[PR Environments Guide](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)** - Automatic PR deployments
 - **[Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)** - Complete setup and deployment instructions
 - **[Quick Reference](docs/RAILWAY_QUICK_REF.md)** - Common deployment commands
 
