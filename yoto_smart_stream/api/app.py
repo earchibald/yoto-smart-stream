@@ -5,6 +5,7 @@ This module creates and configures the FastAPI application with all routes,
 middleware, and lifecycle management.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings, log_configuration
 from ..core import YotoClient
+from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
 from .routes import auth, cards, health, players
 
@@ -28,12 +30,27 @@ async def lifespan(app: FastAPI):
     Application lifespan manager.
 
     Handles startup and shutdown tasks:
+    - Wait for Railway shared variables to initialize if configured
     - Initialize Yoto client
     - Authenticate with Yoto API
     - Connect to MQTT
     - Cleanup on shutdown
     """
     settings = get_settings()
+
+    # Wait for Railway shared variables to initialize if configured
+    # This helps when Railway shared variables take time to load at startup
+    if settings.railway_startup_wait_seconds > 0:
+        logger.info(
+            f"Waiting {settings.railway_startup_wait_seconds} seconds for Railway shared variables to initialize..."
+        )
+        # Use asyncio.sleep for async context
+        await asyncio.sleep(settings.railway_startup_wait_seconds)
+        logger.info("Railway startup wait complete")
+
+    # Log environment variables if configured
+    if settings.log_env_on_startup:
+        log_environment_variables(logger.info)
 
     # Startup
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")

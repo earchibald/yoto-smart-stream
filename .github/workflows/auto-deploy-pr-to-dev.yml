@@ -60,15 +60,15 @@ jobs:
         run: |
           echo "⚙️ Setting environment variables before deployment..."
           # Note: ENVIRONMENT is now auto-populated from RAILWAY_ENVIRONMENT_NAME
-          railway variables set DEBUG="true" -e development || true
-          railway variables set LOG_LEVEL="DEBUG" -e development || true
-          railway variables set SESSION_ID="${{ env.SESSION_ID }}" -e development || true
-          railway variables set GIT_BRANCH="${{ github.ref_name }}" -e development || true
-          railway variables set GIT_COMMIT="${{ github.sha }}" -e development || true
+          railway variables --set DEBUG="true" -e development || true
+          railway variables --set LOG_LEVEL="DEBUG" -e development || true
+          railway variables --set SESSION_ID="${{ env.SESSION_ID }}" -e development || true
+          railway variables --set GIT_BRANCH="${{ github.ref_name }}" -e development || true
+          railway variables --set GIT_COMMIT="${{ github.sha }}" -e development || true
           
           if [ -n "$YOTO_CLIENT_ID" ]; then
             echo "Setting YOTO_CLIENT_ID..."
-            railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e development || true
+            railway variables --set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e development || true
           else
             echo "⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets"
           fi

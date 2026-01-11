@@ -1,5 +1,8 @@
 """Tests for configuration management."""
 
+import pytest
+from pydantic import ValidationError
+
 from yoto_smart_stream.config import Settings
 
 
@@ -91,3 +94,81 @@ class TestOtherSettings:
         assert settings.debug is True
         assert settings.log_level == "DEBUG"
         assert settings.port == 3000
+
+
+class TestRailwayStartupWait:
+    """Test Railway startup wait configuration."""
+
+    def test_default_railway_startup_wait(self, monkeypatch):
+        """Test that default railway_startup_wait_seconds is 0."""
+        monkeypatch.delenv("RAILWAY_STARTUP_WAIT_SECONDS", raising=False)
+
+        settings = Settings()
+        assert settings.railway_startup_wait_seconds == 0
+
+    def test_railway_startup_wait_from_env(self, monkeypatch):
+        """Test that RAILWAY_STARTUP_WAIT_SECONDS can be set from environment."""
+        monkeypatch.setenv("RAILWAY_STARTUP_WAIT_SECONDS", "10")
+
+        settings = Settings()
+        assert settings.railway_startup_wait_seconds == 10
+
+    def test_railway_startup_wait_custom_value(self, monkeypatch):
+        """Test that custom wait times work correctly."""
+        monkeypatch.setenv("RAILWAY_STARTUP_WAIT_SECONDS", "5")
+
+        settings = Settings()
+        assert settings.railway_startup_wait_seconds == 5
+
+    def test_railway_startup_wait_max_value(self, monkeypatch):
+        """Test that maximum wait time (30s) is enforced."""
+        monkeypatch.setenv("RAILWAY_STARTUP_WAIT_SECONDS", "30")
+
+        settings = Settings()
+        assert settings.railway_startup_wait_seconds == 30
+
+    def test_railway_startup_wait_exceeds_max(self, monkeypatch):
+        """Test that values exceeding 30 seconds are rejected."""
+        monkeypatch.setenv("RAILWAY_STARTUP_WAIT_SECONDS", "60")
+
+        with pytest.raises(ValidationError):
+            Settings()
+
+    def test_railway_startup_wait_negative(self, monkeypatch):
+        """Test that negative values are rejected."""
+        monkeypatch.setenv("RAILWAY_STARTUP_WAIT_SECONDS", "-1")
+
+        with pytest.raises(ValidationError):
+            Settings()
+
+    def test_railway_startup_wait_zero(self, monkeypatch):
+        """Test that zero is a valid value (no wait)."""
+        monkeypatch.setenv("RAILWAY_STARTUP_WAIT_SECONDS", "0")
+
+        settings = Settings()
+        assert settings.railway_startup_wait_seconds == 0
+
+
+class TestLogEnvOnStartup:
+    """Test log_env_on_startup configuration."""
+
+    def test_default_log_env_on_startup(self, monkeypatch):
+        """Test that default log_env_on_startup is False."""
+        monkeypatch.delenv("LOG_ENV_ON_STARTUP", raising=False)
+
+        settings = Settings()
+        assert settings.log_env_on_startup is False
+
+    def test_log_env_on_startup_enabled(self, monkeypatch):
+        """Test that LOG_ENV_ON_STARTUP can be enabled."""
+        monkeypatch.setenv("LOG_ENV_ON_STARTUP", "true")
+
+        settings = Settings()
+        assert settings.log_env_on_startup is True
+
+    def test_log_env_on_startup_disabled(self, monkeypatch):
+        """Test that LOG_ENV_ON_STARTUP can be explicitly disabled."""
+        monkeypatch.setenv("LOG_ENV_ON_STARTUP", "false")
+
+        settings = Settings()
+        assert settings.log_env_on_startup is False
