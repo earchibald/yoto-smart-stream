@@ -557,12 +557,17 @@ function toggleTechnicalInfo() {
     const technicalInfoEl = document.getElementById('modalTechnicalInfo');
     const infoButton = document.getElementById('modalInfoButton');
     
-    if (technicalInfoEl.style.display === 'none') {
+    console.log('Toggle called. Current display:', technicalInfoEl.style.display);
+    console.log('Element:', technicalInfoEl);
+    
+    if (technicalInfoEl.style.display === 'none' || technicalInfoEl.style.display === '') {
         technicalInfoEl.style.display = 'block';
         infoButton.classList.add('active');
+        console.log('Set to block');
     } else {
         technicalInfoEl.style.display = 'none';
         infoButton.classList.remove('active');
+        console.log('Set to none');
     }
 }
 
