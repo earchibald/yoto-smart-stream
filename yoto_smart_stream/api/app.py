@@ -5,6 +5,7 @@ This module creates and configures the FastAPI application with all routes,
 middleware, and lifecycle management.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -34,8 +35,6 @@ async def lifespan(app: FastAPI):
     - Connect to MQTT
     - Cleanup on shutdown
     """
-    import asyncio
-
     settings = get_settings()
 
     # Wait for Railway shared variables to initialize if configured
