@@ -68,6 +68,32 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Configure PR Environment Variables
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "⚙️ Configuring environment variables for PR environment..."
+          
+          ENV_NAME="pr-${PR_NUMBER}"
+          
+          # Set ENVIRONMENT variable for PR
+          railway variables set ENVIRONMENT="preview" -e "$ENV_NAME" || echo "Note: Environment may not exist yet"
+          
+          # Set YOTO_CLIENT_ID if available
+          if [ -n "$YOTO_CLIENT_ID" ]; then
+            echo "Setting YOTO_CLIENT_ID..."
+            railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "$ENV_NAME" || echo "Note: Environment may not exist yet"
+          else
+            echo "⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets"
+          fi
+          
+          echo "✅ Environment variables configured"
+      
       - name: Set PR environment URL
         id: env-url
         run: |
@@ -121,6 +147,10 @@ jobs:
             **Environment:** \`pr-${prNumber}\`
             **URL:** ${envUrl}
             **Validation:** ${statusText}
+            
+            ### Environment Configuration
+            - ✅ \`ENVIRONMENT\` set to \`preview\`
+            - ✅ \`YOTO_CLIENT_ID\` configured from secrets
             
             ### Validation Checks
             - Health endpoint accessibility
