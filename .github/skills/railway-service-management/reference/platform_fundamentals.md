@@ -239,13 +239,13 @@ restartPolicyMaxRetries = 10
 1. Service-specific variables (highest priority)
 2. Environment variables
 3. Shared project variables
-4. Railway-provided variables (e.g., PORT, RAILWAY_ENVIRONMENT)
+4. Railway-provided variables (e.g., PORT, RAILWAY_ENVIRONMENT_NAME)
 
 ### Railway-Provided Variables
 
 ```bash
 PORT                    # Port to bind to (required)
-RAILWAY_ENVIRONMENT     # Environment name (production, staging, etc.)
+RAILWAY_ENVIRONMENT_NAME # Environment name (production, staging, etc.)
 RAILWAY_SERVICE_NAME    # Service name
 RAILWAY_PROJECT_ID      # Project ID
 RAILWAY_DEPLOYMENT_ID   # Current deployment ID
@@ -311,7 +311,7 @@ from pathlib import Path
 
 def get_token_path():
     # Use /data volume on Railway, local path in development
-    if os.environ.get("RAILWAY_ENVIRONMENT"):
+    if os.environ.get("RAILWAY_ENVIRONMENT_NAME"):
         return Path("/data/.yoto_refresh_token")
     return Path(".yoto_refresh_token")
 ```

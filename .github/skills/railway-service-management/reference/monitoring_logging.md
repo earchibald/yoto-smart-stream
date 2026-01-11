@@ -81,7 +81,7 @@ class JSONFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
             "service": os.getenv("RAILWAY_SERVICE_NAME", "unknown"),
-            "environment": os.getenv("RAILWAY_ENVIRONMENT", "unknown"),
+            "environment": os.getenv("RAILWAY_ENVIRONMENT_NAME", "unknown"),
             "deployment_id": os.getenv("RAILWAY_DEPLOYMENT_ID", "unknown"),
         }
         
@@ -199,7 +199,7 @@ def init_sentry():
     if not sentry_dsn:
         return
     
-    environment = os.getenv("RAILWAY_ENVIRONMENT", "development")
+    environment = os.getenv("RAILWAY_ENVIRONMENT_NAME", "development")
     
     sentry_sdk.init(
         dsn=sentry_dsn,
@@ -445,7 +445,7 @@ class FluentHandler(logging.Handler):
             'message': record.getMessage(),
             'timestamp': record.created,
             'service': os.getenv('RAILWAY_SERVICE_NAME'),
-            'environment': os.getenv('RAILWAY_ENVIRONMENT'),
+            'environment': os.getenv('RAILWAY_ENVIRONMENT_NAME'),
         }
         
         self.sender.emit(record.levelname.lower(), data)
@@ -679,7 +679,7 @@ async def dashboard():
             <h1>Yoto Smart Stream - Status Dashboard</h1>
             <h2>Service Info</h2>
             <ul>
-                <li>Environment: {os.getenv('RAILWAY_ENVIRONMENT')}</li>
+                <li>Environment: {os.getenv('RAILWAY_ENVIRONMENT_NAME')}</li>
                 <li>Service: {os.getenv('RAILWAY_SERVICE_NAME')}</li>
                 <li>Deployment: {os.getenv('RAILWAY_DEPLOYMENT_ID')[:8]}</li>
             </ul>

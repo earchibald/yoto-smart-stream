@@ -21,7 +21,7 @@ mountPath = "/data"
 
 ### Local Development
 
-In local development (without `RAILWAY_ENVIRONMENT` set), tokens are stored in the current directory:
+In local development (without `RAILWAY_ENVIRONMENT_NAME` set), tokens are stored in the current directory:
 
 **Token location:** `./.yoto_refresh_token`
 
@@ -35,7 +35,7 @@ The token file path is automatically determined based on your environment:
 @classmethod
 def get_token_file_path(cls, v):
     # Check if running on Railway
-    railway_env = os.environ.get("RAILWAY_ENVIRONMENT")
+    railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
     
     if railway_env:
         # Use persistent volume on Railway

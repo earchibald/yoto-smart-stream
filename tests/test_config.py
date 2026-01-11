@@ -180,7 +180,7 @@ class TestTokenFilePath:
     def test_local_development_default_path(self, monkeypatch):
         """Test that local development uses default .yoto_refresh_token path."""
         # Clear Railway environment variable
-        monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+        monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
 
         settings = Settings()
         # Should use current directory
@@ -190,7 +190,7 @@ class TestTokenFilePath:
 
     def test_railway_uses_persistent_volume(self, monkeypatch, tmp_path):
         """Test that Railway environment uses /data volume for token."""
-        monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+        monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
 
         # Mock the /data directory to use tmp_path for testing
         data_dir = tmp_path / "data"
@@ -214,7 +214,7 @@ class TestTokenFilePath:
 
     def test_railway_staging_uses_persistent_volume(self, monkeypatch):
         """Test that Railway staging environment also uses persistent volume."""
-        monkeypatch.setenv("RAILWAY_ENVIRONMENT", "staging")
+        monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "staging")
 
         settings = Settings()
         # Should use /data path on Railway
@@ -222,7 +222,7 @@ class TestTokenFilePath:
 
     def test_railway_pr_environment_uses_persistent_volume(self, monkeypatch):
         """Test that Railway PR environments use persistent volume."""
-        monkeypatch.setenv("RAILWAY_ENVIRONMENT", "pr-123")
+        monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "pr-123")
 
         settings = Settings()
         # Should use /data path on Railway
@@ -230,7 +230,7 @@ class TestTokenFilePath:
 
     def test_custom_token_file_path_local(self, monkeypatch, tmp_path):
         """Test that custom token file path works in local development."""
-        monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+        monkeypatch.delenv("RAILWAY_ENVIRONMENT_NAME", raising=False)
 
         custom_path = tmp_path / "custom_token.txt"
         monkeypatch.setenv("YOTO_REFRESH_TOKEN_FILE", str(custom_path))
