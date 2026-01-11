@@ -90,6 +90,7 @@ This workspace contains locally-maintained custom skills in `.github/skills/`:
 - **Railway Docs**: https://docs.railway.app/
 - **Testing Guide**: `docs/TESTING_GUIDE.md`
 - **Architecture**: `docs/ARCHITECTURE.md`
+- **Copilot Workspace Network Config**: `docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md` (Railway URL access configuration)
 
 ## Important Notes
 
@@ -98,3 +99,4 @@ This workspace contains locally-maintained custom skills in `.github/skills/`:
 - MQTT is used for real-time device events and control
 - Railway environments use separate tokens for security (RAILWAY_TOKEN_PROD, RAILWAY_TOKEN_STAGING, RAILWAY_TOKEN_DEV)
 - Display icons for Yoto Mini must be exactly 16x16 pixels in PNG format
+- **Network Access**: Copilot Workspace is configured to access Railway deployment URLs (*.up.railway.app) via `.github/copilot-workspace.yml`
