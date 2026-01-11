@@ -25,50 +25,29 @@ async def get_library():
         # Update library from Yoto API
         manager.update_library()
         
-        # Get library data
-        library_data = manager.library
+        # Get library data - library is a dict with card IDs as keys
+        library_dict = manager.library
         
-        # Extract cards
+        # Extract cards from the dictionary
         cards = []
-        if library_data and hasattr(library_data, 'cards'):
-            for card in library_data.cards:
+        if library_dict and isinstance(library_dict, dict):
+            for card_id, card in library_dict.items():
                 card_info = {
-                    'id': getattr(card, 'cardId', None),
-                    'title': getattr(card, 'title', 'Unknown Title'),
-                    'description': getattr(card, 'description', ''),
-                    'author': getattr(card, 'author', ''),
+                    'id': card.id if hasattr(card, 'id') else card_id,
+                    'title': card.title if hasattr(card, 'title') and card.title else 'Unknown Title',
+                    'description': card.description if hasattr(card, 'description') else '',
+                    'author': card.author if hasattr(card, 'author') else '',
                     'icon': None,
-                    'cover': None,
+                    'cover': card.cover_image_large if hasattr(card, 'cover_image_large') else None,
                 }
-                
-                # Try to get cover image
-                if hasattr(card, 'metadata') and card.metadata:
-                    metadata = card.metadata
-                    if hasattr(metadata, 'cover') and metadata.cover:
-                        cover = metadata.cover
-                        # Get the largest available image
-                        if hasattr(cover, 'imageL'):
-                            card_info['cover'] = cover.imageL
-                        elif hasattr(cover, 'imageM'):
-                            card_info['cover'] = cover.imageM
-                        elif hasattr(cover, 'imageS'):
-                            card_info['cover'] = cover.imageS
                 
                 cards.append(card_info)
         
-        # Extract playlists (groups)
+        # Extract playlists (groups) - Note: groups are not directly supported by yoto_api library
+        # They would need to be fetched via direct API calls to /groups endpoint
+        # For now, return empty list until groups support is added
         playlists = []
-        if hasattr(manager, 'family') and manager.family:
-            family = manager.family
-            if hasattr(family, 'groups') and family.groups:
-                for group in family.groups:
-                    playlist_info = {
-                        'id': getattr(group, 'id', None),
-                        'name': getattr(group, 'name', 'Unknown Playlist'),
-                        'imageId': getattr(group, 'imageId', None),
-                        'itemCount': len(getattr(group, 'items', [])),
-                    }
-                    playlists.append(playlist_info)
+        # Future enhancement: Add direct API call to GET /groups endpoint
         
         return {
             'cards': cards,
