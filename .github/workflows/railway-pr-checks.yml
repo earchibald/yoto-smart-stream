@@ -87,7 +87,7 @@ jobs:
           # Set YOTO_CLIENT_ID if available
           if [ -n "$YOTO_CLIENT_ID" ]; then
             echo "Setting YOTO_CLIENT_ID..."
-            railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "$ENV_NAME" || echo "Note: Environment may not exist yet"
+            railway variables --set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "$ENV_NAME" || echo "Note: Environment may not exist yet"
           else
             echo "⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets"
           fi

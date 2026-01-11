@@ -91,18 +91,18 @@ jobs:
           ENV_NAME="${{ steps.env-name.outputs.env_name }}"
           
           # Note: ENVIRONMENT is now auto-populated from RAILWAY_ENVIRONMENT_NAME
-          railway variables set DEBUG="true" -e "$ENV_NAME"
-          railway variables set LOG_LEVEL="debug" -e "$ENV_NAME"
+          railway variables --set DEBUG="true" -e "$ENV_NAME"
+          railway variables --set LOG_LEVEL="debug" -e "$ENV_NAME"
           
           # Set session metadata
-          railway variables set SESSION_TYPE="copilot" -e "$ENV_NAME"
-          railway variables set BRANCH_NAME="${{ github.ref_name }}" -e "$ENV_NAME"
-          railway variables set GIT_SHA="${{ github.sha }}" -e "$ENV_NAME"
+          railway variables --set SESSION_TYPE="copilot" -e "$ENV_NAME"
+          railway variables --set BRANCH_NAME="${{ github.ref_name }}" -e "$ENV_NAME"
+          railway variables --set GIT_SHA="${{ github.sha }}" -e "$ENV_NAME"
           
           # Sync Yoto API credentials if available
           if [ -n "$YOTO_CLIENT_ID" ]; then
             echo "Setting YOTO_CLIENT_ID..."
-            railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "$ENV_NAME"
+            railway variables --set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "$ENV_NAME"
           else
             echo "⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets"
           fi
