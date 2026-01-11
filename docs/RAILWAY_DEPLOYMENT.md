@@ -164,7 +164,7 @@ Railway needs these variables set in each environment:
 ```bash
 # Core Application
 YOTO_CLIENT_ID=your_client_id_here
-PORT, 8080)  # Auto-set by Railway
+PORT=8080  # Auto-set by Railway
 HOST=0.0.0.0
 
 # Environment Settings
@@ -173,10 +173,41 @@ HOST=0.0.0.0
 DEBUG=true  # for non-production
 LOG_LEVEL=DEBUG  # or INFO for production
 
+# Railway Shared Variables Startup Wait
+# IMPORTANT: For Railway shared development environments, shared variables
+# may take time to initialize. Set this to wait before accessing variables:
+RAILWAY_STARTUP_WAIT_SECONDS=10  # Wait 5-10 seconds for shared variables (0-30)
+# Default is 0 (no wait). Only needed for shared development environments.
+
 # Optional
 PUBLIC_URL=https://your-app.up.railway.app
 DATABASE_URL=${{Postgres.DATABASE_URL}}  # If using PostgreSQL
 ```
+
+### Railway Shared Variables Startup Wait
+
+When using Railway's shared development environment with multiple deployments, environment variables may take a few seconds to initialize. To prevent the application from starting before variables are available:
+
+1. **Set the wait time** in Railway dashboard or via CLI:
+   ```bash
+   railway variables set RAILWAY_STARTUP_WAIT_SECONDS=10 -e development
+   ```
+
+2. **Recommended values**:
+   - Production/Staging: `0` (no wait needed for stable environments)
+   - Development (shared): `5-10` seconds
+   - Maximum allowed: `30` seconds
+
+3. **How it works**:
+   - The application waits at startup before loading configuration
+   - Logs show: "⏳ Waiting N seconds for Railway variables to initialize..."
+   - After wait completes: "✓ Railway startup wait complete"
+   - Then normal startup continues
+
+4. **When to use**:
+   - ✅ Shared development environments with coordinated deployments
+   - ✅ When variables are not immediately available at startup
+   - ❌ Not needed for production or staging (stable, dedicated environments)
 
 ### Setting Variables via CLI
 

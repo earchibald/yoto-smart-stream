@@ -169,7 +169,69 @@ Audio Streaming Base URLs:
 - https://yoto-smart-stream-production.up.railway.app/audio
 ```
 
+## Railway Shared Variables Configuration
+
+### Startup Wait for Variable Initialization
+
+When deploying to the shared development environment, Railway shared variables may take a few seconds to initialize. To prevent startup failures:
+
+**Set in Railway Dashboard:**
+1. Go to Railway → Yoto Smart Stream → development environment
+2. Navigate to Variables tab
+3. Add: `RAILWAY_STARTUP_WAIT_SECONDS=10`
+
+**Or via Railway CLI:**
+```bash
+railway variables set RAILWAY_STARTUP_WAIT_SECONDS=10 -e development
+```
+
+**Recommended Values:**
+- Production/Staging: `0` (no wait needed)
+- Development (shared): `5-10` seconds
+- Maximum: `30` seconds
+
+**What it does:**
+- Adds a configurable delay at application startup
+- Ensures environment variables are loaded before use
+- Logs startup wait progress for visibility
+
+**When enabled, you'll see in logs:**
+```
+⏳ Waiting 10 seconds for Railway variables to initialize...
+✓ Railway startup wait complete
+```
+
 ## Troubleshooting
+
+### Variables not loading at startup
+
+**Problem:** Application starts but environment variables are not available, causing initialization failures.
+
+**Symptoms:**
+- "Could not initialize Yoto API: A client_id must be provided"
+- Missing configuration values that should be set
+- Errors accessing expected environment variables
+
+**Solution:**
+1. **Increase startup wait time:**
+   ```bash
+   railway variables set RAILWAY_STARTUP_WAIT_SECONDS=10 -e development
+   ```
+
+2. **Verify variables are set:**
+   ```bash
+   railway variables -e development
+   ```
+
+3. **Check deployment logs:**
+   - Look for "⏳ Waiting N seconds..." message
+   - Verify wait completes before variable access
+   - Check if variables are available after wait
+
+4. **If still failing:**
+   - Increase wait time to 15-20 seconds
+   - Check Railway status page for service issues
+   - Try redeploying the service
 
 ### Lock is held by another session
 
