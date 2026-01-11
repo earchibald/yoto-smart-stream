@@ -166,10 +166,7 @@ The configuration allows access to:
    - Railway MCP server requires the Railway CLI to be installed
    - Setup ensures the CLI is available before the MCP server starts
    - Prevents MCP server loading failures due to missing dependencies
-   - **Authentication:** Requires `RAILWAY_API_TOKEN` or `RAILWAY_TOKEN` environment variable
-     - Add RAILWAY_API_TOKEN to GitHub Secrets for the repository
-     - The MCP server will automatically use the token if available
-     - Without authentication, Railway operations will fail with "Unauthorized" errors
+   - **Authentication:** Requires `RAILWAY_API_TOKEN` or `RAILWAY_TOKEN` environment variable (see MCP Servers Configuration section above for details)
 
 ### 1. Network Configuration
 
