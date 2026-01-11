@@ -231,22 +231,49 @@ async function loadPlayers() {
             return;
         }
         
-        container.innerHTML = players.map(player => `
-            <div class="list-item" onclick="showPlayerDetail('${escapeHtml(player.id)}')">
-                <div class="list-item-header">
-                    <span class="list-item-title">${escapeHtml(player.name)}</span>
-                    <span class="badge ${player.online ? 'online' : 'offline'}">
-                        ${player.online ? 'Online' : 'Offline'}
-                    </span>
+        container.innerHTML = players.map(player => {
+            // Build additional status indicators
+            const indicators = [];
+            
+            // Battery with charging
+            if (player.battery_level !== null && player.battery_level !== undefined) {
+                const chargingIcon = player.is_charging ? '⚡' : '';
+                const batteryIcon = player.battery_level < 20 ? '🪫' : '🔋';
+                indicators.push(`${batteryIcon} ${player.battery_level}%${chargingIcon}`);
+            }
+            
+            // Temperature if available
+            if (player.temperature !== null && player.temperature !== undefined) {
+                indicators.push(`🌡️ ${player.temperature}°C`);
+            }
+            
+            // Sleep timer if active
+            if (player.sleep_timer_active && player.sleep_timer_seconds_remaining) {
+                const minutes = Math.floor(player.sleep_timer_seconds_remaining / 60);
+                indicators.push(`😴 ${minutes}m`);
+            }
+            
+            // Audio connections
+            if (player.bluetooth_audio_connected) {
+                indicators.push('🎧 BT');
+            }
+            
+            return `
+                <div class="list-item" onclick="showPlayerDetail('${escapeHtml(player.id)}')">
+                    <div class="list-item-header">
+                        <span class="list-item-title">${escapeHtml(player.name)}</span>
+                        <span class="badge ${player.online ? 'online' : 'offline'}">
+                            ${player.online ? 'Online' : 'Offline'}
+                        </span>
+                    </div>
+                    <div class="list-item-details">
+                        <span>🔊 ${player.volume}%</span>
+                        <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
+                        ${indicators.map(ind => `<span>${ind}</span>`).join('')}
+                    </div>
                 </div>
-                <div class="list-item-details">
-                    <span>ID: ${escapeHtml(player.id)}</span>
-                    <span>Volume: ${player.volume}%</span>
-                    ${player.battery_level ? `<span>Battery: ${player.battery_level}%</span>` : ''}
-                    <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         
     } catch (error) {
         console.error('Error loading players:', error);
@@ -524,20 +551,60 @@ function populatePlayerModal(player) {
         tempEl.textContent = 'N/A';
     }
     
+    // Ambient Light
+    const ambientLightEl = document.getElementById('modalPlayerAmbientLight');
+    if (player.ambient_light !== null && player.ambient_light !== undefined) {
+        ambientLightEl.textContent = `${player.ambient_light} lux`;
+    } else {
+        ambientLightEl.textContent = 'N/A';
+    }
+    
+    // Day Mode
     document.getElementById('modalPlayerDayMode').textContent = 
         player.day_mode !== null ? (player.day_mode ? 'Day' : 'Night') : 'N/A';
     
+    // Nightlight
     const nightlightEl = document.getElementById('modalPlayerNightlight');
     if (player.nightlight_mode) {
-        // Nightlight mode is typically a hex color code
-        nightlightEl.innerHTML = `
-            <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                <span style="width: 20px; height: 20px; border-radius: 50%; background: ${player.nightlight_mode}; border: 1px solid #ccc;"></span>
-                ${player.nightlight_mode}
-            </span>
-        `;
+        nightlightEl.textContent = player.nightlight_mode === 'off' ? 'Off' : player.nightlight_mode;
     } else {
         nightlightEl.textContent = 'N/A';
+    }
+    
+    // Last Updated
+    const lastUpdatedEl = document.getElementById('modalPlayerLastUpdated');
+    if (player.last_updated_at) {
+        const date = new Date(player.last_updated_at);
+        lastUpdatedEl.textContent = date.toLocaleString();
+    } else {
+        lastUpdatedEl.textContent = 'N/A';
+    }
+    
+    // Audio Connections
+    document.getElementById('modalPlayerBluetoothAudio').textContent = 
+        player.bluetooth_audio_connected !== null ? 
+        (player.bluetooth_audio_connected ? '🎧 Connected' : 'Not Connected') : 'N/A';
+    
+    document.getElementById('modalPlayerAudioDevice').textContent = 
+        player.audio_device_connected !== null ? 
+        (player.audio_device_connected ? '🔊 Connected' : 'Not Connected') : 'N/A';
+    
+    // Sleep Timer Section
+    const sleepTimerSection = document.getElementById('modalSleepTimerSection');
+    if (player.sleep_timer_active && player.sleep_timer_seconds_remaining) {
+        sleepTimerSection.style.display = 'block';
+        const hours = Math.floor(player.sleep_timer_seconds_remaining / 3600);
+        const minutes = Math.floor((player.sleep_timer_seconds_remaining % 3600) / 60);
+        const seconds = player.sleep_timer_seconds_remaining % 60;
+        
+        let timeStr = '';
+        if (hours > 0) timeStr += `${hours}h `;
+        if (minutes > 0) timeStr += `${minutes}m `;
+        if (seconds > 0 || timeStr === '') timeStr += `${seconds}s`;
+        
+        document.getElementById('modalPlayerSleepTimer').textContent = `😴 ${timeStr}`;
+    } else {
+        sleepTimerSection.style.display = 'none';
     }
     
     // Playback Information (show section only if there's active playback)
@@ -545,13 +612,33 @@ function populatePlayerModal(player) {
     if (player.active_card && player.active_card !== 'none') {
         playbackSection.style.display = 'block';
         document.getElementById('modalPlayerActiveCard').textContent = player.active_card;
-        document.getElementById('modalPlayerChapter').textContent = player.current_chapter || 'N/A';
+        
+        // Chapter with title
+        const chapterEl = document.getElementById('modalPlayerChapter');
+        if (player.chapter_title && player.current_chapter) {
+            chapterEl.textContent = `${player.chapter_title} (${player.current_chapter})`;
+        } else if (player.current_chapter) {
+            chapterEl.textContent = player.current_chapter;
+        } else {
+            chapterEl.textContent = 'N/A';
+        }
+        
+        // Track with title
+        const trackEl = document.getElementById('modalPlayerTrack');
+        if (player.track_title && player.current_track) {
+            trackEl.textContent = `${player.track_title} (${player.current_track})`;
+        } else if (player.current_track) {
+            trackEl.textContent = player.current_track;
+        } else {
+            trackEl.textContent = 'N/A';
+        }
         
         const positionEl = document.getElementById('modalPlayerPosition');
         if (player.playback_position !== null && player.track_length !== null) {
             const position = formatTime(player.playback_position);
             const length = formatTime(player.track_length);
-            positionEl.textContent = `${position} / ${length}`;
+            const percent = Math.floor((player.playback_position / player.track_length) * 100);
+            positionEl.textContent = `${position} / ${length} (${percent}%)`;
         } else if (player.playback_position !== null) {
             positionEl.textContent = formatTime(player.playback_position);
         } else {

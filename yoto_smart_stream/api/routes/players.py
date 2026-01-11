@@ -33,20 +33,45 @@ class PlayerDetailInfo(BaseModel):
     online: bool
     volume: int = Field(..., ge=0, le=100)
     playing: bool = False
+    
+    # Battery & Power
     battery_level: Optional[int] = None
     is_charging: Optional[bool] = None
+    power_source: Optional[str] = None
+    
+    # Device Info
     firmware_version: Optional[str] = None
+    device_type: Optional[str] = None
+    
+    # Network & Environment
     wifi_strength: Optional[int] = None
     temperature: Optional[float] = None
+    ambient_light: Optional[int] = None
+    
+    # Playback
     active_card: Optional[str] = None
     playback_status: Optional[str] = None
     playback_position: Optional[int] = None
     track_length: Optional[int] = None
     current_chapter: Optional[str] = None
+    current_track: Optional[str] = None
+    chapter_title: Optional[str] = None
+    track_title: Optional[str] = None
+    
+    # Modes & Settings
     nightlight_mode: Optional[str] = None
     day_mode: Optional[bool] = None
-    power_source: Optional[str] = None
-    device_type: Optional[str] = None
+    
+    # Audio Connections
+    bluetooth_audio_connected: Optional[bool] = None
+    audio_device_connected: Optional[bool] = None
+    
+    # Sleep Timer
+    sleep_timer_active: Optional[bool] = None
+    sleep_timer_seconds_remaining: Optional[int] = None
+    
+    # Timestamps
+    last_updated_at: Optional[str] = None
 
 
 class PlayerControl(BaseModel):
@@ -143,12 +168,18 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
 
     # Temperature - yoto_ha uses player.temperature_celcius (note the typo in API)
     temperature = getattr(player, 'temperature_celcius', None)
+    
+    # Ambient light - yoto_ha uses player.ambient_light_sensor_reading
+    ambient_light = getattr(player, 'ambient_light_sensor_reading', None)
 
     # Card and playback info - yoto_ha uses these exact names
     active_card = getattr(player, 'card_id', None)
     playback_position = getattr(player, 'track_position', None)
     track_length = getattr(player, 'track_length', None)
     current_chapter = getattr(player, 'chapter_key', None)
+    current_track = getattr(player, 'track_key', None)
+    chapter_title = getattr(player, 'chapter_title', None)
+    track_title = getattr(player, 'track_title', None)
 
     # Nightlight mode - yoto_ha uses player.night_light_mode
     nightlight_mode = getattr(player, 'night_light_mode', None)
@@ -158,6 +189,21 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
 
     # Device type - yoto_ha uses player.device_type
     device_type = getattr(player, 'device_type', None)
+    
+    # Audio connections
+    bluetooth_audio_connected = getattr(player, 'bluetooth_audio_connected', None)
+    audio_device_connected = getattr(player, 'audio_device_connected', None)
+    
+    # Sleep timer
+    sleep_timer_active = getattr(player, 'sleep_timer_active', None)
+    sleep_timer_seconds_remaining = getattr(player, 'sleep_timer_seconds_remaining', None)
+    
+    # Timestamps
+    last_updated_at = getattr(player, 'last_updated_at', None)
+    if last_updated_at and hasattr(last_updated_at, 'isoformat'):
+        last_updated_at = last_updated_at.isoformat()
+    elif last_updated_at:
+        last_updated_at = str(last_updated_at)
     
     # Power source - not directly exposed as attribute, would need config parsing
     power_source = None
@@ -170,18 +216,27 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
         playing=playing,
         battery_level=battery_level,
         is_charging=is_charging,
+        power_source=power_source,
         firmware_version=firmware_version,
+        device_type=device_type,
         wifi_strength=wifi_strength,
         temperature=temperature,
+        ambient_light=ambient_light,
         active_card=active_card,
         playback_status=playback_status,
         playback_position=playback_position,
         track_length=track_length,
         current_chapter=current_chapter,
+        current_track=current_track,
+        chapter_title=chapter_title,
+        track_title=track_title,
         nightlight_mode=nightlight_mode,
         day_mode=day_mode,
-        power_source=power_source,
-        device_type=device_type,
+        bluetooth_audio_connected=bluetooth_audio_connected,
+        audio_device_connected=audio_device_connected,
+        sleep_timer_active=sleep_timer_active,
+        sleep_timer_seconds_remaining=sleep_timer_seconds_remaining,
+        last_updated_at=last_updated_at,
     )
 
 
