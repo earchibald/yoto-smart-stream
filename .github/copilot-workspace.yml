@@ -72,5 +72,6 @@ mcp_servers:
       - Configuration (list/set variables, generate domains)
       - Monitoring (retrieve logs with filtering)
       
-      Requires: Railway CLI installed and RAILWAY_API_TOKEN or RAILWAY_TOKEN environment variable
+      Requires: RAILWAY_API_TOKEN or RAILWAY_TOKEN environment variable for authentication
+      Note: Railway CLI is automatically installed by the setup section
       CLI Version: Automatically detects version for feature support

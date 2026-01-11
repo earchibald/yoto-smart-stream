@@ -98,12 +98,16 @@ mcp_servers:
 The Railway MCP server provides specialized tools for managing Railway resources directly from Copilot Workspace.
 
 **Authentication:** The MCP server configuration includes an `env` section that passes the Railway token to the server:
-- Looks for `RAILWAY_API_TOKEN` first (GitHub secret)
+- Looks for `RAILWAY_API_TOKEN` first (must be manually added to GitHub repository secrets)
 - Falls back to `RAILWAY_TOKEN` if RAILWAY_API_TOKEN is not set
 - Without authentication, Railway operations will return "Unauthorized" errors
 
 To enable Railway operations:
-1. Add `RAILWAY_API_TOKEN` to your GitHub repository secrets
+1. **Manually add** `RAILWAY_API_TOKEN` to your GitHub repository secrets
+   - Go to repository Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `RAILWAY_API_TOKEN`
+   - Value: Your Railway token from https://railway.app/account/tokens
 2. The token will be automatically available to Copilot Workspace
 3. The MCP server will use it for authentication
 
@@ -504,6 +508,12 @@ Only remove domains if:
    # or
    export RAILWAY_API_TOKEN="your-token-here"
    ```
+   
+   **⚠️ Security Warning:**
+   - **Never commit these export commands to version control**
+   - Use `.env` files (add to `.gitignore`) or shell profiles for persistence
+   - For GitHub Codespaces, add the token to your Codespaces secrets instead
+   - Rotate tokens immediately if accidentally committed
 
 5. **Verify project linking:**
    ```bash
