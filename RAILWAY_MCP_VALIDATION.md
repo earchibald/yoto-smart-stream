@@ -9,6 +9,11 @@ Validate the Railway MCP server tools by:
 2. Linking this PR branch to the PR Environment
 3. Retrieving logs from the linked environment
 
+## Quick Links
+- **Manual Validation Steps**: See [RAILWAY_MCP_VALIDATION_STEPS.md](./RAILWAY_MCP_VALIDATION_STEPS.md)
+- **Automated Validation Script**: `./scripts/validate_railway_mcp.sh`
+- **Network Config Documentation**: [docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md](./docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md)
+
 ## Environment
 - **Branch:** `copilot/validate-mcp-link-railway-service`
 - **Railway CLI Version:** 4.23.0
