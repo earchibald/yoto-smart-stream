@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e  # Exit on error
+
 # Test script to verify Copilot Workspace can access Railway URLs
 # Run this after the copilot-workspace.yml configuration is deployed
 
@@ -14,7 +16,12 @@ test_url() {
     echo -n "Testing $description... "
     
     # Try to connect with a short timeout
-    if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "$url" > /tmp/test_result 2>&1; then
+    set +e  # Temporarily disable exit on error for curl
+    curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 "$url" > /tmp/test_result 2>&1
+    local curl_exit=$?
+    set -e  # Re-enable exit on error
+    
+    if [ $curl_exit -eq 0 ]; then
         code=$(cat /tmp/test_result)
         if [ "$code" = "000" ]; then
             echo "❌ Cannot connect (blocked or unreachable)"
