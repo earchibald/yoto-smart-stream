@@ -100,5 +100,7 @@ This workspace contains locally-maintained custom skills in `.github/skills/`:
 - MQTT is used for real-time device events and control
 - Railway environments use separate tokens for security (RAILWAY_TOKEN_PROD, RAILWAY_TOKEN_STAGING, RAILWAY_TOKEN_DEV)
 - Display icons for Yoto Mini must be exactly 16x16 pixels in PNG format
-- **Network Access**: Copilot Workspace is configured to access Railway deployment URLs (*.up.railway.app) via `.github/copilot-workspace.yml`
+- **Network Access**: Copilot Workspace is configured to access Railway deployment URLs (*.up.railway.app) and Railway APIs (railway.app) via `.github/copilot-workspace.yml`
 - **Railway MCP Server**: Provides Railway management tools directly in Copilot Workspace (project/service/environment management, deployments, logs, variables)
+- **Railway CLI Auto-Install**: The Railway CLI is automatically installed on workspace startup via `.github/copilot-workspace.yml` setup commands
+- **Railway API Access**: The railway.app domain is whitelisted in the Copilot firewall, enabling full Railway CLI functionality

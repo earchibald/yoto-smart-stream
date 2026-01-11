@@ -8,9 +8,14 @@ python -m pip install --upgrade pip
 # Install Railway CLI for deployments
 if ! command -v railway &> /dev/null; then
     echo "📦 Installing Railway CLI..."
-    npm i -g @railway/cli
+    npm install -g @railway/cli
+    if command -v railway &> /dev/null; then
+        echo "✅ Railway CLI installed successfully: $(railway --version)"
+    else
+        echo "⚠️  Railway CLI installation may have failed"
+    fi
 else
-    echo "✓ Railway CLI already installed"
+    echo "✓ Railway CLI already installed: $(railway --version)"
 fi
 
 # Install package with dev dependencies from pyproject.toml
@@ -51,11 +56,14 @@ echo "  - Deploy with: './scripts/railway_ephemeral_env.sh deploy <env-name>'"
 echo "  - See: docs/EPHEMERAL_RAILWAY_ENVIRONMENTS.md for full guide"
 echo ""
 echo "🔑 Required Secrets Setup (Codespaces):"
-if [ -n "$RAILWAY_TOKEN" ]; then
+if [ -n "$RAILWAY_API_TOKEN" ]; then
+  echo "  ✅ RAILWAY_API_TOKEN is set and available"
+  railway whoami &> /dev/null && echo "  ✅ Railway authentication verified" || echo "  ⚠️  Could not verify Railway auth (may still work)"
+elif [ -n "$RAILWAY_TOKEN" ]; then
   echo "  ✅ RAILWAY_TOKEN is set and available"
   railway whoami &> /dev/null && echo "  ✅ Railway authentication verified" || echo "  ⚠️  Could not verify Railway auth (may still work)"
 else
-  echo "  ℹ️  RAILWAY_TOKEN not set. To enable Railway deployments:"
+  echo "  ℹ️  RAILWAY_API_TOKEN/RAILWAY_TOKEN not set. To enable Railway deployments:"
   echo "     1. Get token from https://railway.app/account/tokens"
   echo "     2. Add to Codespaces secrets: https://github.com/settings/codespaces"
   echo "     3. Restart Codespace to load the secret"

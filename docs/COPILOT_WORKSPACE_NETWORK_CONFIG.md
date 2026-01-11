@@ -6,10 +6,11 @@ This document explains the network access and MCP server configuration for GitHu
 
 ## Configuration Components
 
-The `.github/copilot-workspace.yml` file contains two main configuration sections:
+The `.github/copilot-workspace.yml` file contains three main configuration sections:
 
-1. **Network Configuration** - Controls which external domains Copilot can access
-2. **MCP Servers Configuration** - Enables Model Context Protocol servers for specialized tools
+1. **Environment Setup** - Commands to run on workspace startup to install dependencies
+2. **Network Configuration** - Controls which external domains Copilot can access
+3. **MCP Servers Configuration** - Enables Model Context Protocol servers for specialized tools
 
 ## Problem
 
@@ -22,13 +23,37 @@ GitHub Copilot Workspace has restricted network access by default for security r
 
 ## Solution
 
-The configuration is defined in `.github/copilot-workspace.yml`, which includes both network access and MCP server setup.
+The configuration is defined in `.github/copilot-workspace.yml`, which includes environment setup, network access, and MCP server configuration. Additionally, the railway.app domain has been whitelisted in the GitHub Copilot firewall to enable full Railway CLI functionality.
 
 ### Configuration File
 
 **Location:** `.github/copilot-workspace.yml`
 
-This file contains two main sections:
+This file contains three main sections:
+
+#### 0. Environment Setup
+
+The setup section runs automatically when a Copilot Workspace starts. It performs three key tasks:
+
+1. **Install Railway CLI** - Ensures the Railway CLI is available for the MCP server
+2. **Check Authentication** - Verifies Railway API token is available
+3. **Auto-link Project/Environment** - Automatically links to the appropriate Railway environment based on the git context
+
+**Key Features:**
+- **Context-aware linking**: Automatically selects the correct Railway environment:
+  - PR branches → `development` (shared environment)
+  - `main` branch → `production`
+  - `develop` branch → `staging`
+  - Other branches → `development` (default)
+- **Comprehensive error handling**: Captures errors and provides clear troubleshooting guidance
+- **Non-blocking**: Exits gracefully to allow workspace startup even if Railway linking fails
+- **Status reporting**: Displays environment information and available MCP tools
+
+**What this enables:**
+- Railway MCP tools automatically work with the correct environment
+- No manual linking needed for each agent session
+- Consistent development workflow across all PR-triggered agent sessions
+- Immediate access to Railway management capabilities (deploy, logs, variables, etc.)
 
 #### 1. Network Configuration
 
@@ -55,11 +80,40 @@ mcp_servers:
     args:
       - "-y"
       - "@railway/mcp-server"
+    env:
+      # Railway API token for authentication
+      # Use RAILWAY_API_TOKEN if available, otherwise fall back to RAILWAY_TOKEN
+      RAILWAY_TOKEN: "${RAILWAY_API_TOKEN:-${RAILWAY_TOKEN}}"
     description: |
       Railway MCP Server provides tools for managing Railway infrastructure
 ```
 
 The Railway MCP server provides specialized tools for managing Railway resources directly from Copilot Workspace.
+
+**Authentication:** The MCP server configuration includes an `env` section that passes the Railway token to the server:
+- Looks for `RAILWAY_API_TOKEN` first (must be manually added to GitHub repository secrets)
+- Falls back to `RAILWAY_TOKEN` if RAILWAY_API_TOKEN is not set
+- Without authentication, Railway operations will return "Unauthorized" errors
+
+To enable Railway operations:
+1. **Manually add** `RAILWAY_API_TOKEN` to your GitHub repository secrets
+   - Go to repository Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `RAILWAY_API_TOKEN`
+   - Value: Your Railway token from https://railway.app/account/tokens
+2. The token will be automatically available to Copilot Workspace
+3. The MCP server will use it for authentication
+
+**Note on Token Types:**
+- `RAILWAY_API_TOKEN` - **Copilot Workspace MCP server** (interactive operations)
+  - Used for real-time Railway management from Copilot
+  - Scope: Can be project-specific or account-wide
+  - Best practice: Use a development-environment-only token for safety
+- `RAILWAY_TOKEN_PROD`, `RAILWAY_TOKEN_STAGING`, `RAILWAY_TOKEN_DEV` - **GitHub Actions workflows** (automated deployments)
+  - Used for CI/CD deployment pipelines
+  - Scope: Environment-specific tokens for security isolation
+  - See `docs/RAILWAY_TOKEN_SETUP.md` for detailed setup
+- **Key difference:** RAILWAY_API_TOKEN is for interactive development, while RAILWAY_TOKEN_* are for automated deployments
 
 ### Allowed Domains
 
@@ -103,6 +157,24 @@ The configuration allows access to:
 - **Example:** PR #42 → `https://yoto-smart-stream-pr-42.up.railway.app`
 
 ## How It Works
+
+### 0. Environment Setup
+
+1. **Workspace Initialization**
+   - GitHub Copilot Workspace reads `.github/copilot-workspace.yml` on startup
+   - The `setup.commands` section is executed automatically
+   - Railway CLI is installed via npm if not already present
+
+2. **Dependency Installation**
+   - Checks if `railway` command is available
+   - Installs `@railway/cli` globally via npm if needed
+   - Verifies installation by displaying the version
+
+3. **MCP Server Prerequisites**
+   - Railway MCP server requires the Railway CLI to be installed
+   - Setup ensures the CLI is available before the MCP server starts
+   - Prevents MCP server loading failures due to missing dependencies
+   - **Authentication:** Requires `RAILWAY_API_TOKEN` or `RAILWAY_TOKEN` environment variable (see MCP Servers Configuration section above for details)
 
 ### 1. Network Configuration
 
@@ -329,22 +401,34 @@ Only remove domains if:
 
 **Solutions:**
 
-1. **Verify MCP configuration exists:**
+1. **Verify environment setup ran successfully:**
+   ```bash
+   railway --version
+   ```
+   
+   If the Railway CLI is not installed, the workspace setup may not have run. Check:
+   ```bash
+   grep -A 10 "setup:" .github/copilot-workspace.yml
+   ```
+
+2. **Verify MCP configuration exists:**
    ```bash
    grep -A 10 "mcp_servers:" .github/copilot-workspace.yml
    ```
 
-2. **Check npx is available:**
+3. **Check npx is available:**
    ```bash
    npx --version
    ```
 
-3. **Test the Railway MCP server manually:**
+4. **Test the Railway MCP server manually:**
    ```bash
    npx -y @railway/mcp-server
    ```
+   
+   This should start the server (it will wait for JSON-RPC input). Press Ctrl+C to exit.
 
-4. **Restart Copilot Workspace:**
+5. **Restart Copilot Workspace:**
    - Configuration changes require a session restart
    - Close and reopen the workspace
 
@@ -355,31 +439,39 @@ Only remove domains if:
 - MCP server reports CLI is not available
 - Commands fail with "railway: command not found"
 
+**Note:** As of the latest configuration, the Railway CLI should be automatically installed by the workspace setup. If you're seeing these errors, the setup may not have run properly.
+
 **Solutions:**
 
-1. **Install Railway CLI:**
+1. **Verify the setup section exists in configuration:**
+   ```bash
+   grep -A 10 "setup:" .github/copilot-workspace.yml
+   ```
+   
+   If the setup section is missing, add it or restart the workspace.
+
+2. **Manually install Railway CLI (if needed):**
    ```bash
    # Using npm
    npm install -g @railway/cli
-   
-   # Or using curl
-   curl -fsSL https://railway.app/install.sh | sh
    ```
 
-2. **Verify installation:**
+3. **Verify installation:**
    ```bash
    railway --version
    ```
 
-3. **Login to Railway:**
+4. **Login to Railway:**
    ```bash
    railway login
    ```
 
-4. **Set RAILWAY_TOKEN (for CI/CD):**
+5. **Set RAILWAY_TOKEN (for CI/CD):**
    ```bash
    export RAILWAY_TOKEN="your-token-here"
    ```
+
+**Note:** The automatic installation in `.github/copilot-workspace.yml` should prevent this issue in most cases.
 
 #### MCP Server Commands Fail
 
@@ -390,35 +482,65 @@ Only remove domains if:
 
 **Solutions:**
 
-1. **Check Railway login status:**
+1. **Check Railway authentication:**
    ```bash
    railway whoami
    ```
+   
+   If you see "Unauthorized", authentication is missing.
 
-2. **Re-login if needed:**
+2. **Verify RAILWAY_API_TOKEN secret is set:**
+   - Go to your repository settings → Secrets
+   - Ensure RAILWAY_API_TOKEN is added
+   - The token should be from https://railway.app/account/tokens
+   - **Note:** This is separate from `RAILWAY_TOKEN_PROD/STAGING/DEV` used by GitHub Actions workflows
+   - For Copilot Workspace, a development token is recommended for safety
+
+3. **Check if token is available in environment:**
    ```bash
-   railway login
+   echo "RAILWAY_API_TOKEN is set: $([ -n "$RAILWAY_API_TOKEN" ] && echo "Yes" || echo "No")"
    ```
+   
+   **Note:** This only checks if the variable is set. To verify the token is valid, use:
+   ```bash
+   railway whoami
+   ```
+   If valid, this will display your Railway account info. If invalid, you'll see "Unauthorized".
 
-3. **Verify project linking:**
+4. **For local testing, set the token manually:**
+   ```bash
+   export RAILWAY_TOKEN="your-token-here"
+   # or
+   export RAILWAY_API_TOKEN="your-token-here"
+   ```
+   
+   **⚠️ Security Warning:**
+   - **Never commit these export commands to version control**
+   - Use `.env` files (add to `.gitignore`) or shell profiles for persistence
+   - For GitHub Codespaces, add the token to your Codespaces secrets instead
+   - Rotate tokens immediately if accidentally committed
+
+5. **Verify project linking:**
    ```bash
    railway status
    ```
 
-4. **Check Railway service status:**
+6. **Check Railway service status:**
    - Visit https://railway.app/ to check for outages
    - Verify your account has proper permissions
 
-5. **Update Railway CLI:**
+7. **Update Railway CLI:**
    ```bash
    npm update -g @railway/cli
    ```
 
-6. **Check CLI version compatibility:**
+8. **Check CLI version compatibility:**
    ```bash
    railway --version
    # MCP server requires Railway CLI v3.0.0 or higher
    ```
+
+**Note:** The MCP server configuration now includes an `env` section that automatically passes `RAILWAY_API_TOKEN` to the Railway CLI if it's available in the environment.
 
 ## Best Practices
 
