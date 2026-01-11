@@ -108,7 +108,8 @@ def main():
         print(f"Player: {player.name}")
         print(f"  ID: {player_id}")
         print(f"  Online: {player.online}")
-        print(f"  Volume: {player.volume}/16")
+        volume = player.volume if hasattr(player, "volume") and player.volume is not None else 8
+        print(f"  Volume: {volume}/16")
 
         if hasattr(player, "playing") and player.playing:
             print("  Status: Playing")
