@@ -158,7 +158,7 @@ async def control_player(player_id: str, control: PlayerControl):
     - skip_backward: Skip to previous chapter
 
     Optional parameters:
-    - volume: Set volume level (0-16)
+    - volume: Set volume level (0-100)
     """
     client = get_yoto_client()
     manager = client.get_manager()
