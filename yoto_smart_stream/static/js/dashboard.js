@@ -232,7 +232,7 @@ async function loadPlayers() {
         }
         
         container.innerHTML = players.map(player => `
-            <div class="list-item">
+            <div class="list-item" onclick="showPlayerDetail('${escapeHtml(player.id)}')">
                 <div class="list-item-header">
                     <span class="list-item-title">${escapeHtml(player.name)}</span>
                     <span class="badge ${player.online ? 'online' : 'offline'}">
@@ -339,4 +339,185 @@ function formatFileSize(bytes) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Player Detail Modal Functions
+
+/**
+ * Show player detail modal with comprehensive information
+ */
+async function showPlayerDetail(playerId) {
+    const modal = document.getElementById('playerModal');
+    const loadingEl = document.getElementById('modalPlayerLoading');
+    const contentEl = document.getElementById('modalPlayerContent');
+    
+    // Show modal and reset to loading state
+    modal.style.display = 'flex';
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    
+    try {
+        // Fetch detailed player information
+        const response = await fetch(`${API_BASE}/players/${playerId}`);
+        if (!response.ok) throw new Error('Failed to fetch player details');
+        
+        const player = await response.json();
+        
+        // Update modal with player data
+        populatePlayerModal(player);
+        
+        // Show content, hide loading
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading player details:', error);
+        loadingEl.innerHTML = '<p class="error-message">Failed to load player details. Please try again.</p>';
+    }
+}
+
+/**
+ * Close the player detail modal
+ */
+function closePlayerModal() {
+    const modal = document.getElementById('playerModal');
+    modal.style.display = 'none';
+}
+
+/**
+ * Populate modal with player data
+ */
+function populatePlayerModal(player) {
+    // Header
+    document.getElementById('modalPlayerName').textContent = player.name;
+    
+    // Status Overview
+    const statusBadge = document.getElementById('modalPlayerStatus');
+    statusBadge.textContent = player.online ? 'Online' : 'Offline';
+    statusBadge.className = `detail-value badge ${player.online ? 'online' : 'offline'}`;
+    
+    document.getElementById('modalPlayerPlayback').textContent = player.playing ? '▶️ Playing' : '⏸️ Paused';
+    document.getElementById('modalPlayerVolume').textContent = `${player.volume}%`;
+    
+    // Battery with indicator
+    const batteryEl = document.getElementById('modalPlayerBattery');
+    if (player.battery_level !== null && player.battery_level !== undefined) {
+        const batteryClass = player.battery_level < 20 ? 'low' : player.battery_level < 50 ? 'medium' : '';
+        const chargingIcon = player.is_charging ? ' ⚡' : '';
+        batteryEl.innerHTML = `
+            <span class="battery-indicator">
+                <span class="battery-icon">
+                    <span class="battery-fill ${batteryClass}" style="width: ${player.battery_level}%"></span>
+                </span>
+                ${player.battery_level}%${chargingIcon}
+            </span>
+        `;
+    } else {
+        batteryEl.textContent = 'N/A';
+    }
+    
+    // Device Information
+    document.getElementById('modalPlayerId').textContent = player.id;
+    document.getElementById('modalPlayerDeviceType').textContent = player.device_type || 'N/A';
+    document.getElementById('modalPlayerFirmware').textContent = player.firmware_version || 'N/A';
+    document.getElementById('modalPlayerPowerSource').textContent = player.power_source || 'N/A';
+    
+    // Network & Environment
+    const wifiEl = document.getElementById('modalPlayerWifi');
+    if (player.wifi_strength !== null && player.wifi_strength !== undefined) {
+        // WiFi strength in dBm (typically -30 to -90)
+        // -30 = Excellent, -50 = Good, -60 = Fair, -70 = Weak, -90+ = Very Weak
+        let signalQuality = 'Weak';
+        let activeBars = 1;
+        if (player.wifi_strength >= -50) {
+            signalQuality = 'Excellent';
+            activeBars = 4;
+        } else if (player.wifi_strength >= -60) {
+            signalQuality = 'Good';
+            activeBars = 3;
+        } else if (player.wifi_strength >= -70) {
+            signalQuality = 'Fair';
+            activeBars = 2;
+        }
+        
+        wifiEl.innerHTML = `
+            <span class="wifi-indicator">
+                <span class="wifi-bars">
+                    ${[1,2,3,4].map(i => `<span class="wifi-bar ${i <= activeBars ? 'active' : ''}"></span>`).join('')}
+                </span>
+                ${player.wifi_strength} dBm (${signalQuality})
+            </span>
+        `;
+    } else {
+        wifiEl.textContent = 'N/A';
+    }
+    
+    const tempEl = document.getElementById('modalPlayerTemperature');
+    if (player.temperature !== null && player.temperature !== undefined) {
+        const fahrenheit = (player.temperature * 9/5) + 32;
+        tempEl.textContent = `${player.temperature}°C (${fahrenheit.toFixed(1)}°F)`;
+    } else {
+        tempEl.textContent = 'N/A';
+    }
+    
+    document.getElementById('modalPlayerDayMode').textContent = 
+        player.day_mode !== null ? (player.day_mode ? 'Day' : 'Night') : 'N/A';
+    
+    const nightlightEl = document.getElementById('modalPlayerNightlight');
+    if (player.nightlight_mode) {
+        // Nightlight mode is typically a hex color code
+        nightlightEl.innerHTML = `
+            <span style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; background: ${player.nightlight_mode}; border: 1px solid #ccc;"></span>
+                ${player.nightlight_mode}
+            </span>
+        `;
+    } else {
+        nightlightEl.textContent = 'N/A';
+    }
+    
+    // Playback Information (show section only if there's active playback)
+    const playbackSection = document.getElementById('modalPlaybackSection');
+    if (player.active_card && player.active_card !== 'none') {
+        playbackSection.style.display = 'block';
+        document.getElementById('modalPlayerActiveCard').textContent = player.active_card;
+        document.getElementById('modalPlayerChapter').textContent = player.current_chapter || 'N/A';
+        
+        const positionEl = document.getElementById('modalPlayerPosition');
+        if (player.playback_position !== null && player.track_length !== null) {
+            const position = formatTime(player.playback_position);
+            const length = formatTime(player.track_length);
+            positionEl.textContent = `${position} / ${length}`;
+        } else if (player.playback_position !== null) {
+            positionEl.textContent = formatTime(player.playback_position);
+        } else {
+            positionEl.textContent = 'N/A';
+        }
+    } else {
+        playbackSection.style.display = 'none';
+    }
+}
+
+/**
+ * Format seconds to MM:SS or HH:MM:SS
+ */
+function formatTime(seconds) {
+    if (seconds === null || seconds === undefined) return 'N/A';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    return `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+// Close modal when clicking outside of it
+window.onclick = function(event) {
+    const modal = document.getElementById('playerModal');
+    if (event.target === modal) {
+        closePlayerModal();
+    }
 }

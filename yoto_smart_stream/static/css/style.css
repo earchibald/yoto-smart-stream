@@ -917,3 +917,151 @@ header h2 {
     }
 }
 
+/* Player Detail Modal Styles */
+.player-modal-content {
+    max-width: 800px;
+}
+
+.player-detail-section {
+    margin-bottom: 2rem;
+}
+
+.player-detail-section h4 {
+    font-size: 1.1rem;
+    color: #2d3748;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.player-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.player-detail-item {
+    background: #f7fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.player-detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.player-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: #f7fafc;
+    border-radius: 6px;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #4a5568;
+    font-size: 0.9rem;
+}
+
+.detail-value {
+    color: #2d3748;
+    font-size: 1rem;
+}
+
+.player-detail-item .detail-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #667eea;
+}
+
+/* WiFi signal strength indicator */
+.wifi-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.wifi-bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 16px;
+}
+
+.wifi-bar {
+    width: 3px;
+    background: #cbd5e0;
+    border-radius: 2px;
+}
+
+.wifi-bar.active {
+    background: #48bb78;
+}
+
+.wifi-bar:nth-child(1) { height: 25%; }
+.wifi-bar:nth-child(2) { height: 50%; }
+.wifi-bar:nth-child(3) { height: 75%; }
+.wifi-bar:nth-child(4) { height: 100%; }
+
+/* Battery indicator */
+.battery-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.battery-icon {
+    position: relative;
+    width: 30px;
+    height: 16px;
+    border: 2px solid #4a5568;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.battery-icon::after {
+    content: '';
+    position: absolute;
+    right: -4px;
+    top: 4px;
+    width: 2px;
+    height: 4px;
+    background: #4a5568;
+    border-radius: 0 2px 2px 0;
+}
+
+.battery-fill {
+    position: absolute;
+    left: 1px;
+    top: 1px;
+    bottom: 1px;
+    background: #48bb78;
+    border-radius: 1px;
+    transition: width 0.3s;
+}
+
+.battery-fill.low {
+    background: #f56565;
+}
+
+.battery-fill.medium {
+    background: #ed8936;
+}
+
+@media (max-width: 768px) {
+    .player-modal-content {
+        max-width: 95%;
+    }
+    
+    .player-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+

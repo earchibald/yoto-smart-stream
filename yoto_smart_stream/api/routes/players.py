@@ -24,6 +24,30 @@ class PlayerInfo(BaseModel):
     battery_level: Optional[int] = None
 
 
+class PlayerDetailInfo(BaseModel):
+    """Detailed player information response model."""
+
+    id: str
+    name: str
+    online: bool
+    volume: int = Field(..., ge=0, le=100)
+    playing: bool = False
+    battery_level: Optional[int] = None
+    is_charging: Optional[bool] = None
+    firmware_version: Optional[str] = None
+    wifi_strength: Optional[int] = None
+    temperature: Optional[float] = None
+    active_card: Optional[str] = None
+    playback_status: Optional[str] = None
+    playback_position: Optional[int] = None
+    track_length: Optional[int] = None
+    current_chapter: Optional[str] = None
+    nightlight_mode: Optional[str] = None
+    day_mode: Optional[bool] = None
+    power_source: Optional[str] = None
+    device_type: Optional[str] = None
+
+
 class PlayerControl(BaseModel):
     """Player control request model."""
 
@@ -77,6 +101,62 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
     )
 
 
+def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
+    """
+    Extract comprehensive PlayerDetailInfo from a YotoPlayer object.
+
+    Args:
+        player_id: The player's unique identifier
+        player: YotoPlayer object from yoto_api library
+
+    Returns:
+        PlayerDetailInfo with all available data
+    """
+    # Get volume
+    volume = getattr(player, 'volume', None)
+    if volume is None:
+        volume = getattr(player, 'user_volume', None)
+    if volume is None:
+        volume = 8
+
+    # Get playing status
+    playing = False
+    playback_status = getattr(player, 'playback_status', None)
+    if playback_status is not None:
+        playing = playback_status == "playing"
+    else:
+        is_playing = getattr(player, 'is_playing', None)
+        if is_playing is not None:
+            playing = is_playing
+
+    # Map power source integer to string
+    power_source_map = {0: "Unknown", 1: "AC Power", 2: "Battery", 3: "Wireless Charging"}
+    power_source_int = getattr(player, 'power_source', None)
+    power_source = power_source_map.get(power_source_int) if power_source_int is not None else None
+
+    return PlayerDetailInfo(
+        id=player_id,
+        name=player.name,
+        online=player.online,
+        volume=volume,
+        playing=playing,
+        battery_level=getattr(player, 'battery_level_percentage', None),
+        is_charging=getattr(player, 'is_charging', None),
+        firmware_version=getattr(player, 'firmware_version', None),
+        wifi_strength=getattr(player, 'wifi_strength', None),
+        temperature=getattr(player, 'temperature_celsius', None),
+        active_card=getattr(player, 'active_card', None),
+        playback_status=playback_status,
+        playback_position=getattr(player, 'playback_position', None),
+        track_length=getattr(player, 'track_length', None),
+        current_chapter=getattr(player, 'current_chapter', None),
+        nightlight_mode=getattr(player, 'nightlight_mode', None),
+        day_mode=getattr(player, 'day_mode', None),
+        power_source=power_source,
+        device_type=getattr(player, 'device_type', None),
+    )
+
+
 
 @router.get("/players", response_model=list[PlayerInfo])
 async def list_players():
@@ -122,7 +202,7 @@ async def list_players():
         ) from e
 
 
-@router.get("/players/{player_id}", response_model=PlayerInfo)
+@router.get("/players/{player_id}", response_model=PlayerDetailInfo)
 async def get_player(player_id: str):
     """
     Get detailed information about a specific player.
@@ -131,9 +211,16 @@ async def get_player(player_id: str):
         player_id: The unique identifier of the player
 
     Returns:
-        Detailed player information
+        Detailed player information including battery, firmware, WiFi, and playback status
     """
     client = get_yoto_client()
+    
+    # Refresh player status to get latest information
+    try:
+        client.update_player_status()
+    except Exception as e:
+        logger.warning(f"Failed to refresh player status: {e}")
+    
     manager = client.get_manager()
 
     if player_id not in manager.players:
@@ -142,7 +229,7 @@ async def get_player(player_id: str):
         )
 
     player = manager.players[player_id]
-    return extract_player_info(player_id, player)
+    return extract_player_detail_info(player_id, player)
 
 
 
