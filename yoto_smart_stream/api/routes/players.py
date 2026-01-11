@@ -33,6 +33,46 @@ class PlayerControl(BaseModel):
     volume: Optional[int] = Field(None, ge=0, le=16, description="Volume level (0-16)")
 
 
+def extract_player_info(player_id: str, player) -> PlayerInfo:
+    """
+    Extract PlayerInfo from a YotoPlayer object.
+
+    This helper function handles the extraction of player data from the yoto_api
+    library's YotoPlayer object, with proper fallbacks for missing data.
+
+    Args:
+        player_id: The player's unique identifier
+        player: YotoPlayer object from yoto_api library
+
+    Returns:
+        PlayerInfo with extracted data
+    """
+    # Get volume: prefer MQTT volume, fallback to user_volume, then default to 8
+    volume = player.volume if player.volume is not None else (
+        player.user_volume if player.user_volume is not None else 8
+    )
+
+    # Get playing status: check playback_status string or is_playing boolean
+    playing = False
+    if player.playback_status is not None:
+        playing = player.playback_status == "playing"
+    elif player.is_playing is not None:
+        playing = player.is_playing
+
+    # Get battery level from battery_level_percentage attribute
+    battery_level = player.battery_level_percentage if player.battery_level_percentage is not None else None
+
+    return PlayerInfo(
+        id=player_id,
+        name=player.name,
+        online=player.online,
+        volume=volume,
+        playing=playing,
+        battery_level=battery_level,
+    )
+
+
+
 @router.get("/players", response_model=list[PlayerInfo])
 async def list_players():
     """
@@ -65,30 +105,7 @@ async def list_players():
         # Convert to response models
         players = []
         for player_id, player in manager.players.items():
-            # Get volume: prefer MQTT volume, fallback to user_volume, then default to 8
-            volume = player.volume if player.volume is not None else (
-                player.user_volume if player.user_volume is not None else 8
-            )
-
-            # Get playing status: check playback_status string or is_playing boolean
-            playing = False
-            if player.playback_status is not None:
-                playing = player.playback_status == "playing"
-            elif player.is_playing is not None:
-                playing = player.is_playing
-
-            # Get battery level from battery_level_percentage attribute
-            battery_level = player.battery_level_percentage if player.battery_level_percentage is not None else None
-
-            player_info = PlayerInfo(
-                id=player_id,
-                name=player.name,
-                online=player.online,
-                volume=volume,
-                playing=playing,
-                battery_level=battery_level,
-            )
-            players.append(player_info)
+            players.append(extract_player_info(player_id, player))
 
         return players
 
@@ -120,30 +137,8 @@ async def get_player(player_id: str):
         )
 
     player = manager.players[player_id]
+    return extract_player_info(player_id, player)
 
-    # Get volume: prefer MQTT volume, fallback to user_volume, then default to 8
-    volume = player.volume if player.volume is not None else (
-        player.user_volume if player.user_volume is not None else 8
-    )
-
-    # Get playing status: check playback_status string or is_playing boolean
-    playing = False
-    if player.playback_status is not None:
-        playing = player.playback_status == "playing"
-    elif player.is_playing is not None:
-        playing = player.is_playing
-
-    # Get battery level from battery_level_percentage attribute
-    battery_level = player.battery_level_percentage if player.battery_level_percentage is not None else None
-
-    return PlayerInfo(
-        id=player_id,
-        name=player.name,
-        online=player.online,
-        volume=volume,
-        playing=playing,
-        battery_level=battery_level,
-    )
 
 
 @router.post("/players/{player_id}/control")
