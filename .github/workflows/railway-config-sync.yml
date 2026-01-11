@@ -67,8 +67,8 @@ jobs:
       - name: Check for volume configuration
         id: check-volumes
         run: |
-          # Check if volumes are defined
-          if grep -q "volumes" railway.toml; then
+          # Check if volumes are defined in TOML format
+          if grep -q '\[\[deploy\.volumes\]\]' railway.toml; then
             echo "has_volumes=true" >> $GITHUB_OUTPUT
             echo "✓ Volume configuration detected"
             
@@ -78,7 +78,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Volumes defined in railway.toml:" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-            grep -A 2 "volumes" railway.toml >> $GITHUB_STEP_SUMMARY
+            grep -A 2 '\[\[deploy\.volumes\]\]' railway.toml >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "has_volumes=false" >> $GITHUB_OUTPUT
