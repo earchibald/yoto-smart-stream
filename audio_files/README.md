@@ -4,7 +4,22 @@ This directory contains audio files that will be streamed to Yoto devices.
 
 ## Getting Started
 
-Sample MP3 files (1.mp3 through 10.mp3) have been generated for testing. These are minimal MP3 files suitable for testing the streaming infrastructure.
+You can generate sample MP3 files (1.mp3 through 10.mp3) for testing using the provided script. These are minimal MP3 files suitable for testing the streaming infrastructure.
+
+### Generate Sample Files
+
+To create the sample audio files, run:
+
+```bash
+python examples/generate_sample_audio.py
+```
+
+This will create files 1.mp3 through 10.mp3 in this directory, where each file contains someone saying that number five times (e.g., "one. one. one. one. one.").
+
+**Requirements:** The script requires `gtts` and `pydub` packages. Install with:
+```bash
+pip install gtts pydub
+```
 
 ## Adding Your Own Audio
 
@@ -60,9 +75,9 @@ For time-based dynamic content, create special files:
 
 These will automatically be served by the `/audio/dynamic/{card_id}.mp3` endpoint.
 
-## Generating Real Audio
+## Custom Audio Generation
 
-To generate real spoken audio files, see `examples/generate_sample_audio.py` which uses text-to-speech (requires internet connection and additional dependencies).
+You can also use `examples/generate_sample_audio.py` to generate custom spoken audio files. The script uses Google Text-to-Speech (gTTS) and requires an internet connection.
 
 ## Note
 
