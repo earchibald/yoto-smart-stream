@@ -53,7 +53,7 @@ class YotoClient:
             # Ensure parent directory exists
             token_file.parent.mkdir(parents=True, exist_ok=True)
             token_file.write_text(self.manager.token.refresh_token)
-            logger.debug(f"Refresh token saved to {token_file}")
+            logger.debug("Refresh token saved to %s", token_file)
         else:
             logger.warning("No refresh token available to save")
 
