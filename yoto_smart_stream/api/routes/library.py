@@ -69,7 +69,7 @@ async def get_library():
         
         logger.info(f"Processed {len(cards)} cards from library")
         
-        # Extract playlists (MYO content) - fetch from /users/me/myo/content endpoint
+        # Extract playlists (MYO content) - fetch from /content/mine endpoint
         playlists = []
         try:
             # Make direct API call to MYO content endpoint
@@ -82,8 +82,8 @@ async def get_library():
                     'Content-Type': 'application/json',
                     'Authorization': f'{token.token_type} {token.access_token}',
                 }
-                logger.info("Fetching MYO content from /users/me/myo/content endpoint...")
-                response = requests.get('https://api.yotoplay.com/users/me/myo/content', headers=headers, timeout=10)
+                logger.info("Fetching MYO content from /content/mine endpoint...")
+                response = requests.get('https://api.yotoplay.com/content/mine', headers=headers, timeout=10)
                 logger.info(f"MYO content endpoint response status: {response.status_code}")
                 
                 if response.status_code == 200:

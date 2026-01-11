@@ -459,7 +459,7 @@ class TestLibraryEndpoints:
             mock_token.token_type = "Bearer"
             mock_manager.token = mock_token
             
-            # Mock requests.get for /users/me/myo/content endpoint
+            # Mock requests.get for /content/mine endpoint
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = [
@@ -492,7 +492,7 @@ class TestLibraryEndpoints:
             assert card["author"] == "Test Author"
             assert card["cover"] == "https://example.com/image.jpg"
             
-            # Check playlist data (now fetched from /users/me/myo/content endpoint)
+            # Check playlist data (now fetched from /content/mine endpoint)
             assert len(data["playlists"]) == 1
             playlist = data["playlists"][0]
             assert playlist["id"] == "myo-456"
