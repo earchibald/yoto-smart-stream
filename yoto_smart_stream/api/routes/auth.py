@@ -91,11 +91,13 @@ async def start_auth_flow():
 
     try:
         # Get or create client
-        client = get_yoto_client()
-        if client is None:
+        try:
+            client = get_yoto_client()
+        except RuntimeError:
+            # Client doesn't exist yet, create it
             from ...core import YotoClient
-            client = YotoClient(settings)
             from ..dependencies import set_yoto_client
+            client = YotoClient(settings)
             set_yoto_client(client)
 
         # Initialize manager if needed
