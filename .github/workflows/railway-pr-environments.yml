@@ -1,6 +1,17 @@
-name: Railway PR Ephemeral Environments (Custom)
+name: Railway PR Ephemeral Environments (Custom) - OBSOLETE
 
 # =============================================================================
+# ⚠️ THIS WORKFLOW IS OBSOLETE ⚠️
+# =============================================================================
+# This workflow is for CUSTOM ephemeral environment management.
+# It is no longer needed as the project now uses only:
+# - Production environment (main branch)
+# - PR Environments (automatic via Railway native feature)
+#
+# This file is kept for historical reference only.
+# It will not run automatically and should not be used.
+# =============================================================================
+# 
 # NOTE: This workflow is for CUSTOM ephemeral environment management
 # =============================================================================
 # 

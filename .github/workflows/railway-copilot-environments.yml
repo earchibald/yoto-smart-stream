@@ -1,4 +1,16 @@
-name: Railway Copilot Session Environments
+name: Railway Copilot Session Environments - OBSOLETE
+
+# =============================================================================
+# ⚠️ THIS WORKFLOW IS OBSOLETE ⚠️
+# =============================================================================
+# This workflow managed ephemeral environments for Copilot sessions.
+# It is no longer needed as the project now uses only:
+# - Production environment (main branch)
+# - PR Environments (automatic via Railway native feature)
+#
+# This file is kept for historical reference only.
+# It will not run automatically and should not be used.
+# =============================================================================
 
 # DISABLED: Yoto OAuth requires static callback URLs
 # Ephemeral environments with dynamic URLs cannot authenticate
