@@ -24,6 +24,45 @@ from .routes import auth, cards, health, library, players
 logger = logging.getLogger(__name__)
 
 
+async def periodic_token_refresh(yoto_client: YotoClient, interval_hours: int = 12):
+    """
+    Periodically refresh OAuth tokens to prevent expiration.
+
+    Access tokens expire in 24 hours. This task refreshes them every 12 hours
+    to ensure tokens remain valid even during idle periods.
+
+    Args:
+        yoto_client: YotoClient instance to refresh tokens for
+        interval_hours: Hours between token refresh attempts (default: 12)
+    """
+    interval_seconds = interval_hours * 3600
+    logger.info(f"Starting background token refresh task (every {interval_hours} hours)")
+
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+
+            if yoto_client.is_authenticated():
+                logger.info("Performing scheduled token refresh...")
+                try:
+                    # Run sync method in thread pool to avoid blocking event loop
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, yoto_client.ensure_authenticated)
+                    logger.info("✓ Token refresh successful")
+                except Exception as e:
+                    logger.error(f"✗ Token refresh failed: {e}")
+                    logger.error("  Tokens may expire if not refreshed manually")
+            else:
+                logger.debug("Skipping token refresh - client not authenticated")
+
+        except asyncio.CancelledError:
+            logger.info("Token refresh task cancelled")
+            break
+        except Exception as e:
+            logger.error(f"Unexpected error in token refresh task: {e}")
+            # Continue running despite errors
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -34,6 +73,7 @@ async def lifespan(app: FastAPI):
     - Initialize Yoto client
     - Authenticate with Yoto API
     - Connect to MQTT
+    - Start background token refresh task
     - Cleanup on shutdown
     """
     settings = get_settings()
@@ -57,6 +97,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.environment}")
 
     yoto_client = None
+    refresh_task = None
     try:
         # Initialize Yoto client
         yoto_client = YotoClient(settings)
@@ -74,6 +115,11 @@ async def lifespan(app: FastAPI):
                 logger.warning(f"⚠ MQTT connection failed: {e}")
                 logger.warning("  Continuing without MQTT (some features may not work)")
 
+        # Start background token refresh task
+        refresh_task = asyncio.create_task(
+            periodic_token_refresh(yoto_client, settings.token_refresh_interval_hours)
+        )
+
     except Exception as e:
         logger.error(f"⚠ Warning: Could not initialize Yoto API: {e}")
         logger.error("  Some endpoints may not work until authentication is completed.")
@@ -82,6 +128,15 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down...")
+
+    # Cancel background token refresh task
+    if refresh_task:
+        refresh_task.cancel()
+        try:
+            await refresh_task
+        except asyncio.CancelledError:
+            pass
+
     if yoto_client:
         yoto_client.disconnect_mqtt()
     logger.info("Shutdown complete")
@@ -101,7 +156,7 @@ def create_app() -> FastAPI:
         level=getattr(logging, settings.log_level),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    
+
     # Log configuration for debugging (after logging is configured)
     log_configuration(settings)
 

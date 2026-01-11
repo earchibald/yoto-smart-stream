@@ -19,6 +19,7 @@ Railway is a modern platform-as-a-service (PaaS) that simplifies application dep
 - **Secret Management** with GitHub Secrets and Railway variables
 - **Monitoring & Logging** for production operations
 - **Cost Optimization** strategies for efficient resource usage
+- **Railway MCP Server** - AI-powered Railway management tools for GitHub Copilot Workspace
 
 ### Key Railway Concepts
 
@@ -31,6 +32,7 @@ Railway is a modern platform-as-a-service (PaaS) that simplifies application dep
 - Dashboard: https://railway.app/dashboard
 - CLI Documentation: https://docs.railway.app/reference/cli
 - API Reference: https://docs.railway.app/reference/api-reference
+- MCP Server: https://github.com/railwayapp/railway-mcp-server
 
 ## Reference Documentation
 
@@ -44,7 +46,7 @@ Railway is a modern platform-as-a-service (PaaS) that simplifies application dep
 - [💾 Database & Services](./reference/database_services.md) - PostgreSQL, Redis, and service configuration
 - [📊 Monitoring & Logging](./reference/monitoring_logging.md) - Application observability, logs, and metrics
 - [💰 Cost Optimization](./reference/cost_optimization.md) - Resource management and billing optimization
-- [🔧 Railway CLI & Scripts](./reference/cli_scripts.md) - Command-line tools and automation scripts
+- [🔧 Railway CLI & Scripts](./reference/cli_scripts.md) - Command-line tools, Railway MCP Server, and automation scripts
 - [🔐 Secrets Management](./reference/secrets_management.md) - GitHub Secrets, Railway variables, and secure credential handling
 
 ## Quick Start

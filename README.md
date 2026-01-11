@@ -1,7 +1,7 @@
 # Yoto Smart Stream
 
-[![Tests](https://img.shields.io/badge/tests-54%20passing-brightgreen)](./docs/TESTING_GUIDE.md)
-[![Coverage](https://img.shields.io/badge/coverage-56%25-yellow)](./docs/TESTING_GUIDE.md)
+[![Tests](https://img.shields.io/badge/tests-102%20passing-brightgreen)](./docs/TESTING_GUIDE.md)
+[![Coverage](https://img.shields.io/badge/coverage-59%25-yellow)](./docs/TESTING_GUIDE.md)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
@@ -23,6 +23,7 @@ For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 - **Web UI**: Manage your audio library, configure cards, and write interactive scripts
 - **Card Management**: Upload, organize, and configure custom Yoto cards
 - **Multi-format Support**: Automatic audio conversion to Yoto-compatible formats
+- **Automatic Token Refresh**: Background task keeps OAuth tokens valid indefinitely ([details](docs/OAUTH_TOKEN_PERSISTENCE.md))
 
 ## 🏗️ Architecture
 
@@ -269,6 +270,7 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Railway Shared Development](docs/RAILWAY_SHARED_DEVELOPMENT.md)**: Coordinated access to shared dev environment
 - **[Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md)**: Configure separate tokens per environment
 - **[Codespaces Railway Setup](docs/CODESPACES_RAILWAY_SETUP.md)**: Configure Railway access for GitHub Codespaces
+- **[Copilot Workspace Configuration](docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md)**: Network access and Railway MCP server for GitHub Copilot Workspace (NEW)
 
 ### Creating Content
 - **[Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)**: Stream audio from your server (NEW - recommended approach)
@@ -294,6 +296,8 @@ This project is configured for GitHub Codespaces with a complete development env
 1. Click "Code" → "Create codespace on main"
 2. Wait for the environment to set up automatically
 3. Start developing!
+
+**Note:** GitHub Copilot Workspace has network access configured to test Railway deployments directly. See [Copilot Workspace Network Configuration](docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md) for details.
 
 ### Local Development
 

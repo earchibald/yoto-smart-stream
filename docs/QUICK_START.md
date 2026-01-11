@@ -181,7 +181,7 @@ YOTO PLAYERS
 Player: Living Room
   ID: abc123
   Online: True
-  Volume: 8/16
+  Volume: 50%
   Status: Not playing
 
 ✓ Connected to MQTT successfully!

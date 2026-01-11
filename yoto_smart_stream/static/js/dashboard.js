@@ -241,7 +241,7 @@ async function loadPlayers() {
                 </div>
                 <div class="list-item-details">
                     <span>ID: ${escapeHtml(player.id)}</span>
-                    <span>Volume: ${player.volume}/16</span>
+                    <span>Volume: ${player.volume}%</span>
                     ${player.battery_level ? `<span>Battery: ${player.battery_level}%</span>` : ''}
                     <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
                 </div>
