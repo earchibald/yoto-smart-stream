@@ -613,3 +613,18 @@ class TestLibraryEndpoints:
             
             response = client.get("/api/library/content/nonexistent-id")
             assert response.status_code == 404
+
+    def test_library_content_details_invalid_id_format(self, client):
+        """Test /api/library/content/{content_id} returns 400 for invalid ID format."""
+        # Test with special characters that could be used for injection
+        # The validation regex only allows: alphanumeric, underscore, and hyphen
+        invalid_ids = [
+            "test;injection",
+            "test OR 1=1",
+            "test@example.com",
+            "test.extension",
+        ]
+        
+        for invalid_id in invalid_ids:
+            response = client.get(f"/api/library/content/{invalid_id}")
+            assert response.status_code == 400, f"Expected 400 for ID: {invalid_id}, got {response.status_code}"

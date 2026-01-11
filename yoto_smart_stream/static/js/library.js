@@ -96,7 +96,7 @@ function displayCards(cards) {
         const coverImage = card.cover || 'https://via.placeholder.com/150?text=No+Cover';
         
         return `
-            <div class="library-card" onclick="showContentDetails('${escapeHtml(card.id)}', '${escapeHtml(card.title)}')">
+            <div class="library-card" data-content-id="${escapeHtml(card.id)}" data-content-title="${escapeHtml(card.title)}">
                 <div class="library-card-image">
                     <img src="${escapeHtml(coverImage)}" alt="${escapeHtml(card.title)}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
                 </div>
@@ -108,6 +108,16 @@ function displayCards(cards) {
             </div>
         `;
     }).join('');
+    
+    // Add event listeners using delegation
+    cardsGrid.addEventListener('click', function(event) {
+        const card = event.target.closest('.library-card');
+        if (card) {
+            const contentId = card.getAttribute('data-content-id');
+            const contentTitle = card.getAttribute('data-content-title');
+            showContentDetails(contentId, contentTitle);
+        }
+    });
 }
 
 // Display playlists
@@ -120,14 +130,24 @@ function displayPlaylists(playlists) {
     }
     
     playlistsList.innerHTML = playlists.map(playlist => `
-        <div class="list-item" onclick="showContentDetails('${escapeHtml(playlist.id)}', '${escapeHtml(playlist.name)}')">
+        <div class="list-item" data-content-id="${escapeHtml(playlist.id)}" data-content-title="${escapeHtml(playlist.name)}">
             <div class="list-item-header">
                 <span class="list-item-title">📁 ${escapeHtml(playlist.name)}</span>
-                <span class="badge enabled">${playlist.itemCount} items</span>
+                <span class="badge enabled">${escapeHtml(String(playlist.itemCount))} items</span>
             </div>
             ${playlist.imageId ? `<div class="list-item-details"><span>Image ID: ${escapeHtml(playlist.imageId)}</span></div>` : ''}
         </div>
     `).join('');
+    
+    // Add event listeners using delegation
+    playlistsList.addEventListener('click', function(event) {
+        const listItem = event.target.closest('.list-item');
+        if (listItem) {
+            const contentId = listItem.getAttribute('data-content-id');
+            const contentTitle = listItem.getAttribute('data-content-title');
+            showContentDetails(contentId, contentTitle);
+        }
+    });
 }
 
 // Refresh library
@@ -189,14 +209,14 @@ async function showContentDetails(contentId, contentTitle) {
         if (content.chapters && content.chapters.length > 0) {
             detailsHtml += `
                 <div class="modal-chapters-section">
-                    <h4>Chapters (${content.chapters.length})</h4>
+                    <h4>Chapters (${escapeHtml(String(content.chapters.length))})</h4>
                     <div class="chapters-list">
                         ${content.chapters.map((chapter, index) => `
                             <div class="chapter-item">
-                                <span class="chapter-number">${index + 1}</span>
+                                <span class="chapter-number">${escapeHtml(String(index + 1))}</span>
                                 <div class="chapter-info">
                                     <div class="chapter-title">${escapeHtml(chapter.title || chapter.display || 'Untitled')}</div>
-                                    ${chapter.duration ? `<div class="chapter-duration">${formatDuration(chapter.duration)}</div>` : ''}
+                                    ${chapter.duration ? `<div class="chapter-duration">${escapeHtml(formatDuration(chapter.duration))}</div>` : ''}
                                 </div>
                             </div>
                         `).join('')}

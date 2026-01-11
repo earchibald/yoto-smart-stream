@@ -149,6 +149,14 @@ async def get_content_details(content_id: str):
         Dictionary with detailed content information including chapters/tracks
     """
     try:
+        # Validate content_id format (alphanumeric, hyphens, underscores only)
+        import re
+        if not re.match(r'^[a-zA-Z0-9_-]+$', content_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid content ID format"
+            )
+        
         client = get_yoto_client()
         manager = client.get_manager()
         
