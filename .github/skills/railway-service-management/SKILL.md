@@ -13,6 +13,7 @@ Railway is a modern platform-as-a-service (PaaS) that simplifies application dep
 
 - **Multi-Environment Architecture** for dev/staging/production workflows
 - **Automated Deployments** triggered by GitHub branches
+- **PR Environments** - Native automatic ephemeral environments for pull requests
 - **Service Management** including databases, Redis, and application services
 - **Environment Configuration** with secrets and variables
 - **Secret Management** with GitHub Secrets and Railway variables
@@ -38,6 +39,7 @@ Railway is a modern platform-as-a-service (PaaS) that simplifies application dep
 - [🏗️ Railway Platform Fundamentals](./reference/platform_fundamentals.md) - Core concepts, project structure, and Railway architecture
 - [🌍 Multi-Environment Architecture](./reference/multi_environment_architecture.md) - Strategies for dev/staging/prod setup with branch-based deployments
 - [🚀 Deployment Workflows](./reference/deployment_workflows.md) - Automated deployments, GitHub integration, and CI/CD patterns
+- [🔀 PR Environments](./reference/pr_environments.md) - Railway's native PR Environments feature for automatic PR deployments
 - [⚙️ Configuration Management](./reference/configuration_management.md) - Environment variables, secrets, and configuration strategies including GitHub Secrets integration
 - [💾 Database & Services](./reference/database_services.md) - PostgreSQL, Redis, and service configuration
 - [📊 Monitoring & Logging](./reference/monitoring_logging.md) - Application observability, logs, and metrics
@@ -83,7 +85,41 @@ railway variables set KEY=value -e staging
 **Recommended Structure:**
 - `main` branch → `production` environment (stable, customer-facing)
 - `develop` branch → `staging` environment (pre-production testing)
-- `feature/*` branches → Ephemeral PR environments (automated testing)
+- `feature/*` branches → **Railway PR Environments** (automatic, ephemeral)
+
+### Railway PR Environments
+
+Railway's native PR Environments feature automatically creates ephemeral environments for pull requests:
+
+**Key Features:**
+- ✓ **Automatic creation** when PR is opened
+- ✓ **Automatic deployment** on PR updates
+- ✓ **Automatic destruction** when PR is closed/merged
+- ✓ **Zero configuration** after initial setup
+- ✓ **GitHub integration** with status checks
+- ✓ **Cost-effective** - only pay while PR is open
+
+**Setup:**
+```bash
+# Enable in Railway Dashboard:
+# Settings → GitHub → PR Environments → Enable
+# - Base Environment: staging
+# - Auto-Deploy: ✓
+# - Auto-Destroy: ✓
+# - Target Branches: main, develop
+```
+
+**Access PR Environment:**
+```bash
+# Automatic URL pattern
+https://yoto-smart-stream-pr-{number}.up.railway.app
+
+# Via CLI
+railway status -e pr-123
+railway logs -e pr-123
+```
+
+**See [PR Environments Reference](./reference/pr_environments.md) for complete documentation.**
 
 ### Service Architecture
 

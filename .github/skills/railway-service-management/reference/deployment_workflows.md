@@ -2,7 +2,55 @@
 
 ## Overview
 
-This guide covers automated deployment workflows for Railway, including GitHub Actions integration, CI/CD pipelines, and deployment automation strategies.
+This guide covers automated deployment workflows for Railway, including GitHub Actions integration, CI/CD pipelines, Railway's native PR Environments, and deployment automation strategies.
+
+## Railway Native PR Environments
+
+Railway's PR Environments feature provides automatic ephemeral environments for pull requests with zero configuration.
+
+### Key Features
+
+- **Automatic Lifecycle**: Creates on PR open, updates on push, destroys on close/merge
+- **Zero Configuration**: No GitHub Actions workflows required
+- **GitHub Integration**: Native status checks and deployment links
+- **Cost-Effective**: Only runs while PR is open
+- **Inherited Configuration**: Uses base environment (staging) as template
+
+### Setup
+
+**Enable in Railway Dashboard:**
+```
+Project Settings → GitHub → PR Environments
+├── Enable PR Environments: ✓
+├── Base Environment: staging
+├── Auto-Deploy: ✓
+├── Auto-Destroy on close/merge: ✓
+└── Target Branches: main, develop
+```
+
+### Usage
+
+**Automatic Workflow:**
+```
+Open PR → Railway creates pr-{number} environment
+Push updates → Railway redeploys automatically
+Close/Merge PR → Railway destroys environment
+```
+
+**Accessing PR Environment:**
+```bash
+# Automatic URL
+https://yoto-smart-stream-pr-{number}.up.railway.app
+
+# Via CLI
+railway status -e pr-123
+railway logs -e pr-123 --follow
+
+# Health check
+curl https://yoto-smart-stream-pr-123.up.railway.app/health
+```
+
+**See [PR Environments Reference](./pr_environments.md) for complete documentation.**
 
 ## Automated Deployment via GitHub Integration
 

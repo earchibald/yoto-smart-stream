@@ -262,16 +262,33 @@ railway variables set LOG_LEVEL=info -e staging
 railway variables set YOTO_CLIENT_ID="${{ secrets.YOTO_CLIENT_ID }}" -e staging
 ```
 
-### Step 5: Configure PR Environments
+### Step 5: Configure Railway Native PR Environments
 
+**Via Railway Dashboard:**
 ```bash
-# Via Railway Dashboard:
-# 1. Project Settings → GitHub
-# 2. Enable "PR Deploys"
-# 3. Check "Create ephemeral environment for each PR"
-# 4. Check "Auto-destroy on PR close/merge"
-# 5. Template: Use staging as base configuration
+# 1. Navigate to Project Settings → GitHub
+# 2. Scroll to "PR Environments" section
+# 3. Enable "Create ephemeral environments for PRs"
+# 4. Configure settings:
+#    - Base Environment: staging
+#    - Auto-Deploy: ✓ (redeploy on PR updates)
+#    - Auto-Destroy: ✓ (cleanup on PR close/merge)
+#    - Target Branches: main, develop
+# 5. Save settings
 ```
+
+**Benefits of Native PR Environments:**
+- Zero GitHub Actions configuration required
+- Automatic lifecycle management (create, update, destroy)
+- Native GitHub integration with status checks
+- Inherits configuration from base environment
+- Cost-effective (only pay while PR is open)
+
+**Alternative: Custom Ephemeral Environments**
+
+For advanced use cases (custom naming, non-PR workflows), see custom ephemeral environment scripts. However, Railway's native PR Environments are recommended for standard PR workflows.
+
+**See [PR Environments Reference](./pr_environments.md) for detailed documentation.**
 
 ## Deployment Workflows
 
@@ -286,12 +303,19 @@ Developer → Feature Branch → PR → Develop Branch → Staging → Main Bran
 
 **Steps:**
 1. Developer creates feature branch
-2. Opens PR → PR environment auto-created
-3. Tests in PR environment
-4. PR merged to `develop` → Staging deploys
+2. Opens PR → Railway automatically creates PR environment (pr-{number})
+3. Tests in PR environment (automatic deployments on updates)
+4. PR merged to `develop` → Staging deploys automatically
 5. QA tests in staging
-6. Manual promotion: PR from `develop` to `main`
-7. Merge to `main` → Production deploys
+6. Manual promotion: Create PR from `develop` to `main`
+7. Merge to `main` → Production deploys automatically
+8. PR environment destroyed automatically on merge
+
+**Key Points:**
+- PR environments use Railway's native feature (zero config)
+- All deployments triggered by Railway's GitHub integration
+- No custom GitHub Actions needed for deployments
+- GitHub Actions can be used for testing and validation
 
 ### Git Branch Strategy
 

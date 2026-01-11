@@ -1,19 +1,31 @@
-# Ephemeral Railway Environments for PR and Copilot Sessions
+# Ephemeral Railway Environments for PR and Copilot Sessions (Custom Scripts)
 
-This document describes the automated ephemeral environment system for testing pull requests and GitHub Copilot sessions using Railway deployments.
+> **⚠️ NOTE:** This document covers **custom script-based** ephemeral environments.
+> 
+> For **standard pull request workflows**, Railway now offers a **native PR Environments** feature that is simpler and recommended:
+> - See [Railway Native PR Environments Guide](./RAILWAY_PR_ENVIRONMENTS_NATIVE.md) for the recommended approach
+> - See [Comparison Guide](./RAILWAY_PR_ENVIRONMENTS_COMPARISON.md) to understand the differences
+> 
+> This custom approach is maintained for:
+> - GitHub Copilot session environments
+> - Custom environment naming requirements  
+> - Non-PR triggered deployments
+> - Advanced deployment strategies
 
 ## Overview
 
-The Yoto Smart Stream project uses Railway's ephemeral environments to provide isolated, temporary deployments for:
+This document describes the **custom script-based** ephemeral environment system for testing pull requests and GitHub Copilot sessions using Railway deployments.
 
-1. **Pull Request (PR) Environments** - Automatic deployments for every PR to test changes
-2. **GitHub Copilot Session Environments** - Dedicated environments for Copilot AI coding sessions
+The Yoto Smart Stream project supports ephemeral environments for:
 
-These environments are:
-- **Ephemeral** - Created on-demand and destroyed automatically
+1. **Pull Request (PR) Environments** - Now handled by Railway's native feature (see note above)
+2. **GitHub Copilot Session Environments** - Custom script-based (this document)
+
+These custom environments are:
+- **Ephemeral** - Created on-demand via scripts and destroyed when no longer needed
 - **Isolated** - Each environment has its own resources and configuration
 - **Cost-Effective** - Resources are released immediately after use
-- **Automated** - No manual intervention required
+- **Flexible** - Supports custom naming and non-PR workflows
 
 ## Architecture
 
