@@ -409,6 +409,86 @@ class TestPlayerDataExtraction:
             vol_100_player = next(p for p in players if p["id"] == "player-vol-100")
             assert vol_100_player["volume"] == 100
 
+    def test_player_detail_endpoint_returns_comprehensive_info(self, client):
+        """Test that /api/players/{player_id} returns detailed player information."""
+        with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
+            # Create mock player with comprehensive data
+            mock_player = MagicMock()
+            mock_player.id = "test-player-detail"
+            mock_player.name = "Test Detail Player"
+            mock_player.online = True
+            mock_player.volume = 75
+            mock_player.user_volume = None
+            mock_player.playback_status = "playing"
+            mock_player.is_playing = None
+            mock_player.battery_level_percentage = 85
+            mock_player.is_charging = True
+            mock_player.firmware_version = "v2.17.5-5"
+            mock_player.wifi_strength = -55
+            mock_player.temperature_celsius = 24.5
+            mock_player.active_card = "card-123"
+            mock_player.playback_position = 120
+            mock_player.track_length = 300
+            mock_player.current_chapter = "Chapter 1"
+            mock_player.nightlight_mode = "#40bfd9"
+            mock_player.day_mode = True
+            mock_player.power_source = 3  # Wireless Charging
+            mock_player.device_type = "v3"
+
+            # Setup mock client
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            mock_manager.players = {"test-player-detail": mock_player}
+            mock_client.get_manager.return_value = mock_manager
+            mock_client.update_player_status = MagicMock()
+            mock_get_client.return_value = mock_client
+
+            # Call endpoint
+            response = client.get("/api/players/test-player-detail")
+            assert response.status_code == 200
+
+            player = response.json()
+            
+            # Verify all detailed fields are returned
+            assert player["id"] == "test-player-detail"
+            assert player["name"] == "Test Detail Player"
+            assert player["online"] is True
+            assert player["volume"] == 75
+            assert player["playing"] is True
+            assert player["battery_level"] == 85
+            assert player["is_charging"] is True
+            assert player["firmware_version"] == "v2.17.5-5"
+            assert player["wifi_strength"] == -55
+            assert player["temperature"] == 24.5
+            assert player["active_card"] == "card-123"
+            assert player["playback_status"] == "playing"
+            assert player["playback_position"] == 120
+            assert player["track_length"] == 300
+            assert player["current_chapter"] == "Chapter 1"
+            assert player["nightlight_mode"] == "#40bfd9"
+            assert player["day_mode"] is True
+            assert player["power_source"] == "Wireless Charging"
+            assert player["device_type"] == "v3"
+
+    def test_player_detail_endpoint_not_found(self, client):
+        """Test that /api/players/{player_id} returns 404 for non-existent player."""
+        with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
+            # Setup mock client with empty players
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            mock_manager.players = {}
+            mock_client.get_manager.return_value = mock_manager
+            mock_client.update_player_status = MagicMock()
+            mock_get_client.return_value = mock_client
+
+            # Call endpoint with non-existent player ID
+            response = client.get("/api/players/nonexistent-player")
+            assert response.status_code == 404
+            
+            data = response.json()
+            assert "detail" in data
+            assert "not found" in data["detail"].lower()
+
 
 
 class TestLibraryEndpoints:

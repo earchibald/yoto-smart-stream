@@ -115,6 +115,159 @@
         </section>
     </main>
 
+    <!-- Player Detail Modal -->
+    <div id="playerModal" class="modal">
+        <div class="modal-content player-modal-content">
+            <div class="modal-header">
+                <h3 id="modalPlayerName">Player Details</h3>
+                <div class="modal-header-actions">
+                    <button id="modalInfoButton" class="info-button" onclick="toggleTechnicalInfo()" title="Show API Details">
+                        <span class="info-icon">ℹ️</span>
+                    </button>
+                    <span class="modal-close" onclick="closePlayerModal()">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="modalPlayerLoading" class="loading">Loading player details...</div>
+                <div id="modalPlayerContent" style="display: none;">
+                    <!-- Status Overview -->
+                    <div class="player-detail-section">
+                        <h4>Status Overview</h4>
+                        <div class="player-detail-grid">
+                            <div class="player-detail-item">
+                                <span class="detail-label">Status</span>
+                                <span id="modalPlayerStatus" class="detail-value badge">Offline</span>
+                            </div>
+                            <div class="player-detail-item">
+                                <span class="detail-label">Playback</span>
+                                <span id="modalPlayerPlayback" class="detail-value">⏸️ Paused</span>
+                            </div>
+                            <div class="player-detail-item">
+                                <span class="detail-label">Volume</span>
+                                <span id="modalPlayerVolume" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-item">
+                                <span class="detail-label">Battery</span>
+                                <span id="modalPlayerBattery" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Device Information -->
+                    <div class="player-detail-section">
+                        <h4>Device Information</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Player ID</span>
+                                <span id="modalPlayerId" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Device Type</span>
+                                <span id="modalPlayerDeviceType" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Firmware Version</span>
+                                <span id="modalPlayerFirmware" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Power Source</span>
+                                <span id="modalPlayerPowerSource" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Network & Environment -->
+                    <div class="player-detail-section">
+                        <h4>Network & Environment</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">WiFi Strength</span>
+                                <span id="modalPlayerWifi" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Temperature</span>
+                                <span id="modalPlayerTemperature" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Ambient Light</span>
+                                <span id="modalPlayerAmbientLight" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Day Mode</span>
+                                <span id="modalPlayerDayMode" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Nightlight</span>
+                                <span id="modalPlayerNightlight" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Last Updated</span>
+                                <span id="modalPlayerLastUpdated" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Audio Connections -->
+                    <div class="player-detail-section">
+                        <h4>Audio Connections</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Bluetooth Audio</span>
+                                <span id="modalPlayerBluetoothAudio" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Audio Device</span>
+                                <span id="modalPlayerAudioDevice" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sleep Timer -->
+                    <div class="player-detail-section" id="modalSleepTimerSection" style="display: none;">
+                        <h4>Sleep Timer</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Time Remaining</span>
+                                <span id="modalPlayerSleepTimer" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Playback Information -->
+                    <div class="player-detail-section" id="modalPlaybackSection" style="display: none;">
+                        <h4>Current Playback</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Active Card</span>
+                                <span id="modalPlayerActiveCard" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Chapter</span>
+                                <span id="modalPlayerChapter" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Track</span>
+                                <span id="modalPlayerTrack" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Position</span>
+                                <span id="modalPlayerPosition" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Technical Information (API Details) -->
+                    <div class="player-detail-section technical-info-section" id="modalTechnicalInfo" style="display: none;">
+                        <h4>Technical Information</h4>
+                        <div id="technicalInfoContent" class="technical-info-content">
+                            <!-- API call info will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/dashboard.js"></script>
 </body>
 </html>

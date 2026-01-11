@@ -231,22 +231,49 @@ async function loadPlayers() {
             return;
         }
         
-        container.innerHTML = players.map(player => `
-            <div class="list-item">
-                <div class="list-item-header">
-                    <span class="list-item-title">${escapeHtml(player.name)}</span>
-                    <span class="badge ${player.online ? 'online' : 'offline'}">
-                        ${player.online ? 'Online' : 'Offline'}
-                    </span>
+        container.innerHTML = players.map(player => {
+            // Build additional status indicators
+            const indicators = [];
+            
+            // Battery with charging
+            if (player.battery_level !== null && player.battery_level !== undefined) {
+                const chargingIcon = player.is_charging ? '⚡' : '';
+                const batteryIcon = player.battery_level < 20 ? '🪫' : '🔋';
+                indicators.push(`${batteryIcon} ${player.battery_level}%${chargingIcon}`);
+            }
+            
+            // Temperature if available
+            if (player.temperature !== null && player.temperature !== undefined) {
+                indicators.push(`🌡️ ${player.temperature}°C`);
+            }
+            
+            // Sleep timer if active
+            if (player.sleep_timer_active && player.sleep_timer_seconds_remaining) {
+                const minutes = Math.floor(player.sleep_timer_seconds_remaining / 60);
+                indicators.push(`😴 ${minutes}m`);
+            }
+            
+            // Audio connections
+            if (player.bluetooth_audio_connected) {
+                indicators.push('🎧 BT');
+            }
+            
+            return `
+                <div class="list-item" onclick="showPlayerDetail('${escapeHtml(player.id)}')">
+                    <div class="list-item-header">
+                        <span class="list-item-title">${escapeHtml(player.name)}</span>
+                        <span class="badge ${player.online ? 'online' : 'offline'}">
+                            ${player.online ? 'Online' : 'Offline'}
+                        </span>
+                    </div>
+                    <div class="list-item-details">
+                        <span>🔊 ${player.volume}%</span>
+                        <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
+                        ${indicators.map(ind => `<span>${ind}</span>`).join('')}
+                    </div>
                 </div>
-                <div class="list-item-details">
-                    <span>ID: ${escapeHtml(player.id)}</span>
-                    <span>Volume: ${player.volume}%</span>
-                    ${player.battery_level ? `<span>Battery: ${player.battery_level}%</span>` : ''}
-                    <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         
     } catch (error) {
         console.error('Error loading players:', error);
@@ -339,4 +366,430 @@ function formatFileSize(bytes) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Player Detail Modal Functions
+
+/**
+ * Show player detail modal with comprehensive information
+ */
+async function showPlayerDetail(playerId) {
+    const modal = document.getElementById('playerModal');
+    const loadingEl = document.getElementById('modalPlayerLoading');
+    const contentEl = document.getElementById('modalPlayerContent');
+    const technicalInfoEl = document.getElementById('modalTechnicalInfo');
+    
+    // Show modal and reset to loading state
+    modal.style.display = 'flex';
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    technicalInfoEl.style.display = 'none';
+    
+    // Reset info button state
+    const infoButton = document.getElementById('modalInfoButton');
+    if (infoButton) {
+        infoButton.classList.remove('active');
+    }
+    
+    try {
+        // Clear previous technical info
+        clearTechnicalInfo();
+        
+        // Fetch combined player data from our API
+        const playerUrl = `${API_BASE}/players/${playerId}`;
+        const playerResponse = await fetch(playerUrl);
+        if (!playerResponse.ok) throw new Error('Failed to fetch player data');
+        const playerData = await playerResponse.json();
+        
+        // Store our combined endpoint (for reference)
+        addTechnicalInfo('GET Player (Combined)', playerUrl, playerData);
+        
+        // Fetch device status from Yoto API
+        const statusUrl = `${API_BASE}/players/${playerId}/status`;
+        try {
+            const statusResponse = await fetch(statusUrl);
+            if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                addTechnicalInfo('GET Device Status (Yoto API)', statusUrl, statusData);
+            } else {
+                const errorData = await statusResponse.text();
+                console.error('Device status request failed:', statusResponse.status, errorData);
+                addTechnicalInfo('GET Device Status (FAILED)', statusUrl, {
+                    error: true,
+                    status: statusResponse.status,
+                    statusText: statusResponse.statusText,
+                    details: errorData
+                });
+            }
+        } catch (statusError) {
+            console.error('Failed to fetch device status:', statusError);
+            addTechnicalInfo('GET Device Status (ERROR)', statusUrl, {
+                error: true,
+                message: statusError.message || String(statusError)
+            });
+        }
+        
+        // Fetch device config from Yoto API
+        const configUrl = `${API_BASE}/players/${playerId}/config`;
+        try {
+            const configResponse = await fetch(configUrl);
+            if (configResponse.ok) {
+                const configData = await configResponse.json();
+                addTechnicalInfo('GET Device Config (Yoto API)', configUrl, configData);
+            } else {
+                const errorData = await configResponse.text();
+                console.error('Device config request failed:', configResponse.status, errorData);
+                addTechnicalInfo('GET Device Config (FAILED)', configUrl, {
+                    error: true,
+                    status: configResponse.status,
+                    statusText: configResponse.statusText,
+                    details: errorData
+                });
+            }
+        } catch (configError) {
+            console.error('Failed to fetch device config:', configError);
+            addTechnicalInfo('GET Device Config (ERROR)', configUrl, {
+                error: true,
+                message: configError.message || String(configError)
+            });
+        }
+        
+        // Update modal with player data
+        populatePlayerModal(playerData);
+        
+        // Show content, hide loading
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading player details:', error);
+        loadingEl.innerHTML = '<p class="error-message">Failed to load player details. Please try again.</p>';
+    }
+}
+
+/**
+ * Close the player detail modal
+ */
+function closePlayerModal() {
+    const modal = document.getElementById('playerModal');
+    modal.style.display = 'none';
+}
+
+/**
+ * Populate modal with player data
+ */
+function populatePlayerModal(player) {
+    // Header
+    document.getElementById('modalPlayerName').textContent = player.name;
+    
+    // Status Overview
+    const statusBadge = document.getElementById('modalPlayerStatus');
+    statusBadge.textContent = player.online ? 'Online' : 'Offline';
+    statusBadge.className = `detail-value badge ${player.online ? 'online' : 'offline'}`;
+    
+    document.getElementById('modalPlayerPlayback').textContent = player.playing ? '▶️ Playing' : '⏸️ Paused';
+    document.getElementById('modalPlayerVolume').textContent = `${player.volume}%`;
+    
+    // Battery with indicator
+    const batteryEl = document.getElementById('modalPlayerBattery');
+    if (player.battery_level !== null && player.battery_level !== undefined) {
+        const batteryClass = player.battery_level < 20 ? 'low' : player.battery_level < 50 ? 'medium' : '';
+        const chargingIcon = player.is_charging ? ' ⚡' : '';
+        batteryEl.innerHTML = `
+            <span class="battery-indicator">
+                <span class="battery-icon">
+                    <span class="battery-fill ${batteryClass}" style="width: ${player.battery_level}%"></span>
+                </span>
+                ${player.battery_level}%${chargingIcon}
+            </span>
+        `;
+    } else {
+        batteryEl.textContent = 'N/A';
+    }
+    
+    // Device Information
+    document.getElementById('modalPlayerId').textContent = player.id;
+    document.getElementById('modalPlayerDeviceType').textContent = player.device_type || 'N/A';
+    document.getElementById('modalPlayerFirmware').textContent = player.firmware_version || 'N/A';
+    document.getElementById('modalPlayerPowerSource').textContent = player.power_source || 'N/A';
+    
+    // Network & Environment
+    const wifiEl = document.getElementById('modalPlayerWifi');
+    if (player.wifi_strength !== null && player.wifi_strength !== undefined) {
+        // WiFi strength in dBm (typically -30 to -90)
+        // -30 = Excellent, -50 = Good, -60 = Fair, -70 = Weak, -90+ = Very Weak
+        let signalQuality = 'Weak';
+        let activeBars = 1;
+        if (player.wifi_strength >= -50) {
+            signalQuality = 'Excellent';
+            activeBars = 4;
+        } else if (player.wifi_strength >= -60) {
+            signalQuality = 'Good';
+            activeBars = 3;
+        } else if (player.wifi_strength >= -70) {
+            signalQuality = 'Fair';
+            activeBars = 2;
+        }
+        
+        wifiEl.innerHTML = `
+            <span class="wifi-indicator">
+                <span class="wifi-bars">
+                    ${[1,2,3,4].map(i => `<span class="wifi-bar ${i <= activeBars ? 'active' : ''}"></span>`).join('')}
+                </span>
+                ${player.wifi_strength} dBm (${signalQuality})
+            </span>
+        `;
+    } else {
+        wifiEl.textContent = 'N/A';
+    }
+    
+    const tempEl = document.getElementById('modalPlayerTemperature');
+    if (player.temperature !== null && player.temperature !== undefined) {
+        const fahrenheit = (player.temperature * 9/5) + 32;
+        tempEl.textContent = `${player.temperature}°C (${fahrenheit.toFixed(1)}°F)`;
+    } else {
+        tempEl.textContent = 'N/A';
+    }
+    
+    // Ambient Light
+    const ambientLightEl = document.getElementById('modalPlayerAmbientLight');
+    if (player.ambient_light !== null && player.ambient_light !== undefined) {
+        ambientLightEl.textContent = `${player.ambient_light} lux`;
+    } else {
+        ambientLightEl.textContent = 'N/A';
+    }
+    
+    // Day Mode
+    document.getElementById('modalPlayerDayMode').textContent = 
+        player.day_mode !== null ? (player.day_mode ? 'Day' : 'Night') : 'N/A';
+    
+    // Nightlight
+    const nightlightEl = document.getElementById('modalPlayerNightlight');
+    if (player.nightlight_mode) {
+        nightlightEl.textContent = player.nightlight_mode === 'off' ? 'Off' : player.nightlight_mode;
+    } else {
+        nightlightEl.textContent = 'N/A';
+    }
+    
+    // Last Updated
+    const lastUpdatedEl = document.getElementById('modalPlayerLastUpdated');
+    if (player.last_updated_at) {
+        const date = new Date(player.last_updated_at);
+        lastUpdatedEl.textContent = date.toLocaleString();
+    } else {
+        lastUpdatedEl.textContent = 'N/A';
+    }
+    
+    // Audio Connections
+    document.getElementById('modalPlayerBluetoothAudio').textContent = 
+        player.bluetooth_audio_connected !== null ? 
+        (player.bluetooth_audio_connected ? '🎧 Connected' : 'Not Connected') : 'N/A';
+    
+    document.getElementById('modalPlayerAudioDevice').textContent = 
+        player.audio_device_connected !== null ? 
+        (player.audio_device_connected ? '🔊 Connected' : 'Not Connected') : 'N/A';
+    
+    // Sleep Timer Section
+    const sleepTimerSection = document.getElementById('modalSleepTimerSection');
+    if (player.sleep_timer_active && player.sleep_timer_seconds_remaining) {
+        sleepTimerSection.style.display = 'block';
+        const hours = Math.floor(player.sleep_timer_seconds_remaining / 3600);
+        const minutes = Math.floor((player.sleep_timer_seconds_remaining % 3600) / 60);
+        const seconds = player.sleep_timer_seconds_remaining % 60;
+        
+        let timeStr = '';
+        if (hours > 0) timeStr += `${hours}h `;
+        if (minutes > 0) timeStr += `${minutes}m `;
+        if (seconds > 0 || timeStr === '') timeStr += `${seconds}s`;
+        
+        document.getElementById('modalPlayerSleepTimer').textContent = `😴 ${timeStr}`;
+    } else {
+        sleepTimerSection.style.display = 'none';
+    }
+    
+    // Playback Information (show section only if there's active playback)
+    const playbackSection = document.getElementById('modalPlaybackSection');
+    if (player.active_card && player.active_card !== 'none') {
+        playbackSection.style.display = 'block';
+        document.getElementById('modalPlayerActiveCard').textContent = player.active_card;
+        
+        // Chapter with title
+        const chapterEl = document.getElementById('modalPlayerChapter');
+        if (player.chapter_title && player.current_chapter) {
+            chapterEl.textContent = `${player.chapter_title} (${player.current_chapter})`;
+        } else if (player.current_chapter) {
+            chapterEl.textContent = player.current_chapter;
+        } else {
+            chapterEl.textContent = 'N/A';
+        }
+        
+        // Track with title
+        const trackEl = document.getElementById('modalPlayerTrack');
+        if (player.track_title && player.current_track) {
+            trackEl.textContent = `${player.track_title} (${player.current_track})`;
+        } else if (player.current_track) {
+            trackEl.textContent = player.current_track;
+        } else {
+            trackEl.textContent = 'N/A';
+        }
+        
+        const positionEl = document.getElementById('modalPlayerPosition');
+        if (player.playback_position !== null && player.track_length !== null) {
+            const position = formatTime(player.playback_position);
+            const length = formatTime(player.track_length);
+            const percent = Math.floor((player.playback_position / player.track_length) * 100);
+            positionEl.textContent = `${position} / ${length} (${percent}%)`;
+        } else if (player.playback_position !== null) {
+            positionEl.textContent = formatTime(player.playback_position);
+        } else {
+            positionEl.textContent = 'N/A';
+        }
+    } else {
+        playbackSection.style.display = 'none';
+    }
+}
+
+/**
+ * Format seconds to MM:SS or HH:MM:SS
+ */
+function formatTime(seconds) {
+    if (seconds === null || seconds === undefined) return 'N/A';
+    
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+    return `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+// Close modal when clicking outside of it
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('playerModal');
+    if (modal && event.target === modal) {
+        closePlayerModal();
+    }
+});
+
+/**
+ * Store technical information about the API request and response
+ */
+/**
+ * Clear all technical information
+ */
+function clearTechnicalInfo() {
+    const container = document.getElementById('technicalInfoContent');
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+/**
+ * Add a technical information entry for an API call
+ */
+function addTechnicalInfo(title, url, responseData) {
+    const container = document.getElementById('technicalInfoContent');
+    if (!container) return;
+    
+    const requestInfo = `GET ${url}`;
+    const responseJson = JSON.stringify(responseData, null, 2);
+    const itemId = `tech-info-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const itemHtml = `
+        <div class="technical-info-item">
+            <h5>${title}</h5>
+            <div class="code-block">
+                <div class="code-header">
+                    <span>Method & URL</span>
+                    <button class="copy-button" onclick="copyToClipboard('${itemId}-url', this)">Copy</button>
+                </div>
+                <pre id="${itemId}-url" class="code-content">${requestInfo}</pre>
+            </div>
+            <div class="code-block" style="margin-top: 0.5rem;">
+                <div class="code-header">
+                    <span>Response Data</span>
+                    <button class="copy-button" onclick="copyToClipboard('${itemId}-json', this)">Copy</button>
+                </div>
+                <pre id="${itemId}-json" class="code-content">${responseJson}</pre>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', itemHtml);
+}
+
+/**
+ * Toggle the technical information section
+ */
+function toggleTechnicalInfo() {
+    const technicalInfoEl = document.getElementById('modalTechnicalInfo');
+    const infoButton = document.getElementById('modalInfoButton');
+    
+    if (technicalInfoEl.style.display === 'none' || technicalInfoEl.style.display === '') {
+        technicalInfoEl.style.display = 'block';
+        infoButton.classList.add('active');
+    } else {
+        technicalInfoEl.style.display = 'none';
+        infoButton.classList.remove('active');
+    }
+}
+
+/**
+ * Copy text content to clipboard
+ */
+function copyToClipboard(elementId, buttonElement) {
+    const element = document.getElementById(elementId);
+    const text = element.textContent;
+    
+    // Get the button element - either passed as parameter or find it via event
+    const button = buttonElement || window.event?.target;
+    
+    // Use the Clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (button) {
+                // Show a brief success indicator
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = '#48bb78';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '';
+                }, 2000);
+            }
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            alert('Failed to copy to clipboard');
+        });
+    } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        
+        try {
+            document.execCommand('copy');
+            if (button) {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = '#48bb78';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '';
+                }, 2000);
+            }
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            alert('Failed to copy to clipboard');
+        }
+        
+        document.body.removeChild(textarea);
+    }
 }
