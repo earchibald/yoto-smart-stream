@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 @router.get("/library")
 async def get_library():
     """
-    Get user's Yoto library including cards and playlists (groups).
+    Get user's Yoto library including cards and MYO (Make Your Own) content/playlists.
     
     Returns:
         Dictionary with cards and playlists from the user's Yoto library
@@ -69,10 +69,10 @@ async def get_library():
         
         logger.info(f"Processed {len(cards)} cards from library")
         
-        # Extract playlists (groups) - fetch from /groups endpoint
+        # Extract playlists (MYO content) - fetch from /users/me/myo/content endpoint
         playlists = []
         try:
-            # Make direct API call to /groups endpoint
+            # Make direct API call to MYO content endpoint
             # Note: yoto_api library doesn't have a built-in method for this yet
             token = manager.token
             if token and hasattr(token, 'access_token'):
@@ -82,32 +82,39 @@ async def get_library():
                     'Content-Type': 'application/json',
                     'Authorization': f'{token.token_type} {token.access_token}',
                 }
-                logger.info("Fetching groups from /groups endpoint...")
-                response = requests.get('https://api.yotoplay.com/groups', headers=headers, timeout=10)
-                logger.info(f"Groups endpoint response status: {response.status_code}")
+                logger.info("Fetching MYO content from /users/me/myo/content endpoint...")
+                response = requests.get('https://api.yotoplay.com/users/me/myo/content', headers=headers, timeout=10)
+                logger.info(f"MYO content endpoint response status: {response.status_code}")
                 
                 if response.status_code == 200:
-                    groups_data = response.json()
-                    logger.info(f"Groups response type: {type(groups_data)}, data: {groups_data if isinstance(groups_data, list) and len(groups_data) < 10 else 'large dataset'}")
+                    myo_data = response.json()
+                    logger.info(f"MYO response type: {type(myo_data)}, keys: {myo_data.keys() if isinstance(myo_data, dict) else 'not a dict'}")
                     
-                    if isinstance(groups_data, list):
-                        for group in groups_data:
-                            playlist_info = {
-                                'id': group.get('id'),
-                                'name': group.get('name', 'Unknown Playlist'),
-                                'imageId': group.get('imageId'),
-                                'itemCount': len(group.get('items', [])),
-                            }
-                            playlists.append(playlist_info)
-                        logger.info(f"Successfully fetched {len(playlists)} playlists from /groups endpoint")
-                    else:
-                        logger.warning(f"Groups data is not a list: {type(groups_data)}")
+                    # MYO content may be in different formats - handle both list and dict with items
+                    items = []
+                    if isinstance(myo_data, list):
+                        items = myo_data
+                    elif isinstance(myo_data, dict) and 'items' in myo_data:
+                        items = myo_data['items']
+                    elif isinstance(myo_data, dict) and 'content' in myo_data:
+                        items = myo_data['content']
+                    
+                    logger.info(f"Found {len(items)} MYO content items")
+                    for item in items:
+                        playlist_info = {
+                            'id': item.get('id'),
+                            'name': item.get('title') or item.get('name', 'Unknown Playlist'),
+                            'imageId': item.get('imageId') or item.get('coverImageId'),
+                            'itemCount': len(item.get('chapters', [])) if 'chapters' in item else 0,
+                        }
+                        playlists.append(playlist_info)
+                    logger.info(f"Successfully processed {len(playlists)} playlists from MYO content")
                 else:
-                    logger.warning(f"Failed to fetch groups: HTTP {response.status_code}, body: {response.text[:200]}")
+                    logger.warning(f"Failed to fetch MYO content: HTTP {response.status_code}, body: {response.text[:200]}")
             else:
                 logger.warning(f"Token not available or missing access_token: token={token}, has_access_token={hasattr(token, 'access_token') if token else False}")
         except Exception as e:
-            logger.error(f"Could not fetch groups/playlists: {e}", exc_info=True)
+            logger.error(f"Could not fetch MYO content/playlists: {e}", exc_info=True)
         
         return {
             'cards': cards,

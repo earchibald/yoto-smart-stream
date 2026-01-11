@@ -435,7 +435,7 @@ class TestLibraryEndpoints:
             assert "detail" in data
 
     def test_library_api_returns_cards_and_playlists(self, client):
-        """Test /api/library returns cards and playlists data."""
+        """Test /api/library returns cards and MYO content/playlists data."""
         with patch("yoto_smart_stream.api.routes.library.get_yoto_client") as mock_get_client, \
              patch("yoto_smart_stream.api.routes.library.requests") as mock_requests:
             # Create mock card (Card dataclass)
@@ -459,15 +459,15 @@ class TestLibraryEndpoints:
             mock_token.token_type = "Bearer"
             mock_manager.token = mock_token
             
-            # Mock requests.get for /groups endpoint
+            # Mock requests.get for /users/me/myo/content endpoint
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = [
                 {
-                    'id': 'group-456',
-                    'name': 'Test Playlist',
-                    'imageId': 'fp-cards',
-                    'items': [{'contentId': 'card-1'}, {'contentId': 'card-2'}]
+                    'id': 'myo-456',
+                    'title': 'My Custom Playlist',
+                    'coverImageId': 'img-789',
+                    'chapters': [{'title': 'Chapter 1'}, {'title': 'Chapter 2'}]
                 }
             ]
             mock_requests.get.return_value = mock_response
@@ -492,11 +492,11 @@ class TestLibraryEndpoints:
             assert card["author"] == "Test Author"
             assert card["cover"] == "https://example.com/image.jpg"
             
-            # Check playlist data (now fetched from /groups endpoint)
+            # Check playlist data (now fetched from /users/me/myo/content endpoint)
             assert len(data["playlists"]) == 1
             playlist = data["playlists"][0]
-            assert playlist["id"] == "group-456"
-            assert playlist["name"] == "Test Playlist"
+            assert playlist["id"] == "myo-456"
+            assert playlist["name"] == "My Custom Playlist"
             assert playlist["itemCount"] == 2
 
     def test_library_api_handles_empty_library(self, client):
