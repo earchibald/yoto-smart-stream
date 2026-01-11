@@ -28,6 +28,7 @@ async def get_library():
         
         # Get library data - library is a dict with card IDs as keys
         library_dict = manager.library
+        logger.info(f"Library contains {len(library_dict)} total items")
         
         # Extract cards from the dictionary
         cards = []
@@ -44,6 +45,8 @@ async def get_library():
                 
                 cards.append(card_info)
         
+        logger.info(f"Processed {len(cards)} cards from library")
+        
         # Extract playlists (groups) - fetch from /groups endpoint
         playlists = []
         try:
@@ -56,9 +59,14 @@ async def get_library():
                     'Content-Type': 'application/json',
                     'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4'
                 }
+                logger.info("Fetching groups from /groups endpoint...")
                 response = requests.get('https://api.yotoplay.com/groups', headers=headers, timeout=10)
+                logger.info(f"Groups endpoint response status: {response.status_code}")
+                
                 if response.status_code == 200:
                     groups_data = response.json()
+                    logger.info(f"Groups response type: {type(groups_data)}, data: {groups_data if isinstance(groups_data, list) and len(groups_data) < 10 else 'large dataset'}")
+                    
                     if isinstance(groups_data, list):
                         for group in groups_data:
                             playlist_info = {
@@ -68,11 +76,15 @@ async def get_library():
                                 'itemCount': len(group.get('items', [])),
                             }
                             playlists.append(playlist_info)
-                    logger.info(f"Fetched {len(playlists)} playlists from /groups endpoint")
+                        logger.info(f"Successfully fetched {len(playlists)} playlists from /groups endpoint")
+                    else:
+                        logger.warning(f"Groups data is not a list: {type(groups_data)}")
                 else:
-                    logger.warning(f"Failed to fetch groups: HTTP {response.status_code}")
+                    logger.warning(f"Failed to fetch groups: HTTP {response.status_code}, body: {response.text[:200]}")
+            else:
+                logger.warning(f"Token not available or missing access_token: token={token}, has_access_token={hasattr(token, 'access_token') if token else False}")
         except Exception as e:
-            logger.warning(f"Could not fetch groups/playlists: {e}")
+            logger.error(f"Could not fetch groups/playlists: {e}", exc_info=True)
         
         return {
             'cards': cards,
