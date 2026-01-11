@@ -102,3 +102,4 @@ This workspace contains locally-maintained custom skills in `.github/skills/`:
 - Display icons for Yoto Mini must be exactly 16x16 pixels in PNG format
 - **Network Access**: Copilot Workspace is configured to access Railway deployment URLs (*.up.railway.app) via `.github/copilot-workspace.yml`
 - **Railway MCP Server**: Provides Railway management tools directly in Copilot Workspace (project/service/environment management, deployments, logs, variables)
+- **Railway CLI Auto-Install**: The Railway CLI is automatically installed on workspace startup via `.github/copilot-workspace.yml` setup commands

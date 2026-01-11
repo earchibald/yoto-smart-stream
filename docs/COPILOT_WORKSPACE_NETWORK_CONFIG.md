@@ -6,10 +6,11 @@ This document explains the network access and MCP server configuration for GitHu
 
 ## Configuration Components
 
-The `.github/copilot-workspace.yml` file contains two main configuration sections:
+The `.github/copilot-workspace.yml` file contains three main configuration sections:
 
-1. **Network Configuration** - Controls which external domains Copilot can access
-2. **MCP Servers Configuration** - Enables Model Context Protocol servers for specialized tools
+1. **Environment Setup** - Commands to run on workspace startup to install dependencies
+2. **Network Configuration** - Controls which external domains Copilot can access
+3. **MCP Servers Configuration** - Enables Model Context Protocol servers for specialized tools
 
 ## Problem
 
@@ -28,7 +29,25 @@ The configuration is defined in `.github/copilot-workspace.yml`, which includes 
 
 **Location:** `.github/copilot-workspace.yml`
 
-This file contains two main sections:
+This file contains three main sections:
+
+#### 0. Environment Setup
+
+```yaml
+setup:
+  # Install Railway CLI if not already installed
+  # Required for the Railway MCP server to function
+  commands:
+    - |
+      if ! command -v railway &> /dev/null; then
+        echo "Installing Railway CLI..."
+        npm install -g @railway/cli
+      else
+        echo "Railway CLI already installed: $(railway --version)"
+      fi
+```
+
+The setup section ensures that the Railway CLI is installed when the Copilot Workspace starts. This is required for the Railway MCP server to function properly.
 
 #### 1. Network Configuration
 
@@ -103,6 +122,23 @@ The configuration allows access to:
 - **Example:** PR #42 → `https://yoto-smart-stream-pr-42.up.railway.app`
 
 ## How It Works
+
+### 0. Environment Setup
+
+1. **Workspace Initialization**
+   - GitHub Copilot Workspace reads `.github/copilot-workspace.yml` on startup
+   - The `setup.commands` section is executed automatically
+   - Railway CLI is installed via npm if not already present
+
+2. **Dependency Installation**
+   - Checks if `railway` command is available
+   - Installs `@railway/cli` globally via npm if needed
+   - Verifies installation by displaying the version
+
+3. **MCP Server Prerequisites**
+   - Railway MCP server requires the Railway CLI to be installed
+   - Setup ensures the CLI is available before the MCP server starts
+   - Prevents MCP server loading failures due to missing dependencies
 
 ### 1. Network Configuration
 

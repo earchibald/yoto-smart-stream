@@ -1,6 +1,20 @@
 # GitHub Copilot Workspace Configuration
 # This file configures network access and other settings for GitHub Copilot Workspace
 
+# Environment Setup
+# Commands to run when the workspace starts to ensure dependencies are installed
+setup:
+  # Install Railway CLI if not already installed
+  # Required for the Railway MCP server to function
+  commands:
+    - |
+      if ! command -v railway &> /dev/null; then
+        echo "Installing Railway CLI..."
+        npm install -g @railway/cli
+      else
+        echo "Railway CLI already installed: $(railway --version)"
+      fi
+
 # Network Configuration
 # Allow Copilot Workspace to access Railway deployment URLs
 network:
