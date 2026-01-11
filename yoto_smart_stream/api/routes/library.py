@@ -1,0 +1,215 @@
+"""Library management endpoints for viewing Yoto cards and playlists."""
+
+import logging
+import re
+
+import requests
+from fastapi import APIRouter, HTTPException, status
+
+from ..dependencies import get_yoto_client
+
+router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+@router.get("/library")
+async def get_library():
+    """
+    Get user's Yoto library including cards and MYO (Make Your Own) content/playlists.
+    
+    Returns:
+        Dictionary with cards and playlists from the user's Yoto library
+    """
+    try:
+        client = get_yoto_client()
+        manager = client.get_manager()
+        
+        # Update library from Yoto API
+        manager.update_library()
+        
+        # Get library data - library is a dict with card IDs as keys
+        library_dict = manager.library
+        logger.info(f"Library contains {len(library_dict)} total items")
+        
+        # Log detailed information about the first few items to understand their structure
+        if library_dict:
+            sample_size = min(5, len(library_dict))
+            logger.info(f"=== Examining first {sample_size} items in library ===")
+            for idx, (card_id, card) in enumerate(list(library_dict.items())[:sample_size]):
+                logger.info(f"Item {idx + 1}:")
+                logger.info(f"  card_id (key): {card_id}")
+                logger.info(f"  type: {type(card)}")
+                logger.info(f"  card object attributes: {dir(card)}")
+                
+                # Log all non-private attributes and their values
+                card_attrs = {}
+                for attr in dir(card):
+                    if not attr.startswith('_'):
+                        try:
+                            value = getattr(card, attr)
+                            if not callable(value):
+                                card_attrs[attr] = value
+                        except:
+                            pass
+                logger.info(f"  card attributes and values: {card_attrs}")
+        
+        # Extract cards from the dictionary
+        cards = []
+        if library_dict and isinstance(library_dict, dict):
+            for card_id, card in library_dict.items():
+                card_info = {
+                    'id': card.id if hasattr(card, 'id') else card_id,
+                    'title': card.title if hasattr(card, 'title') and card.title else 'Unknown Title',
+                    'description': card.description if hasattr(card, 'description') else '',
+                    'author': card.author if hasattr(card, 'author') else '',
+                    'icon': None,
+                    'cover': card.cover_image_large if hasattr(card, 'cover_image_large') else None,
+                }
+                
+                cards.append(card_info)
+        
+        logger.info(f"Processed {len(cards)} cards from library")
+        
+        # Extract playlists (MYO content) - fetch from /content/mine endpoint
+        playlists = []
+        try:
+            # Make direct API call to MYO content endpoint
+            # Note: yoto_api library doesn't have a built-in method for this yet
+            token = manager.token
+            if token and hasattr(token, 'access_token'):
+                # Use the same authentication headers format as yoto_api
+                headers = {
+                    'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
+                    'Content-Type': 'application/json',
+                    'Authorization': f'{token.token_type} {token.access_token}',
+                }
+                logger.info("Fetching MYO content from /content/mine endpoint...")
+                response = requests.get('https://api.yotoplay.com/content/mine', headers=headers, timeout=10)
+                logger.info(f"MYO content endpoint response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    myo_data = response.json()
+                    logger.info(f"MYO response type: {type(myo_data)}, keys: {myo_data.keys() if isinstance(myo_data, dict) else 'not a dict'}")
+                    
+                    # MYO content may be in different formats - handle both list and dict with items
+                    items = []
+                    if isinstance(myo_data, list):
+                        items = myo_data
+                    elif isinstance(myo_data, dict) and 'items' in myo_data:
+                        items = myo_data['items']
+                    elif isinstance(myo_data, dict) and 'content' in myo_data:
+                        items = myo_data['content']
+                    
+                    logger.info(f"Found {len(items)} MYO content items")
+                    for item in items:
+                        playlist_info = {
+                            'id': item.get('id'),
+                            'name': item.get('title') or item.get('name', 'Unknown Playlist'),
+                            'imageId': item.get('imageId') or item.get('coverImageId'),
+                            'itemCount': len(item.get('chapters', [])) if 'chapters' in item else 0,
+                        }
+                        playlists.append(playlist_info)
+                    logger.info(f"Successfully processed {len(playlists)} playlists from MYO content")
+                else:
+                    logger.warning(f"Failed to fetch MYO content: HTTP {response.status_code}, body: {response.text[:200]}")
+            else:
+                logger.warning(f"Token not available or missing access_token: token={token}, has_access_token={hasattr(token, 'access_token') if token else False}")
+        except Exception as e:
+            logger.error(f"Could not fetch MYO content/playlists: {e}", exc_info=True)
+        
+        return {
+            'cards': cards,
+            'playlists': playlists,
+            'totalCards': len(cards),
+            'totalPlaylists': len(playlists),
+        }
+        
+    except RuntimeError as e:
+        # Not authenticated
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Please log in to Yoto first."
+        ) from e
+    except Exception as e:
+        logger.error(f"Error fetching library: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch library: {str(e)}"
+        ) from e
+
+
+@router.get("/library/content/{content_id}")
+async def get_content_details(content_id: str):
+    """
+    Get detailed information about a specific card or MYO content.
+    
+    Args:
+        content_id: The ID of the card or MYO content
+        
+    Returns:
+        Dictionary with detailed content information including chapters/tracks
+    """
+    try:
+        # Validate content_id format (alphanumeric, hyphens, underscores only)
+        if not re.match(r'^[a-zA-Z0-9_-]+$', content_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid content ID format"
+            )
+        
+        client = get_yoto_client()
+        manager = client.get_manager()
+        
+        # Get token for authentication
+        token = manager.token
+        if not token or not hasattr(token, 'access_token'):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated. Please log in to Yoto first."
+            )
+        
+        # Make direct API call to content endpoint
+        headers = {
+            'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
+            'Content-Type': 'application/json',
+            'Authorization': f'{token.token_type} {token.access_token}',
+        }
+        
+        logger.info(f"Fetching content details for ID: {content_id}")
+        response = requests.get(
+            f'https://api.yotoplay.com/content/{content_id}',
+            headers=headers,
+            timeout=10
+        )
+        
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Content with ID {content_id} not found"
+            )
+        
+        if response.status_code != 200:
+            logger.warning(f"Failed to fetch content details: HTTP {response.status_code}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Failed to fetch content details: {response.text[:200]}"
+            )
+        
+        content_data = response.json()
+        logger.info(f"Successfully fetched content details for {content_id}")
+        
+        return content_data
+        
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Please log in to Yoto first."
+        ) from e
+    except Exception as e:
+        logger.error(f"Error fetching content details: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch content details: {str(e)}"
+        ) from e
