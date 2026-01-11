@@ -41,7 +41,7 @@ setup:
     - |
       if ! command -v railway > /dev/null 2>&1; then
         echo "Installing Railway CLI..."
-        if npm install -g @railway/cli 2>&1; then
+        if npm install -g @railway/cli; then
           echo "Railway CLI installed successfully: $(railway --version)"
         else
           npm_exit_code=$?
@@ -57,8 +57,8 @@ setup:
 ```
 
 The setup section ensures that the Railway CLI is installed when the Copilot Workspace starts. This is required for the Railway MCP server to function properly. The command includes comprehensive error handling:
-- Captures npm error output for troubleshooting
-- Logs the npm exit code on failure
+- Captures npm exit code on failure
+- Logs detailed error messages for troubleshooting
 - Provides clear instructions for manual installation
 - Gracefully exits without breaking workspace startup
 
