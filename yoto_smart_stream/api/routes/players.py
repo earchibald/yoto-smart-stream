@@ -103,11 +103,15 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
         PlayerInfo with extracted data
     """
     # Get volume: prefer MQTT volume, fallback to user_volume, then default to 8
+    # Yoto API may return values > 100 (e.g., 0-315 scale), so clamp to 0-100
     volume = getattr(player, 'volume', None)
     if volume is None:
         volume = getattr(player, 'user_volume', None)
     if volume is None:
         volume = 8
+    else:
+        # Clamp volume to valid range
+        volume = max(0, min(100, volume))
 
     # Get playing status: check playback_status string or is_playing boolean
     playing = False
