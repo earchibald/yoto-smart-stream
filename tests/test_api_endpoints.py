@@ -52,6 +52,14 @@ class TestWebUIEndpoints:
         content_type = response.headers.get("content-type", "")
         assert "text/html" in content_type or response.text.startswith("<!DOCTYPE html>")
 
+    def test_docs_endpoint_accessible(self, client):
+        """Test /docs endpoint (FastAPI automatic documentation) is accessible."""
+        response = client.get("/docs")
+        assert response.status_code == 200
+        # Check if response is HTML (Swagger UI)
+        content_type = response.headers.get("content-type", "")
+        assert "text/html" in content_type
+
 
 class TestAPIStatusEndpoint:
     """Test API status endpoint."""
