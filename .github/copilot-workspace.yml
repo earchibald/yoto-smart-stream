@@ -26,3 +26,24 @@ network:
     - Staging: https://yoto-smart-stream-staging.up.railway.app
     - Development: https://yoto-smart-stream-development.up.railway.app
     - PR Environments: https://yoto-smart-stream-pr-{number}.up.railway.app
+
+# MCP Servers Configuration
+# Model Context Protocol servers provide specialized tools and capabilities
+mcp_servers:
+  railway-mcp-server:
+    # Railway MCP Server provides Railway platform management tools
+    # Documentation: https://github.com/railwayapp/railway-mcp-server
+    command: npx
+    args:
+      - "-y"
+      - "@railway/mcp-server"
+    description: |
+      Railway MCP Server provides tools for managing Railway infrastructure including:
+      - Project and service management (list, create, link)
+      - Deployment operations (deploy services, deploy templates)
+      - Environment management (create, link environments)
+      - Configuration (list/set variables, generate domains)
+      - Monitoring (retrieve logs with filtering)
+      
+      Requires: Railway CLI installed and user logged in
+      CLI Version: Automatically detects version for feature support
