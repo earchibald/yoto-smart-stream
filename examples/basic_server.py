@@ -74,19 +74,24 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
         PlayerInfo with extracted data
     """
     # Get volume: prefer MQTT volume, fallback to user_volume, then default to 8
-    volume = player.volume if player.volume is not None else (
-        player.user_volume if player.user_volume is not None else 8
-    )
+    volume = getattr(player, 'volume', None)
+    if volume is None:
+        volume = getattr(player, 'user_volume', None)
+    if volume is None:
+        volume = 8
 
     # Get playing status: check playback_status string or is_playing boolean
     playing = False
-    if player.playback_status is not None:
-        playing = player.playback_status == "playing"
-    elif player.is_playing is not None:
-        playing = player.is_playing
+    playback_status = getattr(player, 'playback_status', None)
+    if playback_status is not None:
+        playing = playback_status == "playing"
+    else:
+        is_playing = getattr(player, 'is_playing', None)
+        if is_playing is not None:
+            playing = is_playing
 
     # Get battery level from battery_level_percentage attribute
-    battery_level = player.battery_level_percentage
+    battery_level = getattr(player, 'battery_level_percentage', None)
 
     return PlayerInfo(
         id=player_id,
