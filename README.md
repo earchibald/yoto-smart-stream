@@ -264,6 +264,7 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Migration Guide](MIGRATION_GUIDE_EXAMPLES_TO_PROD.md)**: Migrate from examples to production server
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
 - **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
+- **[Railway PR Environments](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)**: Automatic ephemeral environments for pull requests (NEW)
 - **[Railway Shared Development](docs/RAILWAY_SHARED_DEVELOPMENT.md)**: Coordinated access to shared dev environment
 - **[Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md)**: Configure separate tokens per environment
 - **[Codespaces Railway Setup](docs/CODESPACES_RAILWAY_SETUP.md)**: Configure Railway access for GitHub Codespaces
@@ -324,19 +325,27 @@ git push origin develop
 
 # Development: Manual with coordination
 # Via GitHub Actions: Railway Development (Shared Environment) workflow
+
+# Pull Requests: Automatic via Railway native PR Environments
+# Open a PR → Railway creates pr-{number} environment automatically
 ```
+
+**PR Environments**: Railway automatically creates ephemeral environments for pull requests with zero configuration. See [Railway PR Environments Guide](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md).
 
 **Static Environments**: Uses pre-registered callback URLs for Yoto OAuth compatibility.
 
 **Token Security**: Separate Railway tokens for prod/staging/dev environments. See [Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md).
 
 **Status**: 
+- ✅ PR Environments (all PRs) - Auto-deployed by Railway native feature
 - ✅ Staging (develop branch) - Auto-deployed with `RAILWAY_TOKEN_STAGING`
 - ✅ Development (shared) - Manual coordination with `RAILWAY_TOKEN_DEV`
 - ⚠️ Production (main branch) - Manual only with `RAILWAY_TOKEN_PROD`
 - ⏸️ Production (main branch) - Disabled
 
 **Resources**:
+- **[PR Environments Guide](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)** - Automatic PR deployments (NEW)
+- **[PR Environments Comparison](docs/RAILWAY_PR_ENVIRONMENTS_COMPARISON.md)** - Native vs custom approaches
 - **[Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)** - Complete setup and deployment instructions
 - **[Quick Reference](docs/RAILWAY_QUICK_REF.md)** - Common deployment commands
 
