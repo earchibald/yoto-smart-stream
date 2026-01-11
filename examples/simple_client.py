@@ -94,7 +94,7 @@ def main():
 
     # Get and display player information
     logger.info("Fetching player status...")
-    ym.update_player_status()
+    ym.update_players_status()
 
     if not ym.players:
         logger.warning("No players found on your account")

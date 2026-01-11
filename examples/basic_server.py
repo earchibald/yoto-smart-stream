@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
     """Initialize services on startup and cleanup on shutdown."""
     try:
         ym = get_yoto_manager()
-        ym.update_player_status()
+        ym.update_players_status()
         print("✓ Yoto API connected successfully")
 
         # Connect to MQTT
@@ -190,7 +190,7 @@ async def list_players():
 
     try:
         # Refresh player status
-        ym.update_player_status()
+        ym.update_players_status()
 
         if not ym.players:
             return []
