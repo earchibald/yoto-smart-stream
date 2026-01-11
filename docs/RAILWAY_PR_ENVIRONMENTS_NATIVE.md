@@ -12,7 +12,8 @@ Railway's PR Environments is a built-in platform feature that automatically crea
 ✅ **Automatic Lifecycle** - Creates on PR open, updates on push, destroys on close/merge  
 ✅ **Native GitHub Integration** - Status checks and deployment links built-in  
 ✅ **Cost-Effective** - Only pay while PR is open, automatic cleanup  
-✅ **Consistent Configuration** - Inherits from base environment (staging)  
+✅ **Consistent Configuration** - Inherits from base environment (production)  
+✅ **Shared Variables** - Can reference production's shared variables  
 ✅ **Reduced Maintenance** - Railway manages everything for you  
 
 ### Comparison with Custom Ephemeral Environments
@@ -24,26 +25,25 @@ Railway's PR Environments is a built-in platform feature that automatically crea
 | GitHub Integration | ✓ Built-in | Custom implementation |
 | Lifecycle Management | ✓ Automatic | Manual scripting |
 | Configuration | Inherits from base | Custom per environment |
+| Shared Variables | ✓ Supported | Requires custom setup |
 | Customization | Limited | Full control |
 
-**Recommendation:** Use Native PR Environments for standard PR workflows. Use custom ephemeral environments only when you need:
-- Custom naming conventions
-- Non-PR triggered deployments (e.g., Copilot sessions)
-- Advanced deployment strategies
-- Workarounds for specific limitations
+**Recommendation:** Use Native PR Environments for all PR workflows. Custom ephemeral environments have been deprecated in this project.
 
 ## Current Status in This Project
 
-This project currently has:
-- ✅ **Native PR Environments**: Enabled in Railway dashboard
-- ⚠️ **Custom Ephemeral Workflow**: Currently disabled (see `.github/workflows/railway-pr-environments.yml`)
-- 📝 **Custom Scripts**: Available for special cases (see `scripts/railway_ephemeral_env.sh`)
+This project uses:
+- ✅ **Native PR Environments**: Enabled in Railway dashboard, base environment is **production**
+- ✅ **Shared Variables**: PR environments inherit `YOTO_CLIENT_ID` from production
+- ✅ **GitHub Actions Validation**: `railway-pr-checks.yml` validates each PR environment
+- 🚫 **Custom Workflows**: Deprecated and marked as obsolete
 
-**Note:** The custom PR workflow is disabled because Yoto OAuth requires static callback URLs, which don't work well with dynamic PR environment URLs. However, Railway's native PR Environments can still be used for:
+**Note:** Yoto OAuth requires static callback URLs, which limits OAuth functionality in dynamic PR environment URLs. However, Railway's native PR Environments work great for:
 - Health check testing
 - Integration testing
 - UI/frontend testing
 - Non-OAuth functionality testing
+- API endpoint testing
 
 ## Quick Setup (5 Minutes)
 
@@ -55,13 +55,25 @@ This project currently has:
 4. Scroll to **PR Environments** section
 5. Click **Enable**
 6. Configure:
-   - **Base Environment**: Select `staging`
+   - **Base Environment**: Select `production`
    - **Auto-Deploy on PR updates**: ✓ Enable
    - **Auto-Destroy on PR close/merge**: ✓ Enable
-   - **Target Branches**: Add `main` and `develop`
+   - **Target Branches**: Add `main`
 7. Click **Save**
 
-### Step 2: Test It
+**Important**: Since PR environments inherit from production, ensure your production environment is properly configured and stable. Any configuration issues in production will propagate to all PR environments.
+
+### Step 2: Configure YOTO_CLIENT_ID as Shared Variable
+
+1. Go to Railway Dashboard → Your Project → **production** environment
+2. Navigate to **Variables** tab
+3. Find or create `YOTO_CLIENT_ID` variable
+4. Set its type to **Shared Variable**
+5. Save
+
+PR environments will automatically reference this using `${{shared.YOTO_CLIENT_ID}}`.
+
+### Step 3: Test It
 
 1. Create a test branch:
    ```bash
@@ -69,12 +81,13 @@ This project currently has:
    git push origin test/railway-pr-env
    ```
 
-2. Open a PR on GitHub targeting `develop` or `main`
+2. Open a PR on GitHub targeting `main`
 
 3. Watch Railway automatically:
    - Create environment `pr-{number}`
    - Deploy your code
    - Post status check on GitHub
+   - GitHub Actions validates the environment
 
 4. Access your PR environment:
    ```
@@ -90,11 +103,12 @@ This project currently has:
 **When you open a PR:**
 
 1. Railway automatically creates `pr-{number}` environment
-2. Check the PR status checks for deployment link
-3. Wait 1-2 minutes for deployment to complete
-4. GitHub Actions automatically validates the deployment
-5. Check PR comments for validation results
-6. Test your changes at the provided URL
+2. Environment inherits `YOTO_CLIENT_ID` from production (via shared variable)
+3. GitHub Actions validates the deployment
+4. Check the PR status checks for deployment link
+5. Wait 1-2 minutes for deployment to complete
+6. Check PR comments for validation results
+7. Test your changes at the provided URL
 
 **When you push updates:**
 

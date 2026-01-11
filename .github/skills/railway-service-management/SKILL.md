@@ -70,22 +70,26 @@ railway init
 
 # Set up environments
 # - production: Connected to 'main' branch
-# - staging: Connected to 'develop' branch  
-# - pr-*: Ephemeral environments for feature branches
+# - pr-*: Ephemeral environments for pull requests (automatic via Railway)
 
 # Configure environment variables
 railway variables set KEY=value -e production
-railway variables set KEY=value -e staging
+
+# Configure shared variables (for PR environments to inherit)
+# Note: Shared variable type must be set via Railway Dashboard
 ```
 
 ## Architecture Patterns
 
 ### Branch-to-Environment Mapping
 
-**Recommended Structure:**
+**Current Architecture:**
 - `main` branch → `production` environment (stable, customer-facing)
-- `develop` branch → `staging` environment (pre-production testing)
-- `feature/*` branches → **Railway PR Environments** (automatic, ephemeral)
+- Pull requests → **Railway PR Environments** (automatic, ephemeral)
+
+**Previously Used (Now Deprecated):**
+- ~~`develop` branch → `staging` environment~~
+- ~~`feature/*` branches → custom ephemeral environments~~
 
 ### Railway PR Environments
 
@@ -97,6 +101,7 @@ Railway's native PR Environments feature automatically creates ephemeral environ
 - ✓ **Automatic destruction** when PR is closed/merged
 - ✓ **Zero configuration** after initial setup
 - ✓ **GitHub integration** with status checks
+- ✓ **Shared Variables** - Can reference production's shared variables
 - ✓ **Cost-effective** - only pay while PR is open
 
 **Setup:**

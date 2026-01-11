@@ -1,4 +1,16 @@
-name: Railway Development (Shared Environment)
+name: Railway Development (Shared Environment) - OBSOLETE
+
+# =============================================================================
+# ⚠️ THIS WORKFLOW IS OBSOLETE ⚠️
+# =============================================================================
+# This workflow managed the shared development Railway environment.
+# It is no longer needed as the project now uses only:
+# - Production environment (main branch)
+# - PR Environments (automatic via Railway native feature)
+#
+# This file is kept for historical reference only.
+# It will not run automatically and should not be used.
+# =============================================================================
 
 # This workflow manages the shared development Railway environment
 # with coordination to avoid conflicts between concurrent sessions

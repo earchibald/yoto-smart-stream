@@ -1,3 +1,14 @@
+> **⚠️ THIS DOCUMENT IS OBSOLETE**
+> 
+> The deployment process has been simplified. Please see:
+> - [GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md) - Configure deployment
+> - [Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md) - Current deployment process
+> - [Railway PR Environments](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md) - PR environment usage
+> 
+> The content below is kept for historical reference only.
+> 
+> ---
+> 
 # Deployment Test Plan for YOTO_CLIENT_ID Fix
 
 ## Issue Fixed

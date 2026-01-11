@@ -1,12 +1,47 @@
-# Railway Shared Development Environment
+# Railway Shared Development Environment - OBSOLETE
 
-## Overview
+⚠️ **THIS DOCUMENT IS OBSOLETE** ⚠️
 
-Due to Yoto OAuth requirements for **static callback URLs**, we cannot use ephemeral environments with dynamic URLs for authentication. Instead, this project uses:
+This document described a shared development environment strategy that is no longer used in this project.
 
-- **Production Environment** - Static, production-facing (main branch)
-- **Staging Environment** - Static, pre-production testing (develop branch)  
-- **Development Environment** - Static, shared for PR/Copilot testing (manual deployment with coordination)
+## Current Architecture
+
+The project now uses a simplified two-environment model:
+
+1. **Production Environment** - Deployed from `main` branch
+2. **PR Environments** - Automatically created by Railway for each pull request
+
+There is **NO** shared development environment. See the current documentation:
+
+- [Railway Deployment Guide](RAILWAY_DEPLOYMENT.md) - Current deployment process
+- [Railway PR Environments Native](RAILWAY_PR_ENVIRONMENTS_NATIVE.md) - PR environment usage
+- [GitHub Secrets Setup](../GITHUB_SECRETS_SETUP.md) - Configuration guide
+
+## Why This Changed
+
+The previous architecture included staging and development environments, but we simplified to:
+- Reduce complexity and maintenance overhead
+- Use Railway's native PR Environments feature
+- Leverage Railway Shared Variables for configuration management
+- Eliminate the need for environment locking mechanisms
+
+---
+
+## Historical Context (For Reference Only)
+
+The content below is kept for historical reference but should not be used.
+
+---
+
+# ~~Railway Shared Development Environment~~
+
+## ~~Overview~~
+
+~~Due to Yoto OAuth requirements for **static callback URLs**, we cannot use ephemeral environments with dynamic URLs for authentication. Instead, this project uses:~~
+
+~~- **Production Environment** - Static, production-facing (main branch)~~
+~~- **Staging Environment** - Static, pre-production testing (develop branch)~~  
+~~- **Development Environment** - Static, shared for PR/Copilot testing (manual deployment with coordination)~~
 
 ## The Problem with Ephemeral Environments
 

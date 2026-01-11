@@ -2,22 +2,26 @@
 
 This guide explains exactly what secrets to configure and where, to enable automated Railway deployments.
 
-## Simplified Workflow for Development
+## Simplified Deployment Model
 
-**Current Focus**: PR work deploys only to the `development` Railway environment. Staging and production workflows are not needed yet (there's no `develop` branch for staging).
+**Current Architecture**: The project uses ONLY two types of Railway environments:
+1. **Production** - Deployed from `main` branch
+2. **PR Environments** - Automatically created by Railway for each pull request
+
+There are **NO** staging or development environments.
 
 ## Required GitHub Secrets
 
 You need to add these secrets to your GitHub repository:
 
-### 1. RAILWAY_TOKEN_DEV (Required for development deployment)
+### 1. RAILWAY_TOKEN_PROD (Required for production deployment)
 
-**What it is**: An API token that allows GitHub Actions to deploy to Railway development environment on your behalf.
+**What it is**: An API token that allows GitHub Actions to deploy to Railway production environment on your behalf.
 
 **How to get it**:
 1. Go to https://railway.app/account/tokens
 2. Click "Create Token"
-3. Give it a name like "GitHub Actions Development"
+3. Give it a name like "GitHub Actions Production"
 4. Copy the token (you'll only see it once!)
 
 **Where to add it**:
@@ -25,25 +29,29 @@ You need to add these secrets to your GitHub repository:
 2. Click **Settings** (top navigation)
 3. In the left sidebar, click **Secrets and variables** → **Actions**
 4. Click **New repository secret**
-5. Name: `RAILWAY_TOKEN_DEV` (exact name required)
+5. Name: `RAILWAY_TOKEN_PROD` (exact name required)
 6. Value: Paste the token from Railway
 7. Click **Add secret**
 
-### 2. YOTO_CLIENT_ID (Optional but recommended)
+## YOTO_CLIENT_ID Configuration
 
-**What it is**: Your Yoto API client ID for authentication with Yoto services.
+**Important**: `YOTO_CLIENT_ID` is **NOT** stored as a GitHub Secret. Instead, it is:
+1. Set directly in the Railway production environment as a **Shared Variable**
+2. PR Environments automatically reference it using Railway's template syntax: `${{shared.YOTO_CLIENT_ID}}`
 
-**How to get it**:
-1. Go to https://yoto.dev/get-started/start-here/
-2. Register your application
-3. Copy your Client ID
+### How to Set YOTO_CLIENT_ID in Railway:
 
-**Where to add it**:
-1. Same location as above: Repository → Settings → Secrets and variables → Actions
-2. Click **New repository secret**
-3. Name: `YOTO_CLIENT_ID`
-4. Value: Paste your Yoto Client ID
-5. Click **Add secret**
+1. Go to https://railway.app/dashboard
+2. Select your project
+3. Go to the **production** environment
+4. Navigate to **Variables** tab
+5. Add a new variable:
+   - **Name**: `YOTO_CLIENT_ID`
+   - **Value**: Your Yoto Client ID from https://yoto.dev/
+   - **Type**: Select "Shared Variable" (this allows PR environments to reference it)
+6. Save the variable
+
+PR Environments will automatically inherit this value through the `${{shared.YOTO_CLIENT_ID}}` reference that is set by the GitHub Actions workflow.
 
 ## Visual Guide
 
@@ -57,46 +65,41 @@ GitHub Repository → Settings tab
 Left sidebar → Secrets and variables → Actions
 ```
 
-### Step 3: Add Secrets
+### Step 3: Add Secret
 ```
 Click "New repository secret"
-Enter name: RAILWAY_TOKEN_DEV
+Enter name: RAILWAY_TOKEN_PROD
 Paste value from Railway
 Click "Add secret"
-
-Repeat for YOTO_CLIENT_ID (optional)
 ```
 
 ## After Adding Secrets
 
-Once `RAILWAY_TOKEN_DEV` is added, you can deploy using any of these methods:
+Once `RAILWAY_TOKEN_PROD` is added, production deployments will happen automatically when code is pushed to the `main` branch.
 
-### Method 1: Via GitHub Actions UI (Easiest)
+**⚠️ Important**: Since production deployments are automatic on push to `main`, ensure:
+- All PRs are thoroughly tested in PR environments before merging
+- Code reviews are completed and approved
+- You have a rollback plan if issues occur (can redeploy previous commit)
+- Critical changes are tested with extra care
 
-1. Go to the **Actions** tab in your repository
-2. Click on **"Railway Development (Shared Environment)"** workflow
-3. Click **"Run workflow"** button (top right)
-4. Fill in the form:
-   - **Branch**: Select `copilot/build-server-and-setup-railway`
-   - **session_id**: Enter `copilot-build-server`
-   - **action**: Select `acquire-and-deploy`
-5. Click **"Run workflow"**
-6. Wait for deployment to complete (check the running workflow)
+### Production Deployment (Automatic)
 
-### Method 2: Via GitHub CLI
+Deployments to production happen automatically when you merge to `main`:
 
-If you have GitHub CLI installed:
+1. Merge your PR to `main` branch (after thorough testing and review)
+2. GitHub Actions automatically runs the deployment workflow
+3. The production environment at https://yoto-smart-stream-production.up.railway.app is updated
 
-```bash
-gh workflow run "Railway Development (Shared Environment)" \
-  --ref copilot/build-server-and-setup-railway \
-  --field session_id="copilot-build-server" \
-  --field action="acquire-and-deploy"
-```
+### PR Environments (Automatic)
 
-### Method 3: Merge to Develop
+Railway automatically creates ephemeral environments for every pull request:
 
-Merging this PR to the `develop` branch will automatically trigger deployment to the staging environment.
+1. Open a PR targeting `main`
+2. Railway automatically creates a `pr-{number}` environment
+3. The PR environment inherits `YOTO_CLIENT_ID` from production via shared variables
+4. GitHub Actions validates the deployment
+5. When you close/merge the PR, Railway automatically destroys the environment
 
 ## Verification
 
@@ -104,8 +107,7 @@ After adding secrets, verify they're configured:
 
 1. Go to: Repository → Settings → Secrets and variables → Actions
 2. You should see:
-   - ✅ `RAILWAY_TOKEN_DEV` (required)
-   - ✅ `YOTO_CLIENT_ID` (optional)
+   - ✅ `RAILWAY_TOKEN_PROD` (required for production deployments)
 
 The values are hidden for security, but you should see the secret names listed.
 
@@ -113,9 +115,9 @@ The values are hidden for security, but you should see the secret names listed.
 
 ### "Secret not found" error in workflow
 
-**Problem**: Workflow runs but can't find `RAILWAY_TOKEN_DEV`.
+**Problem**: Workflow runs but can't find `RAILWAY_TOKEN_PROD`.
 
-**Solution**: Make sure you named it exactly `RAILWAY_TOKEN_DEV` (all caps, with underscores).
+**Solution**: Make sure you named it exactly `RAILWAY_TOKEN_PROD` (all caps, with underscores).
 
 ### Token doesn't work
 
@@ -125,6 +127,15 @@ The values are hidden for security, but you should see the secret names listed.
 1. Generate a new token from Railway
 2. Update the secret in GitHub (you can edit existing secrets)
 3. Make sure the token has permissions for your Railway project
+
+### YOTO_CLIENT_ID not working in PR environments
+
+**Problem**: PR environments can't access Yoto API.
+
+**Solution**:
+1. Verify `YOTO_CLIENT_ID` is set as a **Shared Variable** in Railway production environment
+2. Check that PR environment has `YOTO_CLIENT_ID` set to `${{shared.YOTO_CLIENT_ID}}`
+3. Ensure the production environment is named exactly "production" in Railway
 
 ### Where are Codespace secrets different from repository secrets?
 
@@ -138,28 +149,30 @@ The values are hidden for security, but you should see the secret names listed.
 - Used by: GitHub Actions workflows
 - Scope: Repository-level
 
-Both are needed for full functionality:
-- **Repository secrets** → For automated deployments via GitHub Actions
-- **Codespaces secrets** → For manual deployments from your Codespace
+For this project, you only need **repository secrets** for automated deployments via GitHub Actions.
 
 ## Summary
 
-**Quick checklist to enable development deployment:**
+**Quick checklist to enable production deployment:**
 
 - [ ] Get Railway token from https://railway.app/account/tokens
-- [ ] Add `RAILWAY_TOKEN_DEV` to repository secrets
-- [ ] (Optional) Get Yoto Client ID from https://yoto.dev/
-- [ ] (Optional) Add `YOTO_CLIENT_ID` to repository secrets
-- [ ] Go to Actions tab and run "Railway Development (Shared Environment)" workflow
-- [ ] Monitor deployment progress in Actions tab
+- [ ] Add `RAILWAY_TOKEN_PROD` to repository secrets
+- [ ] Set `YOTO_CLIENT_ID` as a Shared Variable in Railway production environment
+- [ ] Merge to `main` branch to trigger automatic production deployment
+- [ ] Open a PR to test PR Environment creation
 
-**Important**: Use `RAILWAY_TOKEN_DEV` for development deployments. Future staging/production deployments would use `RAILWAY_TOKEN_STAGING` and `RAILWAY_TOKEN_PROD` respectively, but those are not needed yet.
+**Important Notes:**
+- Production deployments are automatic on push to `main` branch
+- PR Environments are automatically created by Railway for each pull request
+- `YOTO_CLIENT_ID` is stored in Railway (as a Shared Variable), not in GitHub Secrets
+- There are no staging or development environments
 
 **Still confused?** 
 - Repository secrets location: https://github.com/earchibald/yoto-smart-stream/settings/secrets/actions
-- You need **repository-level** secrets, not Codespace secrets, for GitHub Actions to work
-- The secret must be named exactly: `RAILWAY_TOKEN_DEV`
+- You need **repository-level** secrets for GitHub Actions to work
+- The secret must be named exactly: `RAILWAY_TOKEN_PROD`
+- Railway production environment must have `YOTO_CLIENT_ID` set as a Shared Variable
 
 ---
 
-Once secrets are configured, GitHub Actions will have access to deploy to Railway development environment automatically!
+Once secrets are configured, GitHub Actions will automatically deploy to Railway production when you push to `main`, and Railway will automatically create PR environments for pull requests!

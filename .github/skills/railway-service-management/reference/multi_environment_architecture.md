@@ -2,11 +2,11 @@
 
 ## Overview
 
-This guide outlines strategies for implementing a robust multi-environment architecture on Railway, with focus on branch-based deployments, environment isolation, and promotion workflows.
+This guide outlines the simplified two-environment architecture used in this project: Production and automatic PR Environments. This approach leverages Railway's native features and Shared Variables for efficient deployment management.
 
 ## Environment Strategy
 
-### Recommended Setup
+### Current Setup (Simplified)
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -18,29 +18,31 @@ This guide outlines strategies for implementing a robust multi-environment archi
 │  │  Production Environment                      │  │
 │  │  - Branch: main                              │  │
 │  │  - URL: yoto-smart-stream-production.up.railway.app                 │  │
-│  │  - Services: web, postgres, redis            │  │
-│  │  - Auto-deploy: ✓                            │  │
-│  └──────────────────────────────────────────────┘  │
-│                                                      │
-│  ┌──────────────────────────────────────────────┐  │
-│  │  Staging Environment                         │  │
-│  │  - Branch: develop                           │  │
-│  │  - URL: yoto-smart-stream-staging.up.railway.app         │  │
-│  │  - Services: web, postgres, redis            │  │
-│  │  - Auto-deploy: ✓                            │  │
+│  │  - Services: web, postgres (if needed)       │  │
+│  │  - Auto-deploy: ✓ (on push to main)         │  │
+│  │  - Shared Variables: YOTO_CLIENT_ID          │  │
 │  └──────────────────────────────────────────────┘  │
 │                                                      │
 │  ┌──────────────────────────────────────────────┐  │
 │  │  PR Environment (pr-123)                     │  │
-│  │  - Branch: feature/add-mqtt                  │  │
+│  │  - Branch: feature/add-feature               │  │
 │  │  - URL: yoto-smart-stream-pr-123.up.railway.app          │  │
-│  │  - Services: web, postgres                   │  │
-│  │  - Auto-deploy: ✓                            │  │
-│  │  - Auto-destroy: on merge/close              │  │
+│  │  - Services: web (inherits from production)  │  │
+│  │  - Auto-deploy: ✓ (on PR update)            │  │
+│  │  - Auto-destroy: ✓ (on merge/close)         │  │
+│  │  - Inherits: ${{shared.YOTO_CLIENT_ID}}      │  │
 │  └──────────────────────────────────────────────┘  │
 │                                                      │
 └─────────────────────────────────────────────────────┘
 ```
+
+### Previous Setup (Deprecated)
+
+The project previously used a three-environment model with staging and development environments. This has been simplified to:
+- Remove maintenance overhead
+- Leverage Railway's native PR Environments
+- Use Shared Variables for configuration management
+- Reduce costs by eliminating unused environments
 
 ## Branch-to-Environment Mapping
 
@@ -51,7 +53,7 @@ This guide outlines strategies for implementing a robust multi-environment archi
 Environment: production
 Branch: main
 Auto-deploy: Yes
-Deployment: On push to main
+Deployment: On push to main (via GitHub Actions)
 ```
 
 **Characteristics:**
@@ -60,7 +62,8 @@ Deployment: On push to main
 - Automatic deployments after merge
 - Full resource allocation
 - Comprehensive monitoring
-- Database backups enabled
+- Database backups enabled (if applicable)
+- Shared Variables defined here (e.g., YOTO_CLIENT_ID)
 
 **Access Control:**
 - Protected branch in GitHub
@@ -68,36 +71,14 @@ Deployment: On push to main
 - Require status checks to pass
 - Admin-only force push
 
-### Develop Branch → Staging
-
-**Configuration:**
-```yaml
-Environment: staging
-Branch: develop
-Auto-deploy: Yes
-Deployment: On push to develop
-```
-
-**Characteristics:**
-- Pre-production testing
-- Integration testing
-- QA validation
-- Performance testing
-- Similar to production setup
-- Separate database
-
-**Access Control:**
-- Protected branch in GitHub
-- Require PR reviews (optional)
-- Auto-deploy on merge
-
-### Feature Branches → PR Environments
+### Feature Branches → PR Environments (Automatic)
 
 **Configuration:**
 ```yaml
 Environment: pr-{number}
-Branch: feature/*, fix/*, chore/*
-Auto-deploy: Yes (on PR creation)
+Branch: Any branch with PR to main
+Auto-deploy: Yes (automatic via Railway)
+Base Environment: production
 Auto-destroy: Yes (on PR close/merge)
 ```
 
@@ -116,77 +97,45 @@ Auto-destroy: Yes (on PR close/merge)
 ```bash
 # Core services
 Services:
-  - web (FastAPI application, 2 replicas)
-  - postgres (2 GB RAM, daily backups)
-  - redis (512 MB RAM, persistence enabled)
+  - web (FastAPI application)
+  - postgres (optional, if database needed)
 
 # Environment variables
-ENVIRONMENT=production
 DEBUG=false
 LOG_LEVEL=warning
-YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }}
-YOTO_CLIENT_SECRET=${{ secrets.YOTO_CLIENT_SECRET }}
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-REDIS_URL=${{Redis.REDIS_URL}}
-PORT=${{PORT}}
-WORKERS=4
-SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+YOTO_CLIENT_ID=<actual_value>  # Set as Shared Variable in Railway Dashboard
+PORT=${{PORT}}  # Auto-set by Railway
+PUBLIC_URL=https://yoto-smart-stream-production.up.railway.app
 
-# Resource allocation
-RAM: 1 GB per web replica
-CPU: 1 vCPU per web replica
-Storage: 10 GB for PostgreSQL
-```
+# Optional database
+DATABASE_URL=${{Postgres.DATABASE_URL}}  # If using PostgreSQL
 
-### Staging Environment
-
-```bash
-# Core services
-Services:
-  - web (FastAPI application, 1 replica)
-  - postgres (1 GB RAM, daily backups)
-  - redis (256 MB RAM)
-
-# Environment variables
-ENVIRONMENT=staging
-DEBUG=true
-LOG_LEVEL=info
-YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }}
-YOTO_CLIENT_SECRET=${{ secrets.YOTO_CLIENT_SECRET }}
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-REDIS_URL=${{Redis.REDIS_URL}}
-PORT=${{PORT}}
-WORKERS=2
-SENTRY_DSN=${{ secrets.SENTRY_DSN_STAGING }}
-
-# Resource allocation
-RAM: 512 MB for web
-CPU: 0.5 vCPU for web
-Storage: 5 GB for PostgreSQL
+# Resource allocation (adjust as needed)
+RAM: 512 MB - 1 GB for web
+CPU: 0.5 - 1 vCPU for web
+Storage: As needed for PostgreSQL (if used)
 ```
 
 ### PR Environments
 
 ```bash
-# Minimal services for testing
+# Minimal services for testing (inherited from production)
 Services:
-  - web (FastAPI application, 1 replica)
-  - postgres (512 MB RAM, ephemeral)
+  - web (FastAPI application)
 
 # Environment variables
-ENVIRONMENT=preview
+RAILWAY_ENVIRONMENT_NAME=pr-{number}  # Auto-set by Railway
+YOTO_CLIENT_ID=${{shared.YOTO_CLIENT_ID}}  # Inherits from production
+PORT=${{PORT}}  # Auto-set by Railway
+PUBLIC_URL=https://yoto-smart-stream-pr-{number}.up.railway.app
+
+# Debug settings (configured via GitHub Actions)
 DEBUG=true
 LOG_LEVEL=debug
-YOTO_CLIENT_ID=${{ secrets.YOTO_CLIENT_ID }}
-YOTO_CLIENT_SECRET=${{ secrets.YOTO_CLIENT_SECRET }}
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-PORT=${{PORT}}
-WORKERS=1
 
-# Resource allocation
-RAM: 512 MB for web
-CPU: 0.5 vCPU for web
-Storage: 1 GB for PostgreSQL (ephemeral)
+# Resource allocation (typically smaller than production)
+RAM: 256-512 MB for web
+CPU: 0.25-0.5 vCPU for web
 ```
 
 ## Setting Up Environments

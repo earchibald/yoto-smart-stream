@@ -1,16 +1,25 @@
-name: Auto-Deploy PR to Development
+name: Auto-Deploy PR to Development - OBSOLETE
+
+# =============================================================================
+# ⚠️ THIS WORKFLOW IS OBSOLETE ⚠️
+# =============================================================================
+# This workflow automatically deployed PR branches to Railway development.
+# It is no longer needed as the project now uses only:
+# - Production environment (main branch)
+# - PR Environments (automatic via Railway native feature)
+#
+# This file is kept for historical reference only.
+# It will not run automatically and should not be used.
+# =============================================================================
 
 # This workflow automatically deploys the PR branch to Railway development
 # when changes are pushed to the copilot/build-server-and-setup-railway branch
 
 on:
-  push:
-    branches:
-      - copilot/build-server-and-setup-railway
   workflow_dispatch:
     inputs:
       force:
-        description: 'Force deploy (ignore checks)'
+        description: 'Force deploy (ignore checks) - OBSOLETE, DO NOT USE'
         required: false
         type: boolean
         default: false

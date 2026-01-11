@@ -4,6 +4,8 @@
 
 Railway's PR Environments is a native platform feature that automatically creates ephemeral environments for pull requests. Unlike custom script-based ephemeral environments, PR Environments are fully managed by Railway's GitHub integration with zero configuration required beyond initial setup.
 
+This project uses Railway PR Environments with **production** as the base environment, leveraging **Shared Variables** to inherit configuration like `YOTO_CLIENT_ID`.
+
 ## Key Features
 
 ### Automatic Lifecycle Management
@@ -11,7 +13,8 @@ Railway's PR Environments is a native platform feature that automatically create
 - **Auto-Creation**: When a PR is opened, Railway automatically creates a new environment
 - **Auto-Deployment**: Code changes in the PR trigger automatic deployments
 - **Auto-Destruction**: When the PR is closed or merged, the environment is automatically destroyed
-- **Zero Configuration**: No GitHub Actions workflows or custom scripts required
+- **Zero Configuration**: No GitHub Actions workflows or custom scripts required for deployment
+- **Shared Variables**: Can reference variables from the base (production) environment
 
 ### Native GitHub Integration
 
@@ -27,7 +30,7 @@ Pull Request → Railway Webhook → Environment Created → Deployment → Live
 
 ### Resource Optimization
 
-- Ephemeral environments use a template from a base environment (typically staging)
+- Ephemeral environments use a template from the base environment (production)
 - Automatically scaled down compared to production
 - Zero cost when PR is closed
 - Shared configuration with intelligent overrides
@@ -38,7 +41,7 @@ Pull Request → Railway Webhook → Environment Created → Deployment → Live
 
 1. **Railway Project**: Connected to GitHub repository
 2. **GitHub Integration**: Railway app installed in GitHub
-3. **Base Environment**: A configured environment to use as template (e.g., staging)
+3. **Base Environment**: Production environment configured with Shared Variables
 
 ### Enabling PR Environments
 
@@ -49,25 +52,33 @@ Pull Request → Railway Webhook → Environment Created → Deployment → Live
 3. Locate **PR Environments** section
 4. Enable **"Create ephemeral environments for PRs"**
 5. Configure settings:
-   - **Base Environment**: Select template environment (e.g., `staging`)
+   - **Base Environment**: Select `production`
    - **Auto-Deploy**: Enable automatic deployments on PR updates
    - **Auto-Destroy**: Enable automatic cleanup on PR close/merge
-   - **Target Branches**: Specify which branches to create PR environments for (e.g., `main`, `develop`)
+   - **Target Branches**: Specify `main`
 
 **Configuration Example:**
 
 ```yaml
 PR Environments Settings:
   Enabled: ✓
-  Base Environment: staging
+  Base Environment: production
   Auto-Deploy: ✓
   Auto-Destroy: ✓
   Target Branches: 
     - main
-    - develop
-  Service Template: Use all services from staging
-  Variable Inheritance: Inherit from base environment
+  Service Template: Use services from production
+  Variable Inheritance: Inherit from production + shared variables
 ```
+
+### Setting Up Shared Variables
+
+For PR environments to inherit secrets like `YOTO_CLIENT_ID`:
+
+1. Go to Railway Dashboard → Production Environment → Variables
+2. Find or create `YOTO_CLIENT_ID`
+3. Set its type to **"Shared Variable"**
+4. PR environments will reference it using `${{shared.YOTO_CLIENT_ID}}`
 
 ### Environment Naming
 
@@ -88,16 +99,24 @@ Railway automatically generates URLs for PR environments:
 
 ## Configuration
 
-### Variable Inheritance
+### Variable Inheritance with Shared Variables
 
-PR Environments inherit variables from the base environment with automatic overrides:
+PR Environments inherit variables from production and can reference Shared Variables:
 
-**Inherited from Base:**
+**Inherited from Production:**
 ```bash
-YOTO_CLIENT_ID={from staging}
-DATABASE_URL={new ephemeral database}
-REDIS_URL={new ephemeral Redis}
-PORT={auto-assigned}
+# PR environments automatically get:
+RAILWAY_ENVIRONMENT_NAME=pr-{number}  # Auto-set by Railway
+PORT={auto-assigned}  # Railway assigns unique port
+```
+
+**Configured via GitHub Actions:**
+```bash
+# GitHub Actions workflow (railway-pr-checks.yml) sets:
+YOTO_CLIENT_ID=${{shared.YOTO_CLIENT_ID}}  # References production's shared variable
+DEBUG=true
+LOG_LEVEL=debug
+```
 ```
 
 **Automatic Overrides:**
