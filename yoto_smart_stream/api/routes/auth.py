@@ -204,7 +204,7 @@ async def poll_auth_status(poll_request: AuthPollRequest):
                 message="Waiting for user to authorize...",
                 authenticated=False
             )
-        elif "expired" in error_msg or "token" in error_msg:
+        elif "expired_token" in error_msg or "token expired" in error_msg or "code expired" in error_msg:
             return AuthPollResponse(
                 status="expired",
                 message="Authentication expired. Please start again.",
