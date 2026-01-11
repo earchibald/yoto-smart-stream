@@ -177,6 +177,8 @@ async def poll_auth_status(poll_request: AuthPollRequest):
         # Save refresh token
         if client.manager.token and client.manager.token.refresh_token:
             token_file = settings.yoto_refresh_token_file
+            # Ensure parent directory exists (e.g., /data on Railway)
+            token_file.parent.mkdir(parents=True, exist_ok=True)
             token_file.write_text(client.manager.token.refresh_token)
             logger.info(f"Refresh token saved to {token_file}")
         else:

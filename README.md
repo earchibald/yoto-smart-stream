@@ -331,6 +331,8 @@ git push origin develop
 # Open a PR → Railway creates pr-{number} environment automatically
 ```
 
+**Persistent Storage**: Railway volumes are configured to persist Yoto OAuth tokens across deployments and restarts. Tokens are stored in `/data/.yoto_refresh_token` on Railway, ensuring authentication survives instance restarts.
+
 **PR Environments**: Railway automatically creates ephemeral environments for pull requests with zero configuration. See [Railway PR Environments Guide](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md).
 
 **Static Environments**: Uses pre-registered callback URLs for Yoto OAuth compatibility.
