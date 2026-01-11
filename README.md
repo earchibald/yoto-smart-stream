@@ -1,7 +1,7 @@
 # Yoto Smart Stream
 
-[![Tests](https://img.shields.io/badge/tests-54%20passing-brightgreen)](./docs/TESTING_GUIDE.md)
-[![Coverage](https://img.shields.io/badge/coverage-56%25-yellow)](./docs/TESTING_GUIDE.md)
+[![Tests](https://img.shields.io/badge/tests-102%20passing-brightgreen)](./docs/TESTING_GUIDE.md)
+[![Coverage](https://img.shields.io/badge/coverage-59%25-yellow)](./docs/TESTING_GUIDE.md)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
@@ -23,6 +23,7 @@ For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 - **Web UI**: Manage your audio library, configure cards, and write interactive scripts
 - **Card Management**: Upload, organize, and configure custom Yoto cards
 - **Multi-format Support**: Automatic audio conversion to Yoto-compatible formats
+- **Automatic Token Refresh**: Background task keeps OAuth tokens valid indefinitely ([details](docs/OAUTH_TOKEN_PERSISTENCE.md))
 
 ## 🏗️ Architecture
 
