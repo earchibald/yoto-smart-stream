@@ -336,8 +336,6 @@ class TestPlayerDataExtraction:
             mock_client.get_manager.return_value = mock_manager
             mock_client.update_library.return_value = None
             mock_get_client.return_value = mock_client
-            mock_client.get_manager.return_value = mock_manager
-            mock_get_client.return_value = mock_client
 
             # Call endpoint
             response = client.get("/api/players")
@@ -369,8 +367,6 @@ class TestPlayerDataExtraction:
             mock_player.playback_status = None  # No MQTT playback_status
             mock_player.is_playing = True  # API is_playing
             mock_player.battery_level_percentage = None
-            mock_player.charging.charging = None
-            mock_player.temperature_celcius = None
             mock_player.charging = None
             mock_player.temperature_celcius = None
             mock_player.sleep_timer_active = None
