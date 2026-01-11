@@ -296,6 +296,8 @@ This project is configured for GitHub Codespaces with a complete development env
 2. Wait for the environment to set up automatically
 3. Start developing!
 
+**Note:** GitHub Copilot Workspace has network access configured to test Railway deployments directly. See [Copilot Workspace Network Configuration](docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md) for details.
+
 ### Local Development
 
 ```bash

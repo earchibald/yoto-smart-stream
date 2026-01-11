@@ -70,5 +70,12 @@
     }
   },
 
+  // Railway deployment URLs that Copilot Workspace needs to access:
+  // - Production: https://yoto-smart-stream-production.up.railway.app
+  // - Staging: https://yoto-smart-stream-staging.up.railway.app  
+  // - Development: https://yoto-smart-stream-development.up.railway.app
+  // - PR Environments: https://yoto-smart-stream-pr-{number}.up.railway.app
+  // Network access configured in: .github/copilot-workspace.yml
+
   "remoteUser": "vscode"
 }

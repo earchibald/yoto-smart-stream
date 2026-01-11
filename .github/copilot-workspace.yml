@@ -1,0 +1,28 @@
+# GitHub Copilot Workspace Configuration
+# This file configures network access and other settings for GitHub Copilot Workspace
+
+# Network Configuration
+# Allow Copilot Workspace to access Railway deployment URLs
+network:
+  allowed_domains:
+    # Railway.app platform URLs
+    - "*.up.railway.app"         # All Railway deployment URLs (production, staging, development, PR environments)
+    - "railway.app"              # Railway dashboard and API
+    - "backboard.railway.app"    # Railway GraphQL API
+    
+    # Yoto API URLs (for testing and development)
+    - "api.yoto.io"              # Yoto REST API
+    - "mqtt.yoto.io"             # Yoto MQTT broker
+    - "yoto.dev"                 # Yoto developer portal
+    
+  description: |
+    This configuration allows GitHub Copilot Workspace to access:
+    - Railway deployment URLs (*.up.railway.app) for testing and validation
+    - Railway platform APIs for deployment management
+    - Yoto APIs for development and testing
+    
+    Railway URL patterns used in this project:
+    - Production: https://yoto-smart-stream-production.up.railway.app
+    - Staging: https://yoto-smart-stream-staging.up.railway.app
+    - Development: https://yoto-smart-stream-development.up.railway.app
+    - PR Environments: https://yoto-smart-stream-pr-{number}.up.railway.app
