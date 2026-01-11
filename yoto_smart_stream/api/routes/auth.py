@@ -105,9 +105,12 @@ async def start_auth_flow():
     settings = get_settings()
 
     if not settings.yoto_client_id:
+        import os
+        env_value = os.environ.get('YOTO_CLIENT_ID', 'NOT SET')
+        logger.error(f"YOTO_CLIENT_ID not configured. Environment variable: {env_value}, Settings value: {settings.yoto_client_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="YOTO_CLIENT_ID not configured. Please set environment variable."
+            detail=f"YOTO_CLIENT_ID not configured. Environment check: {env_value}. Please ensure the environment variable is set correctly."
         )
 
     try:
