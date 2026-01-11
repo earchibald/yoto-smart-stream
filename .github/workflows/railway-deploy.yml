@@ -80,9 +80,9 @@ jobs:
           railway variables --set LOG_LEVEL=warning -e production
           # Note: ENVIRONMENT is now auto-populated from RAILWAY_ENVIRONMENT_NAME
           
-          # Note: YOTO_CLIENT_ID is set as a Shared Variable in Railway production environment
-          # PR Environments will reference it using ${{shared.YOTO_CLIENT_ID}}
-          echo "✓ Using YOTO_CLIENT_ID from Railway Shared Variables"
+          # Note: YOTO_CLIENT_ID should be set as a Shared Variable in Railway Dashboard (production environment)
+          # This allows PR Environments to reference it using ${{shared.YOTO_CLIENT_ID}} (configured by railway-pr-checks.yml)
+          echo "✓ Production uses YOTO_CLIENT_ID from Railway Shared Variables (not set by this workflow)"
       
       - name: Deploy to Railway Production
         env:

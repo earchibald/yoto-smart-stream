@@ -77,11 +77,17 @@ Click "Add secret"
 
 Once `RAILWAY_TOKEN_PROD` is added, production deployments will happen automatically when code is pushed to the `main` branch.
 
+**⚠️ Important**: Since production deployments are automatic on push to `main`, ensure:
+- All PRs are thoroughly tested in PR environments before merging
+- Code reviews are completed and approved
+- You have a rollback plan if issues occur (can redeploy previous commit)
+- Critical changes are tested with extra care
+
 ### Production Deployment (Automatic)
 
 Deployments to production happen automatically when you merge to `main`:
 
-1. Merge your PR to `main` branch
+1. Merge your PR to `main` branch (after thorough testing and review)
 2. GitHub Actions automatically runs the deployment workflow
 3. The production environment at https://yoto-smart-stream-production.up.railway.app is updated
 

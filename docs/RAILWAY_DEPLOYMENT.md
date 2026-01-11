@@ -234,6 +234,12 @@ PR environments automatically inherit configuration from production:
 
 This allows PR environments to reference it using `${{shared.YOTO_CLIENT_ID}}`.
 
+**⚠️ Warning**: If the shared variable is not properly configured:
+- PR environments will fail to authenticate with the Yoto API
+- You'll see authentication errors in PR environment logs
+- The application may start but Yoto features won't work
+- Fix by setting `YOTO_CLIENT_ID` as a Shared Variable in production environment
+
 ### Setting Variables via CLI
 
 ```bash

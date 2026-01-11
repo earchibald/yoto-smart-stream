@@ -61,6 +61,8 @@ This project uses:
    - **Target Branches**: Add `main`
 7. Click **Save**
 
+**Important**: Since PR environments inherit from production, ensure your production environment is properly configured and stable. Any configuration issues in production will propagate to all PR environments.
+
 ### Step 2: Configure YOTO_CLIENT_ID as Shared Variable
 
 1. Go to Railway Dashboard → Your Project → **production** environment
