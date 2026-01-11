@@ -228,7 +228,6 @@ async function loadPlayers() {
         
         if (players.length === 0) {
             container.innerHTML = '<p class="loading">No players connected</p>';
-            isLoadingPlayers = false;
             return;
         }
         
