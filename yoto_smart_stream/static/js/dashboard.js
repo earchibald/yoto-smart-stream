@@ -265,7 +265,12 @@ function startPlayerAutoRefresh() {
     
     // Refresh players every 5 seconds
     playerRefreshInterval = setInterval(async () => {
-        await loadPlayers();
+        try {
+            await loadPlayers();
+        } catch (error) {
+            // Log error but don't stop the interval
+            console.error('Auto-refresh error:', error);
+        }
     }, 5000);
 }
 
