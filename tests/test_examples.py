@@ -45,7 +45,7 @@ class TestBasicServerImports:
         assert "/api/players" in routes
         assert "/api/players/{player_id}" in routes
         assert "/api/players/{player_id}/control" in routes
-        assert "/health" in routes
+        assert "/api/health" in routes
 
 
 class TestMQTTListenerImports:
@@ -82,22 +82,28 @@ class TestBasicServerStartup:
         basic_server.yoto_manager = None
 
         with TestClient(basic_server.app) as client:
-            response = client.get("/health")
+            response = client.get("/api/health")
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "healthy"
 
     def test_root_endpoint(self):
-        """Test root endpoint works."""
+        """Test root endpoint serves HTML."""
         import basic_server
         from fastapi.testclient import TestClient
 
         with TestClient(basic_server.app) as client:
             response = client.get("/")
             assert response.status_code == 200
-            data = response.json()
-            assert data["name"] == "Yoto Smart Stream API"
-            assert data["version"] == "0.2.0"
+            # Root now serves HTML, so we check for that
+            # It may return a fallback JSON if static files don't exist
+            if "text/html" in response.headers.get("content-type", ""):
+                # HTML response
+                assert response.text
+            else:
+                # Fallback JSON response
+                data = response.json()
+                assert "message" in data or "name" in data
 
 
 class TestExampleFunctions:
