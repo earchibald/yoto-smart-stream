@@ -63,7 +63,8 @@ network:
     # Railway.app platform URLs
     - "*.up.railway.app"         # All Railway deployment URLs
     - "railway.app"              # Railway dashboard and API
-    - "backboard.railway.app"    # Railway GraphQL API
+    - "backboard.railway.app"    # Railway GraphQL API (legacy/docs)
+    - "backboard.railway.com"    # Railway GraphQL API (current CLI endpoint)
     
     # Yoto API URLs (for testing and development)
     - "api.yoto.io"              # Yoto REST API
@@ -126,7 +127,8 @@ The configuration allows access to:
 
 2. **Railway Platform APIs**
    - `railway.app` - Main platform and API endpoints
-   - `backboard.railway.app` - GraphQL API for advanced operations
+   - `backboard.railway.app` - GraphQL API for advanced operations (legacy/docs)
+   - `backboard.railway.com` - GraphQL API endpoint used by Railway CLI v4.x
 
 3. **Yoto APIs** (for development and testing)
    - `api.yoto.io` - REST API for player control and card management
@@ -597,7 +599,7 @@ Only remove domains if:
   - All API calls require authentication
   - No sensitive data exposed without auth
 
-- **Railway platform:** Access to `railway.app` and `backboard.railway.app` allows:
+- **Railway platform:** Access to `railway.app`, `backboard.railway.app`, and `backboard.railway.com` allows:
   - Deployment status checks
   - Log retrieval
   - Environment management

@@ -120,7 +120,8 @@ network:
     # Railway.app platform URLs
     - "*.up.railway.app"         # All Railway deployment URLs (production, staging, development, PR environments)
     - "railway.app"              # Railway dashboard and API
-    - "backboard.railway.app"    # Railway GraphQL API
+    - "backboard.railway.app"    # Railway GraphQL API (legacy/docs)
+    - "backboard.railway.com"    # Railway GraphQL API (current CLI endpoint)
     
     # Yoto API URLs (for testing and development)
     - "api.yoto.io"              # Yoto REST API
