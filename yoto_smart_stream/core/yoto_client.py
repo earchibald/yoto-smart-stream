@@ -41,6 +41,22 @@ class YotoClient:
         """Check if client is authenticated."""
         return self._authenticated and self.manager is not None
 
+    def _save_refresh_token(self) -> None:
+        """
+        Save the current refresh token to file.
+
+        This should be called after any operation that may update the refresh token,
+        including authentication and token refresh operations.
+        """
+        if self.manager and self.manager.token and self.manager.token.refresh_token:
+            token_file = self.settings.yoto_refresh_token_file
+            # Ensure parent directory exists
+            token_file.parent.mkdir(parents=True, exist_ok=True)
+            token_file.write_text(self.manager.token.refresh_token)
+            logger.debug(f"Refresh token saved to {token_file}")
+        else:
+            logger.warning("No refresh token available to save")
+
     def authenticate(self) -> None:
         """
         Authenticate with Yoto API using stored refresh token.
@@ -64,6 +80,8 @@ class YotoClient:
         try:
             self.manager.check_and_refresh_token()
             self._authenticated = True
+            # Save the new refresh token (OAuth2 returns new refresh token on refresh)
+            self._save_refresh_token()
             logger.info("Successfully authenticated with Yoto API")
         except Exception as e:
             logger.error(f"Authentication failed: {e}")
@@ -77,6 +95,8 @@ class YotoClient:
             # Refresh token if needed
             try:
                 self.manager.check_and_refresh_token()
+                # Save the new refresh token after successful refresh
+                self._save_refresh_token()
             except Exception as e:
                 logger.warning(f"Token refresh failed: {e}")
                 # Try full authentication
