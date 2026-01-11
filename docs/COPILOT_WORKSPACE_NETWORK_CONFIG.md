@@ -112,9 +112,15 @@ To enable Railway operations:
 3. The MCP server will use it for authentication
 
 **Note on Token Types:**
-- `RAILWAY_API_TOKEN` - Used by Copilot Workspace MCP server for interactive Railway operations
-- `RAILWAY_TOKEN_PROD`, `RAILWAY_TOKEN_STAGING`, `RAILWAY_TOKEN_DEV` - Used by GitHub Actions workflows for automated deployments (see `docs/RAILWAY_TOKEN_SETUP.md`)
-- For Copilot Workspace, you can use any Railway token (dev token recommended for safety)
+- `RAILWAY_API_TOKEN` - **Copilot Workspace MCP server** (interactive operations)
+  - Used for real-time Railway management from Copilot
+  - Scope: Can be project-specific or account-wide
+  - Best practice: Use a development-environment-only token for safety
+- `RAILWAY_TOKEN_PROD`, `RAILWAY_TOKEN_STAGING`, `RAILWAY_TOKEN_DEV` - **GitHub Actions workflows** (automated deployments)
+  - Used for CI/CD deployment pipelines
+  - Scope: Environment-specific tokens for security isolation
+  - See `docs/RAILWAY_TOKEN_SETUP.md` for detailed setup
+- **Key difference:** RAILWAY_API_TOKEN is for interactive development, while RAILWAY_TOKEN_* are for automated deployments
 
 ### Allowed Domains
 
@@ -501,6 +507,12 @@ Only remove domains if:
    ```bash
    echo "RAILWAY_API_TOKEN is set: $([ -n "$RAILWAY_API_TOKEN" ] && echo "Yes" || echo "No")"
    ```
+   
+   **Note:** This only checks if the variable is set. To verify the token is valid, use:
+   ```bash
+   railway whoami
+   ```
+   If valid, this will display your Railway account info. If invalid, you'll see "Unauthorized".
 
 4. **For local testing, set the token manually:**
    ```bash

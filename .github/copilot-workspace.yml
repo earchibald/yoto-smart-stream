@@ -62,7 +62,8 @@ mcp_servers:
       - "@railway/mcp-server"
     env:
       # Railway API token for authentication
-      # Use RAILWAY_API_TOKEN if available, otherwise fall back to RAILWAY_TOKEN
+      # Precedence: RAILWAY_API_TOKEN (preferred) > RAILWAY_TOKEN (fallback)
+      # This allows the Railway CLI to authenticate using either variable
       RAILWAY_TOKEN: "${RAILWAY_API_TOKEN:-${RAILWAY_TOKEN}}"
     description: |
       Railway MCP Server provides tools for managing Railway infrastructure including:
