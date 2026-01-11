@@ -19,7 +19,7 @@ class PlayerInfo(BaseModel):
     id: str
     name: str
     online: bool
-    volume: int = Field(..., ge=0, le=16)
+    volume: int = Field(..., ge=0, le=100)
     playing: bool = False
     battery_level: Optional[int] = None
 
@@ -30,7 +30,7 @@ class PlayerControl(BaseModel):
     action: str = Field(
         ..., description="Action to perform: play, pause, skip_forward, skip_backward"
     )
-    volume: Optional[int] = Field(None, ge=0, le=16, description="Volume level (0-16)")
+    volume: Optional[int] = Field(None, ge=0, le=100, description="Volume level (0-100)")
 
 
 def extract_player_info(player_id: str, player) -> PlayerInfo:

@@ -508,14 +508,14 @@ class YotoPlayer:
     active_card: str  # Card ID or "none"
     battery_level_percentage: int  # Battery percentage (0-100)
     charging: bool
-    user_volume: int  # User-configured volume (0-16)
+    user_volume: int  # User-configured volume from API (0-100, mapped to 0-16 hardware)
     system_volume: int  # System volume
     temperature_celcius: int
     wifi_strength: int
     firmware_version: str
     
     # Real-time status from MQTT (preferred for current state)
-    volume: int  # Current volume from MQTT (0-16)
+    volume: int  # Current volume from MQTT (0-100 in API, mapped to 0-16 hardware)
     volume_max: int  # Maximum volume
     playback_status: str  # "playing", "paused", "stopped" - MQTT string
     card_id: str  # Current card ID from MQTT
@@ -542,11 +542,12 @@ class YotoPlayer:
 
 When building API responses or UI displays, prefer MQTT data over API data for real-time accuracy:
 
-**Volume**: Use `player.volume` (MQTT) with fallback to `player.user_volume` (API)
+**Volume**: Use `player.volume` (MQTT) with fallback to `player.user_volume` (API). **CRITICAL**: Volume values are in the range 0-100 (API representation), not 0-16 (hardware representation). Pydantic models must accept 0-100 to avoid ValidationErrors.
 ```python
 volume = player.volume if player.volume is not None else (
     player.user_volume if player.user_volume is not None else 8
 )
+# volume will be in range 0-100
 ```
 
 **Playing Status**: Parse `player.playback_status` (MQTT string) with fallback to `player.is_playing` (API boolean)

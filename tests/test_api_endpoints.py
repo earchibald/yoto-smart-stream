@@ -331,3 +331,79 @@ class TestPlayerDataExtraction:
             assert len(players) == 1
             assert players[0]["playing"] is True
 
+    def test_player_volume_range_0_to_100(self, client):
+        """Test that player volume accepts values in 0-100 range (API range, not hardware 0-16)."""
+        with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
+            # Create mock player with volume=50 (the value that was causing ValidationError)
+            mock_player = MagicMock()
+            mock_player.id = "test-player-volume"
+            mock_player.name = "Test Player Volume"
+            mock_player.online = True
+            mock_player.volume = 50  # API volume range (0-100), not hardware range (0-16)
+            mock_player.user_volume = None
+            mock_player.playback_status = None
+            mock_player.is_playing = False
+            mock_player.battery_level_percentage = None
+
+            # Setup mock client
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            mock_manager.players = {"test-player-volume": mock_player}
+            mock_client.get_manager.return_value = mock_manager
+            mock_get_client.return_value = mock_client
+
+            # Call endpoint - should NOT raise ValidationError
+            response = client.get("/api/players")
+            assert response.status_code == 200
+
+            players = response.json()
+            assert len(players) == 1
+            assert players[0]["volume"] == 50
+
+    def test_player_volume_boundary_values(self, client):
+        """Test that player volume accepts boundary values (0, 100)."""
+        with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
+            # Create mock players with boundary volume values
+            mock_player1 = MagicMock()
+            mock_player1.id = "player-vol-0"
+            mock_player1.name = "Volume 0"
+            mock_player1.online = True
+            mock_player1.volume = 0
+            mock_player1.user_volume = None
+            mock_player1.playback_status = None
+            mock_player1.is_playing = False
+            mock_player1.battery_level_percentage = None
+
+            mock_player2 = MagicMock()
+            mock_player2.id = "player-vol-100"
+            mock_player2.name = "Volume 100"
+            mock_player2.online = True
+            mock_player2.volume = 100
+            mock_player2.user_volume = None
+            mock_player2.playback_status = None
+            mock_player2.is_playing = False
+            mock_player2.battery_level_percentage = None
+
+            # Setup mock client
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            mock_manager.players = {
+                "player-vol-0": mock_player1,
+                "player-vol-100": mock_player2,
+            }
+            mock_client.get_manager.return_value = mock_manager
+            mock_get_client.return_value = mock_client
+
+            # Call endpoint - should accept both boundary values
+            response = client.get("/api/players")
+            assert response.status_code == 200
+
+            players = response.json()
+            assert len(players) == 2
+
+            vol_0_player = next(p for p in players if p["id"] == "player-vol-0")
+            assert vol_0_player["volume"] == 0
+
+            vol_100_player = next(p for p in players if p["id"] == "player-vol-100")
+            assert vol_100_player["volume"] == 100
+
