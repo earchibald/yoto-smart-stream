@@ -350,18 +350,33 @@ async function showPlayerDetail(playerId) {
     const modal = document.getElementById('playerModal');
     const loadingEl = document.getElementById('modalPlayerLoading');
     const contentEl = document.getElementById('modalPlayerContent');
+    const technicalInfoEl = document.getElementById('modalTechnicalInfo');
     
     // Show modal and reset to loading state
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
     contentEl.style.display = 'none';
+    technicalInfoEl.style.display = 'none';
+    
+    // Reset info button state
+    const infoButton = document.getElementById('modalInfoButton');
+    if (infoButton) {
+        infoButton.classList.remove('active');
+    }
     
     try {
+        // Build the API request URL
+        const requestUrl = `${API_BASE}/players/${playerId}`;
+        const requestMethod = 'GET';
+        
         // Fetch detailed player information
-        const response = await fetch(`${API_BASE}/players/${playerId}`);
+        const response = await fetch(requestUrl);
         if (!response.ok) throw new Error('Failed to fetch player details');
         
         const player = await response.json();
+        
+        // Store technical information for display
+        storeTechnicalInfo(requestMethod, requestUrl, player);
         
         // Update modal with player data
         populatePlayerModal(player);
@@ -521,3 +536,90 @@ window.addEventListener('click', function(event) {
         closePlayerModal();
     }
 });
+
+/**
+ * Store technical information about the API request and response
+ */
+function storeTechnicalInfo(method, url, responseData) {
+    // Store in a format that's easy to display
+    const requestInfo = `${method} ${url}`;
+    const responseJson = JSON.stringify(responseData, null, 2);
+    
+    // Update the technical info section
+    document.getElementById('modalRequestUrl').textContent = requestInfo;
+    document.getElementById('modalResponseJson').textContent = responseJson;
+}
+
+/**
+ * Toggle the technical information section
+ */
+function toggleTechnicalInfo() {
+    const technicalInfoEl = document.getElementById('modalTechnicalInfo');
+    const infoButton = document.getElementById('modalInfoButton');
+    
+    if (technicalInfoEl.style.display === 'none') {
+        technicalInfoEl.style.display = 'block';
+        infoButton.classList.add('active');
+    } else {
+        technicalInfoEl.style.display = 'none';
+        infoButton.classList.remove('active');
+    }
+}
+
+/**
+ * Copy text content to clipboard
+ */
+function copyToClipboard(elementId, buttonElement) {
+    const element = document.getElementById(elementId);
+    const text = element.textContent;
+    
+    // Get the button element - either passed as parameter or find it via event
+    const button = buttonElement || window.event?.target;
+    
+    // Use the Clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (button) {
+                // Show a brief success indicator
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = '#48bb78';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '';
+                }, 2000);
+            }
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+            alert('Failed to copy to clipboard');
+        });
+    } else {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        
+        try {
+            document.execCommand('copy');
+            if (button) {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = '#48bb78';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '';
+                }, 2000);
+            }
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            alert('Failed to copy to clipboard');
+        }
+        
+        document.body.removeChild(textarea);
+    }
+}

@@ -922,6 +922,40 @@ header h2 {
     max-width: 800px;
 }
 
+.modal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.info-button {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 1.2rem;
+}
+
+.info-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.info-button.active {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.info-icon {
+    line-height: 1;
+}
+
 .player-detail-section {
     margin-bottom: 2rem;
 }
@@ -1062,6 +1096,89 @@ header h2 {
     
     .player-detail-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Technical Information Section */
+.technical-info-section {
+    background: #f7fafc;
+    border: 2px solid #e2e8f0;
+    margin-top: 1rem;
+}
+
+.technical-info-section h4 {
+    color: #4a5568;
+}
+
+.technical-info-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.technical-info-item h5 {
+    font-size: 0.95rem;
+    color: #2d3748;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.code-block {
+    background: #1a202c;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background: #2d3748;
+    border-bottom: 1px solid #4a5568;
+}
+
+.code-header span {
+    color: #a0aec0;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.copy-button {
+    background: #4a5568;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.copy-button:hover {
+    background: #667eea;
+}
+
+.code-content {
+    margin: 0;
+    padding: 1rem;
+    color: #48bb78;
+    font-family: 'Courier New', 'Monaco', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+@media (max-width: 768px) {
+    .technical-info-content {
+        gap: 1rem;
+    }
+    
+    .code-content {
+        font-size: 0.75rem;
+        padding: 0.75rem;
     }
 }
 

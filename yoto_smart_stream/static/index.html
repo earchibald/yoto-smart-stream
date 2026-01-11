@@ -120,7 +120,12 @@
         <div class="modal-content player-modal-content">
             <div class="modal-header">
                 <h3 id="modalPlayerName">Player Details</h3>
-                <span class="modal-close" onclick="closePlayerModal()">&times;</span>
+                <div class="modal-header-actions">
+                    <button id="modalInfoButton" class="info-button" onclick="toggleTechnicalInfo()" title="Show API Details">
+                        <span class="info-icon">ℹ️</span>
+                    </button>
+                    <span class="modal-close" onclick="closePlayerModal()">&times;</span>
+                </div>
             </div>
             <div class="modal-body">
                 <div id="modalPlayerLoading" class="loading">Loading player details...</div>
@@ -209,6 +214,33 @@
                             <div class="player-detail-row">
                                 <span class="detail-label">Position</span>
                                 <span id="modalPlayerPosition" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Technical Information (API Details) -->
+                    <div class="player-detail-section technical-info-section" id="modalTechnicalInfo" style="display: none;">
+                        <h4>Technical Information</h4>
+                        <div class="technical-info-content">
+                            <div class="technical-info-item">
+                                <h5>API Request</h5>
+                                <div class="code-block">
+                                    <div class="code-header">
+                                        <span>Method & URL</span>
+                                        <button class="copy-button" onclick="copyToClipboard('modalRequestUrl', this)">Copy</button>
+                                    </div>
+                                    <pre id="modalRequestUrl" class="code-content">-</pre>
+                                </div>
+                            </div>
+                            <div class="technical-info-item">
+                                <h5>JSON Response</h5>
+                                <div class="code-block">
+                                    <div class="code-header">
+                                        <span>Response Data</span>
+                                        <button class="copy-button" onclick="copyToClipboard('modalResponseJson', this)">Copy</button>
+                                    </div>
+                                    <pre id="modalResponseJson" class="code-content">-</pre>
+                                </div>
                             </div>
                         </div>
                     </div>
