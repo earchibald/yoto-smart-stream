@@ -72,22 +72,12 @@ jobs:
           echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
           echo "Deploying to environment: $ENV_NAME"
       
-      - name: Deploy to Railway PR Environment
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: |
-          echo "🚀 Deploying to Railway PR environment: ${{ steps.env-name.outputs.env_name }}"
-          
-          # Deploy using ephemeral environment script
-          chmod +x ./scripts/railway_ephemeral_env.sh
-          ./scripts/railway_ephemeral_env.sh deploy ${{ steps.env-name.outputs.env_name }}
-      
       - name: Configure PR Environment Variables
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           YOTO_CLIENT_ID: ${{ secrets.YOTO_CLIENT_ID }}
         run: |
-          echo "⚙️ Setting environment variables for PR environment..."
+          echo "⚙️ Setting environment variables before deployment..."
           
           ENV_NAME="${{ steps.env-name.outputs.env_name }}"
           
@@ -103,8 +93,21 @@ jobs:
           
           # Sync Yoto API credentials if available
           if [ -n "$YOTO_CLIENT_ID" ]; then
+            echo "Setting YOTO_CLIENT_ID..."
             railway variables set YOTO_CLIENT_ID="$YOTO_CLIENT_ID" -e "$ENV_NAME"
+          else
+            echo "⚠️ Warning: YOTO_CLIENT_ID not set in GitHub secrets"
           fi
+      
+      - name: Deploy to Railway PR Environment
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "🚀 Deploying to Railway PR environment: ${{ steps.env-name.outputs.env_name }}"
+          
+          # Deploy using ephemeral environment script
+          chmod +x ./scripts/railway_ephemeral_env.sh
+          ./scripts/railway_ephemeral_env.sh deploy ${{ steps.env-name.outputs.env_name }}
       
       - name: Get deployment status
         if: always()
