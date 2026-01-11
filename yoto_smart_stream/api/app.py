@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from ..config import get_settings
 from ..core import YotoClient
 from .dependencies import set_yoto_client
-from .routes import cards, health, players
+from .routes import auth, cards, health, players
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +112,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(health.router, prefix="/api", tags=["Health"])
+    app.include_router(auth.router, prefix="/api", tags=["Authentication"])
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
 

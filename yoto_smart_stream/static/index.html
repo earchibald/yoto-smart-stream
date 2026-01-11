@@ -30,6 +30,34 @@
             </div>
         </header>
 
+        <!-- Authentication Section -->
+        <section class="section" id="auth-section" style="display: none;">
+            <div class="auth-container">
+                <div class="auth-icon">🔐</div>
+                <h3>Connect Your Yoto Account</h3>
+                <p id="auth-message">To access your Yoto players, please authenticate with your Yoto account.</p>
+                
+                <div id="auth-waiting" style="display: none;">
+                    <div class="auth-code-display">
+                        <p><strong>1. Go to:</strong></p>
+                        <a id="auth-url" href="#" target="_blank" class="auth-link"></a>
+                        <p><strong>2. Enter this code:</strong></p>
+                        <div class="user-code" id="user-code">XXXX-XXXX</div>
+                    </div>
+                    <div class="auth-status">
+                        <div class="spinner"></div>
+                        <p>Waiting for authorization...</p>
+                    </div>
+                </div>
+                
+                <div id="auth-actions">
+                    <button id="login-button" class="action-button primary" onclick="startAuth()">
+                        🔑 Connect Yoto Account
+                    </button>
+                </div>
+            </div>
+        </section>
+
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-icon">📱</div>
@@ -79,6 +107,7 @@
             <h3>Quick Actions</h3>
             <div class="actions-grid">
                 <button class="action-button" onclick="refreshData()">🔄 Refresh Data</button>
+                <button id="logout-button" class="action-button" onclick="logout()" style="display: none;">🚪 Logout</button>
                 <a href="/api/docs" target="_blank" class="action-button">📖 API Documentation</a>
                 <a href="/streams" class="action-button">🎵 View Streams</a>
             </div>
