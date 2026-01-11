@@ -6,11 +6,32 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from ...config import get_settings
-from ..dependencies import get_yoto_client
+from ...core import YotoClient
+from ..dependencies import get_yoto_client, set_yoto_client
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _get_or_create_client() -> YotoClient:
+    """
+    Get existing YotoClient or create a new one if needed.
+
+    Returns:
+        YotoClient instance
+
+    Raises:
+        HTTPException: If client cannot be created
+    """
+    try:
+        return get_yoto_client()
+    except RuntimeError:
+        # Client doesn't exist yet, create it
+        settings = get_settings()
+        client = YotoClient(settings)
+        set_yoto_client(client)
+        return client
 
 
 # Request/Response models
@@ -91,14 +112,7 @@ async def start_auth_flow():
 
     try:
         # Get or create client
-        try:
-            client = get_yoto_client()
-        except RuntimeError:
-            # Client doesn't exist yet, create it
-            from ...core import YotoClient
-            from ..dependencies import set_yoto_client
-            client = YotoClient(settings)
-            set_yoto_client(client)
+        client = _get_or_create_client()
 
         # Initialize manager if needed
         client.initialize()
@@ -155,7 +169,7 @@ async def poll_auth_status(poll_request: AuthPollRequest):
         client.manager.device_code_flow_complete()
 
         # If we get here, authentication succeeded
-        client._authenticated = True
+        client.set_authenticated(True)
 
         # Save refresh token
         if hasattr(client.manager.token, "refresh_token"):
@@ -218,11 +232,10 @@ async def logout():
             token_file.unlink()
             logger.info("Refresh token removed")
 
-        # Clear client authentication
+        # Clear client authentication using public method
         client = get_yoto_client()
         if client:
-            client._authenticated = False
-            client.manager = None
+            client.reset()
 
         return {
             "success": True,
