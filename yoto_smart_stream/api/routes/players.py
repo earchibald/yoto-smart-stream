@@ -60,7 +60,7 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
         playing = player.is_playing
 
     # Get battery level from battery_level_percentage attribute
-    battery_level = player.battery_level_percentage if player.battery_level_percentage is not None else None
+    battery_level = player.battery_level_percentage
 
     return PlayerInfo(
         id=player_id,
