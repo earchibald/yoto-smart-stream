@@ -7,12 +7,18 @@ const API_BASE = '/api';
 let authPollInterval = null;
 let deviceCode = null;
 
+// Player refresh polling state
+let playerRefreshInterval = null;
+
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
     checkAuthStatus();
     loadSystemStatus();
     loadPlayers();
     loadAudioFiles();
+    
+    // Start auto-refresh for players every 5 seconds
+    startPlayerAutoRefresh();
 });
 
 // Check authentication status
@@ -232,6 +238,27 @@ async function loadPlayers() {
     } catch (error) {
         console.error('Error loading players:', error);
         container.innerHTML = '<p class="error-message">Failed to load players. Check your Yoto API authentication.</p>';
+    }
+}
+
+// Start automatic player refresh every 5 seconds
+function startPlayerAutoRefresh() {
+    // Clear any existing interval
+    if (playerRefreshInterval) {
+        clearInterval(playerRefreshInterval);
+    }
+    
+    // Refresh players every 5 seconds
+    playerRefreshInterval = setInterval(async () => {
+        await loadPlayers();
+    }, 5000);
+}
+
+// Stop automatic player refresh
+function stopPlayerAutoRefresh() {
+    if (playerRefreshInterval) {
+        clearInterval(playerRefreshInterval);
+        playerRefreshInterval = null;
     }
 }
 
