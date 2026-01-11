@@ -65,13 +65,28 @@ async def list_players():
         # Convert to response models
         players = []
         for player_id, player in manager.players.items():
+            # Get volume: prefer MQTT volume, fallback to user_volume, then default to 8
+            volume = player.volume if player.volume is not None else (
+                player.user_volume if player.user_volume is not None else 8
+            )
+
+            # Get playing status: check playback_status string or is_playing boolean
+            playing = False
+            if player.playback_status is not None:
+                playing = player.playback_status == "playing"
+            elif player.is_playing is not None:
+                playing = player.is_playing
+
+            # Get battery level from battery_level_percentage attribute
+            battery_level = player.battery_level_percentage if player.battery_level_percentage is not None else None
+
             player_info = PlayerInfo(
                 id=player_id,
                 name=player.name,
                 online=player.online,
-                volume=player.volume if hasattr(player, "volume") and player.volume is not None else 8,
-                playing=player.playing if hasattr(player, "playing") else False,
-                battery_level=player.battery_level if hasattr(player, "battery_level") else None,
+                volume=volume,
+                playing=playing,
+                battery_level=battery_level,
             )
             players.append(player_info)
 
@@ -105,13 +120,29 @@ async def get_player(player_id: str):
         )
 
     player = manager.players[player_id]
+
+    # Get volume: prefer MQTT volume, fallback to user_volume, then default to 8
+    volume = player.volume if player.volume is not None else (
+        player.user_volume if player.user_volume is not None else 8
+    )
+
+    # Get playing status: check playback_status string or is_playing boolean
+    playing = False
+    if player.playback_status is not None:
+        playing = player.playback_status == "playing"
+    elif player.is_playing is not None:
+        playing = player.is_playing
+
+    # Get battery level from battery_level_percentage attribute
+    battery_level = player.battery_level_percentage if player.battery_level_percentage is not None else None
+
     return PlayerInfo(
         id=player_id,
         name=player.name,
         online=player.online,
-        volume=player.volume if hasattr(player, "volume") and player.volume is not None else 8,
-        playing=player.playing if hasattr(player, "playing") else False,
-        battery_level=player.battery_level if hasattr(player, "battery_level") else None,
+        volume=volume,
+        playing=playing,
+        battery_level=battery_level,
     )
 
 

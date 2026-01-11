@@ -174,3 +174,160 @@ class TestAudioStreamingEndpoints:
             data = response.json()
             # Should have detail message about file not found
             assert "detail" in data
+
+
+class TestPlayerDataExtraction:
+    """Test that player data is correctly extracted from YotoPlayer objects."""
+
+    def test_player_volume_from_mqtt(self, client):
+        """Test that player volume is correctly read from MQTT volume attribute."""
+        with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
+            # Create mock player with MQTT volume
+            mock_player = MagicMock()
+            mock_player.id = "test-player-1"
+            mock_player.name = "Test Player"
+            mock_player.online = True
+            mock_player.volume = 12  # MQTT volume
+            mock_player.user_volume = None
+            mock_player.playback_status = "playing"
+            mock_player.is_playing = None
+            mock_player.battery_level_percentage = 85
+
+            # Setup mock client
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            mock_manager.players = {"test-player-1": mock_player}
+            mock_client.get_manager.return_value = mock_manager
+            mock_get_client.return_value = mock_client
+
+            # Call endpoint
+            response = client.get("/api/players")
+            assert response.status_code == 200
+
+            players = response.json()
+            assert len(players) == 1
+            assert players[0]["volume"] == 12
+            assert players[0]["playing"] is True
+            assert players[0]["battery_level"] == 85
+
+    def test_player_volume_fallback_to_user_volume(self, client):
+        """Test that player volume falls back to user_volume when MQTT volume is None."""
+        with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
+            # Create mock player with user_volume but no MQTT volume
+            mock_player = MagicMock()
+            mock_player.id = "test-player-2"
+            mock_player.name = "Test Player 2"
+            mock_player.online = True
+            mock_player.volume = None  # No MQTT volume
+            mock_player.user_volume = 10  # User volume
+            mock_player.playback_status = None
+            mock_player.is_playing = False
+            mock_player.battery_level_percentage = None
+
+            # Setup mock client
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            mock_manager.players = {"test-player-2": mock_player}
+            mock_client.get_manager.return_value = mock_manager
+            mock_get_client.return_value = mock_client
+
+            # Call endpoint
+            response = client.get("/api/players")
+            assert response.status_code == 200
+
+            players = response.json()
+            assert len(players) == 1
+            assert players[0]["volume"] == 10
+            assert players[0]["playing"] is False
+
+    def test_player_playback_status_parsing(self, client):
+        """Test that playback_status string is correctly parsed to boolean."""
+        with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
+            # Create mock players with different playback statuses
+            mock_player1 = MagicMock()
+            mock_player1.id = "player-playing"
+            mock_player1.name = "Playing Player"
+            mock_player1.online = True
+            mock_player1.volume = 8
+            mock_player1.user_volume = None
+            mock_player1.playback_status = "playing"
+            mock_player1.is_playing = None
+            mock_player1.battery_level_percentage = None
+
+            mock_player2 = MagicMock()
+            mock_player2.id = "player-paused"
+            mock_player2.name = "Paused Player"
+            mock_player2.online = True
+            mock_player2.volume = 8
+            mock_player2.user_volume = None
+            mock_player2.playback_status = "paused"
+            mock_player2.is_playing = None
+            mock_player2.battery_level_percentage = None
+
+            mock_player3 = MagicMock()
+            mock_player3.id = "player-stopped"
+            mock_player3.name = "Stopped Player"
+            mock_player3.online = True
+            mock_player3.volume = 8
+            mock_player3.user_volume = None
+            mock_player3.playback_status = "stopped"
+            mock_player3.is_playing = None
+            mock_player3.battery_level_percentage = None
+
+            # Setup mock client
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            mock_manager.players = {
+                "player-playing": mock_player1,
+                "player-paused": mock_player2,
+                "player-stopped": mock_player3,
+            }
+            mock_client.get_manager.return_value = mock_manager
+            mock_get_client.return_value = mock_client
+
+            # Call endpoint
+            response = client.get("/api/players")
+            assert response.status_code == 200
+
+            players = response.json()
+            assert len(players) == 3
+
+            # Find each player and check their playing status
+            playing_player = next(p for p in players if p["id"] == "player-playing")
+            assert playing_player["playing"] is True
+
+            paused_player = next(p for p in players if p["id"] == "player-paused")
+            assert paused_player["playing"] is False
+
+            stopped_player = next(p for p in players if p["id"] == "player-stopped")
+            assert stopped_player["playing"] is False
+
+    def test_player_is_playing_fallback(self, client):
+        """Test that is_playing boolean is used when playback_status is None."""
+        with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
+            # Create mock player with is_playing but no playback_status
+            mock_player = MagicMock()
+            mock_player.id = "test-player-3"
+            mock_player.name = "Test Player 3"
+            mock_player.online = True
+            mock_player.volume = 8
+            mock_player.user_volume = None
+            mock_player.playback_status = None  # No MQTT playback_status
+            mock_player.is_playing = True  # API is_playing
+            mock_player.battery_level_percentage = None
+
+            # Setup mock client
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            mock_manager.players = {"test-player-3": mock_player}
+            mock_client.get_manager.return_value = mock_manager
+            mock_get_client.return_value = mock_client
+
+            # Call endpoint
+            response = client.get("/api/players")
+            assert response.status_code == 200
+
+            players = response.json()
+            assert len(players) == 1
+            assert players[0]["playing"] is True
+
