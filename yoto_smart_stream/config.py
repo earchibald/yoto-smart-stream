@@ -81,8 +81,6 @@ class Settings(BaseSettings):
         This validator runs before pydantic's environment variable loading,
         so we manually check both variable names.
         """
-        import os
-        
         # Check for new variable name first (highest priority)
         server_client_id = os.environ.get("YOTO_SERVER_CLIENT_ID")
         if server_client_id:
@@ -190,8 +188,6 @@ def log_configuration(settings: Settings) -> None:
 
     This should be called after logging is configured.
     """
-    import os
-
     logger = logging.getLogger(__name__)
 
     logger.info("=" * 60)

@@ -1,6 +1,7 @@
 """Authentication endpoints for Yoto account login."""
 
 import logging
+import os
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -105,7 +106,6 @@ async def start_auth_flow():
     settings = get_settings()
 
     if not settings.yoto_client_id:
-        import os
         # Check both new and legacy variable names
         server_client_id = os.environ.get('YOTO_SERVER_CLIENT_ID', 'NOT SET')
         legacy_client_id = os.environ.get('YOTO_CLIENT_ID', 'NOT SET')
