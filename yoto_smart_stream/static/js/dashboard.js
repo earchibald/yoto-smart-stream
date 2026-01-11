@@ -365,21 +365,36 @@ async function showPlayerDetail(playerId) {
     }
     
     try {
-        // Build the API request URL
-        const requestUrl = `${API_BASE}/players/${playerId}`;
-        const requestMethod = 'GET';
+        // Clear previous technical info
+        clearTechnicalInfo();
         
-        // Fetch detailed player information
-        const response = await fetch(requestUrl);
-        if (!response.ok) throw new Error('Failed to fetch player details');
+        // Fetch player config from our API (includes combined data)
+        const configUrl = `${API_BASE}/players/${playerId}`;
+        const configResponse = await fetch(configUrl);
+        if (!configResponse.ok) throw new Error('Failed to fetch player config');
+        const playerConfig = await configResponse.json();
         
-        const player = await response.json();
+        // Store config technical info
+        addTechnicalInfo('GET Device Config', configUrl, playerConfig);
         
-        // Store technical information for display
-        storeTechnicalInfo(requestMethod, requestUrl, player);
+        // Fetch device status directly from Yoto API
+        const statusUrl = `${API_BASE}/players/${playerId}/status`;
+        try {
+            const statusResponse = await fetch(statusUrl);
+            if (statusResponse.ok) {
+                const playerStatus = await statusResponse.json();
+                addTechnicalInfo('GET Device Status', statusUrl, playerStatus);
+                
+                // Merge status data into config for display
+                Object.assign(playerConfig, playerStatus);
+            }
+        } catch (statusError) {
+            console.warn('Failed to fetch device status:', statusError);
+            // Continue with config data only
+        }
         
-        // Update modal with player data
-        populatePlayerModal(player);
+        // Update modal with combined player data
+        populatePlayerModal(playerConfig);
         
         // Show content, hide loading
         loadingEl.style.display = 'none';
@@ -540,14 +555,48 @@ window.addEventListener('click', function(event) {
 /**
  * Store technical information about the API request and response
  */
-function storeTechnicalInfo(method, url, responseData) {
-    // Store in a format that's easy to display
-    const requestInfo = `${method} ${url}`;
-    const responseJson = JSON.stringify(responseData, null, 2);
+/**
+ * Clear all technical information
+ */
+function clearTechnicalInfo() {
+    const container = document.getElementById('technicalInfoContent');
+    if (container) {
+        container.innerHTML = '';
+    }
+}
+
+/**
+ * Add a technical information entry for an API call
+ */
+function addTechnicalInfo(title, url, responseData) {
+    const container = document.getElementById('technicalInfoContent');
+    if (!container) return;
     
-    // Update the technical info section
-    document.getElementById('modalRequestUrl').textContent = requestInfo;
-    document.getElementById('modalResponseJson').textContent = responseJson;
+    const requestInfo = `GET ${url}`;
+    const responseJson = JSON.stringify(responseData, null, 2);
+    const itemId = `tech-info-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const itemHtml = `
+        <div class="technical-info-item">
+            <h5>${title}</h5>
+            <div class="code-block">
+                <div class="code-header">
+                    <span>Method & URL</span>
+                    <button class="copy-button" onclick="copyToClipboard('${itemId}-url', this)">Copy</button>
+                </div>
+                <pre id="${itemId}-url" class="code-content">${requestInfo}</pre>
+            </div>
+            <div class="code-block" style="margin-top: 0.5rem;">
+                <div class="code-header">
+                    <span>Response Data</span>
+                    <button class="copy-button" onclick="copyToClipboard('${itemId}-json', this)">Copy</button>
+                </div>
+                <pre id="${itemId}-json" class="code-content">${responseJson}</pre>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', itemHtml);
 }
 
 /**
@@ -557,17 +606,12 @@ function toggleTechnicalInfo() {
     const technicalInfoEl = document.getElementById('modalTechnicalInfo');
     const infoButton = document.getElementById('modalInfoButton');
     
-    console.log('Toggle called. Current display:', technicalInfoEl.style.display);
-    console.log('Element:', technicalInfoEl);
-    
     if (technicalInfoEl.style.display === 'none' || technicalInfoEl.style.display === '') {
         technicalInfoEl.style.display = 'block';
         infoButton.classList.add('active');
-        console.log('Set to block');
     } else {
         technicalInfoEl.style.display = 'none';
         infoButton.classList.remove('active');
-        console.log('Set to none');
     }
 }
 

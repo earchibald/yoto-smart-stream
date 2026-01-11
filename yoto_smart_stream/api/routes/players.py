@@ -3,6 +3,7 @@
 import logging
 from typing import Optional
 
+import requests
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -230,6 +231,62 @@ async def get_player(player_id: str):
     player = manager.players[player_id]
     return extract_player_detail_info(player_id, player)
 
+
+@router.get("/players/{player_id}/status")
+async def get_player_status(player_id: str):
+    """
+    Get device status information from Yoto API.
+    
+    This endpoint calls the Yoto API's GET /device-v2/{deviceId}/status endpoint
+    to retrieve real-time status information including battery, connectivity, and sensor data.
+    
+    Args:
+        player_id: The unique identifier of the player
+        
+    Returns:
+        Raw device status data from Yoto API
+    """
+    client = get_yoto_client()
+    manager = client.get_manager()
+    
+    if player_id not in manager.players:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Player {player_id} not found"
+        )
+    
+    try:
+        # Make direct API call to get device status
+        # The yoto_api library provides access to the authenticated session
+        access_token = manager.access_token
+        if not access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated with Yoto API"
+            )
+        
+        url = f"https://api.yotoplay.com/device-v2/{player_id}/status"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        return response.json()
+        
+    except requests.HTTPError as e:
+        logger.error(f"Failed to fetch device status: {e}")
+        raise HTTPException(
+            status_code=e.response.status_code if e.response else status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch device status: {str(e)}"
+        ) from e
+    except Exception as e:
+        logger.error(f"Error fetching device status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching device status: {str(e)}"
+        ) from e
 
 
 @router.post("/players/{player_id}/control")

@@ -221,27 +221,8 @@
                     <!-- Technical Information (API Details) -->
                     <div class="player-detail-section technical-info-section" id="modalTechnicalInfo" style="display: none;">
                         <h4>Technical Information</h4>
-                        <div class="technical-info-content">
-                            <div class="technical-info-item">
-                                <h5>API Request</h5>
-                                <div class="code-block">
-                                    <div class="code-header">
-                                        <span>Method & URL</span>
-                                        <button class="copy-button" onclick="copyToClipboard('modalRequestUrl', this)">Copy</button>
-                                    </div>
-                                    <pre id="modalRequestUrl" class="code-content">-</pre>
-                                </div>
-                            </div>
-                            <div class="technical-info-item">
-                                <h5>JSON Response</h5>
-                                <div class="code-block">
-                                    <div class="code-header">
-                                        <span>Response Data</span>
-                                        <button class="copy-button" onclick="copyToClipboard('modalResponseJson', this)">Copy</button>
-                                    </div>
-                                    <pre id="modalResponseJson" class="code-content">-</pre>
-                                </div>
-                            </div>
+                        <div id="technicalInfoContent" class="technical-info-content">
+                            <!-- API call info will be dynamically inserted here -->
                         </div>
                     </div>
                 </div>
