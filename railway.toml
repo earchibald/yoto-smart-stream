@@ -21,15 +21,15 @@ healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
-# Persistent volumes - survive deployments and restarts
-# Store Yoto auth tokens and other persistent data
-[[deploy.volumes]]
-name = "data"
-mountPath = "/data"
-
 # Watch patterns - trigger rebuild on changes to these files
 watchPatterns = [
     "yoto_smart_stream/**/*.py",
     "requirements.txt",
     "pyproject.toml"
 ]
+
+# Persistent volumes - survive deployments and restarts
+# Store Yoto auth tokens and other persistent data
+[[deploy.volumes]]
+name = "data"
+mountPath = "/data"

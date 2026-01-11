@@ -747,6 +747,239 @@ echo "$BODY" | mail -s "$SUBJECT" team@example.com
 - [ ] Notify team of success/failure
 - [ ] Document any issues
 
+## Railway.toml Configuration Synchronization
+
+### Overview
+
+Railway uses `railway.toml` to configure build and deployment settings (volumes, health checks, restart policies, etc.). Configuration changes are only applied during deployment, not when the file is simply updated in the repository.
+
+### When railway.toml Changes Are Applied
+
+Railway reads `railway.toml` during:
+1. **Automatic deployments** - When code is pushed to a connected branch
+2. **Manual deployments** - Via `railway up` or Railway Dashboard
+3. **Redeployments** - Triggering a rebuild of existing code
+
+**Important:** Simply committing `railway.toml` changes does NOT update Railway configuration until a deployment occurs.
+
+### Automated Configuration Sync Workflow
+
+Create a workflow that automatically applies railway.toml changes:
+
+```yaml
+# .github/workflows/railway-config-sync.yml
+name: Railway Configuration Sync
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'railway.toml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to reconfigure'
+        required: true
+        type: choice
+        options: [production, staging, development]
+
+jobs:
+  validate-config:
+    name: Validate railway.toml
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate TOML syntax
+        run: |
+          pip install toml
+          python -c "import toml; toml.load('railway.toml')"
+      
+      - name: Check for volume configuration
+        run: |
+          if grep -q "volumes" railway.toml; then
+            echo "✓ Volume configuration detected"
+          fi
+
+  sync-production:
+    name: Sync Production Configuration
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Apply railway.toml configuration
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        run: |
+          echo "🔄 Triggering redeployment to apply configuration..."
+          railway up --environment production --detach
+      
+      - name: Verify configuration applied
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        run: |
+          sleep 30
+          railway status -e production
+```
+
+### Volume Configuration
+
+Volumes defined in `railway.toml` are created when the configuration is first deployed:
+
+```toml
+# railway.toml
+[deploy]
+# Persistent volumes - survive deployments and restarts
+[[deploy.volumes]]
+name = "data"
+mountPath = "/data"
+
+[[deploy.volumes]]
+name = "uploads"
+mountPath = "/app/uploads"
+```
+
+**After deploying volume configuration:**
+
+1. **Verify in Railway Dashboard:**
+   - Navigate to: Project → Service → Settings → Volumes
+   - Confirm volumes appear with correct names and mount paths
+
+2. **Verify via CLI:**
+   ```bash
+   railway status -e production
+   # Output should show volume mounts
+   ```
+
+3. **Verify in application:**
+   ```python
+   # Check volume accessibility at startup
+   import os
+   from pathlib import Path
+   
+   data_path = Path("/data")
+   if not data_path.exists():
+       data_path.mkdir(parents=True)
+       print(f"✓ Created volume directory: {data_path}")
+   else:
+       print(f"✓ Volume mounted at: {data_path}")
+   ```
+
+### Manual Configuration Sync
+
+If automated workflow doesn't run or immediate sync is needed:
+
+**Via Railway CLI:**
+```bash
+# Install and login
+npm i -g @railway/cli
+railway login
+
+# Link project
+railway link
+
+# Trigger redeployment to apply railway.toml
+railway up -e production --detach
+
+# Verify after 30-60 seconds
+railway status -e production
+```
+
+**Via Railway Dashboard:**
+```
+1. Go to https://railway.app/dashboard
+2. Select project and service
+3. Navigate to Deployments tab
+4. Click "Redeploy" on latest deployment
+5. Verify Settings → Volumes shows new volumes
+```
+
+### Common Configuration Changes
+
+**Adding Health Check:**
+```toml
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+```
+
+**Configuring Restart Policy:**
+```toml
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+```
+
+**Watch Patterns (Trigger rebuilds):**
+```toml
+[deploy]
+watchPatterns = [
+    "yoto_smart_stream/**/*.py",
+    "requirements.txt",
+    "pyproject.toml"
+]
+```
+
+### Troubleshooting Configuration Sync
+
+**Problem: Volumes not appearing after deployment**
+
+Solution:
+1. Check TOML syntax: `python -c "import toml; toml.load('railway.toml')"`
+2. Verify deployment completed successfully
+3. Check Railway logs for errors: `railway logs -e production`
+4. Confirm you're checking the correct environment (volumes are per-environment)
+5. Try manual redeploy via Dashboard
+
+**Problem: Configuration changes not taking effect**
+
+Solution:
+1. Ensure railway.toml is committed and pushed
+2. Trigger new deployment (changes only apply on deploy, not on file update)
+3. Check for syntax errors in railway.toml
+4. Verify Railway is reading from correct branch
+
+**Problem: Old configuration still in use**
+
+Solution:
+1. Force redeploy: `railway up -e production`
+2. Check Railway Dashboard for failed deployments
+3. Verify railway.toml is in repository root (not subdirectory)
+
+### Best Practices for Configuration Management
+
+1. **Validate syntax before committing:**
+   ```bash
+   python -c "import toml; toml.load('railway.toml')" || echo "Invalid TOML"
+   ```
+
+2. **Test in PR environments first:**
+   - PR environments inherit railway.toml from your branch
+   - Verify configuration works before merging to main
+
+3. **Document volume usage:**
+   - Add comments in railway.toml explaining volume purposes
+   - Document in application code what data is stored where
+
+4. **Monitor after config changes:**
+   - Check Railway logs after deployment
+   - Verify health checks pass
+   - Test volume accessibility in application
+
+5. **Use version control:**
+   - Always commit railway.toml changes
+   - Review changes in PRs
+   - Document reasons for configuration changes in commit messages
+
 ## Best Practices
 
 ### ✅ DO:

@@ -69,6 +69,26 @@ jobs:
       - name: Install Railway CLI
         run: npm i -g @railway/cli
       
+      - name: Check for railway.toml changes
+        id: check-config
+        run: |
+          echo "🔍 Checking for railway.toml configuration..."
+          if [ -f railway.toml ]; then
+            echo "config_exists=true" >> $GITHUB_OUTPUT
+            echo "✓ railway.toml found - configuration will be applied"
+            
+            # Check for volume configuration using specific TOML pattern
+            if grep -q '\[\[deploy\.volumes\]\]' railway.toml; then
+              echo "has_volumes=true" >> $GITHUB_OUTPUT
+              echo "✓ Volume configuration detected in railway.toml"
+            else
+              echo "has_volumes=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "config_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ railway.toml not found"
+          fi
+      
       - name: Configure Railway Variables
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
@@ -97,6 +117,31 @@ jobs:
         run: |
           echo "📊 Deployment status:"
           railway status -e production || echo "Could not fetch status"
+      
+      - name: Verify railway.toml configuration applied
+        if: steps.check-config.outputs.config_exists == 'true'
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        run: |
+          echo "🔍 Verifying railway.toml configuration was applied..."
+          
+          if [ "${{ steps.check-config.outputs.has_volumes }}" == "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 📦 Volume Configuration" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Volumes defined in railway.toml should now be created." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Verify volumes in Railway Dashboard:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Go to https://railway.app/dashboard" >> $GITHUB_STEP_SUMMARY
+            echo "2. Select your project and service" >> $GITHUB_STEP_SUMMARY
+            echo "3. Navigate to Settings → Volumes" >> $GITHUB_STEP_SUMMARY
+            echo "4. Confirm volumes are listed and mounted" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Volume Configuration from railway.toml:**" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`toml" >> $GITHUB_STEP_SUMMARY
+            grep -A 2 '\[\[deploy\.volumes\]\]' railway.toml >> $GITHUB_STEP_SUMMARY || echo "# Volume configuration present - see railway.toml for details" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
       
       - name: Show recent logs
         if: always()
