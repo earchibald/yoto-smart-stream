@@ -30,6 +30,28 @@ async def get_library():
         library_dict = manager.library
         logger.info(f"Library contains {len(library_dict)} total items")
         
+        # Log detailed information about the first few items to understand their structure
+        if library_dict:
+            sample_size = min(5, len(library_dict))
+            logger.info(f"=== Examining first {sample_size} items in library ===")
+            for idx, (card_id, card) in enumerate(list(library_dict.items())[:sample_size]):
+                logger.info(f"Item {idx + 1}:")
+                logger.info(f"  card_id (key): {card_id}")
+                logger.info(f"  type: {type(card)}")
+                logger.info(f"  card object attributes: {dir(card)}")
+                
+                # Log all non-private attributes and their values
+                card_attrs = {}
+                for attr in dir(card):
+                    if not attr.startswith('_'):
+                        try:
+                            value = getattr(card, attr)
+                            if not callable(value):
+                                card_attrs[attr] = value
+                        except:
+                            pass
+                logger.info(f"  card attributes and values: {card_attrs}")
+        
         # Extract cards from the dictionary
         cards = []
         if library_dict and isinstance(library_dict, dict):
