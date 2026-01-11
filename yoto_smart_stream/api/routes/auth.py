@@ -1,7 +1,6 @@
 """Authentication endpoints for Yoto account login."""
 
 import logging
-import os
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -106,13 +105,12 @@ async def start_auth_flow():
     settings = get_settings()
 
     if not settings.yoto_client_id:
-        # Check both new and legacy variable names
-        server_client_id = os.environ.get('YOTO_SERVER_CLIENT_ID', 'NOT SET')
-        legacy_client_id = os.environ.get('YOTO_CLIENT_ID', 'NOT SET')
-        logger.error(f"Yoto client ID not configured. YOTO_SERVER_CLIENT_ID: {server_client_id}, YOTO_CLIENT_ID (deprecated): {legacy_client_id}, Settings value: {settings.yoto_client_id}")
+        import os
+        env_value = os.environ.get('YOTO_CLIENT_ID', 'NOT SET')
+        logger.error(f"YOTO_CLIENT_ID not configured. Environment variable: {env_value}, Settings value: {settings.yoto_client_id}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Yoto client ID not configured. Please set YOTO_SERVER_CLIENT_ID environment variable. Environment check - YOTO_SERVER_CLIENT_ID: {server_client_id}, YOTO_CLIENT_ID: {legacy_client_id}"
+            detail=f"YOTO_CLIENT_ID not configured. Environment check: {env_value}. Please ensure the environment variable is set correctly."
         )
 
     try:
@@ -121,10 +119,14 @@ async def start_auth_flow():
 
         # Initialize manager if needed
         client.initialize()
-        manager = client.manager
-
-        # Start device code flow
-        device_info = manager.device_code_flow_start()
+        
+        # Start device code flow - works for both public and confidential clients
+        if client._uses_confidential_flow:
+            # Use OAuth client for confidential flow
+            device_info = client.oauth_client.device_code_flow_start()
+        else:
+            # Use YotoManager for public flow
+            device_info = client.manager.device_code_flow_start()
 
         logger.info(f"Device code flow started: {device_info.get('user_code')}")
 
@@ -162,7 +164,7 @@ async def poll_auth_status(poll_request: AuthPollRequest):
     settings = get_settings()
     client = get_yoto_client()
 
-    if not client or not client.manager:
+    if not client or (not client.manager and not client.oauth_client):
         return AuthPollResponse(
             status="error",
             message="Authentication not started",
@@ -171,26 +173,40 @@ async def poll_auth_status(poll_request: AuthPollRequest):
 
     try:
         # Try to complete the device code flow
-        client.manager.device_code_flow_complete()
-
-        # If we get here, authentication succeeded
-        client.set_authenticated(True)
-
-        # Save refresh token
-        if client.manager.token and client.manager.token.refresh_token:
-            token_file = settings.yoto_refresh_token_file
-            # Ensure parent directory exists (e.g., /data on Railway)
-            token_file.parent.mkdir(parents=True, exist_ok=True)
-            token_file.write_text(client.manager.token.refresh_token)
-            logger.info(f"Refresh token saved to {token_file}")
+        if client._uses_confidential_flow:
+            # Use OAuth client for confidential flow
+            token_data = client.oauth_client.poll_for_token(poll_request.device_code)
+            
+            # Save refresh token
+            if "refresh_token" in token_data:
+                token_file = settings.yoto_refresh_token_file
+                token_file.parent.mkdir(parents=True, exist_ok=True)
+                token_file.write_text(token_data["refresh_token"])
+                logger.info(f"Refresh token saved to {token_file}")
+            
+            # Mark as authenticated
+            client.set_authenticated(True)
         else:
-            logger.error("No refresh token available after authentication!")
+            # Use YotoManager for public flow
+            client.manager.device_code_flow_complete()
+            
+            # Mark as authenticated
+            client.set_authenticated(True)
 
-        # Update player status
-        try:
-            client.update_player_status()
-        except Exception as e:
-            logger.warning(f"Failed to update player status: {e}")
+            # Save refresh token
+            if client.manager.token and client.manager.token.refresh_token:
+                token_file = settings.yoto_refresh_token_file
+                token_file.parent.mkdir(parents=True, exist_ok=True)
+                token_file.write_text(client.manager.token.refresh_token)
+                logger.info(f"Refresh token saved to {token_file}")
+            else:
+                logger.error("No refresh token available after authentication!")
+
+            # Update player status (only for public flow)
+            try:
+                client.update_player_status()
+            except Exception as e:
+                logger.warning(f"Failed to update player status: {e}")
 
         logger.info("Authentication successful!")
 

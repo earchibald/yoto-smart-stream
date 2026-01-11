@@ -151,12 +151,11 @@ def create_streaming_myo_card(base_url: str, card_type: str = "static"):
     print("Creating Yoto MYO Card with Streaming from Own Service")
     print("=" * 80 + "\n")
 
-    # 1. Get credentials from environment (prefer YOTO_SERVER_CLIENT_ID, fallback to legacy YOTO_CLIENT_ID)
-    client_id = os.getenv("YOTO_SERVER_CLIENT_ID") or os.getenv("YOTO_CLIENT_ID")
+    # 1. Get credentials from environment
+    client_id = os.getenv("YOTO_CLIENT_ID")
     if not client_id:
-        print("Error: YOTO_SERVER_CLIENT_ID or YOTO_CLIENT_ID environment variable not set")
+        print("Error: YOTO_CLIENT_ID environment variable not set")
         print("Get your Client ID from: https://yoto.dev/get-started/start-here/")
-        print("Set with: export YOTO_SERVER_CLIENT_ID=your_client_id")
         return
 
     # 2. Authenticate with Yoto API

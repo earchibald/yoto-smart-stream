@@ -23,9 +23,6 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
-        # Exclude yoto_client_id from automatic env var loading
-        # We handle it manually in the validator for backward compatibility
-        env_ignore={"yoto_client_id"},
     )
 
     # Application settings
@@ -63,36 +60,8 @@ class Settings(BaseSettings):
     )
 
     # Yoto API settings
-    # Note: This field is manually populated from YOTO_SERVER_CLIENT_ID or YOTO_CLIENT_ID
-    # in the validator to support backward compatibility
-    yoto_client_id: Optional[str] = Field(
-        default=None, 
-        description="Yoto API server client ID (for OAuth2 device flow)",
-        validate_default=True
-    )
-
-    @field_validator("yoto_client_id", mode="before")
-    @classmethod
-    def get_client_id(cls, v, info):
-        """
-        Get client ID with backward compatibility.
-        
-        Prefers YOTO_SERVER_CLIENT_ID over legacy YOTO_CLIENT_ID.
-        This validator runs before pydantic's environment variable loading,
-        so we manually check both variable names.
-        """
-        # Check for new variable name first (highest priority)
-        server_client_id = os.environ.get("YOTO_SERVER_CLIENT_ID")
-        if server_client_id:
-            return server_client_id
-        
-        # Fallback to legacy variable name for backward compatibility
-        legacy_client_id = os.environ.get("YOTO_CLIENT_ID")
-        if legacy_client_id:
-            return legacy_client_id
-        
-        # If neither is set, return None
-        return None
+    yoto_client_id: Optional[str] = Field(None, description="Yoto API client ID")
+    yoto_client_secret: Optional[str] = Field(None, description="Yoto API client secret (for confidential/private client flow)")
     yoto_refresh_token_file: Path = Field(
         default=Path(".yoto_refresh_token"), description="Path to refresh token file"
     )
@@ -188,6 +157,8 @@ def log_configuration(settings: Settings) -> None:
 
     This should be called after logging is configured.
     """
+    import os
+
     logger = logging.getLogger(__name__)
 
     logger.info("=" * 60)
@@ -196,12 +167,10 @@ def log_configuration(settings: Settings) -> None:
     logger.info(f"Environment: {settings.environment}")
     logger.info(f"Debug mode: {settings.debug}")
     logger.info(f"Log level: {settings.log_level}")
-    # Check both YOTO_SERVER_CLIENT_ID (new) and YOTO_CLIENT_ID (deprecated)
-    server_client_id = os.environ.get('YOTO_SERVER_CLIENT_ID')
-    legacy_client_id = os.environ.get('YOTO_CLIENT_ID')
-    logger.info(f"YOTO_SERVER_CLIENT_ID from env: {server_client_id or 'NOT SET'}")
-    logger.info(f"YOTO_CLIENT_ID from env (deprecated): {legacy_client_id or 'NOT SET'}")
-    logger.info(f"Loaded client_id: {settings.yoto_client_id or 'NOT SET'}")
+    logger.info(f"YOTO_CLIENT_ID from env: {os.environ.get('YOTO_CLIENT_ID', 'NOT SET')}")
+    logger.info(f"YOTO_CLIENT_ID loaded: {settings.yoto_client_id or 'NOT SET'}")
+    logger.info(f"YOTO_CLIENT_SECRET configured: {'YES' if settings.yoto_client_secret else 'NO'}")
+    logger.info(f"OAuth Flow: {'Confidential Client (with secret)' if settings.yoto_client_secret else 'Public Client (device code flow)'}")
     logger.info(f"Refresh token file: {settings.yoto_refresh_token_file}")
     logger.info(f"Public URL: {settings.public_url or 'NOT SET'}")
     logger.info("=" * 60)

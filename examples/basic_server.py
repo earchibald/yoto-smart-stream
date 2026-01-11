@@ -174,12 +174,11 @@ def get_yoto_manager() -> YotoManager:
     global yoto_manager
 
     if yoto_manager is None:
-        # Prefer YOTO_SERVER_CLIENT_ID, fallback to legacy YOTO_CLIENT_ID
-        client_id = os.getenv("YOTO_SERVER_CLIENT_ID") or os.getenv("YOTO_CLIENT_ID")
+        client_id = os.getenv("YOTO_CLIENT_ID")
         if not client_id:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="YOTO_SERVER_CLIENT_ID or YOTO_CLIENT_ID not configured",
+                detail="YOTO_CLIENT_ID not configured",
             )
 
         token_file = Path(".yoto_refresh_token")

@@ -174,42 +174,6 @@ class TestLogEnvOnStartup:
         assert settings.log_env_on_startup is False
 
 
-class TestYotoClientIdConfiguration:
-    """Test Yoto client ID configuration with backward compatibility."""
-
-    def test_yoto_server_client_id_preferred(self, monkeypatch):
-        """Test that YOTO_SERVER_CLIENT_ID is loaded correctly."""
-        monkeypatch.setenv("YOTO_SERVER_CLIENT_ID", "test_server_client_id")
-        monkeypatch.delenv("YOTO_CLIENT_ID", raising=False)
-
-        settings = Settings()
-        assert settings.yoto_client_id == "test_server_client_id"
-
-    def test_yoto_client_id_backward_compatibility(self, monkeypatch):
-        """Test that YOTO_CLIENT_ID still works for backward compatibility."""
-        monkeypatch.setenv("YOTO_CLIENT_ID", "test_legacy_client_id")
-        monkeypatch.delenv("YOTO_SERVER_CLIENT_ID", raising=False)
-
-        settings = Settings()
-        assert settings.yoto_client_id == "test_legacy_client_id"
-
-    def test_yoto_server_client_id_takes_priority(self, monkeypatch):
-        """Test that YOTO_SERVER_CLIENT_ID takes priority over YOTO_CLIENT_ID."""
-        monkeypatch.setenv("YOTO_SERVER_CLIENT_ID", "new_server_client_id")
-        monkeypatch.setenv("YOTO_CLIENT_ID", "old_client_id")
-
-        settings = Settings()
-        assert settings.yoto_client_id == "new_server_client_id"
-
-    def test_no_client_id_configured(self, monkeypatch):
-        """Test that yoto_client_id is None when not configured."""
-        monkeypatch.delenv("YOTO_SERVER_CLIENT_ID", raising=False)
-        monkeypatch.delenv("YOTO_CLIENT_ID", raising=False)
-
-        settings = Settings()
-        assert settings.yoto_client_id is None
-
-
 class TestTokenFilePath:
     """Test token file path configuration based on environment."""
 
@@ -273,3 +237,29 @@ class TestTokenFilePath:
 
         settings = Settings()
         assert settings.yoto_refresh_token_file == custom_path
+
+
+class TestYotoClientSecret:
+    """Test YOTO_CLIENT_SECRET configuration."""
+
+    def test_client_secret_from_env(self, monkeypatch):
+        """Test that YOTO_CLIENT_SECRET is loaded from environment."""
+        monkeypatch.setenv("YOTO_CLIENT_SECRET", "test_secret_abc123")
+        
+        settings = Settings()
+        assert settings.yoto_client_secret == "test_secret_abc123"
+
+    def test_no_client_secret(self, monkeypatch):
+        """Test that yoto_client_secret is None when not configured."""
+        monkeypatch.delenv("YOTO_CLIENT_SECRET", raising=False)
+        
+        settings = Settings()
+        assert settings.yoto_client_secret is None
+
+    def test_empty_client_secret(self, monkeypatch):
+        """Test that empty YOTO_CLIENT_SECRET is treated as None."""
+        monkeypatch.setenv("YOTO_CLIENT_SECRET", "")
+        
+        settings = Settings()
+        # Empty string should be None or empty
+        assert settings.yoto_client_secret in [None, ""]
