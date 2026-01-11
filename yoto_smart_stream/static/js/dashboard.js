@@ -258,6 +258,20 @@ async function loadPlayers() {
                 indicators.push('🎧 BT');
             }
             
+            // Build media display (what's playing)
+            let mediaInfo = '';
+            if (player.active_card && (player.chapter_title || player.track_title)) {
+                const title = player.chapter_title && player.track_title && player.chapter_title !== player.track_title
+                    ? `${player.chapter_title} - ${player.track_title}`
+                    : (player.chapter_title || player.track_title);
+                mediaInfo = `
+                    <div class="now-playing">
+                        <span class="now-playing-label">♫</span>
+                        <span class="now-playing-title">${escapeHtml(title)}</span>
+                    </div>
+                `;
+            }
+            
             return `
                 <div class="list-item player-card">
                     <div class="list-item-header">
@@ -266,6 +280,7 @@ async function loadPlayers() {
                             ${player.online ? 'Online' : 'Offline'}
                         </span>
                     </div>
+                    ${mediaInfo}
                     <div class="list-item-details">
                         <span>🔊 ${player.volume}%</span>
                         <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>

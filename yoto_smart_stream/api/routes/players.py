@@ -451,7 +451,7 @@ async def control_player(player_id: str, control: PlayerControl):
         if control.action == "pause":
             manager.pause_player(player_id)
         elif control.action == "play":
-            manager.play_player(player_id)
+            manager.resume_player(player_id)
         elif control.action == "stop":
             manager.stop_player(player_id)
         elif control.action == "skip_forward":
