@@ -92,19 +92,36 @@ This project currently has:
 1. Railway automatically creates `pr-{number}` environment
 2. Check the PR status checks for deployment link
 3. Wait 1-2 minutes for deployment to complete
-4. Test your changes at the provided URL
+4. GitHub Actions automatically validates the deployment
+5. Check PR comments for validation results
+6. Test your changes at the provided URL
 
 **When you push updates:**
 
 1. Railway automatically redeploys
 2. Same URL, updated code
 3. Watch status checks for deployment progress
+4. Validation runs automatically on each update
 
 **When you close/merge:**
 
 1. Railway automatically destroys environment
 2. No cleanup needed
 3. Zero ongoing costs
+
+### Validating Your PR Environment
+
+Each PR deployment is automatically validated by GitHub Actions. You can also manually validate:
+
+```bash
+# Validate a specific PR environment
+python scripts/validate_pr_environment.py https://yoto-smart-stream-pr-42.up.railway.app
+
+# Wait for deployment and validate
+python scripts/validate_pr_environment.py https://yoto-smart-stream-pr-42.up.railway.app --wait
+```
+
+For detailed validation instructions, see **[Validating PR Environments](VALIDATING_PR_ENVIRONMENTS.md)**.
 
 ### Accessing Your PR Environment
 

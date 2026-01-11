@@ -264,7 +264,8 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Migration Guide](MIGRATION_GUIDE_EXAMPLES_TO_PROD.md)**: Migrate from examples to production server
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
 - **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
-- **[Railway PR Environments](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)**: Automatic ephemeral environments for pull requests (NEW)
+- **[Railway PR Environments](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)**: Automatic ephemeral environments for pull requests
+- **[Validating PR Environments](docs/VALIDATING_PR_ENVIRONMENTS.md)**: How to validate Railway PR environments are working correctly (NEW)
 - **[Railway Shared Development](docs/RAILWAY_SHARED_DEVELOPMENT.md)**: Coordinated access to shared dev environment
 - **[Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md)**: Configure separate tokens per environment
 - **[Codespaces Railway Setup](docs/CODESPACES_RAILWAY_SETUP.md)**: Configure Railway access for GitHub Codespaces
