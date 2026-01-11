@@ -87,11 +87,25 @@ mcp_servers:
     args:
       - "-y"
       - "@railway/mcp-server"
+    env:
+      # Railway API token for authentication
+      # Use RAILWAY_API_TOKEN if available, otherwise fall back to RAILWAY_TOKEN
+      RAILWAY_TOKEN: "${RAILWAY_API_TOKEN:-${RAILWAY_TOKEN}}"
     description: |
       Railway MCP Server provides tools for managing Railway infrastructure
 ```
 
 The Railway MCP server provides specialized tools for managing Railway resources directly from Copilot Workspace.
+
+**Authentication:** The MCP server configuration includes an `env` section that passes the Railway token to the server:
+- Looks for `RAILWAY_API_TOKEN` first (GitHub secret)
+- Falls back to `RAILWAY_TOKEN` if RAILWAY_API_TOKEN is not set
+- Without authentication, Railway operations will return "Unauthorized" errors
+
+To enable Railway operations:
+1. Add `RAILWAY_API_TOKEN` to your GitHub repository secrets
+2. The token will be automatically available to Copilot Workspace
+3. The MCP server will use it for authentication
 
 ### Allowed Domains
 
@@ -152,6 +166,10 @@ The configuration allows access to:
    - Railway MCP server requires the Railway CLI to be installed
    - Setup ensures the CLI is available before the MCP server starts
    - Prevents MCP server loading failures due to missing dependencies
+   - **Authentication:** Requires `RAILWAY_API_TOKEN` or `RAILWAY_TOKEN` environment variable
+     - Add RAILWAY_API_TOKEN to GitHub Secrets for the repository
+     - The MCP server will automatically use the token if available
+     - Without authentication, Railway operations will fail with "Unauthorized" errors
 
 ### 1. Network Configuration
 
@@ -459,35 +477,51 @@ Only remove domains if:
 
 **Solutions:**
 
-1. **Check Railway login status:**
+1. **Check Railway authentication:**
    ```bash
    railway whoami
    ```
+   
+   If you see "Unauthorized", authentication is missing.
 
-2. **Re-login if needed:**
+2. **Verify RAILWAY_API_TOKEN secret is set:**
+   - Go to your repository settings → Secrets
+   - Ensure RAILWAY_API_TOKEN is added
+   - The token should be from https://railway.app/account/tokens
+
+3. **Check if token is available in environment:**
    ```bash
-   railway login
+   echo "RAILWAY_API_TOKEN is set: $([ -n "$RAILWAY_API_TOKEN" ] && echo "Yes" || echo "No")"
    ```
 
-3. **Verify project linking:**
+4. **For local testing, set the token manually:**
+   ```bash
+   export RAILWAY_TOKEN="your-token-here"
+   # or
+   export RAILWAY_API_TOKEN="your-token-here"
+   ```
+
+5. **Verify project linking:**
    ```bash
    railway status
    ```
 
-4. **Check Railway service status:**
+6. **Check Railway service status:**
    - Visit https://railway.app/ to check for outages
    - Verify your account has proper permissions
 
-5. **Update Railway CLI:**
+7. **Update Railway CLI:**
    ```bash
    npm update -g @railway/cli
    ```
 
-6. **Check CLI version compatibility:**
+8. **Check CLI version compatibility:**
    ```bash
    railway --version
    # MCP server requires Railway CLI v3.0.0 or higher
    ```
+
+**Note:** The MCP server configuration now includes an `env` section that automatically passes `RAILWAY_API_TOKEN` to the Railway CLI if it's available in the environment.
 
 ## Best Practices
 

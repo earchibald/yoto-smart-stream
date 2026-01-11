@@ -60,6 +60,10 @@ mcp_servers:
     args:
       - "-y"
       - "@railway/mcp-server"
+    env:
+      # Railway API token for authentication
+      # Use RAILWAY_API_TOKEN if available, otherwise fall back to RAILWAY_TOKEN
+      RAILWAY_TOKEN: "${RAILWAY_API_TOKEN:-${RAILWAY_TOKEN}}"
     description: |
       Railway MCP Server provides tools for managing Railway infrastructure including:
       - Project and service management (list, create, link)
@@ -68,5 +72,5 @@ mcp_servers:
       - Configuration (list/set variables, generate domains)
       - Monitoring (retrieve logs with filtering)
       
-      Requires: Railway CLI installed and user logged in
+      Requires: Railway CLI installed and RAILWAY_API_TOKEN or RAILWAY_TOKEN environment variable
       CLI Version: Automatically detects version for feature support
