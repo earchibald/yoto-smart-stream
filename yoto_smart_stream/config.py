@@ -84,10 +84,12 @@ class Settings(BaseSettings):
             # This will succeed on Railway, but may fail in test environments
             try:
                 data_dir.mkdir(parents=True, exist_ok=True)
-            except (PermissionError, OSError):
+            except (PermissionError, OSError) as e:
                 # In test environments, /data may not be writable
                 # Use the path anyway - it will be created at runtime on Railway
-                pass
+                logger.debug(
+                    f"Could not create {data_dir} during validation (expected in tests): {e}"
+                )
             return data_dir / ".yoto_refresh_token"
 
         # Local development - use current directory or provided value
