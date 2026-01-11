@@ -6,6 +6,7 @@ This script starts the production server with proper configuration.
 """
 
 import sys
+import time
 from pathlib import Path
 
 import uvicorn
@@ -16,6 +17,12 @@ from yoto_smart_stream.config import get_settings
 def main():
     """Main entry point for the server."""
     settings = get_settings()
+
+    # Wait for Railway shared variables to initialize if configured
+    if settings.railway_startup_wait_seconds > 0:
+        print(f"\n⏳ Waiting {settings.railway_startup_wait_seconds} seconds for Railway variables to initialize...")
+        time.sleep(settings.railway_startup_wait_seconds)
+        print("✓ Startup wait complete\n")
 
     print("\n" + "=" * 80)
     print(f"Starting {settings.app_name} v{settings.app_version}")

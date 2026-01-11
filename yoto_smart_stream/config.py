@@ -71,6 +71,14 @@ class Settings(BaseSettings):
     # MQTT settings
     mqtt_enabled: bool = Field(default=True, description="Enable MQTT event handling")
 
+    # Railway startup settings
+    railway_startup_wait_seconds: int = Field(
+        default=0,
+        description="Seconds to wait at startup for Railway shared variables to initialize (0-30)",
+        ge=0,
+        le=30,
+    )
+
     # CORS settings
     cors_origins: list[str] = Field(
         default=["http://localhost:8080", "http://localhost:3000"],
