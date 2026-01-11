@@ -23,12 +23,14 @@ def mock_yoto_client():
     """Mock Yoto client."""
     # Patch at the place where it's imported in the routes
     with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_players, \
-         patch("yoto_smart_stream.api.routes.health.get_yoto_client") as mock_health:
+         patch("yoto_smart_stream.api.routes.health.get_yoto_client") as mock_health, \
+         patch("yoto_smart_stream.api.routes.library.get_yoto_client") as mock_library:
         client = MagicMock()
         client.is_authenticated.return_value = True
         client.get_manager.return_value.players = {}
         mock_players.return_value = client
         mock_health.return_value = client
+        mock_library.return_value = client
         yield client
 
 
@@ -407,3 +409,112 @@ class TestPlayerDataExtraction:
             vol_100_player = next(p for p in players if p["id"] == "player-vol-100")
             assert vol_100_player["volume"] == 100
 
+
+
+class TestLibraryEndpoints:
+    """Test library viewing endpoints."""
+
+    def test_library_ui_serves_html(self, client):
+        """Test /library endpoint serves HTML."""
+        response = client.get("/library")
+        assert response.status_code == 200
+        # Check if response is HTML
+        content_type = response.headers.get("content-type", "")
+        assert "text/html" in content_type or response.text.startswith("<!DOCTYPE html>")
+
+    def test_library_api_not_authenticated(self, client):
+        """Test /api/library returns 401 when not authenticated."""
+        with patch("yoto_smart_stream.api.routes.library.get_yoto_client") as mock_get_client:
+            mock_client = MagicMock()
+            mock_client.get_manager.side_effect = RuntimeError("Not authenticated")
+            mock_get_client.return_value = mock_client
+            
+            response = client.get("/api/library")
+            assert response.status_code == 401
+            data = response.json()
+            assert "detail" in data
+
+    def test_library_api_returns_cards_and_playlists(self, client):
+        """Test /api/library returns cards and playlists data."""
+        with patch("yoto_smart_stream.api.routes.library.get_yoto_client") as mock_get_client:
+            # Create mock card
+            mock_card = MagicMock()
+            mock_card.cardId = "card-123"
+            mock_card.title = "Test Card"
+            mock_card.description = "A test card"
+            mock_card.author = "Test Author"
+            mock_card.metadata = MagicMock()
+            mock_card.metadata.cover = MagicMock()
+            mock_card.metadata.cover.imageL = "https://example.com/image.jpg"
+            mock_card.metadata.cover.imageM = None
+            mock_card.metadata.cover.imageS = None
+            
+            # Create mock playlist (group)
+            mock_group = MagicMock()
+            mock_group.id = "group-456"
+            mock_group.name = "Test Playlist"
+            mock_group.imageId = "fp-cards"
+            mock_group.items = [{"contentId": "card-1"}, {"contentId": "card-2"}]
+            
+            # Setup mock client
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            
+            # Setup library with cards
+            mock_library = MagicMock()
+            mock_library.cards = [mock_card]
+            mock_manager.library = mock_library
+            
+            # Setup family with groups
+            mock_family = MagicMock()
+            mock_family.groups = [mock_group]
+            mock_manager.family = mock_family
+            
+            mock_client.get_manager.return_value = mock_manager
+            mock_get_client.return_value = mock_client
+            
+            response = client.get("/api/library")
+            assert response.status_code == 200
+            
+            data = response.json()
+            assert "cards" in data
+            assert "playlists" in data
+            assert "totalCards" in data
+            assert "totalPlaylists" in data
+            
+            # Check card data
+            assert len(data["cards"]) == 1
+            card = data["cards"][0]
+            assert card["id"] == "card-123"
+            assert card["title"] == "Test Card"
+            assert card["author"] == "Test Author"
+            assert card["cover"] == "https://example.com/image.jpg"
+            
+            # Check playlist data
+            assert len(data["playlists"]) == 1
+            playlist = data["playlists"][0]
+            assert playlist["id"] == "group-456"
+            assert playlist["name"] == "Test Playlist"
+            assert playlist["itemCount"] == 2
+
+    def test_library_api_handles_empty_library(self, client):
+        """Test /api/library handles empty library gracefully."""
+        with patch("yoto_smart_stream.api.routes.library.get_yoto_client") as mock_get_client:
+            mock_client = MagicMock()
+            mock_manager = MagicMock()
+            
+            # Empty library
+            mock_library = MagicMock()
+            mock_library.cards = []
+            mock_manager.library = mock_library
+            mock_manager.family = None
+            
+            mock_client.get_manager.return_value = mock_manager
+            mock_get_client.return_value = mock_client
+            
+            response = client.get("/api/library")
+            assert response.status_code == 200
+            
+            data = response.json()
+            assert data["totalCards"] == 0
+            assert data["totalPlaylists"] == 0

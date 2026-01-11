@@ -19,7 +19,7 @@ from ..config import get_settings, log_configuration
 from ..core import YotoClient
 from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
-from .routes import auth, cards, health, players
+from .routes import auth, cards, health, library, players
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +135,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix="/api", tags=["Authentication"])
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
+    app.include_router(library.router, prefix="/api", tags=["Library"])
 
     @app.get("/", tags=["Web UI"])
     async def root():
@@ -156,6 +157,14 @@ def create_app() -> FastAPI:
         if streams_path.exists():
             return FileResponse(streams_path)
         return {"message": "Streams UI not available", "docs": "/docs"}
+
+    @app.get("/library", tags=["Web UI"])
+    async def library_ui():
+        """Serve the library viewer interface."""
+        library_path = static_dir / "library.html"
+        if library_path.exists():
+            return FileResponse(library_path)
+        return {"message": "Library UI not available", "docs": "/docs"}
 
     @app.get("/api/status", tags=["General"])
     async def api_status():
