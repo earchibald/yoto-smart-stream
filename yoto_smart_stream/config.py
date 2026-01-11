@@ -106,6 +106,14 @@ class Settings(BaseSettings):
     # MQTT settings
     mqtt_enabled: bool = Field(default=True, description="Enable MQTT event handling")
 
+    # Token refresh settings
+    token_refresh_interval_hours: int = Field(
+        default=12,
+        description="Hours between automatic token refresh (1-23, default: 12)",
+        ge=1,
+        le=23,
+    )
+
     # Railway startup settings
     railway_startup_wait_seconds: int = Field(
         default=0,
@@ -149,6 +157,7 @@ def log_configuration(settings: Settings) -> None:
     This should be called after logging is configured.
     """
     import os
+
     logger = logging.getLogger(__name__)
 
     logger.info("=" * 60)
