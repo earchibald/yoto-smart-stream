@@ -295,7 +295,7 @@ async def control_player(player_id: str, control: PlayerControl):
         ) from e
 
 
-@app.get("/health", tags=["General"])
+@app.get("/api/health", tags=["General"])
 async def health_check():
     """Health check endpoint."""
     return {

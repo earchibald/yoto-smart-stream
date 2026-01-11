@@ -99,7 +99,7 @@ jobs:
         run: |
           echo "🏥 Testing health endpoint..."
           sleep 10
-          curl -f https://yoto-smart-stream-development.up.railway.app/health || echo "Health check failed (may still be starting)"
+          curl -f https://yoto-smart-stream-development.up.railway.app/api/health || echo "Health check failed (may still be starting)"
       
       - name: Get recent logs
         if: always()
@@ -120,7 +120,7 @@ jobs:
           echo "**URL:** https://yoto-smart-stream-development.up.railway.app" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Quick Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [Health Check](https://yoto-smart-stream-development.up.railway.app/health)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Health Check](https://yoto-smart-stream-development.up.railway.app/api/health)" >> $GITHUB_STEP_SUMMARY
           echo "- [API Documentation](https://yoto-smart-stream-development.up.railway.app/docs)" >> $GITHUB_STEP_SUMMARY
           echo "- [Root Endpoint](https://yoto-smart-stream-development.up.railway.app/)" >> $GITHUB_STEP_SUMMARY
       

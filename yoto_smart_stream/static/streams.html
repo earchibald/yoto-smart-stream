@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Streams - Yoto Smart Stream</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <h1>🎵 Yoto Stream</h1>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="/">🏠 Dashboard</a></li>
+            <li class="active"><a href="/streams">🎵 Music Streams</a></li>
+            <li><a href="/api/docs" target="_blank">📚 API Docs</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p id="app-version">Loading...</p>
+        </div>
+    </nav>
+
+    <main class="content">
+        <header>
+            <h2>Music Streams</h2>
+            <button class="refresh-btn" onclick="loadAudioFiles()">🔄 Refresh</button>
+        </header>
+
+        <section class="section">
+            <div class="stream-info">
+                <p>Available audio streams from this server. These URLs can be used in Yoto MYO cards.</p>
+                <p class="public-url" id="public-url">Server URL: <span id="url-display">Loading...</span></p>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Available Audio Files</h3>
+            <div id="audio-streams" class="streams-grid">
+                <p class="loading">Loading audio files...</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Dynamic Streams</h3>
+            <p class="info-text">These special endpoints serve different content based on time or other factors.</p>
+            <div class="dynamic-streams">
+                <div class="stream-card">
+                    <div class="stream-header">
+                        <h4>Time-Based Stream</h4>
+                        <span class="stream-type">Dynamic</span>
+                    </div>
+                    <p class="stream-url">/api/audio/dynamic/{card_id}.mp3</p>
+                    <p class="stream-description">Serves different audio based on time of day (morning, afternoon, evening)</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Create Streaming Card</h3>
+            <form id="create-card-form" class="card-form">
+                <div class="form-group">
+                    <label for="card-title">Card Title</label>
+                    <input type="text" id="card-title" required placeholder="My Story">
+                </div>
+                <div class="form-group">
+                    <label for="card-description">Description</label>
+                    <input type="text" id="card-description" placeholder="A wonderful tale">
+                </div>
+                <div class="form-group">
+                    <label for="audio-file">Audio File</label>
+                    <select id="audio-file" required>
+                        <option value="">Select an audio file...</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Create Card</button>
+                </div>
+            </form>
+            <div id="card-result" class="result-message" style="display: none;"></div>
+        </section>
+    </main>
+
+    <script src="/static/js/streams.js"></script>
+</body>
+</html>

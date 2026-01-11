@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoto Smart Stream - Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <h1>🎵 Yoto Stream</h1>
+        </div>
+        <ul class="nav-menu">
+            <li class="active"><a href="/">🏠 Dashboard</a></li>
+            <li><a href="/streams">🎵 Music Streams</a></li>
+            <li><a href="/api/docs" target="_blank">📚 API Docs</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p id="app-version">Loading...</p>
+        </div>
+    </nav>
+
+    <main class="content">
+        <header>
+            <h2>Dashboard</h2>
+            <div class="status-indicator" id="status">
+                <span class="dot"></span>
+                <span id="status-text">Checking...</span>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📱</div>
+                <div class="stat-content">
+                    <h3 id="player-count">-</h3>
+                    <p>Connected Players</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🎵</div>
+                <div class="stat-content">
+                    <h3 id="audio-count">-</h3>
+                    <p>Audio Files</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔌</div>
+                <div class="stat-content">
+                    <h3 id="mqtt-status">-</h3>
+                    <p>MQTT Status</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🌍</div>
+                <div class="stat-content">
+                    <h3 id="environment">-</h3>
+                    <p>Environment</p>
+                </div>
+            </div>
+        </div>
+
+        <section class="section">
+            <h3>Connected Players</h3>
+            <div id="players-list" class="list-container">
+                <p class="loading">Loading players...</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Audio Library</h3>
+            <div id="audio-list" class="list-container">
+                <p class="loading">Loading audio files...</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Quick Actions</h3>
+            <div class="actions-grid">
+                <button class="action-button" onclick="refreshData()">🔄 Refresh Data</button>
+                <a href="/api/docs" target="_blank" class="action-button">📖 API Documentation</a>
+                <a href="/streams" class="action-button">🎵 View Streams</a>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

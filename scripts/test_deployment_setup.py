@@ -94,7 +94,7 @@ def test_health_endpoint():
     server_path = Path("examples/basic_server.py")
     if server_path.exists():
         content = server_path.read_text()
-        if '@app.get("/health"' in content or '@app.get(\'/health\'' in content:
+        if '@app.get("/api/health"' in content or '@app.get(\'/api/health\'' in content:
             print("✅ Health endpoint exists in basic_server.py")
             return True
         else:

@@ -68,8 +68,9 @@ python examples/basic_server.py
 ```
 
 Available endpoints:
-- `GET /` - API info
-- `GET /health` - Health check
+- `GET /` - Web UI dashboard
+- `GET /api/status` - API info
+- `GET /api/health` - Health check
 - `GET /api/players` - List players
 - `GET /api/players/{id}` - Get player details
 - `POST /api/players/{id}/control` - Control player

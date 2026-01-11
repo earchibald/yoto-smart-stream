@@ -108,7 +108,7 @@ def wait_for_deployment(base_url: str, max_attempts: int = 30, delay: int = 10) 
 
     for attempt in range(1, max_attempts + 1):
         log_info(f"Attempt {attempt}/{max_attempts}")
-        status, _ = make_request(f"{base_url}/health", timeout=5)
+        status, _ = make_request(f"{base_url}/api/health", timeout=5)
 
         if status == 200:
             log_success("Deployment is ready!")
@@ -124,7 +124,7 @@ def validate_health_endpoint(base_url: str) -> bool:
     """Validate the health endpoint."""
     log_header("1. Testing Health Endpoint")
 
-    status, data = make_request(f"{base_url}/health")
+    status, data = make_request(f"{base_url}/api/health")
 
     if status != 200:
         log_error(f"Health check failed with status {status}")
@@ -218,7 +218,7 @@ def validate_railway_config() -> bool:
             all_present = False
 
     # Validate health check path
-    if '/health"' in content or "/health'" in content:
+    if '/api/health"' in content or "/api/health'" in content:
         log_success("  ✓ Health check path configured")
     else:
         log_warning("  ⚠ Health check path may not be configured")
