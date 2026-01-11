@@ -139,7 +139,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Volume Configuration from railway.toml:**" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`toml" >> $GITHUB_STEP_SUMMARY
-            grep -A 2 "volumes" railway.toml >> $GITHUB_STEP_SUMMARY || echo "Volume config" >> $GITHUB_STEP_SUMMARY
+            grep -A 2 "volumes" railway.toml >> $GITHUB_STEP_SUMMARY || echo "# Volume configuration present - see railway.toml for details" >> $GITHUB_STEP_SUMMARY
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
       
