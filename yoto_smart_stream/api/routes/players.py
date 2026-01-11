@@ -157,7 +157,6 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
     )
 
 
-
 @router.get("/players", response_model=list[PlayerInfo])
 async def list_players():
     """

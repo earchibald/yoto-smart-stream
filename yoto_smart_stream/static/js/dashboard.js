@@ -515,9 +515,9 @@ function formatTime(seconds) {
 }
 
 // Close modal when clicking outside of it
-window.onclick = function(event) {
+window.addEventListener('click', function(event) {
     const modal = document.getElementById('playerModal');
-    if (event.target === modal) {
+    if (modal && event.target === modal) {
         closePlayerModal();
     }
-}
+});
