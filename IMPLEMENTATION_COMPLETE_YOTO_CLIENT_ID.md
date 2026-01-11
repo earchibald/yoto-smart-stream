@@ -2,7 +2,7 @@
 
 ## Issue Identified
 
-**Problem**: YOTO_CLIENT_ID environment variable was not being available to the Railway-deployed service at startup, even though it was set in GitHub Secrets.
+**Problem**: YOTO_CLIENT_ID environment variable was not available to the Railway-deployed service at startup, even though it was set in GitHub Secrets.
 
 **Root Cause**: All Railway deployment workflows were setting environment variables AFTER running `railway up`, which meant the service started before the environment variables were configured. This created a race condition where the application would initialize without access to YOTO_CLIENT_ID.
 
@@ -144,7 +144,7 @@ If you see any of these, the fix may not be working:
 
 ### Rollback Plan
 If issues occur:
-1. Revert commits 10a6e9f and f68f53c
+1. Revert the workflow changes in this PR
 2. Or manually set YOTO_CLIENT_ID in Railway dashboard as workaround
 3. Application code remains unchanged, so no code rollback needed
 

@@ -113,6 +113,7 @@ You should see the FastAPI Swagger UI with all endpoints.
    - Go to repository Settings → Secrets and variables → Actions
    - Verify `YOTO_CLIENT_ID` is listed under "Repository secrets"
    - If missing, add it with your Yoto API client ID
+   - **Security Note**: Only repository administrators should have access to secrets. Never expose secrets in logs or commit them to the repository. The workflows use environment variables to pass secrets securely to Railway.
 
 2. **Check Railway Token:**
    - Verify `RAILWAY_TOKEN_DEV` secret exists in GitHub
