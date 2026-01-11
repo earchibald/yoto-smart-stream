@@ -232,6 +232,116 @@ async def get_player(player_id: str):
     return extract_player_detail_info(player_id, player)
 
 
+@router.get("/players/{player_id}/status")
+async def get_player_status(player_id: str):
+    """
+    Get device status from Yoto API.
+    
+    Fetches real-time status information directly from GET /device-v2/{deviceId}/status
+    including battery, connectivity, temperature, and sensor data.
+    
+    Args:
+        player_id: The unique identifier of the player
+        
+    Returns:
+        Raw device status data from Yoto API
+    """
+    client = get_yoto_client()
+    manager = client.get_manager()
+    
+    if player_id not in manager.players:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Player {player_id} not found"
+        )
+    
+    try:
+        access_token = client.get_access_token()
+        if not access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated with Yoto API"
+            )
+        
+        url = f"https://api.yotoplay.com/device-v2/{player_id}/status"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        return response.json()
+        
+    except requests.HTTPError as e:
+        logger.error(f"Failed to fetch device status: {e}")
+        raise HTTPException(
+            status_code=e.response.status_code if e.response else status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch device status: {str(e)}"
+        ) from e
+    except Exception as e:
+        logger.error(f"Error fetching device status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching device status: {str(e)}"
+        ) from e
+
+
+@router.get("/players/{player_id}/config")
+async def get_player_config(player_id: str):
+    """
+    Get device configuration from Yoto API.
+    
+    Fetches configuration settings directly from GET /device-v2/{deviceId}/config
+    including day/night modes, volume limits, display settings, and alarms.
+    
+    Args:
+        player_id: The unique identifier of the player
+        
+    Returns:
+        Raw device config data from Yoto API
+    """
+    client = get_yoto_client()
+    manager = client.get_manager()
+    
+    if player_id not in manager.players:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Player {player_id} not found"
+        )
+    
+    try:
+        access_token = client.get_access_token()
+        if not access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated with Yoto API"
+            )
+        
+        url = f"https://api.yotoplay.com/device-v2/{player_id}/config"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        return response.json()
+        
+    except requests.HTTPError as e:
+        logger.error(f"Failed to fetch device config: {e}")
+        raise HTTPException(
+            status_code=e.response.status_code if e.response else status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch device config: {str(e)}"
+        ) from e
+    except Exception as e:
+        logger.error(f"Error fetching device config: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching device config: {str(e)}"
+        ) from e
+
+
 @router.post("/players/{player_id}/control")
 async def control_player(player_id: str, control: PlayerControl):
     """

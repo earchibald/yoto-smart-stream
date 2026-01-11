@@ -368,14 +368,64 @@ async function showPlayerDetail(playerId) {
         // Clear previous technical info
         clearTechnicalInfo();
         
-        // Fetch player data from our API (includes both status and config)
+        // Fetch combined player data from our API
         const playerUrl = `${API_BASE}/players/${playerId}`;
         const playerResponse = await fetch(playerUrl);
         if (!playerResponse.ok) throw new Error('Failed to fetch player data');
         const playerData = await playerResponse.json();
         
-        // Store player data technical info
-        addTechnicalInfo('GET Player Data (Status + Config)', playerUrl, playerData);
+        // Store our combined endpoint (for reference)
+        addTechnicalInfo('GET Player (Combined)', playerUrl, playerData);
+        
+        // Fetch device status from Yoto API
+        const statusUrl = `${API_BASE}/players/${playerId}/status`;
+        try {
+            const statusResponse = await fetch(statusUrl);
+            if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                addTechnicalInfo('GET Device Status (Yoto API)', statusUrl, statusData);
+            } else {
+                const errorData = await statusResponse.text();
+                console.error('Device status request failed:', statusResponse.status, errorData);
+                addTechnicalInfo('GET Device Status (FAILED)', statusUrl, {
+                    error: true,
+                    status: statusResponse.status,
+                    statusText: statusResponse.statusText,
+                    details: errorData
+                });
+            }
+        } catch (statusError) {
+            console.error('Failed to fetch device status:', statusError);
+            addTechnicalInfo('GET Device Status (ERROR)', statusUrl, {
+                error: true,
+                message: statusError.message || String(statusError)
+            });
+        }
+        
+        // Fetch device config from Yoto API
+        const configUrl = `${API_BASE}/players/${playerId}/config`;
+        try {
+            const configResponse = await fetch(configUrl);
+            if (configResponse.ok) {
+                const configData = await configResponse.json();
+                addTechnicalInfo('GET Device Config (Yoto API)', configUrl, configData);
+            } else {
+                const errorData = await configResponse.text();
+                console.error('Device config request failed:', configResponse.status, errorData);
+                addTechnicalInfo('GET Device Config (FAILED)', configUrl, {
+                    error: true,
+                    status: configResponse.status,
+                    statusText: configResponse.statusText,
+                    details: errorData
+                });
+            }
+        } catch (configError) {
+            console.error('Failed to fetch device config:', configError);
+            addTechnicalInfo('GET Device Config (ERROR)', configUrl, {
+                error: true,
+                message: configError.message || String(configError)
+            });
+        }
         
         // Update modal with player data
         populatePlayerModal(playerData);
