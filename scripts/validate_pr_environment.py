@@ -21,7 +21,7 @@ import json
 import os
 import sys
 import time
-from typing import Dict, Optional, Tuple
+from typing import Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -62,7 +62,7 @@ def log_header(message: str) -> None:
     print(f"\n{Colors.BOLD}{message}{Colors.RESET}")
 
 
-def make_request(url: str, timeout: int = 10) -> Tuple[int, Optional[Dict]]:
+def make_request(url: str, timeout: int = 10) -> tuple[int, Optional[dict]]:
     """
     Make HTTP request and return status code and JSON response.
 
@@ -199,7 +199,7 @@ def validate_railway_config() -> bool:
     log_success("Railway config file exists")
 
     # Read and validate config
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         content = f.read()
 
     required_sections = [
@@ -238,7 +238,7 @@ def validate_github_workflow() -> bool:
     log_success("PR checks workflow exists")
 
     # Read and validate workflow
-    with open(workflow_path, "r") as f:
+    with open(workflow_path) as f:
         content = f.read()
 
     checks = [
