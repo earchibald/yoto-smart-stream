@@ -410,8 +410,11 @@ async function setPlayerVolume(playerId, volume) {
             throw new Error(error.detail || 'Failed to set volume');
         }
         
-        // Refresh players to sync state
-        await loadPlayers();
+        // Wait 2 seconds for MQTT to propagate before refreshing
+        // This prevents the old volume value from overwriting the UI
+        setTimeout(() => {
+            loadPlayers();
+        }, 2000);
         
     } catch (error) {
         console.error('Error setting volume:', error);

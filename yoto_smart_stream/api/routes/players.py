@@ -187,8 +187,9 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
     card_cover_url = None
 
     # Look up card metadata from library if we have an active card
-    if active_card and manager and hasattr(manager, 'library'):
+    if active_card and active_card != 'none' and manager and hasattr(manager, 'library'):
         try:
+            logger.debug(f"Looking up card {active_card} in library with {len(manager.library)} cards")
             # Use dictionary access like yoto_ha does
             if active_card in manager.library:
                 card = manager.library[active_card]
@@ -196,6 +197,9 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
                 card_author = getattr(card, 'author', None)
                 # yoto_ha uses cover_image_large
                 card_cover_url = getattr(card, 'cover_image_large', None)
+                logger.debug(f"Found card info: title={card_title}, author={card_author}")
+            else:
+                logger.warning(f"Card {active_card} not found in library")
         except Exception as e:
             logger.warning(f"Failed to get card info for {active_card}: {e}")
 
@@ -308,16 +312,20 @@ def extract_player_detail_info(player_id: str, player, manager=None) -> PlayerDe
     card_cover_url = None
 
     # Look up card metadata from library if we have an active card
-    if active_card and manager and hasattr(manager, 'library'):
+    if active_card and active_card != 'none' and manager and hasattr(manager, 'library'):
         try:
+            logger.debug(f\"[Detail] Looking up card {active_card} in library with {len(manager.library)} cards\")
             card = manager.library.get(active_card)
             if card:
                 card_title = getattr(card, 'title', None)
                 card_author = getattr(card, 'author', None)
                 # yoto_ha uses cover_image_large
                 card_cover_url = getattr(card, 'cover_image_large', None)
+                logger.debug(f\"[Detail] Found card info: title={card_title}, author={card_author}\")
+            else:
+                logger.warning(f\"[Detail] Card {active_card} not found in library\")
         except Exception as e:
-            logger.warning(f"Failed to get card info for {active_card}: {e}")
+            logger.warning(f\"Failed to get card info for {active_card}: {e}\")
 
     return PlayerDetailInfo(
         id=player_id,
