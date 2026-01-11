@@ -67,7 +67,7 @@ railway up -e development
 
 # Set environment variables
 railway variables set YOTO_CLIENT_ID="your_client_id" -e development
-railway variables set ENVIRONMENT="development" -e development
+# Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "development")
 railway variables set DEBUG="true" -e development
 ```
 
@@ -90,7 +90,7 @@ YOTO_CLIENT_ID="your_yoto_client_id"
 
 # Optional (for production server)
 PUBLIC_URL="https://yoto-smart-stream-development.up.railway.app"
-ENVIRONMENT="development"
+# Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "development")
 DEBUG="true"
 LOG_LEVEL="DEBUG"
 ```

@@ -86,7 +86,7 @@ railway link
 railway variables set YOTO_CLIENT_ID="your_client_id" -e staging
 railway variables set DEBUG=true -e staging
 railway variables set LOG_LEVEL=DEBUG -e staging
-railway variables set ENVIRONMENT=staging -e staging
+# Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway (e.g., "staging")
 
 # Repeat for development environment if needed
 railway variables set YOTO_CLIENT_ID="your_client_id" -e development

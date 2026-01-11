@@ -168,7 +168,8 @@ PORT, 8080)  # Auto-set by Railway
 HOST=0.0.0.0
 
 # Environment Settings
-ENVIRONMENT=staging  # or development
+# Note: RAILWAY_ENVIRONMENT_NAME is automatically set by Railway
+# (e.g., "staging", "production", "pr-123")
 DEBUG=true  # for non-production
 LOG_LEVEL=DEBUG  # or INFO for production
 
