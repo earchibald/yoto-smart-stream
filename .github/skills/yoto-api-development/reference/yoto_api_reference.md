@@ -493,23 +493,42 @@ yoto/{deviceId}/command
 
 ### YotoPlayer
 
+The `YotoPlayer` class from the `yoto_api` library contains data from both the REST API and MQTT. When extracting player data, be aware that MQTT data (real-time) is preferred over API data (snapshot).
+
 ```python
 class YotoPlayer:
+    # Device identification (from REST API)
     id: str  # Device ID
     name: str  # Device name
     device_type: str  # "v3", "v2", etc.
     online: bool
     
-    # Status
-    is_playing: bool
+    # Status from REST API (snapshot at last update)
+    is_playing: bool  # Boolean playing state from API
     active_card: str  # Card ID or "none"
-    battery_level_percentage: int
+    battery_level_percentage: int  # Battery percentage (0-100)
     charging: bool
-    user_volume: int
-    system_volume: int
+    user_volume: int  # User-configured volume (0-16)
+    system_volume: int  # System volume
     temperature_celcius: int
     wifi_strength: int
     firmware_version: str
+    
+    # Real-time status from MQTT (preferred for current state)
+    volume: int  # Current volume from MQTT (0-16)
+    volume_max: int  # Maximum volume
+    playback_status: str  # "playing", "paused", "stopped" - MQTT string
+    card_id: str  # Current card ID from MQTT
+    chapter_title: str
+    chapter_key: str
+    track_title: str
+    track_key: str
+    track_length: int  # seconds
+    track_position: int  # seconds
+    source: str  # "card" or other sources
+    repeat_all: bool
+    sleep_timer_active: bool
+    sleep_timer_seconds_remaining: int
     
     # Configuration
     config: YotoPlayerConfig
@@ -518,6 +537,33 @@ class YotoPlayer:
     last_updated_api: datetime
     last_updated_at: datetime
 ```
+
+#### Important: Extracting Player Data
+
+When building API responses or UI displays, prefer MQTT data over API data for real-time accuracy:
+
+**Volume**: Use `player.volume` (MQTT) with fallback to `player.user_volume` (API)
+```python
+volume = player.volume if player.volume is not None else (
+    player.user_volume if player.user_volume is not None else 8
+)
+```
+
+**Playing Status**: Parse `player.playback_status` (MQTT string) with fallback to `player.is_playing` (API boolean)
+```python
+playing = False
+if player.playback_status is not None:
+    playing = player.playback_status == "playing"
+elif player.is_playing is not None:
+    playing = player.is_playing
+```
+
+**Battery Level**: Use `player.battery_level_percentage` directly (can be None)
+```python
+battery_level = player.battery_level_percentage
+```
+
+**Note**: The `player.playing` attribute does NOT exist - use `playback_status` or `is_playing` instead.
 
 ### YotoPlayerConfig
 
