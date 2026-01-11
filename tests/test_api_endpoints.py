@@ -138,6 +138,11 @@ class TestStaticFiles:
         assert "playerRefreshInterval" in content
         assert "startPlayerAutoRefresh" in content
         assert "5000" in content  # 5 second interval
+        # Check for concurrent call prevention
+        assert "isLoadingPlayers" in content
+        # Check for cleanup on page unload
+        assert "beforeunload" in content
+        assert "stopPlayerAutoRefresh" in content
 
 
 class TestAPIEndpointOrganization:

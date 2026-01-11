@@ -9,6 +9,7 @@ let deviceCode = null;
 
 // Player refresh polling state
 let playerRefreshInterval = null;
+let isLoadingPlayers = false;
 
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,6 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Start auto-refresh for players every 5 seconds
     startPlayerAutoRefresh();
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    stopPlayerAutoRefresh();
 });
 
 // Check authentication status
@@ -204,6 +210,13 @@ async function loadSystemStatus() {
 async function loadPlayers() {
     const container = document.getElementById('players-list');
     
+    // Prevent concurrent API calls
+    if (isLoadingPlayers) {
+        return;
+    }
+    
+    isLoadingPlayers = true;
+    
     try {
         const response = await fetch(`${API_BASE}/players`);
         if (!response.ok) throw new Error('Failed to fetch players');
@@ -215,6 +228,7 @@ async function loadPlayers() {
         
         if (players.length === 0) {
             container.innerHTML = '<p class="loading">No players connected</p>';
+            isLoadingPlayers = false;
             return;
         }
         
@@ -238,6 +252,8 @@ async function loadPlayers() {
     } catch (error) {
         console.error('Error loading players:', error);
         container.innerHTML = '<p class="error-message">Failed to load players. Check your Yoto API authentication.</p>';
+    } finally {
+        isLoadingPlayers = false;
     }
 }
 
