@@ -214,13 +214,13 @@ async def get_player(player_id: str):
         Detailed player information including battery, firmware, WiFi, and playback status
     """
     client = get_yoto_client()
-    
+
     # Refresh player status to get latest information
     try:
         client.update_player_status()
     except Exception as e:
         logger.warning(f"Failed to refresh player status: {e}")
-    
+
     manager = client.get_manager()
 
     if player_id not in manager.players:
