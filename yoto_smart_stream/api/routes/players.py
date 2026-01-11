@@ -78,7 +78,7 @@ class PlayerControl(BaseModel):
     """Player control request model."""
 
     action: str = Field(
-        ..., description="Action to perform: play, pause, skip_forward, skip_backward"
+        ..., description="Action to perform: play, pause, stop, skip_forward, skip_backward, volume"
     )
     volume: Optional[int] = Field(None, ge=0, le=100, description="Volume level (0-100)")
 
@@ -452,17 +452,27 @@ async def control_player(player_id: str, control: PlayerControl):
             manager.pause_player(player_id)
         elif control.action == "play":
             manager.play_player(player_id)
+        elif control.action == "stop":
+            manager.stop_player(player_id)
         elif control.action == "skip_forward":
             manager.skip_chapter(player_id, direction="forward")
         elif control.action == "skip_backward":
             manager.skip_chapter(player_id, direction="backward")
+        elif control.action == "volume":
+            # Volume-only action
+            if control.volume is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, 
+                    detail="Volume value required for volume action"
+                )
+            manager.set_volume(player_id, control.volume)
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown action: {control.action}"
             )
 
-        # Set volume if provided
-        if control.volume is not None:
+        # Set volume if provided for other actions
+        if control.action != "volume" and control.volume is not None:
             manager.set_volume(player_id, control.volume)
 
         return {"success": True, "player_id": player_id, "action": control.action}

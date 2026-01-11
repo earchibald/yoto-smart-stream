@@ -259,7 +259,7 @@ async function loadPlayers() {
             }
             
             return `
-                <div class="list-item" onclick="showPlayerDetail('${escapeHtml(player.id)}')">
+                <div class="list-item player-card">
                     <div class="list-item-header">
                         <span class="list-item-title">${escapeHtml(player.name)}</span>
                         <span class="badge ${player.online ? 'online' : 'offline'}">
@@ -270,6 +270,30 @@ async function loadPlayers() {
                         <span>🔊 ${player.volume}%</span>
                         <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
                         ${indicators.map(ind => `<span>${ind}</span>`).join('')}
+                    </div>
+                    <div class="player-controls">
+                        <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'play')" title="Play" ${!player.online ? 'disabled' : ''}>
+                            ▶️
+                        </button>
+                        <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'pause')" title="Pause" ${!player.online ? 'disabled' : ''}>
+                            ⏸️
+                        </button>
+                        <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'stop')" title="Stop" ${!player.online ? 'disabled' : ''}>
+                            ⏹️
+                        </button>
+                        <div class="volume-control">
+                            <input type="range" 
+                                class="volume-slider" 
+                                min="0" 
+                                max="100" 
+                                value="${player.volume}" 
+                                onchange="setPlayerVolume('${escapeHtml(player.id)}', this.value)"
+                                ${!player.online ? 'disabled' : ''}>
+                            <span class="volume-label">${player.volume}%</span>
+                        </div>
+                        <button class="control-btn info-btn" onclick="showPlayerDetail('${escapeHtml(player.id)}')" title="Player Details">
+                            ℹ️
+                        </button>
                     </div>
                 </div>
             `;
@@ -306,6 +330,64 @@ function stopPlayerAutoRefresh() {
     if (playerRefreshInterval) {
         clearInterval(playerRefreshInterval);
         playerRefreshInterval = null;
+    }
+}
+
+// Player Control Functions
+
+/**
+ * Control a player (play, pause, stop)
+ */
+async function controlPlayer(playerId, action) {
+    try {
+        const response = await fetch(`${API_BASE}/players/${playerId}/control`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || `Failed to ${action} player`);
+        }
+        
+        // Refresh players to update UI
+        await loadPlayers();
+        
+    } catch (error) {
+        console.error(`Error controlling player:`, error);
+        alert(`Failed to ${action} player: ${error.message}`);
+    }
+}
+
+/**
+ * Set player volume
+ */
+async function setPlayerVolume(playerId, volume) {
+    try {
+        // Update the volume label immediately for responsiveness
+        const volumeLabel = event.target.nextElementSibling;
+        if (volumeLabel) {
+            volumeLabel.textContent = `${volume}%`;
+        }
+        
+        const response = await fetch(`${API_BASE}/players/${playerId}/control`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'volume', volume: parseInt(volume) })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to set volume');
+        }
+        
+        // Refresh players to sync state
+        await loadPlayers();
+        
+    } catch (error) {
+        console.error('Error setting volume:', error);
+        alert(`Failed to set volume: ${error.message}`);
     }
 }
 
