@@ -175,10 +175,12 @@ async def poll_auth_status(poll_request: AuthPollRequest):
         client.set_authenticated(True)
 
         # Save refresh token
-        if hasattr(client.manager.token, "refresh_token"):
+        if client.manager.token and client.manager.token.refresh_token:
             token_file = settings.yoto_refresh_token_file
             token_file.write_text(client.manager.token.refresh_token)
             logger.info(f"Refresh token saved to {token_file}")
+        else:
+            logger.error("No refresh token available after authentication!")
 
         # Update player status
         try:
