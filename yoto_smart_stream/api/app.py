@@ -42,10 +42,12 @@ async def periodic_token_refresh(yoto_client: YotoClient, interval_hours: int = 
         try:
             await asyncio.sleep(interval_seconds)
 
-            if yoto_client and yoto_client.is_authenticated():
+            if yoto_client.is_authenticated():
                 logger.info("Performing scheduled token refresh...")
                 try:
-                    yoto_client.ensure_authenticated()
+                    # Run sync method in thread pool to avoid blocking event loop
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, yoto_client.ensure_authenticated)
                     logger.info("✓ Token refresh successful")
                 except Exception as e:
                     logger.error(f"✗ Token refresh failed: {e}")

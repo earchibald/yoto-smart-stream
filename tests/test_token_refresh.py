@@ -25,10 +25,11 @@ def mock_yoto_client():
 @pytest.mark.asyncio
 async def test_periodic_token_refresh_success(mock_yoto_client):
     """Test that token refresh task successfully refreshes tokens."""
-    # We'll run the task for a very short interval and then cancel it
-    task = asyncio.create_task(periodic_token_refresh(mock_yoto_client, interval_hours=0.0001))
+    # Use a very short interval for testing: 0.0001 hours = 0.36 seconds
+    test_interval_hours = 0.0001
+    task = asyncio.create_task(periodic_token_refresh(mock_yoto_client, test_interval_hours))
 
-    # Wait a bit for at least one refresh cycle
+    # Wait for at least one refresh cycle (0.36s + buffer)
     await asyncio.sleep(0.5)
 
     # Cancel the task
@@ -48,10 +49,11 @@ async def test_periodic_token_refresh_handles_errors(mock_yoto_client):
     # Make ensure_authenticated raise an error
     mock_yoto_client.ensure_authenticated.side_effect = Exception("Refresh failed")
 
-    # Run the task for a short time
-    task = asyncio.create_task(periodic_token_refresh(mock_yoto_client, interval_hours=0.0001))
+    # Use a very short interval for testing: 0.0001 hours = 0.36 seconds
+    test_interval_hours = 0.0001
+    task = asyncio.create_task(periodic_token_refresh(mock_yoto_client, test_interval_hours))
 
-    # Wait a bit for at least one refresh cycle
+    # Wait for at least one refresh cycle (0.36s + buffer)
     await asyncio.sleep(0.5)
 
     # Cancel the task
@@ -70,10 +72,11 @@ async def test_periodic_token_refresh_skips_if_not_authenticated(mock_yoto_clien
     """Test that token refresh is skipped if client is not authenticated."""
     mock_yoto_client.is_authenticated.return_value = False
 
-    # Run the task for a short time
-    task = asyncio.create_task(periodic_token_refresh(mock_yoto_client, interval_hours=0.0001))
+    # Use a very short interval for testing: 0.0001 hours = 0.36 seconds
+    test_interval_hours = 0.0001
+    task = asyncio.create_task(periodic_token_refresh(mock_yoto_client, test_interval_hours))
 
-    # Wait a bit
+    # Wait for at least one cycle (0.36s + buffer)
     await asyncio.sleep(0.5)
 
     # Cancel the task
@@ -94,8 +97,9 @@ async def test_periodic_token_refresh_respects_interval():
     mock_client.is_authenticated.return_value = True
     mock_client.ensure_authenticated = MagicMock()
 
-    # Use a very small interval for testing (0.001 hours = 3.6 seconds)
-    task = asyncio.create_task(periodic_token_refresh(mock_client, interval_hours=0.001))
+    # Use a short but measurable interval for testing: 0.001 hours = 3.6 seconds
+    test_interval_hours = 0.001
+    task = asyncio.create_task(periodic_token_refresh(mock_client, test_interval_hours))
 
     # Wait less than one interval
     await asyncio.sleep(1)
