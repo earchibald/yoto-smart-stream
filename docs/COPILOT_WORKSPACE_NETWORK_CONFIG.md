@@ -39,15 +39,20 @@ setup:
   # Required for the Railway MCP server to function
   commands:
     - |
-      if ! command -v railway &> /dev/null; then
+      if ! command -v railway > /dev/null 2>&1; then
         echo "Installing Railway CLI..."
-        npm install -g @railway/cli
+        if npm install -g @railway/cli; then
+          echo "Railway CLI installed successfully: $(railway --version)"
+        else
+          echo "Warning: Failed to install Railway CLI. Railway MCP server may not function."
+          exit 0
+        fi
       else
         echo "Railway CLI already installed: $(railway --version)"
       fi
 ```
 
-The setup section ensures that the Railway CLI is installed when the Copilot Workspace starts. This is required for the Railway MCP server to function properly.
+The setup section ensures that the Railway CLI is installed when the Copilot Workspace starts. This is required for the Railway MCP server to function properly. The command includes error handling to gracefully handle installation failures without breaking the workspace startup.
 
 #### 1. Network Configuration
 
