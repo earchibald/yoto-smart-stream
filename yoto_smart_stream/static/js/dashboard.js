@@ -387,10 +387,24 @@ async function showPlayerDetail(playerId) {
                 
                 // Merge status data into config for display
                 Object.assign(playerConfig, playerStatus);
+            } else {
+                // Show the failed attempt with error details
+                const errorData = await statusResponse.text();
+                console.error('Device status request failed:', statusResponse.status, errorData);
+                addTechnicalInfo('GET Device Status (FAILED)', statusUrl, {
+                    error: true,
+                    status: statusResponse.status,
+                    statusText: statusResponse.statusText,
+                    details: errorData
+                });
             }
         } catch (statusError) {
-            console.warn('Failed to fetch device status:', statusError);
-            // Continue with config data only
+            console.error('Failed to fetch device status:', statusError);
+            // Show the error in technical info
+            addTechnicalInfo('GET Device Status (ERROR)', statusUrl, {
+                error: true,
+                message: statusError.message || String(statusError)
+            });
         }
         
         // Update modal with combined player data
