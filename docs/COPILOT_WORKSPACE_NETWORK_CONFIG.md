@@ -365,22 +365,34 @@ Only remove domains if:
 
 **Solutions:**
 
-1. **Verify MCP configuration exists:**
+1. **Verify environment setup ran successfully:**
+   ```bash
+   railway --version
+   ```
+   
+   If the Railway CLI is not installed, the workspace setup may not have run. Check:
+   ```bash
+   grep -A 10 "setup:" .github/copilot-workspace.yml
+   ```
+
+2. **Verify MCP configuration exists:**
    ```bash
    grep -A 10 "mcp_servers:" .github/copilot-workspace.yml
    ```
 
-2. **Check npx is available:**
+3. **Check npx is available:**
    ```bash
    npx --version
    ```
 
-3. **Test the Railway MCP server manually:**
+4. **Test the Railway MCP server manually:**
    ```bash
    npx -y @railway/mcp-server
    ```
+   
+   This should start the server (it will wait for JSON-RPC input). Press Ctrl+C to exit.
 
-4. **Restart Copilot Workspace:**
+5. **Restart Copilot Workspace:**
    - Configuration changes require a session restart
    - Close and reopen the workspace
 
@@ -391,31 +403,39 @@ Only remove domains if:
 - MCP server reports CLI is not available
 - Commands fail with "railway: command not found"
 
+**Note:** As of the latest configuration, the Railway CLI should be automatically installed by the workspace setup. If you're seeing these errors, the setup may not have run properly.
+
 **Solutions:**
 
-1. **Install Railway CLI:**
+1. **Verify the setup section exists in configuration:**
+   ```bash
+   grep -A 10 "setup:" .github/copilot-workspace.yml
+   ```
+   
+   If the setup section is missing, add it or restart the workspace.
+
+2. **Manually install Railway CLI (if needed):**
    ```bash
    # Using npm
    npm install -g @railway/cli
-   
-   # Or using curl
-   curl -fsSL https://railway.app/install.sh | sh
    ```
 
-2. **Verify installation:**
+3. **Verify installation:**
    ```bash
    railway --version
    ```
 
-3. **Login to Railway:**
+4. **Login to Railway:**
    ```bash
    railway login
    ```
 
-4. **Set RAILWAY_TOKEN (for CI/CD):**
+5. **Set RAILWAY_TOKEN (for CI/CD):**
    ```bash
    export RAILWAY_TOKEN="your-token-here"
    ```
+
+**Note:** The automatic installation in `.github/copilot-workspace.yml` should prevent this issue in most cases.
 
 #### MCP Server Commands Fail
 
