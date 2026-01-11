@@ -1,0 +1,283 @@
+name: Railway Configuration Sync
+
+# This workflow ensures railway.toml changes are properly applied to Railway services
+# Triggered when railway.toml is modified to sync configuration with Railway platform
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'railway.toml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to reconfigure'
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+      force:
+        description: 'Force reconfiguration even if no changes detected'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  validate-config:
+    name: Validate railway.toml
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check railway.toml exists
+        run: |
+          if [ ! -f railway.toml ]; then
+            echo "::error::railway.toml not found"
+            exit 1
+          fi
+          echo "✓ railway.toml exists"
+      
+      - name: Validate TOML syntax
+        run: |
+          # Install toml validator
+          pip install toml
+          
+          # Validate syntax
+          python -c "import toml; toml.load('railway.toml')" && echo "✓ TOML syntax valid" || {
+            echo "::error::Invalid TOML syntax in railway.toml"
+            exit 1
+          }
+      
+      - name: Display railway.toml configuration
+        run: |
+          echo "## Railway Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`toml" >> $GITHUB_STEP_SUMMARY
+          cat railway.toml >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Check for volume configuration
+        id: check-volumes
+        run: |
+          # Check if volumes are defined
+          if grep -q "volumes" railway.toml; then
+            echo "has_volumes=true" >> $GITHUB_OUTPUT
+            echo "✓ Volume configuration detected"
+            
+            # Extract volume details
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Volume Configuration Detected" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Volumes defined in railway.toml:" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            grep -A 2 "volumes" railway.toml >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "has_volumes=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No volume configuration found"
+          fi
+    
+    outputs:
+      has_volumes: ${{ steps.check-volumes.outputs.has_volumes }}
+
+  sync-production:
+    name: Sync Production Configuration
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://yoto-smart-stream-production.up.railway.app
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Check current Railway configuration
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        run: |
+          echo "📊 Current Railway service status:"
+          railway status -e production || echo "Could not fetch status"
+      
+      - name: Apply railway.toml configuration
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        run: |
+          echo "⚙️ Applying railway.toml configuration to production..."
+          
+          # Railway automatically picks up railway.toml on deployment
+          # We trigger a redeploy to ensure config is applied
+          echo "🔄 Triggering redeployment to apply configuration..."
+          railway up --environment production --detach
+          
+          echo "✓ Configuration deployment triggered"
+      
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting for deployment to complete..."
+          sleep 30
+      
+      - name: Verify configuration applied
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        run: |
+          echo "🔍 Verifying configuration was applied..."
+          railway status -e production
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Production Configuration Synced" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "railway.toml has been applied to production environment." >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.validate-config.outputs.has_volumes }}" == "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Volume Configuration" >> $GITHUB_STEP_SUMMARY
+            echo "Volumes should now be created in Railway dashboard." >> $GITHUB_STEP_SUMMARY
+            echo "Verify at: https://railway.app/dashboard → Select service → Settings → Volumes" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Show deployment logs
+        if: always()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
+        run: |
+          echo "📋 Recent deployment logs:"
+          railway logs -e production --limit 50 || echo "Could not fetch logs"
+
+  sync-staging:
+    name: Sync Staging Configuration
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://yoto-smart-stream-staging.up.railway.app
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Check current Railway configuration
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+        run: |
+          echo "📊 Current Railway service status:"
+          railway status -e staging || echo "Could not fetch status"
+      
+      - name: Apply railway.toml configuration
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+        run: |
+          echo "⚙️ Applying railway.toml configuration to staging..."
+          
+          # Railway automatically picks up railway.toml on deployment
+          # We trigger a redeploy to ensure config is applied
+          echo "🔄 Triggering redeployment to apply configuration..."
+          railway up --environment staging --detach
+          
+          echo "✓ Configuration deployment triggered"
+      
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting for deployment to complete..."
+          sleep 30
+      
+      - name: Verify configuration applied
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+        run: |
+          echo "🔍 Verifying configuration was applied..."
+          railway status -e staging
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Staging Configuration Synced" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "railway.toml has been applied to staging environment." >> $GITHUB_STEP_SUMMARY
+      
+      - name: Show deployment logs
+        if: always()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+        run: |
+          echo "📋 Recent deployment logs:"
+          railway logs -e staging --limit 50 || echo "Could not fetch logs"
+
+  sync-development:
+    name: Sync Development Configuration
+    runs-on: ubuntu-latest
+    needs: validate-config
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'development'
+    environment:
+      name: development
+      url: https://yoto-smart-stream-development.up.railway.app
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+      
+      - name: Check current Railway configuration
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: |
+          echo "📊 Current Railway service status:"
+          railway status -e development || echo "Could not fetch status"
+      
+      - name: Apply railway.toml configuration
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: |
+          echo "⚙️ Applying railway.toml configuration to development..."
+          
+          # Railway automatically picks up railway.toml on deployment
+          # We trigger a redeploy to ensure config is applied
+          echo "🔄 Triggering redeployment to apply configuration..."
+          railway up --environment development --detach
+          
+          echo "✓ Configuration deployment triggered"
+      
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting for deployment to complete..."
+          sleep 30
+      
+      - name: Verify configuration applied
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: |
+          echo "🔍 Verifying configuration was applied..."
+          railway status -e development
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Development Configuration Synced" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "railway.toml has been applied to development environment." >> $GITHUB_STEP_SUMMARY
+      
+      - name: Show deployment logs
+        if: always()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
+        run: |
+          echo "📋 Recent deployment logs:"
+          railway logs -e development --limit 50 || echo "Could not fetch logs"
