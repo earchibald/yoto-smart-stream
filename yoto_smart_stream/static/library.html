@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoto Library - Yoto Smart Stream</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <h1>🎵 Yoto Stream</h1>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="/">🏠 Dashboard</a></li>
+            <li><a href="/streams">🎵 Music Streams</a></li>
+            <li class="active"><a href="/library">📚 Library</a></li>
+            <li><a href="/docs" target="_blank">📖 API Docs</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p id="app-version">Loading...</p>
+        </div>
+    </nav>
+
+    <main class="content">
+        <header>
+            <h2>Your Yoto Library</h2>
+            <div class="status-indicator" id="status">
+                <span class="dot"></span>
+                <span id="status-text">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Authentication Message -->
+        <section class="section" id="auth-message" style="display: none;">
+            <div class="auth-container">
+                <div class="auth-icon">🔐</div>
+                <h3>Authentication Required</h3>
+                <p>Please authenticate with your Yoto account from the <a href="/">Dashboard</a> to view your library.</p>
+            </div>
+        </section>
+
+        <!-- Library Stats -->
+        <div class="stats-grid" id="stats-grid" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-icon">🎵</div>
+                <div class="stat-content">
+                    <h3 id="card-count">-</h3>
+                    <p>Cards</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📁</div>
+                <div class="stat-content">
+                    <h3 id="playlist-count">-</h3>
+                    <p>Playlists</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cards Section -->
+        <section class="section" id="cards-section" style="display: none;">
+            <div class="section-header">
+                <h3>Your Cards</h3>
+                <button class="refresh-btn" onclick="refreshLibrary()">🔄 Refresh</button>
+            </div>
+            <div id="cards-grid" class="library-grid">
+                <p class="loading">Loading cards...</p>
+            </div>
+        </section>
+
+        <!-- Playlists Section -->
+        <section class="section" id="playlists-section" style="display: none;">
+            <div class="section-header">
+                <h3>Your Playlists</h3>
+            </div>
+            <div id="playlists-list" class="list-container">
+                <p class="loading">Loading playlists...</p>
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="section" id="actions-section" style="display: none;">
+            <h3>Quick Actions</h3>
+            <div class="actions-grid">
+                <a href="/" class="action-button">🏠 Back to Dashboard</a>
+                <a href="/streams" class="action-button">🎵 View Streams</a>
+                <a href="/docs" target="_blank" class="action-button">📖 API Documentation</a>
+            </div>
+        </section>
+    </main>
+
+    <!-- Content Details Modal -->
+    <div id="content-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-content-title">Content Details</h3>
+                <span class="modal-close" id="modal-close-btn">&times;</span>
+            </div>
+            <div class="modal-body" id="modal-content-body">
+                <p class="loading">Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/library.js"></script>
+</body>
+</html>
