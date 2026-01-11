@@ -396,12 +396,19 @@ builder = "NIXPACKS"
 buildCommand = "pip install -r requirements.txt"
 
 [deploy]
-startCommand = "uvicorn examples.basic_server:app --host 0.0.0.0 --port $PORT"
-healthcheckPath = "/health"
+startCommand = "uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+# Persistent volume for OAuth tokens and other data
+[[deploy.volumes]]
+name = "data"
+mountPath = "/data"
 ```
+
+**Persistent Storage**: The `/data` volume ensures that Yoto OAuth refresh tokens persist across deployments and instance restarts. Without this volume, you would need to re-authenticate via OAuth after every deployment.
 
 ### .github/workflows/railway-deploy.yml
 

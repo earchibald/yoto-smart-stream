@@ -181,7 +181,7 @@ class TestTokenFilePath:
         """Test that local development uses default .yoto_refresh_token path."""
         # Clear Railway environment variable
         monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
-        
+
         settings = Settings()
         # Should use current directory
         assert settings.yoto_refresh_token_file.name == ".yoto_refresh_token"
@@ -191,22 +191,22 @@ class TestTokenFilePath:
     def test_railway_uses_persistent_volume(self, monkeypatch, tmp_path):
         """Test that Railway environment uses /data volume for token."""
         monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
-        
+
         # Mock the /data directory to use tmp_path for testing
         data_dir = tmp_path / "data"
         data_dir.mkdir(exist_ok=True)
-        
+
         # Patch Path to redirect /data to our test directory
         import yoto_smart_stream.config
         original_path = yoto_smart_stream.config.Path
-        
+
         def mock_path(path_str):
             if path_str == "/data":
                 return data_dir
             return original_path(path_str)
-        
+
         monkeypatch.setattr("yoto_smart_stream.config.Path", mock_path)
-        
+
         settings = Settings()
         assert settings.yoto_refresh_token_file.name == ".yoto_refresh_token"
         # Should be under data directory
@@ -215,7 +215,7 @@ class TestTokenFilePath:
     def test_railway_staging_uses_persistent_volume(self, monkeypatch):
         """Test that Railway staging environment also uses persistent volume."""
         monkeypatch.setenv("RAILWAY_ENVIRONMENT", "staging")
-        
+
         settings = Settings()
         # Should use /data path on Railway
         assert str(settings.yoto_refresh_token_file).startswith("/data")
@@ -223,7 +223,7 @@ class TestTokenFilePath:
     def test_railway_pr_environment_uses_persistent_volume(self, monkeypatch):
         """Test that Railway PR environments use persistent volume."""
         monkeypatch.setenv("RAILWAY_ENVIRONMENT", "pr-123")
-        
+
         settings = Settings()
         # Should use /data path on Railway
         assert str(settings.yoto_refresh_token_file).startswith("/data")
@@ -231,9 +231,9 @@ class TestTokenFilePath:
     def test_custom_token_file_path_local(self, monkeypatch, tmp_path):
         """Test that custom token file path works in local development."""
         monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
-        
+
         custom_path = tmp_path / "custom_token.txt"
         monkeypatch.setenv("YOTO_REFRESH_TOKEN_FILE", str(custom_path))
-        
+
         settings = Settings()
         assert settings.yoto_refresh_token_file == custom_path

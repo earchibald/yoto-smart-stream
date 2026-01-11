@@ -70,13 +70,13 @@ class Settings(BaseSettings):
     def get_token_file_path(cls, v):
         """
         Get token file path based on environment.
-        
+
         Uses /data directory for Railway deployments (persistent volume),
         falls back to local path for development.
         """
         # Check if running on Railway (has RAILWAY_ENVIRONMENT set)
         railway_env = os.environ.get("RAILWAY_ENVIRONMENT")
-        
+
         if railway_env:
             # On Railway, use persistent volume at /data
             data_dir = Path("/data")
@@ -89,7 +89,7 @@ class Settings(BaseSettings):
                 # Use the path anyway - it will be created at runtime on Railway
                 pass
             return data_dir / ".yoto_refresh_token"
-        
+
         # Local development - use current directory or provided value
         if isinstance(v, (str, Path)):
             return Path(v)
@@ -143,12 +143,12 @@ def get_settings() -> Settings:
 def log_configuration(settings: Settings) -> None:
     """
     Log configuration details for debugging.
-    
+
     This should be called after logging is configured.
     """
     import os
     logger = logging.getLogger(__name__)
-    
+
     logger.info("=" * 60)
     logger.info("YOTO SMART STREAM CONFIGURATION")
     logger.info("=" * 60)

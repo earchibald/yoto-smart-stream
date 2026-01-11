@@ -257,27 +257,69 @@ RAILWAY_GIT_COMMIT_SHA  # Commit SHA
 
 ### Volumes
 
-**What:** Persistent storage that survives deployments.
+**What:** Persistent storage that survives deployments and restarts.
 
 **Use Cases:**
 - File uploads
 - SQLite databases
 - Logs
 - Cache files
+- Authentication tokens (e.g., OAuth refresh tokens)
 
-**Example:**
+**Configuration in railway.toml:**
+```toml
+# railway.toml
+[deploy]
+# Define persistent volumes
+[[deploy.volumes]]
+name = "uploads"
+mountPath = "/app/uploads"
+
+[[deploy.volumes]]
+name = "data"
+mountPath = "/data"
+```
+
+**Alternative Array Syntax:**
 ```toml
 # railway.toml
 [deploy]
 volumes = [
   { name = "uploads", mountPath = "/app/uploads" },
-  { name = "data", mountPath = "/app/data" }
+  { name = "data", mountPath = "/data" }
 ]
+```
+
+**Best Practices:**
+- Use absolute paths for mount points (e.g., `/data`, `/app/uploads`)
+- Ensure your application creates parent directories if they don't exist
+- Volumes are specific to each environment (production, staging, PR environments each have separate volumes)
+- Volume data persists across deployments but is tied to the service instance
+
+**Real-World Example - Persistent Auth Tokens:**
+```toml
+# railway.toml - Store OAuth refresh tokens
+[[deploy.volumes]]
+name = "data"
+mountPath = "/data"
+```
+
+```python
+# config.py - Use volume for token storage
+import os
+from pathlib import Path
+
+def get_token_path():
+    # Use /data volume on Railway, local path in development
+    if os.environ.get("RAILWAY_ENVIRONMENT"):
+        return Path("/data/.yoto_refresh_token")
+    return Path(".yoto_refresh_token")
 ```
 
 **Limitations:**
 - Not suitable for multi-replica services (no shared filesystem)
-- For shared storage, use S3 or similar object storage
+- For shared storage across replicas, use S3, Cloudinary, or similar object storage
+- Volume size limits apply (check Railway dashboard for current limits)
 
 ### Databases
 
