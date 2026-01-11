@@ -7,6 +7,23 @@ const API_BASE = '/api';
 document.addEventListener('DOMContentLoaded', () => {
     loadSystemStatus();
     loadLibrary();
+    
+    // Setup modal close handlers
+    const closeBtn = document.getElementById('modal-close-btn');
+    const modal = document.getElementById('content-modal');
+    
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeContentModal);
+    }
+    
+    // Close modal when clicking outside
+    if (modal) {
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                closeContentModal();
+            }
+        });
+    }
 });
 
 // Load system status
@@ -237,14 +254,6 @@ async function showContentDetails(contentId, contentTitle) {
 function closeContentModal() {
     const modal = document.getElementById('content-modal');
     modal.style.display = 'none';
-}
-
-// Close modal when clicking outside
-window.onclick = function(event) {
-    const modal = document.getElementById('content-modal');
-    if (event.target === modal) {
-        closeContentModal();
-    }
 }
 
 // Format duration in seconds to readable format

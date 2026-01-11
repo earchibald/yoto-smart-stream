@@ -1,6 +1,7 @@
 """Library management endpoints for viewing Yoto cards and playlists."""
 
 import logging
+import re
 
 import requests
 from fastapi import APIRouter, HTTPException, status
@@ -150,7 +151,6 @@ async def get_content_details(content_id: str):
     """
     try:
         # Validate content_id format (alphanumeric, hyphens, underscores only)
-        import re
         if not re.match(r'^[a-zA-Z0-9_-]+$', content_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
