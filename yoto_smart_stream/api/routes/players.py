@@ -113,27 +113,92 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
     Returns:
         PlayerDetailInfo with all available data
     """
-    # Get volume
+    # Get volume - try both snake_case and camelCase
     volume = getattr(player, 'volume', None)
     if volume is None:
         volume = getattr(player, 'user_volume', None)
+    if volume is None:
+        volume = getattr(player, 'userVolume', None)
     if volume is None:
         volume = 8
 
     # Get playing status
     playing = False
-    playback_status = getattr(player, 'playback_status', None)
+    playback_status = getattr(player, 'playback_status', None) or getattr(player, 'playbackStatus', None)
     if playback_status is not None:
         playing = playback_status == "playing"
     else:
-        is_playing = getattr(player, 'is_playing', None)
+        is_playing = getattr(player, 'is_playing', None) or getattr(player, 'isPlaying', None)
         if is_playing is not None:
             playing = is_playing
 
     # Map power source integer to string
-    power_source_map = {0: "Unknown", 1: "AC Power", 2: "Battery", 3: "Wireless Charging"}
-    power_source_int = getattr(player, 'power_source', None)
+    power_source_map = {0: "Battery", 1: "V2 Dock", 2: "USB-C", 3: "Qi Dock"}
+    power_source_int = getattr(player, 'power_source', None) or getattr(player, 'powerSource', None)
     power_source = power_source_map.get(power_source_int) if power_source_int is not None else None
+
+    # Get charging status - try both naming conventions
+    is_charging = getattr(player, 'is_charging', None)
+    if is_charging is None:
+        is_charging = getattr(player, 'isCharging', None)
+    # Convert from integer if needed (0=not charging, 1=charging)
+    if isinstance(is_charging, int):
+        is_charging = bool(is_charging)
+
+    # Get battery level
+    battery_level = getattr(player, 'battery_level_percentage', None)
+    if battery_level is None:
+        battery_level = getattr(player, 'batteryLevelPercentage', None)
+
+    # Get firmware version
+    firmware_version = getattr(player, 'firmware_version', None)
+    if firmware_version is None:
+        firmware_version = getattr(player, 'firmwareVersion', None)
+
+    # Get wifi strength
+    wifi_strength = getattr(player, 'wifi_strength', None)
+    if wifi_strength is None:
+        wifi_strength = getattr(player, 'wifiStrength', None)
+
+    # Get temperature
+    temperature = getattr(player, 'temperature_celsius', None)
+    if temperature is None:
+        temperature = getattr(player, 'temperatureCelsius', None)
+
+    # Get active card
+    active_card = getattr(player, 'active_card', None)
+    if active_card is None:
+        active_card = getattr(player, 'activeCard', None)
+
+    # Get playback position
+    playback_position = getattr(player, 'playback_position', None)
+    if playback_position is None:
+        playback_position = getattr(player, 'playbackPosition', None)
+
+    # Get track length
+    track_length = getattr(player, 'track_length', None)
+    if track_length is None:
+        track_length = getattr(player, 'trackLength', None)
+
+    # Get current chapter
+    current_chapter = getattr(player, 'current_chapter', None)
+    if current_chapter is None:
+        current_chapter = getattr(player, 'currentChapter', None)
+
+    # Get nightlight mode
+    nightlight_mode = getattr(player, 'nightlight_mode', None)
+    if nightlight_mode is None:
+        nightlight_mode = getattr(player, 'nightlightMode', None)
+
+    # Get day mode
+    day_mode = getattr(player, 'day_mode', None)
+    if day_mode is None:
+        day_mode = getattr(player, 'dayMode', None)
+
+    # Get device type
+    device_type = getattr(player, 'device_type', None)
+    if device_type is None:
+        device_type = getattr(player, 'deviceType', None)
 
     return PlayerDetailInfo(
         id=player_id,
@@ -141,20 +206,20 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
         online=player.online,
         volume=volume,
         playing=playing,
-        battery_level=getattr(player, 'battery_level_percentage', None),
-        is_charging=getattr(player, 'is_charging', None),
-        firmware_version=getattr(player, 'firmware_version', None),
-        wifi_strength=getattr(player, 'wifi_strength', None),
-        temperature=getattr(player, 'temperature_celsius', None),
-        active_card=getattr(player, 'active_card', None),
+        battery_level=battery_level,
+        is_charging=is_charging,
+        firmware_version=firmware_version,
+        wifi_strength=wifi_strength,
+        temperature=temperature,
+        active_card=active_card,
         playback_status=playback_status,
-        playback_position=getattr(player, 'playback_position', None),
-        track_length=getattr(player, 'track_length', None),
-        current_chapter=getattr(player, 'current_chapter', None),
-        nightlight_mode=getattr(player, 'nightlight_mode', None),
-        day_mode=getattr(player, 'day_mode', None),
+        playback_position=playback_position,
+        track_length=track_length,
+        current_chapter=current_chapter,
+        nightlight_mode=nightlight_mode,
+        day_mode=day_mode,
         power_source=power_source,
-        device_type=getattr(player, 'device_type', None),
+        device_type=device_type,
     )
 
 
