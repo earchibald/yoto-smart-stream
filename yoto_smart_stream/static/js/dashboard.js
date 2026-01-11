@@ -368,47 +368,17 @@ async function showPlayerDetail(playerId) {
         // Clear previous technical info
         clearTechnicalInfo();
         
-        // Fetch player config from our API (includes combined data)
-        const configUrl = `${API_BASE}/players/${playerId}`;
-        const configResponse = await fetch(configUrl);
-        if (!configResponse.ok) throw new Error('Failed to fetch player config');
-        const playerConfig = await configResponse.json();
+        // Fetch player data from our API (includes both status and config)
+        const playerUrl = `${API_BASE}/players/${playerId}`;
+        const playerResponse = await fetch(playerUrl);
+        if (!playerResponse.ok) throw new Error('Failed to fetch player data');
+        const playerData = await playerResponse.json();
         
-        // Store config technical info
-        addTechnicalInfo('GET Device Config', configUrl, playerConfig);
+        // Store player data technical info
+        addTechnicalInfo('GET Player Data (Status + Config)', playerUrl, playerData);
         
-        // Fetch device status directly from Yoto API
-        const statusUrl = `${API_BASE}/players/${playerId}/status`;
-        try {
-            const statusResponse = await fetch(statusUrl);
-            if (statusResponse.ok) {
-                const playerStatus = await statusResponse.json();
-                addTechnicalInfo('GET Device Status', statusUrl, playerStatus);
-                
-                // Merge status data into config for display
-                Object.assign(playerConfig, playerStatus);
-            } else {
-                // Show the failed attempt with error details
-                const errorData = await statusResponse.text();
-                console.error('Device status request failed:', statusResponse.status, errorData);
-                addTechnicalInfo('GET Device Status (FAILED)', statusUrl, {
-                    error: true,
-                    status: statusResponse.status,
-                    statusText: statusResponse.statusText,
-                    details: errorData
-                });
-            }
-        } catch (statusError) {
-            console.error('Failed to fetch device status:', statusError);
-            // Show the error in technical info
-            addTechnicalInfo('GET Device Status (ERROR)', statusUrl, {
-                error: true,
-                message: statusError.message || String(statusError)
-            });
-        }
-        
-        // Update modal with combined player data
-        populatePlayerModal(playerConfig);
+        // Update modal with player data
+        populatePlayerModal(playerData);
         
         // Show content, hide loading
         loadingEl.style.display = 'none';
