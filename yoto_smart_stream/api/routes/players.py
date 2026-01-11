@@ -58,6 +58,11 @@ class PlayerDetailInfo(BaseModel):
     chapter_title: Optional[str] = None
     track_title: Optional[str] = None
     
+    # Card/Album Info (from library)
+    card_title: Optional[str] = None  # Album name
+    card_author: Optional[str] = None  # Artist name
+    card_cover_url: Optional[str] = None  # Album art
+    
     # Modes & Settings
     nightlight_mode: Optional[str] = None
     day_mode: Optional[bool] = None
@@ -127,7 +132,7 @@ def extract_player_info(player_id: str, player) -> PlayerInfo:
     )
 
 
-def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
+def extract_player_detail_info(player_id: str, player, manager=None) -> PlayerDetailInfo:
     """
     Extract comprehensive PlayerDetailInfo from a YotoPlayer object.
     
@@ -137,6 +142,7 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
     Args:
         player_id: The player's unique identifier
         player: YotoPlayer object from yoto_api library
+        manager: YotoManager object (optional, for library access)
 
     Returns:
         PlayerDetailInfo with all available data
@@ -207,6 +213,23 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
     
     # Power source - not directly exposed as attribute, would need config parsing
     power_source = None
+    
+    # Card/Album info from library (like yoto_ha media_album_name, media_artist, media_image_url)
+    card_title = None
+    card_author = None
+    card_cover_url = None
+    
+    # Look up card metadata from library if we have an active card
+    if active_card and manager and hasattr(manager, 'library'):
+        try:
+            card = manager.library.get(active_card)
+            if card:
+                card_title = getattr(card, 'title', None)
+                card_author = getattr(card, 'author', None)
+                # yoto_ha uses cover_image_large
+                card_cover_url = getattr(card, 'cover_image_large', None)
+        except Exception as e:
+            logger.warning(f"Failed to get card info for {active_card}: {e}")
 
     return PlayerDetailInfo(
         id=player_id,
@@ -230,6 +253,9 @@ def extract_player_detail_info(player_id: str, player) -> PlayerDetailInfo:
         current_track=current_track,
         chapter_title=chapter_title,
         track_title=track_title,
+        card_title=card_title,
+        card_author=card_author,
+        card_cover_url=card_cover_url,
         nightlight_mode=nightlight_mode,
         day_mode=day_mode,
         bluetooth_audio_connected=bluetooth_audio_connected,
@@ -311,7 +337,7 @@ async def get_player(player_id: str):
         )
 
     player = manager.players[player_id]
-    return extract_player_detail_info(player_id, player)
+    return extract_player_detail_info(player_id, player, manager)
 
 
 @router.get("/players/{player_id}/status")

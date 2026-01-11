@@ -244,15 +244,29 @@ header h2 {
 .now-playing-label {
     font-size: 1.1rem;
     opacity: 0.9;
+    flex-shrink: 0;
+}
+
+.now-playing-info {
+    flex: 1;
+    min-width: 0;
 }
 
 .now-playing-title {
-    flex: 1;
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.now-playing-track {
+    font-size: 0.8rem;
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 0.2rem;
 }
 
 /* Player Card Controls */

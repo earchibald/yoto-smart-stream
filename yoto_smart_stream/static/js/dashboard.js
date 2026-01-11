@@ -260,14 +260,27 @@ async function loadPlayers() {
             
             // Build media display (what's playing)
             let mediaInfo = '';
-            if (player.active_card && (player.chapter_title || player.track_title)) {
-                const title = player.chapter_title && player.track_title && player.chapter_title !== player.track_title
-                    ? `${player.chapter_title} - ${player.track_title}`
-                    : (player.chapter_title || player.track_title);
+            if (player.active_card) {
+                // Card/Album info (like yoto_ha media_album_name, media_artist)
+                const cardTitle = player.card_title || 'Unknown Card';
+                const cardAuthor = player.card_author ? ` by ${player.card_author}` : '';
+                
+                // Chapter/Track info (like yoto_ha media_title)
+                let trackInfo = '';
+                if (player.chapter_title || player.track_title) {
+                    const title = player.chapter_title && player.track_title && player.chapter_title !== player.track_title
+                        ? `${player.chapter_title} - ${player.track_title}`
+                        : (player.chapter_title || player.track_title);
+                    trackInfo = `<div class="now-playing-track">${escapeHtml(title)}</div>`;
+                }
+                
                 mediaInfo = `
                     <div class="now-playing">
                         <span class="now-playing-label">♫</span>
-                        <span class="now-playing-title">${escapeHtml(title)}</span>
+                        <div class="now-playing-info">
+                            <div class="now-playing-title">${escapeHtml(cardTitle)}${escapeHtml(cardAuthor)}</div>
+                            ${trackInfo}
+                        </div>
                     </div>
                 `;
             }
@@ -709,6 +722,22 @@ function populatePlayerModal(player) {
     if (player.active_card && player.active_card !== 'none') {
         playbackSection.style.display = 'block';
         document.getElementById('modalPlayerActiveCard').textContent = player.active_card;
+        
+        // Card info from library
+        const cardTitleRow = document.getElementById('modalCardTitleRow');
+        const cardAuthorRow = document.getElementById('modalCardAuthorRow');
+        if (player.card_title) {
+            cardTitleRow.style.display = 'flex';
+            document.getElementById('modalCardTitle').textContent = player.card_title;
+        } else {
+            cardTitleRow.style.display = 'none';
+        }
+        if (player.card_author) {
+            cardAuthorRow.style.display = 'flex';
+            document.getElementById('modalCardAuthor').textContent = player.card_author;
+        } else {
+            cardAuthorRow.style.display = 'none';
+        }
         
         // Chapter with title
         const chapterEl = document.getElementById('modalPlayerChapter');
