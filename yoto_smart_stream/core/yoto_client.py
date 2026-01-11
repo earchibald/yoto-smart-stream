@@ -121,6 +121,31 @@ class YotoClient:
             raise RuntimeError("Client not authenticated. Call authenticate() first.")
         return self.manager
 
+    def get_access_token(self) -> Optional[str]:
+        """
+        Get the current access token from the YotoManager.
+        
+        Returns:
+            Access token string, or None if not available
+            
+        Raises:
+            RuntimeError: If not authenticated
+        """
+        if not self.is_authenticated():
+            raise RuntimeError("Client not authenticated. Call authenticate() first.")
+        
+        # The yoto_api library stores the token in the manager's token attribute
+        if hasattr(self.manager, 'token'):
+            return self.manager.token
+        # Fallback: check for access_token attribute
+        elif hasattr(self.manager, 'access_token'):
+            return self.manager.access_token
+        # Another fallback: check in the authentication object
+        elif hasattr(self.manager, '_auth') and hasattr(self.manager._auth, 'access_token'):
+            return self.manager._auth.access_token
+        
+        return None
+
     def set_authenticated(self, authenticated: bool) -> None:
         """
         Set authentication status.

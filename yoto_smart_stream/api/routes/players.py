@@ -256,8 +256,8 @@ async def get_player_status(player_id: str):
     
     try:
         # Make direct API call to get device status
-        # The yoto_api library provides access to the authenticated session
-        access_token = manager.access_token
+        # Get access token from the YotoClient wrapper
+        access_token = client.get_access_token()
         if not access_token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
