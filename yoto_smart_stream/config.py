@@ -64,19 +64,6 @@ class Settings(BaseSettings):
         """Initialize settings and create required directories."""
         super().__init__(**kwargs)
         self.audio_files_dir.mkdir(exist_ok=True)
-        
-        # Log configuration for debugging
-        logger.info("=" * 60)
-        logger.info("YOTO SMART STREAM CONFIGURATION")
-        logger.info("=" * 60)
-        logger.info(f"Environment: {self.environment}")
-        logger.info(f"Debug mode: {self.debug}")
-        logger.info(f"Log level: {self.log_level}")
-        logger.info(f"YOTO_CLIENT_ID from env: {os.environ.get('YOTO_CLIENT_ID', 'NOT SET')}")
-        logger.info(f"YOTO_CLIENT_ID loaded: {self.yoto_client_id or 'NOT SET'}")
-        logger.info(f"Refresh token file: {self.yoto_refresh_token_file}")
-        logger.info(f"Public URL: {self.public_url or 'NOT SET'}")
-        logger.info("=" * 60)
 
 
 # Global settings instance
@@ -89,3 +76,25 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
+
+
+def log_configuration(settings: Settings) -> None:
+    """
+    Log configuration details for debugging.
+    
+    This should be called after logging is configured.
+    """
+    import os
+    logger = logging.getLogger(__name__)
+    
+    logger.info("=" * 60)
+    logger.info("YOTO SMART STREAM CONFIGURATION")
+    logger.info("=" * 60)
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Debug mode: {settings.debug}")
+    logger.info(f"Log level: {settings.log_level}")
+    logger.info(f"YOTO_CLIENT_ID from env: {os.environ.get('YOTO_CLIENT_ID', 'NOT SET')}")
+    logger.info(f"YOTO_CLIENT_ID loaded: {settings.yoto_client_id or 'NOT SET'}")
+    logger.info(f"Refresh token file: {settings.yoto_refresh_token_file}")
+    logger.info(f"Public URL: {settings.public_url or 'NOT SET'}")
+    logger.info("=" * 60)

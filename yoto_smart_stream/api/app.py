@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..config import get_settings
+from ..config import get_settings, log_configuration
 from ..core import YotoClient
 from .dependencies import set_yoto_client
 from .routes import auth, cards, health, players
@@ -84,6 +84,9 @@ def create_app() -> FastAPI:
         level=getattr(logging, settings.log_level),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+    
+    # Log configuration for debugging (after logging is configured)
+    log_configuration(settings)
 
     # Create FastAPI app
     app = FastAPI(
