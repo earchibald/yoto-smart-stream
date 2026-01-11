@@ -63,6 +63,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
       - name: Set PR environment URL
         id: env-url
         run: |
@@ -71,36 +76,27 @@ jobs:
           echo "url=${ENV_URL}" >> $GITHUB_OUTPUT
           echo "PR environment URL: ${ENV_URL}"
       
-      - name: Wait for Railway deployment
-        run: |
-          echo "⏳ Waiting for Railway to deploy PR environment..."
-          echo "This usually takes 1-2 minutes"
-          sleep 90
-      
-      - name: Test health endpoint
-        id: health-check
+      - name: Validate PR Environment
+        id: validation
         continue-on-error: true
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          URL="${{ steps.env-url.outputs.url }}/health"
-          echo "Testing health endpoint: ${URL}"
+          echo "🔍 Validating Railway PR Environment..."
           
-          # Retry health check up to 10 times
-          for i in {1..10}; do
-            if curl -f -s "${URL}"; then
-              echo "✅ Health check passed"
-              echo "status=success" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-            echo "⏳ Waiting for deployment... (${i}/10)"
-            sleep 10
-          done
-          
-          echo "❌ Health check failed after 10 attempts"
-          echo "status=failed" >> $GITHUB_OUTPUT
-          exit 1
+          # Run validation script with wait flag
+          if python scripts/validate_pr_environment.py "${{ steps.env-url.outputs.url }}" --wait --skip-config; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "✅ Validation passed"
+            exit 0
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Validation failed"
+            exit 1
+          fi
       
       - name: Run integration tests
-        if: steps.health-check.outputs.status == 'success'
+        if: steps.validation.outputs.status == 'success'
         run: |
           echo "🧪 Running integration tests against PR environment"
           # Add integration test commands here when available
@@ -115,16 +111,22 @@ jobs:
           script: |
             const prNumber = ${{ github.event.pull_request.number }};
             const envUrl = '${{ steps.env-url.outputs.url }}';
-            const healthStatus = '${{ steps.health-check.outputs.status }}';
+            const validationStatus = '${{ steps.validation.outputs.status }}';
             
-            const statusEmoji = healthStatus === 'success' ? '✅' : '⚠️';
-            const statusText = healthStatus === 'success' ? 'Healthy' : 'Check Failed';
+            const statusEmoji = validationStatus === 'success' ? '✅' : '⚠️';
+            const statusText = validationStatus === 'success' ? 'All Checks Passed' : 'Validation Failed';
             
             const comment = `## ${statusEmoji} Railway PR Environment Status
             
             **Environment:** \`pr-${prNumber}\`
             **URL:** ${envUrl}
-            **Health Check:** ${statusText}
+            **Validation:** ${statusText}
+            
+            ### Validation Checks
+            - Health endpoint accessibility
+            - Root endpoint functionality
+            - API documentation availability
+            - FastAPI application startup
             
             ### Quick Links
             - [🏥 Health Check](${envUrl}/health)
@@ -133,6 +135,9 @@ jobs:
             
             ### Testing Commands
             \`\`\`bash
+            # Validate PR environment
+            python scripts/validate_pr_environment.py ${envUrl}
+            
             # View logs
             railway logs -e pr-${prNumber} --tail 100
             
@@ -150,7 +155,7 @@ jobs:
             - ⚠️ OAuth features won't work (requires static callback URLs)
             
             ---
-            _Powered by Railway Native PR Environments • Auto-deployed by Railway • Tested by GitHub Actions_`;
+            _Powered by Railway Native PR Environments • Auto-deployed by Railway • Validated by GitHub Actions_`;
             
             // Find existing comment from this workflow
             const { data: comments } = await github.rest.issues.listComments({
