@@ -1352,6 +1352,11 @@ header h2 {
 .library-modal-content {
     max-width: 900px;
     width: 90%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.library-modal-content .modal-body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .library-grid {
@@ -1364,8 +1369,8 @@ header h2 {
 }
 
 .library-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
     border-radius: 12px;
     padding: 1rem;
     cursor: pointer;
@@ -1377,8 +1382,8 @@ header h2 {
 }
 
 .library-card:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
     transform: translateY(-5px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
@@ -1422,7 +1427,7 @@ header h2 {
 
 .library-card-author {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.8);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1432,6 +1437,11 @@ header h2 {
 .chapter-modal-content {
     max-width: 600px;
     width: 90%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.chapter-modal-content .modal-body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .chapter-list {
@@ -1444,8 +1454,8 @@ header h2 {
 }
 
 .chapter-item {
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
     border-radius: 8px;
     padding: 1rem;
     display: flex;
@@ -1456,8 +1466,8 @@ header h2 {
 }
 
 .chapter-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
     transform: translateX(5px);
 }
 
@@ -1486,7 +1496,7 @@ header h2 {
 
 .chapter-duration {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .chapter-play-btn {
