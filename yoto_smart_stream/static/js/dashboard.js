@@ -28,6 +28,41 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Start auto-refresh for players every 5 seconds
     startPlayerAutoRefresh();
+    
+    // Setup TTS modal close handlers
+    const ttsCloseBtn = document.getElementById('tts-modal-close-btn');
+    const ttsModal = document.getElementById('tts-modal');
+    
+    if (ttsCloseBtn) {
+        ttsCloseBtn.addEventListener('click', closeTTSModal);
+    }
+    
+    // Close TTS modal when clicking outside
+    if (ttsModal) {
+        ttsModal.addEventListener('click', function(event) {
+            if (event.target === ttsModal) {
+                closeTTSModal();
+            }
+        });
+    }
+    
+    // Setup TTS form
+    const ttsForm = document.getElementById('tts-form');
+    if (ttsForm) {
+        ttsForm.addEventListener('submit', handleTTSSubmit);
+    }
+    
+    // Setup filename preview
+    const filenameInput = document.getElementById('tts-filename');
+    if (filenameInput) {
+        filenameInput.addEventListener('input', updateFilenamePreview);
+    }
+    
+    // Setup text length counter
+    const textInput = document.getElementById('tts-text');
+    if (textInput) {
+        textInput.addEventListener('input', updateTextLength);
+    }
 });
 
 // Cleanup on page unload
@@ -729,7 +764,10 @@ async function loadAudioFiles() {
                 </div>
                 <div class="list-item-details">
                     <span>Size: ${formatFileSize(file.size)}</span>
-                    <span>URL: ${escapeHtml(file.url)}</span>
+                    <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
+                        <source src="${escapeHtml(file.url)}" type="audio/mpeg">
+                        Your browser does not support the audio element.
+                    </audio>
                 </div>
             </div>
         `).join('');
@@ -1203,175 +1241,153 @@ function copyToClipboard(elementId, buttonElement) {
         document.body.removeChild(textarea);
     }
 }
-// Library Browser Functions
 
-/**
- * Show library browser modal
- */
-async function showLibraryBrowser(playerId) {
-    const modal = document.getElementById('libraryModal');
-    const loadingEl = document.getElementById('libraryLoading');
-    const contentEl = document.getElementById('libraryContent');
+// TTS Generator Functions
+
+// Default filename for TTS generator
+const DEFAULT_TTS_FILENAME = 'my-story';
+
+// Open TTS modal
+function openTTSModal() {
+    const modal = document.getElementById('tts-modal');
+    const form = document.getElementById('tts-form');
+    const result = document.getElementById('tts-result');
+    const successDiv = document.getElementById('tts-success');
+    const errorDiv = document.getElementById('tts-error');
     
-    // Show modal and reset to loading state
+    // Reset form and messages
+    if (form) form.reset();
+    if (result) result.style.display = 'none';
+    if (successDiv) successDiv.style.display = 'none';
+    if (errorDiv) errorDiv.style.display = 'none';
+    
+    // Update preview
+    updateFilenamePreview();
+    updateTextLength();
+    
+    // Show modal
     modal.style.display = 'flex';
-    loadingEl.style.display = 'block';
-    contentEl.style.display = 'none';
-    contentEl.innerHTML = '';
+}
+
+// Close TTS modal
+function closeTTSModal() {
+    const modal = document.getElementById('tts-modal');
+    modal.style.display = 'none';
+}
+
+// Update filename preview
+function updateFilenamePreview() {
+    const filenameInput = document.getElementById('tts-filename');
+    const preview = document.getElementById('filename-preview');
     
-    // Store player ID for later use
-    modal.dataset.playerId = playerId;
-    
-    try {
-        const response = await fetch('/api/library');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const library = await response.json();
-        
-        // Hide loading, show content
-        loadingEl.style.display = 'none';
-        contentEl.style.display = 'grid';
-        
-        if (!library.cards || library.cards.length === 0) {
-            contentEl.innerHTML = '<p class="no-content">No cards found in your library.</p>';
-            return;
-        }
-        
-        // Render cards
-        contentEl.innerHTML = library.cards.map(card => `
-            <div class="library-card" onclick="selectCard('${escapeHtml(playerId)}', '${escapeHtml(card.id)}')">
-                ${card.cover ? `<img src="${escapeHtml(card.cover)}" alt="${escapeHtml(card.title)}" />` : '<div class="no-cover">📚</div>'}
-                <div class="library-card-info">
-                    <div class="library-card-title">${escapeHtml(card.title || 'Untitled')}</div>
-                    ${card.author ? `<div class="library-card-author">${escapeHtml(card.author)}</div>` : ''}
-                </div>
-            </div>
-        `).join('');
-        
-    } catch (error) {
-        console.error('Error loading library:', error);
-        loadingEl.style.display = 'none';
-        contentEl.style.display = 'block';
-        contentEl.innerHTML = '<p class="error-message">Failed to load library.</p>';
+    if (filenameInput && preview) {
+        const filename = filenameInput.value.trim() || DEFAULT_TTS_FILENAME;
+        // Remove .mp3 extension if user added it
+        const cleanFilename = filename.replace(/\.mp3$/i, '');
+        preview.textContent = `${cleanFilename}.mp3`;
     }
 }
 
-/**
- * Close library browser modal
- */
-function closeLibraryBrowser() {
-    document.getElementById('libraryModal').style.display = 'none';
-}
-
-/**
- * Select a card and show chapters
- */
-async function selectCard(playerId, cardId) {
-    const modal = document.getElementById('chapterModal');
-    const loadingEl = document.getElementById('chapterLoading');
-    const contentEl = document.getElementById('chapterContent');
-    const titleEl = document.getElementById('chapterModalTitle');
+// Update text length counter
+function updateTextLength() {
+    const textInput = document.getElementById('tts-text');
+    const lengthDisplay = document.getElementById('text-length');
     
-    // Show modal and reset to loading state
-    modal.style.display = 'flex';
-    loadingEl.style.display = 'block';
-    contentEl.style.display = 'none';
-    contentEl.innerHTML = '';
-    titleEl.textContent = 'Loading...';
-    
-    // Store player and card IDs
-    modal.dataset.playerId = playerId;
-    modal.dataset.cardId = cardId;
-    
-    try {
-        const response = await fetch(`/api/library/${cardId}/chapters`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        
-        // Update modal title
-        titleEl.textContent = data.card_title || 'Select Chapter';
-        
-        // Hide loading, show content
-        loadingEl.style.display = 'none';
-        contentEl.style.display = 'block';
-        
-        if (!data.chapters || data.chapters.length === 0) {
-            contentEl.innerHTML = '<p class="no-content">No chapters available.</p>';
-            return;
-        }
-        
-        // Render chapters
-        contentEl.innerHTML = data.chapters.map(chapter => `
-            <div class="chapter-item" onclick="playChapter('${escapeHtml(playerId)}', '${escapeHtml(cardId)}', '${escapeHtml(chapter.key)}')">
-                ${chapter.icon ? `<img src="${escapeHtml(chapter.icon)}" alt="Chapter ${escapeHtml(chapter.key)}" class="chapter-icon" />` : ''}
-                <div class="chapter-info">
-                    <div class="chapter-title">${escapeHtml(chapter.title || `Chapter ${chapter.key}`)}</div>
-                    ${chapter.duration ? `<div class="chapter-duration">${formatDuration(chapter.duration)}</div>` : ''}
-                </div>
-                <button class="chapter-play-btn" title="Play">▶️</button>
-            </div>
-        `).join('');
-        
-    } catch (error) {
-        console.error('Error loading chapters:', error);
-        loadingEl.style.display = 'none';
-        contentEl.style.display = 'block';
-        contentEl.innerHTML = '<p class="error-message">Failed to load chapters.</p>';
+    if (textInput && lengthDisplay) {
+        const length = textInput.value.length;
+        lengthDisplay.textContent = `${length} character${length !== 1 ? 's' : ''}`;
     }
 }
 
-/**
- * Close chapter modal
- */
-function closeChapterBrowser() {
-    document.getElementById('chapterModal').style.display = 'none';
-}
-
-/**
- * Play a chapter
- */
-async function playChapter(playerId, cardId, chapterKey) {
+// Handle TTS form submission
+async function handleTTSSubmit(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const submitBtn = document.getElementById('tts-submit-btn');
+    const submitText = document.getElementById('tts-submit-text');
+    const submitSpinner = document.getElementById('tts-submit-spinner');
+    const result = document.getElementById('tts-result');
+    const successDiv = document.getElementById('tts-success');
+    const errorDiv = document.getElementById('tts-error');
+    const successMessage = document.getElementById('tts-success-message');
+    const errorMessage = document.getElementById('tts-error-message');
+    
+    // Get form data
+    const filename = document.getElementById('tts-filename').value.trim();
+    const text = document.getElementById('tts-text').value.trim();
+    
+    if (!filename || !text) {
+        showTTSError('Please fill in all fields');
+        return;
+    }
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitText.style.display = 'none';
+    submitSpinner.style.display = 'inline';
+    result.style.display = 'none';
+    successDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    
     try {
-        // Convert chapter key to number (removing leading zeros)
-        const chapterNum = parseInt(chapterKey, 10);
-        
-        const response = await fetch(`/api/players/${playerId}/play-card`, {
+        const response = await fetch(`${API_BASE}/audio/generate-tts`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                card_id: cardId,
-                chapter: chapterNum
-            })
+                filename: filename,
+                text: text,
+            }),
         });
         
+        const data = await response.json();
+        
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(data.detail || 'Failed to generate TTS audio');
         }
         
-        // Close both modals
-        closeChapterBrowser();
-        closeLibraryBrowser();
+        // Show success message
+        successMessage.textContent = data.message || `Successfully generated ${data.filename}`;
+        successDiv.style.display = 'block';
+        result.style.display = 'block';
         
-        // Refresh players to show updated state
-        setTimeout(() => loadPlayers(), 1000);
+        // Reset form
+        form.reset();
+        updateFilenamePreview();
+        updateTextLength();
+        
+        // Refresh audio files list to show new file
+        setTimeout(() => {
+            loadAudioFiles();
+        }, 1000);
+        
+        // Auto-close modal after 3 seconds
+        setTimeout(() => {
+            closeTTSModal();
+        }, 3000);
         
     } catch (error) {
-        console.error('Error playing chapter:', error);
-        alert('Failed to play chapter. Please try again.');
+        console.error('Error generating TTS audio:', error);
+        errorMessage.textContent = error.message;
+        errorDiv.style.display = 'block';
+        result.style.display = 'block';
+    } finally {
+        // Reset button state
+        submitBtn.disabled = false;
+        submitText.style.display = 'inline';
+        submitSpinner.style.display = 'none';
     }
 }
 
-/**
- * Format duration in seconds to MM:SS
- */
-function formatDuration(seconds) {
-    if (!seconds) return '';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+// Helper function to show TTS error
+function showTTSError(message) {
+    const result = document.getElementById('tts-result');
+    const errorDiv = document.getElementById('tts-error');
+    const errorMessage = document.getElementById('tts-error-message');
+    
+    errorMessage.textContent = message;
+    errorDiv.style.display = 'block';
+    result.style.display = 'block';
 }

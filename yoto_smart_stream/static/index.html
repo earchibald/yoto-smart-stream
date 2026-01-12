@@ -107,6 +107,7 @@
         <section class="section">
             <h3>Quick Actions</h3>
             <div class="actions-grid">
+                <button class="action-button" onclick="openTTSModal()">🎙️ Generate TTS Audio</button>
                 <button class="action-button" onclick="refreshData()">🔄 Refresh Data</button>
                 <button id="logout-button" class="action-button" onclick="logout()" style="display: none;">🚪 Logout</button>
                 <a href="/api/docs" target="_blank" class="action-button">📖 API Documentation</a>
@@ -276,33 +277,55 @@
         </div>
     </div>
 
-    <!-- Library Browser Modal -->
-    <div id="libraryModal" class="modal">
-        <div class="modal-content library-modal-content">
+    <!-- TTS Generator Modal -->
+    <div id="tts-modal" class="modal">
+        <div class="modal-content">
             <div class="modal-header">
-                <h3>Select from Library</h3>
-                <span class="modal-close" onclick="closeLibraryBrowser()">&times;</span>
+                <h3>🎙️ Generate Text-to-Speech Audio</h3>
+                <span class="modal-close" id="tts-modal-close-btn">&times;</span>
             </div>
             <div class="modal-body">
-                <div id="libraryLoading" class="loading">Loading library...</div>
-                <div id="libraryContent" class="library-grid" style="display: none;">
-                    <!-- Library cards will be dynamically inserted here -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Chapter Browser Modal -->
-    <div id="chapterModal" class="modal">
-        <div class="modal-content chapter-modal-content">
-            <div class="modal-header">
-                <h3 id="chapterModalTitle">Select Chapter</h3>
-                <span class="modal-close" onclick="closeChapterBrowser()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div id="chapterLoading" class="loading">Loading chapters...</div>
-                <div id="chapterContent" class="chapter-list" style="display: none;">
-                    <!-- Chapters will be dynamically inserted here -->
+                <form id="tts-form">
+                    <div class="form-group">
+                        <label for="tts-filename">Filename (without extension):</label>
+                        <input
+                            type="text"
+                            id="tts-filename"
+                            name="filename"
+                            placeholder="e.g., my-story"
+                            required
+                            pattern="[a-zA-Z0-9\s_-]+"
+                            title="Only letters, numbers, spaces, hyphens, and underscores allowed"
+                        />
+                        <small>File will be saved as: <strong id="filename-preview">my-story.mp3</strong></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="tts-text">Text to convert to speech:</label>
+                        <textarea
+                            id="tts-text"
+                            name="text"
+                            rows="8"
+                            placeholder="Enter the text you want to convert to speech..."
+                            required
+                            minlength="1"
+                        ></textarea>
+                        <small id="text-length">0 characters</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeTTSModal()">Cancel</button>
+                        <button type="submit" class="btn-primary" id="tts-submit-btn">
+                            <span id="tts-submit-text">Generate Audio</span>
+                            <span id="tts-submit-spinner" style="display: none;">⏳ Generating...</span>
+                        </button>
+                    </div>
+                </form>
+                <div id="tts-result" style="display: none; margin-top: 20px;">
+                    <div id="tts-success" class="success-message" style="display: none;">
+                        ✓ <span id="tts-success-message"></span>
+                    </div>
+                    <div id="tts-error" class="error-message" style="display: none;">
+                        ✗ <span id="tts-error-message"></span>
+                    </div>
                 </div>
             </div>
         </div>

@@ -18,6 +18,7 @@ For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 ## 🎯 Features
 
 - **Audio Streaming**: Stream custom audio content to Yoto players
+- **Dynamic Playlists**: Server-controlled playlists that stream multiple files sequentially ([details](docs/DYNAMIC_STREAMING.md))
 - **Real-time Monitoring**: Track player events via MQTT (play/pause, button presses, battery status)
 - **Interactive Cards**: Create Choose Your Own Adventure style experiences using physical button controls
 - **Web UI**: Manage your audio library, configure cards, and write interactive scripts
@@ -275,7 +276,8 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Copilot Workspace Configuration](docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md)**: Network access and Railway MCP server for GitHub Copilot Workspace (NEW)
 
 ### Creating Content
-- **[Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)**: Stream audio from your server (NEW - recommended approach)
+- **[Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)**: Stream audio from your server (recommended approach)
+- **[Dynamic Audio Streaming](docs/DYNAMIC_STREAMING.md)**: Create server-controlled playlists that stream multiple files sequentially (NEW)
 - **[Creating MYO Cards](docs/CREATING_MYO_CARDS.md)**: Traditional approach - upload audio to Yoto's servers
 - **[Icon Management Guide](docs/ICON_MANAGEMENT.md)**: Working with display icons for Yoto Mini
 
@@ -564,13 +566,15 @@ This project is not affiliated with, endorsed by, or sponsored by Yoto Play. It'
 - [x] Icon management module (100% complete, 96% test coverage)
 - [x] FastAPI server implementation with lifespan management
 - [x] MQTT event monitoring
-- [x] Comprehensive testing suite (48 tests passing)
+- [x] Comprehensive testing suite (79 tests passing)
 - [x] Code quality tooling (ruff, black, pytest, mypy)
 - [x] Quick start and testing guides
-- [ ] Audio management system
+- [x] Dynamic audio streaming with queue management
+- [x] Text-to-speech integration
+- [ ] Audio management system (basic upload/conversion)
 - [ ] Interactive script engine
-- [ ] Web UI
-- [ ] Text-to-speech integration
+- [ ] Web UI for queue management
+- [ ] Queue persistence (database storage)
 - [ ] Cloud deployment guides
 - [ ] Mobile app (future consideration)
 
