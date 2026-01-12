@@ -1,17 +1,23 @@
 """Card management and audio streaming endpoints."""
 
+import logging
+import os
+import tempfile
 from typing import Optional
 
 import requests
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import FileResponse
+from gtts import gTTS
 from pydantic import BaseModel, Field
+from pydub import AudioSegment
 
 from ...config import get_settings
 from ..dependencies import get_yoto_client
 from ..utils import get_time_based_audio_file, get_time_schedule
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # Request/Response models
@@ -25,6 +31,13 @@ class CreateCardRequest(BaseModel):
         ..., description="Audio filename in audio_files directory (e.g., 'story.mp3')"
     )
     cover_image_id: Optional[str] = Field(None, description="Optional cover image ID")
+
+
+class GenerateTTSRequest(BaseModel):
+    """Request model for generating text-to-speech audio."""
+
+    filename: str = Field(..., description="Output filename (without extension)")
+    text: str = Field(..., description="Text to convert to speech", min_length=1)
 
 
 # Audio streaming endpoints
@@ -49,6 +62,104 @@ async def list_audio_files():
         )
 
     return {"files": audio_files, "count": len(audio_files)}
+
+
+@router.post("/audio/generate-tts")
+async def generate_tts_audio(request: GenerateTTSRequest):
+    """
+    Generate text-to-speech audio and save to audio_files directory.
+
+    This endpoint creates an MP3 file from the provided text using Google Text-to-Speech.
+    The generated file is saved to the audio_files directory and can be used
+    in MYO cards or accessed via the audio streaming endpoint.
+
+    Args:
+        request: GenerateTTSRequest with filename and text
+
+    Returns:
+        Success message with filename and file information
+    """
+    settings = get_settings()
+
+    # Sanitize filename - remove any path separators and special chars
+    filename = request.filename.strip()
+    # Remove file extension if provided
+    if filename.lower().endswith('.mp3'):
+        filename = filename[:-4]
+
+    # Only allow alphanumeric, hyphens, underscores, and spaces
+    # Replace spaces with hyphens for better shell/URL compatibility
+    sanitized_filename = "".join(
+        c if c.isalnum() or c in ('-', '_') else '-' if c == ' ' else ''
+        for c in filename
+    )
+
+    if not sanitized_filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid filename. Use only letters, numbers, hyphens, underscores, and spaces."
+        )
+
+    # Create final filename with .mp3 extension
+    final_filename = f"{sanitized_filename}.mp3"
+    output_path = settings.audio_files_dir / final_filename
+
+    # Check if file already exists
+    if output_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"File '{final_filename}' already exists. Please choose a different name."
+        )
+
+    logger.info(f"Generating TTS audio for: {final_filename}")
+
+    try:
+        # Create a temporary file for the initial TTS output
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
+            temp_path = temp_file.name
+
+        try:
+            # Generate speech using gTTS
+            tts = gTTS(text=request.text, lang="en", slow=False)
+            tts.save(temp_path)
+
+            # Load and optimize with pydub
+            audio = AudioSegment.from_mp3(temp_path)
+
+            # Convert to mono and set appropriate settings for Yoto compatibility
+            audio = audio.set_channels(1)  # Mono
+            audio = audio.set_frame_rate(44100)  # 44.1kHz sample rate
+
+            # Export as optimized MP3
+            audio.export(
+                output_path,
+                format="mp3",
+                bitrate="192k",
+                parameters=["-ac", "1"],  # Ensure mono
+            )
+
+            file_size = output_path.stat().st_size
+            logger.info(f"✓ TTS audio generated: {final_filename} ({file_size} bytes)")
+
+            return {
+                "success": True,
+                "filename": final_filename,
+                "size": file_size,
+                "url": f"/api/audio/{final_filename}",
+                "message": f"Successfully generated '{final_filename}'"
+            }
+
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    except Exception as e:
+        logger.error(f"Failed to generate TTS audio: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate TTS audio. Please try again."
+        ) from e
 
 
 @router.get("/audio/dynamic/{card_id}.mp3")
