@@ -309,13 +309,13 @@ async function loadPlayers() {
                         <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'stop')" title="Stop" ${!player.online ? 'disabled' : ''}>
                             ⏹️
                         </button>
-                        <div class="volume-control">
+                        <div class="volume-control" data-player-id="${escapeHtml(player.id)}">
                             <input type="range" 
                                 class="volume-slider" 
                                 min="0" 
                                 max="100" 
                                 value="${player.volume}" 
-                                onchange="setPlayerVolume('${escapeHtml(player.id)}', this.value)"
+                                oninput="setPlayerVolume('${escapeHtml(player.id)}', this.value)"
                                 ${!player.online ? 'disabled' : ''}>
                             <span class="volume-label">${player.volume}%</span>
                         </div>
@@ -397,9 +397,12 @@ async function controlPlayer(playerId, action) {
 async function setPlayerVolume(playerId, volume) {
     try {
         // Update the volume label immediately for responsiveness
-        const volumeLabel = event.target.nextElementSibling;
-        if (volumeLabel) {
-            volumeLabel.textContent = `${volume}%`;
+        const volumeControl = document.querySelector(`.volume-control[data-player-id="${playerId}"]`);
+        if (volumeControl) {
+            const volumeLabel = volumeControl.querySelector('.volume-label');
+            if (volumeLabel) {
+                volumeLabel.textContent = `${volume}%`;
+            }
         }
         
         const response = await fetch(`${API_BASE}/players/${playerId}/control`, {
