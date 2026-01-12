@@ -114,7 +114,7 @@ class PlayerControl(BaseModel):
     action: str = Field(
         ..., description="Action to perform: play, pause, stop, skip_forward, skip_backward, volume"
     )
-    volume: Optional[int] = Field(None, ge=0, le=100, description="Volume level (0-100)")
+    volume: Optional[int] = Field(None, ge=0, le=15, description="Volume level (0-15 bins, matching iOS app)")
 
 
 def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
@@ -153,26 +153,30 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
         # 2. Fall back to REST API (player.user_volume, 0-100 scale) - slow (30-60s lag)
         # 3. Fall back to system volume (player.system_volume, 0-100 scale)
         # 
-        # This ensures we show the most recent value from the physical device.
+        # Note: We use 0-15 bins (matching iOS app), but MQTT reports 0-16.
+        # The hardware supports 16 levels, but app convention is 0-15.
         mqtt_volume = getattr(player, 'volume', None)
         if mqtt_volume is not None:
-            # Convert 0-16 MQTT scale to 0-100 percentage
-            volume = round((mqtt_volume / 16) * 100)
-            logger.debug(f"Using MQTT volume {mqtt_volume}/16 ({volume}%) for player {player_id}")
+            # Use MQTT volume directly (0-16 scale), clamped to 0-15 for consistency
+            volume = min(mqtt_volume, 15)
+            logger.debug(f"Using MQTT volume {mqtt_volume} -> {volume}/15 for player {player_id}")
         else:
-            # No MQTT data yet, use REST API data
-            volume = getattr(player, 'user_volume', None)
-            if volume is None:
+            # No MQTT data yet, use REST API data (convert from percentage to bins)
+            api_volume = getattr(player, 'user_volume', None)
+            if api_volume is None:
                 # Fallback to system_volume if user_volume not available
-                volume = getattr(player, 'system_volume', None)
-            if volume is None:
-                volume = 50  # Default to 50% if no volume available
+                api_volume = getattr(player, 'system_volume', None)
+            if api_volume is not None:
+                # Convert from 0-100 percentage to 0-15 bins
+                volume = round((api_volume / 100) * 15)
+            else:
+                volume = 8  # Default to 8/15 (mid-range) if no volume available
 
-    # Ensure volume is within valid range (0-100)
+    # Ensure volume is within valid range (0-15)
     if volume is not None:
-        volume = max(0, min(100, int(volume)))
+        volume = max(0, min(15, int(volume)))
     else:
-        volume = 50  # Default to 50%
+        volume = 8  # Default to 8/15
 
     # Get playing status: check playback_status string or is_playing boolean
     playing = False
@@ -642,7 +646,7 @@ async def control_player(player_id: str, control: PlayerControl):
                 payload = json.dumps({"volume": control.volume})
                 if hasattr(manager, 'mqtt_client') and manager.mqtt_client:
                     manager.mqtt_client.publish(topic, payload)
-                    logger.info(f"Set volume via MQTT for {player_id} to {control.volume}%")
+                    logger.info(f"Set volume via MQTT for {player_id} to {control.volume}/15")
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_501_NOT_IMPLEMENTED,
@@ -651,7 +655,7 @@ async def control_player(player_id: str, control: PlayerControl):
             
             # Cache the volume change to prevent stale MQTT data from overriding it
             _volume_cache[player_id] = (control.volume, time.time())
-            logger.info(f"Cached volume {control.volume}% for player {player_id}")
+            logger.info(f"Cached volume {control.volume}/15 for player {player_id}")
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown action: {control.action}"
@@ -669,7 +673,7 @@ async def control_player(player_id: str, control: PlayerControl):
             
             # Cache the volume change
             _volume_cache[player_id] = (control.volume, time.time())
-            logger.info(f"Cached volume {control.volume}% for player {player_id}")
+            logger.info(f"Cached volume {control.volume}/15 for player {player_id}")
 
         return {"success": True, "player_id": player_id, "action": control.action}
 
