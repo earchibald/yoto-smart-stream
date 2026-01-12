@@ -605,11 +605,11 @@ async function saveQueue() {
         
         // Clear the queue first (in case it exists)
         if (currentQueueName === queueName) {
-            await fetch(`${API_BASE}/streams/${queueName}/clear`, { method: 'POST' });
+            await fetch(`${API_BASE}/streams/${queueName}/queue`, { method: 'DELETE' });
         }
         
         // Add files to queue
-        const response = await fetch(`${API_BASE}/streams/${queueName}/files`, {
+        const response = await fetch(`${API_BASE}/streams/${queueName}/queue`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ files: currentQueueFiles })
