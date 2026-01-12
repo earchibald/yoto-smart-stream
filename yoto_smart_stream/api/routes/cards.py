@@ -88,8 +88,10 @@ async def generate_tts_audio(request: GenerateTTSRequest):
         filename = filename[:-4]
 
     # Only allow alphanumeric, hyphens, underscores, and spaces
+    # Replace spaces with hyphens for better shell/URL compatibility
     sanitized_filename = "".join(
-        c for c in filename if c.isalnum() or c in ('-', '_', ' ')
+        c if c.isalnum() or c in ('-', '_') else '-' if c == ' ' else ''
+        for c in filename
     )
 
     if not sanitized_filename:
@@ -156,7 +158,7 @@ async def generate_tts_audio(request: GenerateTTSRequest):
         logger.error(f"Failed to generate TTS audio: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate TTS audio: {str(e)}"
+            detail="Failed to generate TTS audio. Please try again."
         ) from e
 
 

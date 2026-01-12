@@ -258,8 +258,8 @@ class TestTTSGeneration:
             assert response.status_code == 200
             data = response.json()
 
-            # Should be sanitized - only alphanumeric, spaces, hyphens, underscores
-            assert data["filename"] == "My Story 1 Final.mp3"
+            # Should be sanitized - spaces converted to hyphens
+            assert data["filename"] == "My-Story-1-Final.mp3"
 
     @patch("yoto_smart_stream.api.routes.cards.get_settings")
     @patch("yoto_smart_stream.api.routes.cards.gTTS")

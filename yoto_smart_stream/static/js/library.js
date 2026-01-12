@@ -309,6 +309,9 @@ function escapeHtml(text) {
 
 // TTS Generator Functions
 
+// Default filename for TTS generator
+const DEFAULT_TTS_FILENAME = 'my-story';
+
 // Open TTS modal
 function openTTSModal() {
     const modal = document.getElementById('tts-modal');
@@ -343,7 +346,7 @@ function updateFilenamePreview() {
     const preview = document.getElementById('filename-preview');
     
     if (filenameInput && preview) {
-        const filename = filenameInput.value.trim() || 'my-story';
+        const filename = filenameInput.value.trim() || DEFAULT_TTS_FILENAME;
         // Remove .mp3 extension if user added it
         const cleanFilename = filename.replace(/\.mp3$/i, '');
         preview.textContent = `${cleanFilename}.mp3`;
