@@ -1576,7 +1576,7 @@ async function playChapter(playerId, cardId, chapterKey) {
         
         console.log(`🎵 Playing chapter ${chapterNum} from card ${cardId} on player ${playerId}`);
         
-        // Step 1: Load the card and chapter
+        // Load the card and chapter (card/start triggers playback itself)
         const loadResponse = await fetch(`/api/players/${playerId}/play-card?card_id=${encodeURIComponent(cardId)}&chapter=${chapterNum}`, {
             method: 'POST',
             headers: {
@@ -1589,25 +1589,7 @@ async function playChapter(playerId, cardId, chapterKey) {
             throw new Error(errorData.detail || `HTTP error! status: ${loadResponse.status}`);
         }
         
-        console.log('✓ Card and chapter loaded');
-        
-        // Step 2: Issue play command to start playback
-        const playResponse = await fetch(`/api/players/${playerId}/control`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'play'
-            })
-        });
-        
-        if (!playResponse.ok) {
-            const errorData = await playResponse.json().catch(() => ({}));
-            throw new Error(errorData.detail || `HTTP error! status: ${playResponse.status}`);
-        }
-        
-        console.log('✓ Successfully started playback');
+        console.log('✓ Playback started via card/start');
         
         // Close both modals
         closeChapterBrowser();
