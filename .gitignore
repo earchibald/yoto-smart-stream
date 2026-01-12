@@ -87,3 +87,4 @@ Thumbs.db
 card_scripts/
 user_data/
 recordings/
+.playwright-mcp/

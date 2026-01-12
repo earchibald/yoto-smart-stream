@@ -1,7 +1,8 @@
 """Player control endpoints."""
 
 import logging
-from typing import Optional
+import time
+from typing import Dict, Optional, Tuple
 
 import requests
 from fastapi import APIRouter, HTTPException, status
@@ -11,6 +12,11 @@ from ..dependencies import get_yoto_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Volume change cache: {player_id: (volume, timestamp)}
+# This prevents volume changes from being overridden by stale MQTT/API data
+_volume_cache: Dict[str, Tuple[int, float]] = {}
+VOLUME_CACHE_TTL = 5.0  # seconds
 
 
 # Request/Response models
@@ -126,23 +132,38 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
     Returns:
         PlayerInfo with extracted data
     """
-    # Get volume:
-    # player.volume = MQTT value (0-16 scale)
-    # player.user_volume = REST API userVolumePercentage (0-100 scale)
-    # player.system_volume = REST API systemVolumePercentage (0-100 scale)
-    # We want the user-controlled volume percentage (0-100)
-    volume = getattr(player, 'user_volume', None)
-    if volume is None:
-        # Fallback to system_volume if user_volume not available
-        volume = getattr(player, 'system_volume', None)
-    if volume is None:
-        # If still no volume, try MQTT volume and convert from 0-16 to 0-100
-        mqtt_volume = getattr(player, 'volume', None)
-        if mqtt_volume is not None:
-            # Convert 0-16 scale to 0-100 percentage (matching yoto_ha's / 16 logic)
-            volume = round((mqtt_volume / 16) * 100)
+    # Check volume cache first (recent volume changes take priority)
+    volume = None
+    current_time = time.time()
+    if player_id in _volume_cache:
+        cached_volume, timestamp = _volume_cache[player_id]
+        if current_time - timestamp < VOLUME_CACHE_TTL:
+            # Cache is still fresh, use cached volume
+            volume = cached_volume
+            logger.debug(f"Using cached volume {volume}% for player {player_id}")
         else:
-            volume = 50  # Default to 50% if no volume available
+            # Cache expired, remove it
+            del _volume_cache[player_id]
+    
+    # If no valid cached volume, get from player object
+    if volume is None:
+        # Get volume:
+        # player.volume = MQTT value (0-16 scale)
+        # player.user_volume = REST API userVolumePercentage (0-100 scale)
+        # player.system_volume = REST API systemVolumePercentage (0-100 scale)
+        # We want the user-controlled volume percentage (0-100)
+        volume = getattr(player, 'user_volume', None)
+        if volume is None:
+            # Fallback to system_volume if user_volume not available
+            volume = getattr(player, 'system_volume', None)
+        if volume is None:
+            # If still no volume, try MQTT volume and convert from 0-16 to 0-100
+            mqtt_volume = getattr(player, 'volume', None)
+            if mqtt_volume is not None:
+                # Convert 0-16 scale to 0-100 percentage (matching yoto_ha's / 16 logic)
+                volume = round((mqtt_volume / 16) * 100)
+            else:
+                volume = 50  # Default to 50% if no volume available
 
     # Ensure volume is within valid range (0-100)
     if volume is not None:
@@ -601,6 +622,9 @@ async def control_player(player_id: str, control: PlayerControl):
                     detail="Volume value required for volume action"
                 )
             manager.set_volume(player_id, control.volume)
+            # Cache the volume change to prevent stale MQTT data from overriding it
+            _volume_cache[player_id] = (control.volume, time.time())
+            logger.info(f"Set volume for player {player_id} to {control.volume}% (cached)")
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown action: {control.action}"
@@ -609,6 +633,9 @@ async def control_player(player_id: str, control: PlayerControl):
         # Set volume if provided for other actions
         if control.action != "volume" and control.volume is not None:
             manager.set_volume(player_id, control.volume)
+            # Cache the volume change
+            _volume_cache[player_id] = (control.volume, time.time())
+            logger.info(f"Set volume for player {player_id} to {control.volume}% (cached)")
 
         return {"success": True, "player_id": player_id, "action": control.action}
 
