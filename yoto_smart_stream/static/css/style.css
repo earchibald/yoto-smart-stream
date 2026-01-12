@@ -677,6 +677,16 @@ header h2 {
     color: white;
 }
 
+.btn-small.btn-delete {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.btn-small.btn-delete:hover {
+    background: #dc3545;
+    color: white;
+}
+
 .dynamic-streams {
     display: flex;
     flex-direction: column;

@@ -144,6 +144,7 @@ async function loadManagedStreams() {
                     <div class="stream-actions">
                         <button class="btn-small" data-action="copy" data-url="/api/streams/${escapeHtml(queue.name, true)}/stream.mp3">📋 Copy URL</button>
                         <button class="btn-small" data-action="play" data-url="/api/streams/${escapeHtml(queue.name, true)}/stream.mp3">▶️ Preview</button>
+                        ${queue.name !== 'test-stream' ? `<button class="btn-small btn-delete" data-action="delete" data-queue="${escapeHtml(queue.name, true)}">🗑️ Delete</button>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -153,10 +154,13 @@ async function loadManagedStreams() {
             button.addEventListener('click', (e) => {
                 const action = e.currentTarget.dataset.action;
                 const url = e.currentTarget.dataset.url;
+                const queueName = e.currentTarget.dataset.queue;
                 if (action === 'copy') {
                     copyUrl(url);
                 } else if (action === 'play') {
                     playAudio(url);
+                } else if (action === 'delete') {
+                    deleteStreamFromCard(queueName);
                 }
             });
         });
@@ -334,6 +338,42 @@ let currentQueueName = null;
 let currentQueueFiles = [];
 let availableFiles = [];
 
+async function deleteStreamFromCard(queueName) {
+    if (!confirm(`Are you sure you want to delete the queue "${queueName}"? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/streams/${queueName}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to delete queue');
+        }
+        
+        // Reload managed streams to reflect the deletion
+        await loadManagedStreams();
+        
+        // Show success message briefly
+        const container = document.getElementById('managed-streams');
+        const message = document.createElement('div');
+        message.className = 'result-message success-message';
+        message.textContent = `Queue "${queueName}" deleted successfully!`;
+        message.style.marginBottom = '1rem';
+        container.insertBefore(message, container.firstChild);
+        
+        setTimeout(() => {
+            message.remove();
+        }, 3000);
+        
+    } catch (error) {
+        console.error('Failed to delete queue:', error);
+        alert('Failed to delete queue: ' + error.message);
+    }
+}
+
 async function openStreamScripter() {
     const modal = document.getElementById('stream-scripter-modal');
     modal.style.display = 'flex';
@@ -408,9 +448,12 @@ async function loadAvailableFilesForScripter() {
     }
 }
 
-function startNewQueue() {
+async function startNewQueue() {
     currentQueueName = null;
     currentQueueFiles = [];
+    
+    // Refresh queue list to ensure it's up to date
+    await loadStreamQueues();
     
     document.getElementById('queue-selector').value = '';
     document.getElementById('queue-name').value = `stream-${crypto.randomUUID().split('-')[0]}`;
