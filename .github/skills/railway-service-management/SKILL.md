@@ -176,6 +176,41 @@ YOTO_CLIENT_ID         # Yoto API client ID (from https://yoto.dev/)
 **Note:** Yoto uses OAuth2 Device Flow which doesn't require callback/logout URLs. The registration form may ask for them, but use localhost placeholders - they won't be called. Device Flow authentication doesn't redirect to your application.
 ```
 
+## Development Workflow: CPWTR
+
+**CPWTR** stands for: **Commit, Push, Wait, Test, Repeat**
+
+This is the standard development cycle when working with Railway deployments:
+
+```bash
+# 1. COMMIT - Stage and commit your changes
+git add .
+git commit -m "Add feature X"
+
+# 2. PUSH - Push to GitHub
+git push origin feature-branch
+
+# 3. WAIT - Wait for Railway to build and deploy
+# Railway automatically deploys when:
+# - PR is opened (PR Environments)
+# - Commits are pushed to main (Production)
+# - Commits are pushed to tracked branches
+
+# 4. TEST - Test the deployed changes
+curl https://yoto-smart-stream-pr-{number}.up.railway.app/health
+# Or access via browser, test API endpoints, etc.
+
+# 5. REPEAT - Make adjustments and start again
+# If tests fail, fix code locally and repeat: commit → push → wait → test
+```
+
+**Tips for efficient CPWTR:**
+- Monitor deployments in real-time: `railway logs --follow`
+- Check deployment status: `railway deployments list --json`
+- Test locally before pushing when possible
+- Use Railway's healthcheck endpoint to verify deployment success
+- Keep PR commits focused to reduce test cycles
+
 ### Railway Environment Variables
 
 Set environment-specific variables in Railway:
