@@ -114,32 +114,14 @@ class YotoClient:
         self.manager.update_library()
         logger.debug(f"Updated library with {len(self.manager.library)} items")
 
-    def _mqtt_event_callback(self, player_id: str, event_data: dict) -> None:
+    def _mqtt_event_callback(self) -> None:
         """
-        Callback for MQTT events - logs all incoming events.
+        Callback for MQTT events - simple notification that events were received.
         
-        Args:
-            player_id: ID of the player that sent the event
-            event_data: Event data dictionary
+        Note: The yoto_api library doesn't pass event data to callbacks.
+        Events are processed internally and update the player state.
         """
-        player_name = "Unknown"
-        if player_id in self.manager.players:
-            player_name = self.manager.players[player_id].name
-        
-        # Log volume changes
-        if "volume" in event_data:
-            logger.info(f"MQTT: Player '{player_name}' ({player_id}) volume changed to {event_data['volume']}/16 ({round(event_data['volume']/16*100)}%)")
-        
-        # Log playback status changes
-        if "playbackStatus" in event_data:
-            logger.info(f"MQTT: Player '{player_name}' ({player_id}) playback status: {event_data['playbackStatus']}")
-        
-        # Log card changes
-        if "cardId" in event_data:
-            logger.info(f"MQTT: Player '{player_name}' ({player_id}) card: {event_data.get('cardId', 'none')}")
-        
-        # Log all other events at debug level
-        logger.debug(f"MQTT: Player '{player_name}' ({player_id}) event: {event_data}")
+        logger.info("MQTT: Event received and processed by yoto_api library")
 
     def connect_mqtt(self) -> None:
         """Connect to MQTT for real-time events."""
