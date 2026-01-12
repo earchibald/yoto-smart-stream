@@ -83,7 +83,6 @@
         <section class="section" id="actions-section" style="display: none;">
             <h3>Quick Actions</h3>
             <div class="actions-grid">
-                <button onclick="openTTSModal()" class="action-button">🎙️ Generate TTS Audio</button>
                 <a href="/" class="action-button">🏠 Back to Dashboard</a>
                 <a href="/streams" class="action-button">🎵 View Streams</a>
                 <a href="/docs" target="_blank" class="action-button">📖 API Documentation</a>
@@ -100,60 +99,6 @@
             </div>
             <div class="modal-body" id="modal-content-body">
                 <p class="loading">Loading...</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- TTS Generator Modal -->
-    <div id="tts-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>🎙️ Generate Text-to-Speech Audio</h3>
-                <span class="modal-close" id="tts-modal-close-btn">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="tts-form">
-                    <div class="form-group">
-                        <label for="tts-filename">Filename (without extension):</label>
-                        <input 
-                            type="text" 
-                            id="tts-filename" 
-                            name="filename" 
-                            placeholder="e.g., my-story"
-                            required
-                            pattern="[a-zA-Z0-9\s_-]+"
-                            title="Only letters, numbers, spaces, hyphens, and underscores allowed"
-                        />
-                        <small>File will be saved as: <strong id="filename-preview">my-story.mp3</strong></small>
-                    </div>
-                    <div class="form-group">
-                        <label for="tts-text">Text to convert to speech:</label>
-                        <textarea 
-                            id="tts-text" 
-                            name="text" 
-                            rows="8" 
-                            placeholder="Enter the text you want to convert to speech..."
-                            required
-                            minlength="1"
-                        ></textarea>
-                        <small id="text-length">0 characters</small>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn-secondary" onclick="closeTTSModal()">Cancel</button>
-                        <button type="submit" class="btn-primary" id="tts-submit-btn">
-                            <span id="tts-submit-text">Generate Audio</span>
-                            <span id="tts-submit-spinner" style="display: none;">⏳ Generating...</span>
-                        </button>
-                    </div>
-                </form>
-                <div id="tts-result" style="display: none; margin-top: 20px;">
-                    <div id="tts-success" class="success-message" style="display: none;">
-                        ✓ <span id="tts-success-message"></span>
-                    </div>
-                    <div id="tts-error" class="error-message" style="display: none;">
-                        ✗ <span id="tts-error-message"></span>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
