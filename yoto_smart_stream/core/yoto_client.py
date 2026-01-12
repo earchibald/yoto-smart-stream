@@ -116,27 +116,18 @@ class YotoClient:
 
     def _mqtt_event_callback(self) -> None:
         """
-        Callback for MQTT events - schedules a status update after a brief delay.
+        Callback for MQTT events - triggered when real-time events are received.
         
-        Note: The yoto_api library doesn't pass event data to callbacks.
-        Also, Yoto's cloud API has a delay before reflecting MQTT changes,
-        so we wait 2 seconds before querying to get fresh data.
+        The yoto_api library has already updated the manager.players dict with
+        the MQTT event data BEFORE this callback is invoked. We don't need to
+        query the API here because:
+        1. The player objects are already updated with fresh MQTT data
+        2. Querying the API would overwrite fresh data with stale data (30-60s lag)
+        3. The Web UI will read from manager.players which has the fresh data
+        
+        For debugging, log that we received an event (library logs the full payload).
         """
-        import threading
-        import time
-        
-        def delayed_update():
-            logger.info("MQTT: Event received - waiting for cloud sync...")
-            time.sleep(2)  # Wait for Yoto cloud API to sync
-            try:
-                logger.info("MQTT: Updating player status after sync delay")
-                self.manager.update_players_status()
-            except Exception as e:
-                logger.error(f"Failed to update player status in MQTT callback: {e}")
-        
-        # Run update in background thread to avoid blocking MQTT
-        thread = threading.Thread(target=delayed_update, daemon=True)
-        thread.start()
+        logger.debug("MQTT: Event received - player data already updated by library")
 
     def connect_mqtt(self) -> None:
         """Connect to MQTT for real-time events."""

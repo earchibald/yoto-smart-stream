@@ -147,22 +147,25 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
     
     # If no valid cached volume, get from player object
     if volume is None:
-        # Get volume:
-        # player.volume = MQTT value (0-16 scale)
-        # player.user_volume = REST API userVolumePercentage (0-100 scale)
-        # player.system_volume = REST API systemVolumePercentage (0-100 scale)
-        # We want the user-controlled volume percentage (0-100)
-        volume = getattr(player, 'user_volume', None)
-        if volume is None:
-            # Fallback to system_volume if user_volume not available
-            volume = getattr(player, 'system_volume', None)
-        if volume is None:
-            # If still no volume, try MQTT volume and convert from 0-16 to 0-100
-            mqtt_volume = getattr(player, 'volume', None)
-            if mqtt_volume is not None:
-                # Convert 0-16 scale to 0-100 percentage (matching yoto_ha's / 16 logic)
-                volume = round((mqtt_volume / 16) * 100)
-            else:
+        # Get volume - prioritize MQTT data (real-time) over REST API (slow to update):
+        # Strategy:
+        # 1. Try MQTT volume first (player.volume, 0-16 scale) - real-time from device
+        # 2. Fall back to REST API (player.user_volume, 0-100 scale) - slow (30-60s lag)
+        # 3. Fall back to system volume (player.system_volume, 0-100 scale)
+        # 
+        # This ensures we show the most recent value from the physical device.
+        mqtt_volume = getattr(player, 'volume', None)
+        if mqtt_volume is not None:
+            # Convert 0-16 MQTT scale to 0-100 percentage
+            volume = round((mqtt_volume / 16) * 100)
+            logger.debug(f"Using MQTT volume {mqtt_volume}/16 ({volume}%) for player {player_id}")
+        else:
+            # No MQTT data yet, use REST API data
+            volume = getattr(player, 'user_volume', None)
+            if volume is None:
+                # Fallback to system_volume if user_volume not available
+                volume = getattr(player, 'system_volume', None)
+            if volume is None:
                 volume = 50  # Default to 50% if no volume available
 
     # Ensure volume is within valid range (0-100)
