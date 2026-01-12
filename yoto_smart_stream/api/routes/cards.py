@@ -44,7 +44,7 @@ async def list_audio_files():
             {
                 "filename": audio_path.name,
                 "size": audio_path.stat().st_size,
-                "url": f"/audio/{audio_path.name}",
+                "url": f"/api/audio/{audio_path.name}",
             }
         )
 

@@ -445,7 +445,10 @@ async function loadAudioFiles() {
                 </div>
                 <div class="list-item-details">
                     <span>Size: ${formatFileSize(file.size)}</span>
-                    <span>URL: ${escapeHtml(file.url)}</span>
+                    <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
+                        <source src="${escapeHtml(file.url)}" type="audio/mpeg">
+                        Your browser does not support the audio element.
+                    </audio>
                 </div>
             </div>
         `).join('');
