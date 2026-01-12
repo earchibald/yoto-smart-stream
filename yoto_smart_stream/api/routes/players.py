@@ -621,10 +621,34 @@ async def control_player(player_id: str, control: PlayerControl):
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Volume value required for volume action"
                 )
-            manager.set_volume(player_id, control.volume)
+            # Get the player object from manager
+            player = manager.players.get(player_id)
+            if player and hasattr(player, 'set_volume'):
+                # Use player method if available
+                player.set_volume(control.volume)
+                logger.info(f"Set volume via player.set_volume() for {player_id} to {control.volume}%")
+            elif hasattr(manager, 'set_volume'):
+                # Use manager method if available
+                manager.set_volume(player_id, control.volume)
+                logger.info(f"Set volume via manager.set_volume() for {player_id} to {control.volume}%")
+            else:
+                # Fallback: send MQTT command directly
+                logger.warning(f"set_volume method not found, falling back to direct MQTT command")
+                import json
+                topic = f"device/{player_id}/command/set-volume"
+                payload = json.dumps({"volume": control.volume})
+                if hasattr(manager, 'mqtt_client') and manager.mqtt_client:
+                    manager.mqtt_client.publish(topic, payload)
+                    logger.info(f"Set volume via MQTT for {player_id} to {control.volume}%")
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                        detail="Volume control not available - set_volume method not found"
+                    )
+            
             # Cache the volume change to prevent stale MQTT data from overriding it
             _volume_cache[player_id] = (control.volume, time.time())
-            logger.info(f"Set volume for player {player_id} to {control.volume}% (cached)")
+            logger.info(f"Cached volume {control.volume}% for player {player_id}")
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown action: {control.action}"
@@ -632,14 +656,24 @@ async def control_player(player_id: str, control: PlayerControl):
 
         # Set volume if provided for other actions
         if control.action != "volume" and control.volume is not None:
-            manager.set_volume(player_id, control.volume)
+            player = manager.players.get(player_id)
+            if player and hasattr(player, 'set_volume'):
+                player.set_volume(control.volume)
+            elif hasattr(manager, 'set_volume'):
+                manager.set_volume(player_id, control.volume)
+            else:
+                logger.warning(f"Cannot set volume - set_volume method not found")
+            
             # Cache the volume change
             _volume_cache[player_id] = (control.volume, time.time())
-            logger.info(f"Set volume for player {player_id} to {control.volume}% (cached)")
+            logger.info(f"Cached volume {control.volume}% for player {player_id}")
 
         return {"success": True, "player_id": player_id, "action": control.action}
 
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Failed to control player {player_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to control player: {str(e)}",
