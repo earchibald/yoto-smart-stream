@@ -6,15 +6,17 @@ import tempfile
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Session, status
 from fastapi.responses import FileResponse
 from gtts import gTTS
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
 
 from ...config import get_settings
-from ..dependencies import get_yoto_client
+from ..dependencies import get_yoto_client, get_db
 from ..utils import get_time_based_audio_file, get_time_schedule
+from ...models import User
+from ...auth import require_auth
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -65,7 +67,7 @@ async def list_audio_files():
 
 
 @router.post("/audio/generate-tts")
-async def generate_tts_audio(request: GenerateTTSRequest):
+async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(require_auth)):
     """
     Generate text-to-speech audio and save to audio_files directory.
 
@@ -244,7 +246,7 @@ async def stream_audio(filename: str):
 
 # Card creation endpoints
 @router.post("/cards/create-streaming")
-async def create_streaming_card(request: CreateCardRequest):
+async def create_streaming_card(request: CreateCardRequest, user: User = Depends(require_auth)):
     """
     Create a Yoto MYO card that streams from this server.
 
@@ -352,7 +354,7 @@ async def create_streaming_card(request: CreateCardRequest):
 
 
 @router.post("/cards/create-dynamic")
-async def create_dynamic_card(title: str, card_id: str):
+async def create_dynamic_card(title: str, card_id: str, user: User = Depends(require_auth)):
     """
     Create a dynamic MYO card that serves different content based on time.
 

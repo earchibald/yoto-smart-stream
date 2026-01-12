@@ -5,10 +5,14 @@ import time
 from typing import Dict, Optional, Tuple
 
 import requests
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from ...database import get_db
+from ...models import User
 from ..dependencies import get_yoto_client
+from .user_auth import require_auth
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -390,7 +394,7 @@ def extract_player_detail_info(player_id: str, player, manager=None) -> PlayerDe
 
 
 @router.get("/players", response_model=list[PlayerInfo])
-async def list_players():
+async def list_players(user: User = Depends(require_auth)):
     """
     List all Yoto players on the account.
 
@@ -441,7 +445,7 @@ async def list_players():
 
 
 @router.get("/players/{player_id}", response_model=PlayerDetailInfo)
-async def get_player(player_id: str):
+async def get_player(player_id: str, user: User = Depends(require_auth)):
     """
     Get detailed information about a specific player.
 
@@ -477,7 +481,7 @@ async def get_player(player_id: str):
 
 
 @router.get("/players/{player_id}/status")
-async def get_player_status(player_id: str):
+async def get_player_status(player_id: str, user: User = Depends(require_auth)):
     """
     Get device status from Yoto API.
 
@@ -532,7 +536,7 @@ async def get_player_status(player_id: str):
 
 
 @router.get("/players/{player_id}/config")
-async def get_player_config(player_id: str):
+async def get_player_config(player_id: str, user: User = Depends(require_auth)):
     """
     Get device configuration from Yoto API.
 
@@ -587,7 +591,7 @@ async def get_player_config(player_id: str):
 
 
 @router.post("/players/{player_id}/control")
-async def control_player(player_id: str, control: PlayerControl):
+async def control_player(player_id: str, control: PlayerControl, user: User = Depends(require_auth)):
     """
     Control a Yoto player via MQTT using official Yoto command topics.
     
@@ -695,7 +699,7 @@ async def control_player(player_id: str, control: PlayerControl):
 
 
 @router.post("/players/{player_id}/play-card")
-async def play_card(player_id: str, card_id: str, chapter: int = 1):
+async def play_card(player_id: str, card_id: str, chapter: int = 1, user: User = Depends(require_auth)):
     """
     Play a specific card and chapter on a Yoto player via MQTT.
     

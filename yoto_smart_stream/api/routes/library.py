@@ -4,16 +4,18 @@ import logging
 import re
 
 import requests
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Session, status
 
-from ..dependencies import get_yoto_client
+from ..dependencies import get_yoto_client, get_db
+from ...models import User
+from ...auth import require_auth
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 @router.get("/library")
-async def get_library():
+async def get_library(user: User = Depends(require_auth)):
     """
     Get user's Yoto library including cards and MYO (Make Your Own) content/playlists.
     
@@ -139,7 +141,7 @@ async def get_library():
 
 
 @router.get("/library/content/{content_id}")
-async def get_content_details(content_id: str):
+async def get_content_details(content_id: str, user: User = Depends(require_auth)):
     """
     Get detailed information about a specific card or MYO content.
     
@@ -216,7 +218,7 @@ async def get_content_details(content_id: str):
 
 
 @router.get("/library/{card_id}/chapters")
-async def get_card_chapters(card_id: str):
+async def get_card_chapters(card_id: str, user: User = Depends(require_auth)):
     """
     Get chapters for a specific card from the library.
     
