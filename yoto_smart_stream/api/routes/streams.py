@@ -280,9 +280,9 @@ async def delete_stream_queue(stream_name: str, user: User = Depends(require_aut
 # Streaming Endpoint
 
 
-async def generate_sequential_stream(queue_files: List[str], audio_files_dir):
+async def generate_sequential_stream(queue_files: List[str], audio_files_dir, play_mode: str = "sequential"):
     """
-    Generator that streams multiple audio files sequentially.
+    Generator that streams multiple audio files sequentially or in other modes.
 
     This reads files one by one and yields their content, creating a
     continuous stream that appears as a single file to the client.
@@ -290,17 +290,42 @@ async def generate_sequential_stream(queue_files: List[str], audio_files_dir):
     Args:
         queue_files: List of audio filenames to stream
         audio_files_dir: Path to the audio files directory
+        play_mode: How to play the files - "sequential" (once), "loop" (repeat), 
+                   "shuffle" (random once), "endless-shuffle" (random forever)
 
     Yields:
         Audio data chunks
     """
-    for filename in queue_files:
+    import random
+    
+    # Determine files to stream based on play mode
+    if play_mode == "sequential":
+        files_to_stream = queue_files
+    elif play_mode == "loop":
+        # Loop indefinitely - we'll yield a very large number of repetitions
+        # In practice, the client will stop when it closes the connection
+        files_to_stream = queue_files * 1000  # 1000 loops should be "endless" for most purposes
+    elif play_mode == "shuffle":
+        files_to_stream = list(queue_files)
+        random.shuffle(files_to_stream)
+    elif play_mode == "endless-shuffle":
+        # Shuffle forever - generate random list repeatedly
+        files_to_stream = []
+        for _ in range(1000):  # 1000 shuffled repetitions
+            shuffled = list(queue_files)
+            random.shuffle(shuffled)
+            files_to_stream.extend(shuffled)
+    else:
+        # Default to sequential for unknown modes
+        files_to_stream = queue_files
+    
+    for filename in files_to_stream:
         audio_path = audio_files_dir / filename
         if not audio_path.exists():
             logger.warning(f"File not found during streaming: {filename}, skipping")
             continue
 
-        logger.info(f"Streaming file: {filename}")
+        logger.info(f"Streaming file: {filename} (mode: {play_mode})")
         
         try:
             with open(audio_path, "rb") as f:
@@ -316,7 +341,7 @@ async def generate_sequential_stream(queue_files: List[str], audio_files_dir):
 
 
 @router.get("/streams/{stream_name}/stream.mp3")
-async def stream_dynamic_audio(stream_name: str):
+async def stream_dynamic_audio(stream_name: str, play_mode: str = "sequential"):
     """
     Stream audio from a named queue as a continuous MP3 file.
 
@@ -326,6 +351,7 @@ async def stream_dynamic_audio(stream_name: str):
 
     Args:
         stream_name: Name of the stream queue to play
+        play_mode: How to play the files - "sequential", "loop", "shuffle", or "endless-shuffle"
 
     Returns:
         Streaming audio response with MP3 content
@@ -350,15 +376,21 @@ async def stream_dynamic_audio(stream_name: str):
     # Get a snapshot of the current queue state for this client
     queue_snapshot = queue.get_files()
     
-    logger.info(f"Client connected to stream '{stream_name}' with {len(queue_snapshot)} files")
+    # Validate play_mode
+    valid_modes = ["sequential", "loop", "shuffle", "endless-shuffle"]
+    if play_mode not in valid_modes:
+        play_mode = "sequential"
+    
+    logger.info(f"Client connected to stream '{stream_name}' with {len(queue_snapshot)} files in {play_mode} mode")
 
     return StreamingResponse(
-        generate_sequential_stream(queue_snapshot, settings.audio_files_dir),
+        generate_sequential_stream(queue_snapshot, settings.audio_files_dir, play_mode),
         media_type="audio/mpeg",
         headers={
             "Accept-Ranges": "none",  # Disable seeking since we're streaming multiple files
             "Cache-Control": "no-cache, no-store, must-revalidate",  # Don't cache dynamic content
             "X-Stream-Name": stream_name,
             "X-File-Count": str(len(queue_snapshot)),
+            "X-Play-Mode": play_mode,
         },
     )
