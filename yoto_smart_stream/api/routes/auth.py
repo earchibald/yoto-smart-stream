@@ -1,17 +1,55 @@
 """Authentication endpoints for Yoto account login."""
 
 import logging
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from ...config import get_settings
 from ...core import YotoClient
+from ...database import get_db
+from ...models import User
 from ..dependencies import get_yoto_client, set_yoto_client
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def get_current_user_optional(
+    session_token: Optional[str] = Cookie(None, alias="session"),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """
+    Get current user from session cookie (optional, doesn't raise error if not authenticated).
+    
+    Args:
+        session_token: Session token from cookie
+        db: Database session
+        
+    Returns:
+        User object if authenticated, None otherwise
+    """
+    from ...auth import decode_access_token
+    
+    if not session_token:
+        return None
+    
+    payload = decode_access_token(session_token)
+    if not payload:
+        return None
+    
+    username = payload.get("sub")
+    if not username:
+        return None
+    
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not user.is_active:
+        return None
+    
+    return user
 
 
 def _get_or_create_client() -> YotoClient:
@@ -147,12 +185,18 @@ async def start_auth_flow():
 
 
 @router.post("/auth/poll", response_model=AuthPollResponse)
-async def poll_auth_status(poll_request: AuthPollRequest):
+async def poll_auth_status(
+    poll_request: AuthPollRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
     """
     Poll for authentication completion.
 
     Args:
         poll_request: Contains device_code from start_auth_flow
+        db: Database session
+        current_user: Current logged-in user (if any)
 
     Returns:
         Current authentication status
@@ -174,13 +218,26 @@ async def poll_auth_status(poll_request: AuthPollRequest):
         # If we get here, authentication succeeded
         client.set_authenticated(True)
 
-        # Save refresh token
+        # Save refresh token to file (for backward compatibility)
         if client.manager.token and client.manager.token.refresh_token:
             token_file = settings.yoto_refresh_token_file
             # Ensure parent directory exists (e.g., /data on Railway)
             token_file.parent.mkdir(parents=True, exist_ok=True)
             token_file.write_text(client.manager.token.refresh_token)
             logger.info(f"Refresh token saved to {token_file}")
+            
+            # Save tokens to database for the current user
+            if current_user:
+                try:
+                    current_user.yoto_access_token = client.manager.token.access_token
+                    current_user.yoto_refresh_token = client.manager.token.refresh_token
+                    if hasattr(client.manager.token, 'expires_at'):
+                        current_user.yoto_token_expires_at = client.manager.token.expires_at
+                    db.commit()
+                    logger.info(f"Yoto tokens saved to database for user: {current_user.username}")
+                except Exception as e:
+                    logger.error(f"Failed to save tokens to database: {e}")
+                    db.rollback()
         else:
             logger.error("No refresh token available after authentication!")
 

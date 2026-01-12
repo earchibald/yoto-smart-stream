@@ -17,9 +17,10 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings, log_configuration
 from ..core import YotoClient
+from ..database import init_db
 from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
-from .routes import auth, cards, health, library, players, streams
+from .routes import auth, cards, health, library, players, streams, user_auth
 from .stream_manager import get_stream_manager
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,54 @@ async def lifespan(app: FastAPI):
     - Cleanup on shutdown
     """
     settings = get_settings()
+
+    # Initialize database
+    logger.info("Initializing database...")
+    logger.info(f"Database URL: {settings.database_url}")
+    init_db()
+    
+    # Create default admin user if it doesn't exist
+    from ..auth import get_password_hash
+    from ..database import SessionLocal
+    from ..models import User
+    
+    db = SessionLocal()
+    try:
+        # Count existing users
+        user_count = db.query(User).count()
+        logger.info(f"Current user count in database: {user_count}")
+        
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            try:
+                # Hash password with error details
+                logger.info("Hashing default password...")
+                hashed = get_password_hash("yoto")
+                logger.info(f"Password hash generated successfully (length: {len(hashed)} bytes)")
+                
+                admin_user = User(
+                    username="admin",
+                    hashed_password=hashed,
+                    is_active=True
+                )
+                logger.info("User object created, committing to database...")
+                db.add(admin_user)
+                db.commit()
+                logger.info("✓ Default admin user created (username: admin, password: yoto)")
+            except Exception as hash_err:
+                logger.error(f"Error during user creation: {hash_err}")
+                import traceback
+                logger.error(traceback.format_exc())
+                db.rollback()
+                raise
+        else:
+            logger.info(f"✓ Admin user already exists (id: {admin_user.id}, active: {admin_user.is_active})")
+    except Exception as e:
+        logger.error(f"Failed to create admin user: {e}")
+        logger.error(f"Database URL was: {settings.database_url}")
+        db.rollback()
+    finally:
+        db.close()
 
     # Wait for Railway shared variables to initialize if configured
     # This helps when Railway shared variables take time to load at startup
@@ -218,11 +267,20 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(health.router, prefix="/api", tags=["Health"])
-    app.include_router(auth.router, prefix="/api", tags=["Authentication"])
+    app.include_router(user_auth.router, prefix="/api", tags=["User Authentication"])
+    app.include_router(auth.router, prefix="/api", tags=["Yoto Authentication"])
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
     app.include_router(library.router, prefix="/api", tags=["Library"])
     app.include_router(streams.router, prefix="/api", tags=["Streams"])
+
+    @app.get("/login", tags=["Web UI"])
+    async def login_page():
+        """Serve the login page."""
+        login_path = static_dir / "login.html"
+        if login_path.exists():
+            return FileResponse(login_path)
+        return {"message": "Login page not available"}
 
     @app.get("/", tags=["Web UI"])
     async def root():

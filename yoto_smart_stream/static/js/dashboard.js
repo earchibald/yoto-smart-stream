@@ -11,6 +11,45 @@ let deviceCode = null;
 let playerRefreshInterval = null;
 let isLoadingPlayers = false;
 
+// Check user authentication first
+async function checkUserAuth() {
+    try {
+        const response = await fetch('/api/user/session', { credentials: 'include' });
+        const data = await response.json();
+        
+        if (!data.authenticated) {
+            // Redirect to login page
+            window.location.href = '/login';
+            return false;
+        }
+        
+        // Show logout button if authenticated
+        const logoutBtn = document.getElementById('logout-button');
+        if (logoutBtn) {
+            logoutBtn.style.display = 'inline-block';
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Error checking authentication:', error);
+        window.location.href = '/login';
+        return false;
+    }
+}
+
+// User logout function
+async function userLogout() {
+    try {
+        await fetch('/api/user/logout', { 
+            method: 'POST',
+            credentials: 'include' 
+        });
+        window.location.href = '/login';
+    } catch (error) {
+        console.error('Logout error:', error);
+        window.location.href = '/login';
+    }
+}
 // Track previous player states for change detection
 let previousPlayerStates = {};
 
@@ -20,7 +59,13 @@ let sliderCooldowns = new Map(); // playerId -> timestamp
 let programmaticUpdates = new Set(); // playerId -> currently being updated programmatically
 
 // Load initial data
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check authentication before loading anything else
+    const isAuthenticated = await checkUserAuth();
+    if (!isAuthenticated) {
+        return; // Stop loading if not authenticated
+    }
+    
     checkAuthStatus();
     loadSystemStatus();
     loadPlayers();

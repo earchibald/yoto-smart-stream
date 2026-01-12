@@ -102,6 +102,39 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="sqlite:///./yoto_smart_stream.db", description="Database connection URL"
     )
+    
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def get_database_url(cls, v):
+        """
+        Get database URL based on environment.
+        
+        Uses /data directory for Railway deployments (persistent volume) with
+        environment-specific database names to avoid conflicts between environments.
+        Falls back to local path for development.
+        """
+        # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
+        railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
+        
+        if railway_env:
+            # On Railway, use persistent volume at /data with environment-specific name
+            # This prevents different environments from sharing the same database
+            data_dir = Path("/data")
+            # Try to create directory if it doesn't exist
+            try:
+                data_dir.mkdir(parents=True, exist_ok=True)
+            except (PermissionError, OSError) as e:
+                logger.debug(
+                    f"Could not create {data_dir} during validation (expected in tests): {e}"
+                )
+            # Use environment name in database filename (e.g., yoto_smart_stream_pr-56.db)
+            db_filename = f"yoto_smart_stream_{railway_env}.db"
+            return f"sqlite:///{data_dir}/{db_filename}"
+        
+        # Local development - use provided value or default
+        if v and v != "sqlite:///./yoto_smart_stream.db":
+            return v
+        return "sqlite:///./yoto_smart_stream.db"
 
     # MQTT settings
     mqtt_enabled: bool = Field(default=True, description="Enable MQTT event handling")
