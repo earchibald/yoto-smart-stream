@@ -1,10 +1,24 @@
-// Streams Page JavaScript
-
 const API_BASE = '/api';
 const RESERVED_QUEUES = ['test-stream'];
 
+// Store play mode preferences for each queue
+const playModePreferences = {};
+
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
+    // Load stored play mode preferences
+    try {
+        const saved = localStorage.getItem('smartStreamPlayModes');
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object') {
+                Object.assign(playModePreferences, parsed);
+            }
+        }
+    } catch (e) {
+        // ignore storage errors
+    }
+
     loadSystemInfo();
     loadAudioFiles();
     loadManagedStreams();
@@ -136,6 +150,17 @@ async function loadManagedStreams() {
                         ${queue.file_count} file(s) in queue
                         ${queue.name === 'test-stream' ? ' • Always available for testing' : ''}
                     </p>
+                    ${queue.name !== 'test-stream' ? `
+                    <div class="stream-modes" style="margin: 1rem 0; padding: 0.75rem; background: #f5f5f5; border-radius: 4px;">
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">Play Mode:</div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="mode-btn mode-sequential" data-queue="${escapeHtml(queue.name, true)}" data-mode="sequential" title="Play in order">📻 Sequential</button>
+                            <button class="mode-btn mode-loop" data-queue="${escapeHtml(queue.name, true)}" data-mode="loop" title="Loop indefinitely">🔁 Loop</button>
+                            <button class="mode-btn mode-shuffle" data-queue="${escapeHtml(queue.name, true)}" data-mode="shuffle" title="Random order">🔀 Shuffle</button>
+                            <button class="mode-btn mode-endless-shuffle" data-queue="${escapeHtml(queue.name, true)}" data-mode="endless-shuffle" title="Shuffle forever">♾️ Endless Shuffle</button>
+                        </div>
+                    </div>
+                    ` : ''}
                     <details class="stream-details">
                         <summary>Show queue contents</summary>
                         <ul class="queue-files">
@@ -144,7 +169,7 @@ async function loadManagedStreams() {
                     </details>
                     <div class="stream-actions">
                         <button class="btn-small" data-action="copy" data-url="/api/streams/${escapeHtml(queue.name, true)}/stream.mp3">📋 Copy URL</button>
-                        <button class="btn-small" data-action="play" data-url="/api/streams/${escapeHtml(queue.name, true)}/stream.mp3">▶️ Preview</button>
+                        <button class="btn-small" data-action="play" data-url="/api/streams/${escapeHtml(queue.name, true)}/stream.mp3" data-queue="${escapeHtml(queue.name, true)}">▶️ Preview</button>
                         ${queue.name !== 'test-stream' ? `<button class="btn-small btn-delete" data-action="delete" data-queue="${escapeHtml(queue.name, true)}">🗑️ Delete</button>` : ''}
                     </div>
                 </div>
@@ -159,7 +184,13 @@ async function loadManagedStreams() {
                 if (action === 'copy') {
                     copyUrl(url);
                 } else if (action === 'play') {
-                    playAudio(url);
+                    // Try to infer queue name from the URL if not provided
+                    let qName = queueName;
+                    if (!qName && url) {
+                        const match = url.match(/\/streams\/([^/]+)\/stream\.mp3/);
+                        if (match) qName = match[1];
+                    }
+                    playAudio(url, qName);
                 } else if (action === 'delete') {
                     deleteStreamFromCard(queueName);
                 }
@@ -262,8 +293,14 @@ async function copyUrl(url) {
 }
 
 // Play audio preview
-function playAudio(url) {
-    const fullUrl = window.location.origin + url;
+function playAudio(url, queueName = null) {
+    // Build URL with play mode if available
+    let fullUrl = window.location.origin + url;
+    if (queueName && playModePreferences[queueName]) {
+        const mode = playModePreferences[queueName];
+        const separator = url.includes('?') ? '&' : '?';
+        fullUrl = window.location.origin + url + separator + 'play_mode=' + encodeURIComponent(mode);
+    }
     
     // Get modal and audio elements
     const modal = document.getElementById('audio-player-modal');
@@ -282,7 +319,8 @@ function playAudio(url) {
     
     // Update display
     urlDisplay.textContent = url;
-    title.textContent = 'Audio Preview: ' + url.split('/').pop();
+    const mode = playModePreferences[queueName] ? ` (${playModePreferences[queueName]})` : '';
+    title.textContent = 'Audio Preview: ' + url.split('/').pop() + mode;
     
     // Show modal
     modal.style.display = 'flex';
@@ -730,6 +768,49 @@ async function confirmDeleteQueue() {
         console.error('Failed to delete queue:', error);
         showScripterResult('Failed to delete queue: ' + error.message, 'error');
     }
+}
+
+// Handle play mode selection for managed streams
+document.addEventListener('DOMContentLoaded', () => {
+    // Delegate click handler for mode buttons
+    document.addEventListener('click', (event) => {
+        if (event.target.classList.contains('mode-btn')) {
+            const mode = event.target.dataset.mode;
+            const queue = event.target.dataset.queue;
+            selectPlayMode(queue, mode, event.target);
+        }
+    });
+});
+
+function selectPlayMode(queue, mode, button) {
+    // Update UI to show selected mode
+    const modeContainer = button.closest('.stream-modes');
+    if (modeContainer) {
+        modeContainer.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.style.background = btn.dataset.mode === mode ? '#4CAF50' : '';
+            btn.style.color = btn.dataset.mode === mode ? 'white' : '';
+        });
+    }
+    
+    // Persist preference locally for preview
+    if (queue) {
+        playModePreferences[queue] = mode;
+        try {
+            localStorage.setItem('smartStreamPlayModes', JSON.stringify(playModePreferences));
+        } catch (e) {
+            // ignore storage errors
+        }
+    }
+    
+    // Show mode description
+    const modeDescriptions = {
+        'sequential': 'Playing in order, once through',
+        'loop': 'Looping the list indefinitely',
+        'shuffle': 'Playing in random order, once through',
+        'endless-shuffle': 'Shuffling forever (endless random play)'
+    };
+    
+    console.log(`📻 Smart Stream "${queue}" set to: ${modeDescriptions[mode] || mode}`);
 }
 
 function showScripterResult(message, type) {
