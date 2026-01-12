@@ -19,7 +19,7 @@ from ..config import get_settings, log_configuration
 from ..core import YotoClient
 from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
-from .routes import auth, cards, health, library, players
+from .routes import auth, cards, health, library, players, streams
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +191,7 @@ def create_app() -> FastAPI:
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
     app.include_router(library.router, prefix="/api", tags=["Library"])
+    app.include_router(streams.router, prefix="/api", tags=["Streams"])
 
     @app.get("/", tags=["Web UI"])
     async def root():
@@ -206,7 +207,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/streams", tags=["Web UI"])
-    async def streams():
+    async def streams_ui():
         """Serve the music streams interface."""
         streams_path = static_dir / "streams.html"
         if streams_path.exists():
