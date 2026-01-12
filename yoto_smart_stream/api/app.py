@@ -92,6 +92,12 @@ async def lifespan(app: FastAPI):
     if settings.log_env_on_startup:
         log_environment_variables(logger.info)
 
+    # Enable debug logging for yoto_api library to see MQTT events
+    yoto_api_logger = logging.getLogger('yoto_api')
+    yoto_api_logger.setLevel(logging.DEBUG)
+    mqtt_logger = logging.getLogger('paho.mqtt')
+    mqtt_logger.setLevel(logging.INFO)
+    
     # Startup
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     logger.info(f"Environment: {settings.environment}")
