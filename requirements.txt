@@ -12,5 +12,5 @@ httpx>=0.25.0
 pillow>=10.0.0
 gtts>=2.5.0
 pydub>=0.25.1
-passlib[bcrypt]>=1.7.4
+passlib[argon2]>=1.7.4
 python-jose[cryptography]>=3.3.0

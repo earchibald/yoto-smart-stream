@@ -11,8 +11,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 # Password hashing context
-# Try to use argon2 if available, else bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use argon2 as it's more modern and doesn't have the same bcrypt version issues
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 # JWT configuration
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"  # In production, use environment variable
