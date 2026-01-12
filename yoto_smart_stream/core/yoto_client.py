@@ -116,12 +116,17 @@ class YotoClient:
 
     def _mqtt_event_callback(self) -> None:
         """
-        Callback for MQTT events - simple notification that events were received.
+        Callback for MQTT events - updates player status when events are received.
         
-        Note: The yoto_api library doesn't pass event data to callbacks.
-        Events are processed internally and update the player state.
+        Note: The yoto_api library doesn't pass event data to callbacks,
+        but we need to manually trigger a status update to reflect MQTT changes.
         """
-        logger.info("MQTT: Event received and processed by yoto_api library")
+        logger.info("MQTT: Event received - updating player status")
+        try:
+            # Force update player status to reflect MQTT event changes
+            self.manager.update_players_status()
+        except Exception as e:
+            logger.error(f"Failed to update player status in MQTT callback: {e}")
 
     def connect_mqtt(self) -> None:
         """Connect to MQTT for real-time events."""
