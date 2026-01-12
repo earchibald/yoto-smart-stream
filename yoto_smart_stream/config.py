@@ -109,14 +109,16 @@ class Settings(BaseSettings):
         """
         Get database URL based on environment.
         
-        Uses /data directory for Railway deployments (persistent volume),
-        falls back to local path for development.
+        Uses /data directory for Railway deployments (persistent volume) with
+        environment-specific database names to avoid conflicts between environments.
+        Falls back to local path for development.
         """
         # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
         railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
         
         if railway_env:
-            # On Railway, use persistent volume at /data
+            # On Railway, use persistent volume at /data with environment-specific name
+            # This prevents different environments from sharing the same database
             data_dir = Path("/data")
             # Try to create directory if it doesn't exist
             try:
@@ -125,7 +127,9 @@ class Settings(BaseSettings):
                 logger.debug(
                     f"Could not create {data_dir} during validation (expected in tests): {e}"
                 )
-            return f"sqlite:///{data_dir}/yoto_smart_stream.db"
+            # Use environment name in database filename (e.g., yoto_smart_stream_pr-56.db)
+            db_filename = f"yoto_smart_stream_{railway_env}.db"
+            return f"sqlite:///{data_dir}/{db_filename}"
         
         # Local development - use provided value or default
         if v and v != "sqlite:///./yoto_smart_stream.db":
