@@ -114,12 +114,40 @@ class YotoClient:
         self.manager.update_library()
         logger.debug(f"Updated library with {len(self.manager.library)} items")
 
+    def _mqtt_event_callback(self, player_id: str, event_data: dict) -> None:
+        """
+        Callback for MQTT events - logs all incoming events.
+        
+        Args:
+            player_id: ID of the player that sent the event
+            event_data: Event data dictionary
+        """
+        player_name = "Unknown"
+        if player_id in self.manager.players:
+            player_name = self.manager.players[player_id].name
+        
+        # Log volume changes
+        if "volume" in event_data:
+            logger.info(f"MQTT: Player '{player_name}' ({player_id}) volume changed to {event_data['volume']}/16 ({round(event_data['volume']/16*100)}%)")
+        
+        # Log playback status changes
+        if "playbackStatus" in event_data:
+            logger.info(f"MQTT: Player '{player_name}' ({player_id}) playback status: {event_data['playbackStatus']}")
+        
+        # Log card changes
+        if "cardId" in event_data:
+            logger.info(f"MQTT: Player '{player_name}' ({player_id}) card: {event_data.get('cardId', 'none')}")
+        
+        # Log all other events at debug level
+        logger.debug(f"MQTT: Player '{player_name}' ({player_id}) event: {event_data}")
+
     def connect_mqtt(self) -> None:
         """Connect to MQTT for real-time events."""
         self.ensure_authenticated()
         try:
-            self.manager.connect_to_events()
-            logger.info("Connected to MQTT")
+            # Connect with callback for event logging
+            self.manager.connect_to_events(callback=self._mqtt_event_callback)
+            logger.info("Connected to MQTT with event logging enabled")
         except Exception as e:
             logger.error(f"Failed to connect to MQTT: {e}")
             raise
