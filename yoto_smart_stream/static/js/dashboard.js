@@ -437,6 +437,60 @@ function updatePlayerCard(player) {
         statusBadge.textContent = player.online ? '🟢 Online' : '🔴 Offline';
     }
     
+    // Update now playing info (card and chapter titles)
+    const existingMediaInfo = card.querySelector('.now-playing');
+    if (player.active_card && player.active_card !== 'none') {
+        // Card/Album info
+        const cardTitle = player.card_title || 'Unknown Card';
+        const cardAuthor = player.card_author ? ` by ${player.card_author}` : '';
+        
+        // Chapter/Track info
+        let trackInfo = '';
+        if (player.chapter_title || player.track_title) {
+            const title = player.chapter_title && player.track_title && player.chapter_title !== player.track_title
+                ? `${player.chapter_title} - ${player.track_title}`
+                : (player.chapter_title || player.track_title);
+            trackInfo = `<div class="now-playing-track">${escapeHtml(title)}</div>`;
+        }
+        
+        const mediaInfoHtml = `
+            <div class="now-playing">
+                <span class="now-playing-label">♫</span>
+                <div class="now-playing-info">
+                    <div class="now-playing-title">${escapeHtml(cardTitle)}${escapeHtml(cardAuthor)}</div>
+                    ${trackInfo}
+                </div>
+            </div>
+        `;
+        
+        if (existingMediaInfo) {
+            // Update existing media info
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = mediaInfoHtml;
+            existingMediaInfo.replaceWith(tempDiv.firstElementChild);
+        } else {
+            // Insert new media info after header
+            const header = card.querySelector('.list-item-header');
+            if (header) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = mediaInfoHtml;
+                header.insertAdjacentElement('afterend', tempDiv.firstElementChild);
+            }
+        }
+    } else if (existingMediaInfo) {
+        // Remove media info if no active card
+        existingMediaInfo.remove();
+    }
+    
+    // Update playing/paused status in details
+    const details = card.querySelector('.list-item-details');
+    if (details) {
+        const playingSpan = details.querySelector('span:first-child');
+        if (playingSpan) {
+            playingSpan.textContent = player.playing ? '▶️ Playing' : '⏸️ Paused';
+        }
+    }
+    
     // Update volume slider and label only if not being interacted with
     if (canUpdateSlider(player.id)) {
         const slider = document.getElementById(`volume-slider-${player.id}`);
