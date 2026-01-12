@@ -630,17 +630,17 @@ async def control_player(player_id: str, control: PlayerControl):
         if control.action == "pause":
             topic = f"device/{player_id}/command/card/pause"
             logger.info(f"Publishing MQTT pause command to {topic}")
-            manager.mqtt_client.publish(topic, "")
+            manager.mqtt_client.client.publish(topic, "")
             
         elif control.action == "play":
             topic = f"device/{player_id}/command/card/resume"
             logger.info(f"Publishing MQTT resume command to {topic}")
-            manager.mqtt_client.publish(topic, "")
+            manager.mqtt_client.client.publish(topic, "")
             
         elif control.action == "stop":
             topic = f"device/{player_id}/command/card/stop"
             logger.info(f"Publishing MQTT stop command to {topic}")
-            manager.mqtt_client.publish(topic, "")
+            manager.mqtt_client.client.publish(topic, "")
             
         elif control.action == "skip_forward":
             # Skip forward uses the library method (no official MQTT topic documented)
@@ -661,7 +661,7 @@ async def control_player(player_id: str, control: PlayerControl):
             topic = f"device/{player_id}/command/volume/set"
             payload = json.dumps({"volume": control.volume})
             logger.info(f"Publishing MQTT volume command to {topic}: {payload}")
-            manager.mqtt_client.publish(topic, payload)
+            manager.mqtt_client.client.publish(topic, payload)
             
             # Cache the volume change to prevent stale MQTT data from overriding it
             _volume_cache[player_id] = (control.volume, time.time())
@@ -676,7 +676,7 @@ async def control_player(player_id: str, control: PlayerControl):
             topic = f"device/{player_id}/command/volume/set"
             payload = json.dumps({"volume": control.volume})
             logger.info(f"Publishing MQTT volume command with action to {topic}: {payload}")
-            manager.mqtt_client.publish(topic, payload)
+            manager.mqtt_client.client.publish(topic, payload)
             
             # Cache the volume change
             _volume_cache[player_id] = (control.volume, time.time())
@@ -745,7 +745,7 @@ async def play_card(player_id: str, card_id: str, chapter: int = 1):
         logger.info(f"Publishing to MQTT - Topic: {topic}, Payload: {payload}")
         
         # Publish directly to MQTT
-        manager.mqtt_client.publish(topic, json.dumps(payload))
+        manager.mqtt_client.client.publish(topic, json.dumps(payload))
         
         logger.info(f"Successfully published card play command for player {player_id}")
         
