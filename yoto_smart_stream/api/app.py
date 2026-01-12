@@ -98,14 +98,27 @@ async def lifespan(app: FastAPI):
         
         admin_user = db.query(User).filter(User.username == "admin").first()
         if not admin_user:
-            admin_user = User(
-                username="admin",
-                hashed_password=get_password_hash("yoto"),
-                is_active=True
-            )
-            db.add(admin_user)
-            db.commit()
-            logger.info("✓ Default admin user created (username: admin, password: yoto)")
+            try:
+                # Hash password with error details
+                logger.info("Hashing default password...")
+                hashed = get_password_hash("yoto")
+                logger.info(f"Password hash generated successfully (length: {len(hashed)} bytes)")
+                
+                admin_user = User(
+                    username="admin",
+                    hashed_password=hashed,
+                    is_active=True
+                )
+                logger.info("User object created, committing to database...")
+                db.add(admin_user)
+                db.commit()
+                logger.info("✓ Default admin user created (username: admin, password: yoto)")
+            except Exception as hash_err:
+                logger.error(f"Error during user creation: {hash_err}")
+                import traceback
+                logger.error(traceback.format_exc())
+                db.rollback()
+                raise
         else:
             logger.info(f"✓ Admin user already exists (id: {admin_user.id}, active: {admin_user.is_active})")
     except Exception as e:
