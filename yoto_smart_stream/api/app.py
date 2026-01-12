@@ -19,7 +19,8 @@ from ..config import get_settings, log_configuration
 from ..core import YotoClient
 from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
-from .routes import auth, cards, health, library, players
+from .routes import auth, cards, health, library, players, streams
+from .stream_manager import get_stream_manager
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,30 @@ async def lifespan(app: FastAPI):
         logger.error(f"⚠ Warning: Could not initialize Yoto API: {e}")
         logger.error("  Some endpoints may not work until authentication is completed.")
 
+    # Create test stream with 1.mp3 through 10.mp3
+    try:
+        stream_manager = get_stream_manager()
+        test_queue = await stream_manager.get_or_create_queue("test-stream")
+        
+        # Check if test files exist and add them to the queue
+        test_files = [f"{i}.mp3" for i in range(1, 11)]
+        existing_files = []
+        for filename in test_files:
+            audio_path = settings.audio_files_dir / filename
+            if audio_path.exists():
+                existing_files.append(filename)
+        
+        if existing_files:
+            # Clear any existing files and add all test files
+            test_queue.clear()
+            for filename in existing_files:
+                test_queue.add_file(filename)
+            logger.info(f"✓ Test stream created with {len(existing_files)} files (1.mp3-10.mp3)")
+        else:
+            logger.warning("⚠ No test audio files (1.mp3-10.mp3) found for test stream")
+    except Exception as e:
+        logger.error(f"⚠ Failed to create test stream: {e}")
+
     yield  # Application runs here
 
     # Shutdown
@@ -191,6 +216,7 @@ def create_app() -> FastAPI:
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
     app.include_router(library.router, prefix="/api", tags=["Library"])
+    app.include_router(streams.router, prefix="/api", tags=["Streams"])
 
     @app.get("/", tags=["Web UI"])
     async def root():
@@ -206,7 +232,7 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/streams", tags=["Web UI"])
-    async def streams():
+    async def streams_ui():
         """Serve the music streams interface."""
         streams_path = static_dir / "streams.html"
         if streams_path.exists():

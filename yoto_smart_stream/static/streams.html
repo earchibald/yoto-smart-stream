@@ -58,6 +58,14 @@
         </section>
 
         <section class="section">
+            <h3>Managed Streams</h3>
+            <p class="info-text">Server-controlled playlists that stream multiple files sequentially.</p>
+            <div id="managed-streams" class="streams-grid">
+                <p class="loading">Loading managed streams...</p>
+            </div>
+        </section>
+
+        <section class="section">
             <h3>Create Streaming Card</h3>
             <form id="create-card-form" class="card-form">
                 <div class="form-group">
@@ -81,6 +89,23 @@
             <div id="card-result" class="result-message" style="display: none;"></div>
         </section>
     </main>
+
+    <!-- Audio Player Modal -->
+    <div id="audio-player-modal" class="modal" style="display: none;">
+        <div class="modal-content audio-player">
+            <div class="player-header">
+                <h3 id="player-title">Audio Preview</h3>
+                <button class="close-btn" onclick="closeAudioPlayer()">✕</button>
+            </div>
+            <div class="player-body">
+                <audio id="audio-element" controls style="width: 100%;">
+                    <source id="audio-source" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+                <p id="player-url" class="player-url"></p>
+            </div>
+        </div>
+    </div>
 
     <script src="/static/js/streams.js"></script>
 </body>
