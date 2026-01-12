@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ..dependencies import get_yoto_client
 from ...database import get_db
 from ...models import User
-from ...auth import require_auth
+from .user_auth import require_auth
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ...config import get_settings
 from ...database import get_db
 from ...models import User
-from ...auth import require_auth
+from .user_auth import require_auth
 from ..stream_manager import get_stream_manager, StreamQueue
 
 router = APIRouter()
