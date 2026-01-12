@@ -1,0 +1,14 @@
+{
+  "name": "yoto-smart-stream-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "devDependencies": {
+    "@playwright/test": "^1.44.0"
+  },
+  "scripts": {
+    "e2e:install": "npx playwright install --with-deps",
+    "e2e:test": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:debug": "PWDEBUG=1 playwright test"
+  }
+}
