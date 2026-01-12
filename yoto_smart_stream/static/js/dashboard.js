@@ -1531,15 +1531,12 @@ async function playChapter(playerId, cardId, chapterKey) {
         
         console.log(`🎵 Playing chapter ${chapterNum} from card ${cardId} on player ${playerId}`);
         
-        const response = await fetch(`/api/players/${playerId}/play-card`, {
+        // Send as query parameters, not JSON body
+        const response = await fetch(`/api/players/${playerId}/play-card?card_id=${encodeURIComponent(cardId)}&chapter=${chapterNum}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                card_id: cardId,
-                chapter: chapterNum
-            })
+            }
         });
         
         if (!response.ok) {
