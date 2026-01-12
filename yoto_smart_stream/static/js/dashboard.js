@@ -17,6 +17,7 @@ let previousPlayerStates = {};
 // Track active slider interactions to prevent updates during drag/change
 let activeSliders = new Set();
 let sliderCooldowns = new Map(); // playerId -> timestamp
+let programmaticUpdates = new Set(); // playerId -> currently being updated programmatically
 
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
@@ -441,9 +442,13 @@ function updatePlayerCard(player) {
     if (canUpdateSlider(player.id)) {
         const slider = document.getElementById(`volume-slider-${player.id}`);
         const label = document.getElementById(`volume-label-${player.id}`);
-        if (slider && label) {
+        if (slider && label && slider.value != player.volume) {
+            // Mark as programmatic update to prevent feedback loop
+            programmaticUpdates.add(player.id);
             slider.value = player.volume;
             label.textContent = `${player.volume}/16`;
+            // Clear flag after a brief delay to allow oninput to check it
+            setTimeout(() => programmaticUpdates.delete(player.id), 10);
         }
     }
     
@@ -602,6 +607,12 @@ async function controlPlayer(playerId, action) {
  * Set player volume
  */
 async function setPlayerVolume(playerId, volume) {
+    // Skip if this is a programmatic update (to prevent feedback loop)
+    if (programmaticUpdates.has(playerId)) {
+        console.log(`%c🔇 Skipping programmatic volume update`, 'color: #999', `Player: ${playerId}`);
+        return;
+    }
+    
     try {
         const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
         const prevVolume = previousPlayerStates[playerId]?.volume || '?';
