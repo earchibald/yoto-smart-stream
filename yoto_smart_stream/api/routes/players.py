@@ -617,3 +617,47 @@ async def control_player(player_id: str, control: PlayerControl):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to control player: {str(e)}",
         ) from e
+
+
+@router.post("/players/{player_id}/play-card")
+async def play_card(player_id: str, card_id: str, chapter: int = 1):
+    """
+    Play a specific card and chapter on a Yoto player.
+    
+    Args:
+        player_id: The player ID
+        card_id: The card ID from the library
+        chapter: Chapter number to start from (default: 1)
+    
+    Returns:
+        Success status
+    """
+    client = get_yoto_client()
+    manager = client.get_manager()
+
+    if player_id not in manager.players:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Player {player_id} not found"
+        )
+
+    try:
+        # Use the yoto_manager's play_card method (like yoto_ha does)
+        manager.play_card(
+            player_id=player_id,
+            card=card_id,
+            chapterKey=str(chapter).zfill(2) if chapter < 10 else str(chapter)
+        )
+        
+        return {
+            "success": True,
+            "player_id": player_id,
+            "card_id": card_id,
+            "chapter": chapter
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to play card: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to play card: {str(e)}",
+        ) from e

@@ -213,3 +213,72 @@ async def get_content_details(content_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch content details: {str(e)}"
         ) from e
+
+
+@router.get("/library/{card_id}/chapters")
+async def get_card_chapters(card_id: str):
+    """
+    Get chapters for a specific card from the library.
+    
+    Args:
+        card_id: The card ID
+        
+    Returns:
+        List of chapters with their metadata
+    """
+    try:
+        client = get_yoto_client()
+        manager = client.get_manager()
+        
+        # Ensure library is loaded
+        if not manager.library:
+            manager.update_library()
+        
+        # Check if card exists in library
+        if card_id not in manager.library:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Card {card_id} not found in library"
+            )
+        
+        card = manager.library[card_id]
+        
+        # Update card details to get chapters if not already loaded
+        if not card.chapters or len(card.chapters) == 0:
+            logger.info(f"Fetching chapter details for card {card_id}")
+            manager.update_card_detail(card_id)
+        
+        # Extract chapter information
+        chapters = []
+        if card.chapters:
+            for chapter_key, chapter in card.chapters.items():
+                chapter_info = {
+                    'key': chapter_key,
+                    'title': chapter.title if hasattr(chapter, 'title') else f'Chapter {chapter_key}',
+                    'duration': chapter.duration if hasattr(chapter, 'duration') else None,
+                    'icon': chapter.icon if hasattr(chapter, 'icon') else None,
+                }
+                chapters.append(chapter_info)
+        
+        return {
+            'card_id': card_id,
+            'card_title': card.title if hasattr(card, 'title') else 'Unknown',
+            'card_author': card.author if hasattr(card, 'author') else '',
+            'card_cover': card.cover_image_large if hasattr(card, 'cover_image_large') else None,
+            'chapters': chapters,
+            'total_chapters': len(chapters)
+        }
+        
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Please log in to Yoto first."
+        ) from e
+    except Exception as e:
+        logger.error(f"Error fetching card chapters: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch card chapters: {str(e)}"
+        ) from e
