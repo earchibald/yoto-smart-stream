@@ -24,6 +24,41 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    // Setup TTS modal close handlers
+    const ttsCloseBtn = document.getElementById('tts-modal-close-btn');
+    const ttsModal = document.getElementById('tts-modal');
+    
+    if (ttsCloseBtn) {
+        ttsCloseBtn.addEventListener('click', closeTTSModal);
+    }
+    
+    // Close TTS modal when clicking outside
+    if (ttsModal) {
+        ttsModal.addEventListener('click', function(event) {
+            if (event.target === ttsModal) {
+                closeTTSModal();
+            }
+        });
+    }
+    
+    // Setup TTS form
+    const ttsForm = document.getElementById('tts-form');
+    if (ttsForm) {
+        ttsForm.addEventListener('submit', handleTTSSubmit);
+    }
+    
+    // Setup filename preview
+    const filenameInput = document.getElementById('tts-filename');
+    if (filenameInput) {
+        filenameInput.addEventListener('input', updateFilenamePreview);
+    }
+    
+    // Setup text length counter
+    const textInput = document.getElementById('tts-text');
+    if (textInput) {
+        textInput.addEventListener('input', updateTextLength);
+    }
 });
 
 // Load system status
@@ -270,4 +305,151 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// TTS Generator Functions
+
+// Open TTS modal
+function openTTSModal() {
+    const modal = document.getElementById('tts-modal');
+    const form = document.getElementById('tts-form');
+    const result = document.getElementById('tts-result');
+    const successDiv = document.getElementById('tts-success');
+    const errorDiv = document.getElementById('tts-error');
+    
+    // Reset form and messages
+    if (form) form.reset();
+    if (result) result.style.display = 'none';
+    if (successDiv) successDiv.style.display = 'none';
+    if (errorDiv) errorDiv.style.display = 'none';
+    
+    // Update preview
+    updateFilenamePreview();
+    updateTextLength();
+    
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+// Close TTS modal
+function closeTTSModal() {
+    const modal = document.getElementById('tts-modal');
+    modal.style.display = 'none';
+}
+
+// Update filename preview
+function updateFilenamePreview() {
+    const filenameInput = document.getElementById('tts-filename');
+    const preview = document.getElementById('filename-preview');
+    
+    if (filenameInput && preview) {
+        const filename = filenameInput.value.trim() || 'my-story';
+        // Remove .mp3 extension if user added it
+        const cleanFilename = filename.replace(/\.mp3$/i, '');
+        preview.textContent = `${cleanFilename}.mp3`;
+    }
+}
+
+// Update text length counter
+function updateTextLength() {
+    const textInput = document.getElementById('tts-text');
+    const lengthDisplay = document.getElementById('text-length');
+    
+    if (textInput && lengthDisplay) {
+        const length = textInput.value.length;
+        lengthDisplay.textContent = `${length} character${length !== 1 ? 's' : ''}`;
+    }
+}
+
+// Handle TTS form submission
+async function handleTTSSubmit(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const submitBtn = document.getElementById('tts-submit-btn');
+    const submitText = document.getElementById('tts-submit-text');
+    const submitSpinner = document.getElementById('tts-submit-spinner');
+    const result = document.getElementById('tts-result');
+    const successDiv = document.getElementById('tts-success');
+    const errorDiv = document.getElementById('tts-error');
+    const successMessage = document.getElementById('tts-success-message');
+    const errorMessage = document.getElementById('tts-error-message');
+    
+    // Get form data
+    const filename = document.getElementById('tts-filename').value.trim();
+    const text = document.getElementById('tts-text').value.trim();
+    
+    if (!filename || !text) {
+        showTTSError('Please fill in all fields');
+        return;
+    }
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitText.style.display = 'none';
+    submitSpinner.style.display = 'inline';
+    result.style.display = 'none';
+    successDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/generate-tts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                filename: filename,
+                text: text,
+            }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to generate TTS audio');
+        }
+        
+        // Show success message
+        successMessage.textContent = data.message || `Successfully generated ${data.filename}`;
+        successDiv.style.display = 'block';
+        result.style.display = 'block';
+        
+        // Reset form
+        form.reset();
+        updateFilenamePreview();
+        updateTextLength();
+        
+        // Refresh library to show new file
+        setTimeout(() => {
+            refreshLibrary();
+        }, 1000);
+        
+        // Auto-close modal after 3 seconds
+        setTimeout(() => {
+            closeTTSModal();
+        }, 3000);
+        
+    } catch (error) {
+        console.error('Error generating TTS audio:', error);
+        errorMessage.textContent = error.message;
+        errorDiv.style.display = 'block';
+        result.style.display = 'block';
+    } finally {
+        // Reset button state
+        submitBtn.disabled = false;
+        submitText.style.display = 'inline';
+        submitSpinner.style.display = 'none';
+    }
+}
+
+// Helper function to show TTS error
+function showTTSError(message) {
+    const result = document.getElementById('tts-result');
+    const errorDiv = document.getElementById('tts-error');
+    const errorMessage = document.getElementById('tts-error-message');
+    
+    errorMessage.textContent = message;
+    errorDiv.style.display = 'block';
+    result.style.display = 'block';
 }
