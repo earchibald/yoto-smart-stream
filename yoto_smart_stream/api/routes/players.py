@@ -126,9 +126,9 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
     Returns:
         PlayerInfo with extracted data
     """
-    # Get volume:  
+    # Get volume:
     # player.volume = MQTT value (0-16 scale)
-    # player.user_volume = REST API userVolumePercentage (0-100 scale) 
+    # player.user_volume = REST API userVolumePercentage (0-100 scale)
     # player.system_volume = REST API systemVolumePercentage (0-100 scale)
     # We want the user-controlled volume percentage (0-100)
     volume = getattr(player, 'user_volume', None)
@@ -144,9 +144,9 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
         else:
             volume = 50  # Default to 50% if no volume available
 
-    # Convert volume from 0-16 scale to 0-100 percentage
+    # Ensure volume is within valid range (0-100)
     if volume is not None:
-        volume = int((volume / 16) * 100)
+        volume = max(0, min(100, int(volume)))
     else:
         volume = 50  # Default to 50%
 

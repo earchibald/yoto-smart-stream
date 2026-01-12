@@ -191,6 +191,7 @@ class TestPlayerDataExtraction:
             mock_player.online = True
             mock_player.volume = 12  # MQTT volume (0-16 range)
             mock_player.user_volume = None
+            mock_player.system_volume = None
             mock_player.playback_status = "playing"
             mock_player.is_playing = None
             mock_player.battery_level_percentage = 85
@@ -225,15 +226,16 @@ class TestPlayerDataExtraction:
             assert players[0]["battery_level"] == 85
 
     def test_player_volume_fallback_to_user_volume(self, client):
-        """Test that player volume falls back to user_volume when MQTT volume is None."""
+        """Test that player volume uses user_volume (already in 0-100 scale) when available."""
         with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
-            # Create mock player with user_volume but no MQTT volume
+            # Create mock player with user_volume (0-100 scale)
             mock_player = MagicMock()
             mock_player.id = "test-player-2"
             mock_player.name = "Test Player 2"
             mock_player.online = True
             mock_player.volume = None  # No MQTT volume
-            mock_player.user_volume = 10  # User volume (0-16 range)
+            mock_player.user_volume = 62  # User volume (0-100 scale, no conversion needed)
+            mock_player.system_volume = None
             mock_player.playback_status = None
             mock_player.is_playing = False
             mock_player.battery_level_percentage = None
@@ -262,7 +264,7 @@ class TestPlayerDataExtraction:
 
             players = response.json()
             assert len(players) == 1
-            # Volume is converted from 0-16 to 0-100 scale: 10/16 * 100 = 62
+            # user_volume is already in 0-100 scale, no conversion needed
             assert players[0]["volume"] == 62
             assert players[0]["playing"] is False
 
@@ -364,6 +366,7 @@ class TestPlayerDataExtraction:
             mock_player.online = True
             mock_player.volume = 8
             mock_player.user_volume = None
+            mock_player.system_volume = None
             mock_player.playback_status = None  # No MQTT playback_status
             mock_player.is_playing = True  # API is_playing
             mock_player.battery_level_percentage = None
@@ -403,6 +406,7 @@ class TestPlayerDataExtraction:
             mock_player.online = True
             mock_player.volume = 8  # Hardware volume range (0-16), 50% volume
             mock_player.user_volume = None
+            mock_player.system_volume = None
             mock_player.playback_status = None
             mock_player.is_playing = False
             mock_player.battery_level_percentage = None
@@ -444,6 +448,7 @@ class TestPlayerDataExtraction:
             mock_player1.online = True
             mock_player1.volume = 0  # Hardware minimum (0)
             mock_player1.user_volume = None
+            mock_player1.system_volume = None
             mock_player1.playback_status = None
             mock_player1.is_playing = False
             mock_player1.battery_level_percentage = None
@@ -463,6 +468,7 @@ class TestPlayerDataExtraction:
             mock_player2.online = True
             mock_player2.volume = 16  # Hardware maximum (16)
             mock_player2.user_volume = None
+            mock_player2.system_volume = None
             mock_player2.playback_status = None
             mock_player2.is_playing = False
             mock_player2.battery_level_percentage = None
@@ -511,6 +517,7 @@ class TestPlayerDataExtraction:
             mock_player.online = True
             mock_player.volume = 12  # Hardware volume (0-16 range), will convert to 75%
             mock_player.user_volume = None
+            mock_player.system_volume = None
             mock_player.playback_status = "playing"
             mock_player.is_playing = None
             mock_player.battery_level_percentage = 85
