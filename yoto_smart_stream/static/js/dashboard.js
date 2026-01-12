@@ -242,7 +242,7 @@ async function loadPlayers() {
             if (prevState) {
                 // Volume change (likely MQTT event)
                 if (prevState.volume !== player.volume) {
-                    changes.push(`Volume: ${prevState.volume}/15 → ${player.volume}/15`);
+                    changes.push(`Volume: ${prevState.volume}/16 → ${player.volume}/16`);
                 }
                 // Playing status change
                 if (prevState.playing !== player.playing) {
@@ -269,7 +269,7 @@ async function loadPlayers() {
                 });
             } else if (!prevState) {
                 // First load
-                console.log(`  🎮 ${player.name}: Online=${player.online}, Volume=${player.volume}/15, Playing=${player.playing}`);
+                console.log(`  🎮 ${player.name}: Online=${player.online}, Volume=${player.volume}/16, Playing=${player.playing}`);
             }
             
             // Store current state for next comparison
@@ -383,7 +383,7 @@ function createPlayerCardHTML(player) {
             </div>
             ${mediaInfo}
             <div class="list-item-details">
-                <span>🔊 ${player.volume}/15</span>
+                <span>🔊 ${player.volume}/16</span>
                 <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
                 ${indicators.map(ind => `<span>${ind}</span>`).join('')}
             </div>
@@ -402,7 +402,7 @@ function createPlayerCardHTML(player) {
                         id="volume-slider-${escapeHtml(player.id)}"
                         class="volume-slider" 
                         min="0" 
-                        max="15" 
+                        max="16" 
                         value="${player.volume}" 
                         onmousedown="startSliderInteraction('${escapeHtml(player.id)}')"
                         ontouchstart="startSliderInteraction('${escapeHtml(player.id)}')"
@@ -410,7 +410,7 @@ function createPlayerCardHTML(player) {
                         onmouseup="endSliderInteraction('${escapeHtml(player.id)}')"
                         ontouchend="endSliderInteraction('${escapeHtml(player.id)}')"
                         ${!player.online ? 'disabled' : ''}>
-                    <span class="volume-label" id="volume-label-${escapeHtml(player.id)}">${player.volume}/15</span>
+                    <span class="volume-label" id="volume-label-${escapeHtml(player.id)}">${player.volume}/16</span>
                 </div>
                 <button class="control-btn library-btn" onclick="showLibraryBrowser('${escapeHtml(player.id)}')" title="Select from Library" ${!player.online ? 'disabled' : ''}>
                     📚
@@ -443,7 +443,7 @@ function updatePlayerCard(player) {
         const label = document.getElementById(`volume-label-${player.id}`);
         if (slider && label) {
             slider.value = player.volume;
-            label.textContent = `${player.volume}/15`;
+            label.textContent = `${player.volume}/16`;
         }
     }
     
@@ -605,14 +605,14 @@ async function setPlayerVolume(playerId, volume) {
     try {
         const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
         const prevVolume = previousPlayerStates[playerId]?.volume || '?';
-        console.log(`%c[${timestamp}] 🔊 Volume Control`, 'color: #9C27B0; font-weight: bold', `${prevVolume}/15 → ${volume}/15`, `(Player: ${playerId})`);
+        console.log(`%c[${timestamp}] 🔊 Volume Control`, 'color: #9C27B0; font-weight: bold', `${prevVolume}/16 → ${volume}/16`, `(Player: ${playerId})`);
         
         // Update the volume label immediately for responsiveness
         const volumeControl = document.querySelector(`.volume-control[data-player-id="${playerId}"]`);
         if (volumeControl) {
             const volumeLabel = volumeControl.querySelector('.volume-label');
             if (volumeLabel) {
-                volumeLabel.textContent = `${volume}/15`;
+                volumeLabel.textContent = `${volume}/16`;
             }
         }
         

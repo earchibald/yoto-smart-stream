@@ -114,7 +114,7 @@ class PlayerControl(BaseModel):
     action: str = Field(
         ..., description="Action to perform: play, pause, stop, skip_forward, skip_backward, volume"
     )
-    volume: Optional[int] = Field(None, ge=0, le=15, description="Volume level (0-15 bins, matching iOS app)")
+    volume: Optional[int] = Field(None, ge=0, le=16, description="Volume level (0-16 bins)")
 
 
 def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
@@ -153,13 +153,12 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
         # 2. Fall back to REST API (player.user_volume, 0-100 scale) - slow (30-60s lag)
         # 3. Fall back to system volume (player.system_volume, 0-100 scale)
         # 
-        # Note: We use 0-15 bins (matching iOS app), but MQTT reports 0-16.
-        # The hardware supports 16 levels, but app convention is 0-15.
+        # Hardware supports 0-16 (17 levels total)
         mqtt_volume = getattr(player, 'volume', None)
         if mqtt_volume is not None:
-            # Use MQTT volume directly (0-16 scale), clamped to 0-15 for consistency
-            volume = min(mqtt_volume, 15)
-            logger.debug(f"Using MQTT volume {mqtt_volume} -> {volume}/15 for player {player_id}")
+            # Use MQTT volume directly (0-16 scale)
+            volume = mqtt_volume
+            logger.debug(f"Using MQTT volume {volume}/16 for player {player_id}")
         else:
             # No MQTT data yet, use REST API data (convert from percentage to bins)
             api_volume = getattr(player, 'user_volume', None)
@@ -167,16 +166,16 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
                 # Fallback to system_volume if user_volume not available
                 api_volume = getattr(player, 'system_volume', None)
             if api_volume is not None:
-                # Convert from 0-100 percentage to 0-15 bins
-                volume = round((api_volume / 100) * 15)
+                # Convert from 0-100 percentage to 0-16 bins
+                volume = round((api_volume / 100) * 16)
             else:
-                volume = 8  # Default to 8/15 (mid-range) if no volume available
+                volume = 8  # Default to 8/16 (mid-range) if no volume available
 
-    # Ensure volume is within valid range (0-15)
+    # Ensure volume is within valid range (0-16)
     if volume is not None:
-        volume = max(0, min(15, int(volume)))
+        volume = max(0, min(16, int(volume)))
     else:
-        volume = 8  # Default to 8/15
+        volume = 8  # Default to 8/16
 
     # Get playing status: check playback_status string or is_playing boolean
     playing = False
@@ -646,7 +645,7 @@ async def control_player(player_id: str, control: PlayerControl):
                 payload = json.dumps({"volume": control.volume})
                 if hasattr(manager, 'mqtt_client') and manager.mqtt_client:
                     manager.mqtt_client.publish(topic, payload)
-                    logger.info(f"Set volume via MQTT for {player_id} to {control.volume}/15")
+                    logger.info(f"Set volume via MQTT for {player_id} to {control.volume}/16")
                 else:
                     raise HTTPException(
                         status_code=status.HTTP_501_NOT_IMPLEMENTED,
@@ -655,7 +654,7 @@ async def control_player(player_id: str, control: PlayerControl):
             
             # Cache the volume change to prevent stale MQTT data from overriding it
             _volume_cache[player_id] = (control.volume, time.time())
-            logger.info(f"Cached volume {control.volume}/15 for player {player_id}")
+            logger.info(f"Cached volume {control.volume}/16 for player {player_id}")
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown action: {control.action}"
@@ -673,7 +672,7 @@ async def control_player(player_id: str, control: PlayerControl):
             
             # Cache the volume change
             _volume_cache[player_id] = (control.volume, time.time())
-            logger.info(f"Cached volume {control.volume}/15 for player {player_id}")
+            logger.info(f"Cached volume {control.volume}/16 for player {player_id}")
 
         return {"success": True, "player_id": player_id, "action": control.action}
 
