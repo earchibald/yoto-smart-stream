@@ -1,6 +1,7 @@
 // Streams Page JavaScript
 
 const API_BASE = '/api';
+const RESERVED_QUEUES = ['test-stream'];
 
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
@@ -398,11 +399,13 @@ async function loadStreamQueues() {
     try {
         const response = await fetch(`${API_BASE}/streams/queues`);
         const data = await response.json();
+
+        const editableQueues = (data.queues || []).filter(name => !RESERVED_QUEUES.includes(name));
         
         const selector = document.getElementById('queue-selector');
         selector.innerHTML = '<option value="">-- Select Queue --</option>';
         
-        data.queues.forEach(queueName => {
+        editableQueues.forEach(queueName => {
             const option = document.createElement('option');
             option.value = queueName;
             option.textContent = queueName;
@@ -464,6 +467,12 @@ async function startNewQueue() {
 }
 
 async function loadQueueForEditing(queueName) {
+    if (RESERVED_QUEUES.includes(queueName)) {
+        showScripterResult('This queue is reserved and cannot be edited', 'error');
+        startNewQueue();
+        return;
+    }
+
     try {
         const response = await fetch(`${API_BASE}/streams/${queueName}/queue`);
         if (!response.ok) throw new Error('Failed to load queue');
@@ -620,6 +629,11 @@ async function saveQueue() {
         showScripterResult('Queue name must contain only alphanumeric characters and hyphens', 'error');
         return;
     }
+
+    if (RESERVED_QUEUES.includes(queueName)) {
+        showScripterResult('This queue is reserved and cannot be edited', 'error');
+        return;
+    }
     
     if (currentQueueFiles.length === 0) {
         showScripterResult('Please add at least one file to the queue', 'error');
@@ -683,6 +697,11 @@ async function saveQueue() {
 async function confirmDeleteQueue() {
     if (!currentQueueName) {
         showScripterResult('No queue selected to delete', 'error');
+        return;
+    }
+
+    if (RESERVED_QUEUES.includes(currentQueueName)) {
+        showScripterResult('This queue is reserved and cannot be deleted', 'error');
         return;
     }
     
