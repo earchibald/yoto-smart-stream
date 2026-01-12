@@ -111,12 +111,24 @@ async def login(
     Returns:
         Login response with success status
     """
+    logger.info(f"Login attempt for username: {login_data.username}")
+    
     # Query user from database
     user = db.query(User).filter(User.username == login_data.username).first()
     
-    # Verify user exists and password is correct
-    if not user or not verify_password(login_data.password, user.hashed_password):
-        logger.warning(f"Failed login attempt for username: {login_data.username}")
+    if not user:
+        logger.warning(f"User not found: {login_data.username}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password"
+        )
+    
+    # Verify password
+    password_valid = verify_password(login_data.password, user.hashed_password)
+    logger.debug(f"Password verification result for {login_data.username}: {password_valid}")
+    
+    if not password_valid:
+        logger.warning(f"Invalid password for username: {login_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password"
@@ -183,3 +195,25 @@ async def check_session(user: Optional[User] = Depends(get_current_user)):
     if user:
         return SessionResponse(authenticated=True, username=user.username)
     return SessionResponse(authenticated=False)
+
+
+@router.get("/user/debug")
+async def debug_users(db: Session = Depends(get_db)):
+    """
+    Debug endpoint to check user database state.
+    
+    Returns count and list of usernames (NOT FOR PRODUCTION).
+    """
+    try:
+        users = db.query(User).all()
+        return {
+            "user_count": len(users),
+            "usernames": [u.username for u in users],
+            "database_url": "Check server logs for database path"
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "user_count": 0,
+            "usernames": []
+        }

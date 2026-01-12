@@ -82,6 +82,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize database
     logger.info("Initializing database...")
+    logger.info(f"Database URL: {settings.database_url}")
     init_db()
     
     # Create default admin user if it doesn't exist
@@ -91,6 +92,10 @@ async def lifespan(app: FastAPI):
     
     db = SessionLocal()
     try:
+        # Count existing users
+        user_count = db.query(User).count()
+        logger.info(f"Current user count in database: {user_count}")
+        
         admin_user = db.query(User).filter(User.username == "admin").first()
         if not admin_user:
             admin_user = User(
@@ -102,9 +107,10 @@ async def lifespan(app: FastAPI):
             db.commit()
             logger.info("✓ Default admin user created (username: admin, password: yoto)")
         else:
-            logger.info("✓ Admin user already exists")
+            logger.info(f"✓ Admin user already exists (id: {admin_user.id}, active: {admin_user.is_active})")
     except Exception as e:
         logger.error(f"Failed to create admin user: {e}")
+        logger.error(f"Database URL was: {settings.database_url}")
         db.rollback()
     finally:
         db.close()
