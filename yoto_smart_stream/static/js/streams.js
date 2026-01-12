@@ -259,11 +259,56 @@ async function copyUrl(url) {
 // Play audio preview
 function playAudio(url) {
     const fullUrl = window.location.origin + url;
-    const audio = new Audio(fullUrl);
+    
+    // Get modal and audio elements
+    const modal = document.getElementById('audio-player-modal');
+    const audio = document.getElementById('audio-element');
+    const source = document.getElementById('audio-source');
+    const urlDisplay = document.getElementById('player-url');
+    const title = document.getElementById('player-title');
+    
+    // Stop any currently playing audio
+    audio.pause();
+    audio.currentTime = 0;
+    
+    // Set new source
+    source.src = fullUrl;
+    audio.load();
+    
+    // Update display
+    urlDisplay.textContent = url;
+    title.textContent = 'Audio Preview: ' + url.split('/').pop();
+    
+    // Show modal
+    modal.style.display = 'flex';
+    
+    // Play audio
     audio.play().catch(error => {
         console.error('Error playing audio:', error);
         alert('Failed to play audio. The file may not be compatible with your browser.');
+        closeAudioPlayer();
     });
+}
+
+// Close audio player
+function closeAudioPlayer() {
+    const modal = document.getElementById('audio-player-modal');
+    const audio = document.getElementById('audio-element');
+    
+    // Stop audio
+    audio.pause();
+    audio.currentTime = 0;
+    
+    // Hide modal
+    modal.style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('audio-player-modal');
+    if (event.target === modal) {
+        closeAudioPlayer();
+    }
 }
 
 // Utility functions
