@@ -218,6 +218,9 @@ curl https://yoto-smart-stream-pr-{number}.up.railway.app/health
 # 5. REPEAT - Make adjustments and start again
 # If tests fail, fix code locally and repeat: version → commit → push → wait → test
 # When our last objective is fulfilled and anything we introduced is clean, we are done.
+
+# ENCOUNTERING ISSUES
+# Unless otherwise instructed always return to CPWRT workflow with the next user query.
 ```
 
 **Tips for efficient CPWTR:**

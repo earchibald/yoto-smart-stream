@@ -7,7 +7,8 @@ import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..dependencies import get_yoto_client, get_db
+from ..dependencies import get_yoto_client
+from ...database import get_db
 from ...models import User
 from ...auth import require_auth
 

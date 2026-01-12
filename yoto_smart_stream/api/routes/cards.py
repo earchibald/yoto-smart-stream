@@ -14,7 +14,8 @@ from pydub import AudioSegment
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
-from ..dependencies import get_yoto_client, get_db
+from ..dependencies import get_yoto_client
+from ...database import get_db
 from ..utils import get_time_based_audio_file, get_time_schedule
 from ...models import User
 from ...auth import require_auth
