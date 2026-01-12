@@ -183,9 +183,13 @@ YOTO_CLIENT_ID         # Yoto API client ID (from https://yoto.dev/)
 This is the standard development cycle when working with Railway deployments:
 
 ```bash
-# 1. COMMIT - Stage and commit your changes
+# 0. UPDATE VERSION - Bump the version in config.py
+# Edit yoto_smart_stream/config.py and update app_version
+# Example: app_version: str = "0.2.1"
+
+# 1. COMMIT - Stage and commit your changes (including version bump)
 git add .
-git commit -m "Add feature X"
+git commit -m "Add feature X - bump to v0.2.1"
 
 # 2. PUSH - Push to GitHub
 git push origin feature-branch
@@ -195,13 +199,15 @@ git push origin feature-branch
 # - PR is opened (PR Environments)
 # - Commits are pushed to main (Production)
 # - Commits are pushed to tracked branches
+# Use MCP server to check deployment status if available
 
 # 4. TEST - Test the deployed changes
 curl https://yoto-smart-stream-pr-{number}.up.railway.app/health
+# Verify version in response: "version": "0.2.1"
 # Or access via browser, test API endpoints, etc.
 
 # 5. REPEAT - Make adjustments and start again
-# If tests fail, fix code locally and repeat: commit → push → wait → test
+# If tests fail, fix code locally and repeat: version → commit → push → wait → test
 ```
 
 **Tips for efficient CPWTR:**
