@@ -11,6 +11,9 @@ let deviceCode = null;
 let playerRefreshInterval = null;
 let isLoadingPlayers = false;
 
+// Track previous player states for change detection
+let previousPlayerStates = {};
+
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
     checkAuthStatus();
@@ -223,6 +226,58 @@ async function loadPlayers() {
         
         const players = await response.json();
         
+        // Console logging for MQTT events and status changes
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+        console.log(`%c[${timestamp}] 📡 Player Status Update`, 'color: #4CAF50; font-weight: bold');
+        
+        // Detect and log changes for each player
+        players.forEach(player => {
+            const prevState = previousPlayerStates[player.id];
+            const changes = [];
+            
+            if (prevState) {
+                // Volume change (likely MQTT event)
+                if (prevState.volume !== player.volume) {
+                    changes.push(`Volume: ${prevState.volume}% → ${player.volume}%`);
+                }
+                // Playing status change
+                if (prevState.playing !== player.playing) {
+                    changes.push(`Playback: ${prevState.playing ? 'Playing' : 'Stopped'} → ${player.playing ? 'Playing' : 'Stopped'}`);
+                }
+                // Battery change
+                if (prevState.battery_level !== player.battery_level) {
+                    changes.push(`Battery: ${prevState.battery_level}% → ${player.battery_level}%`);
+                }
+                // Card change
+                if (prevState.active_card !== player.active_card) {
+                    changes.push(`Card: ${prevState.active_card || 'none'} → ${player.active_card || 'none'}`);
+                }
+                // Online status change
+                if (prevState.online !== player.online) {
+                    changes.push(`Status: ${prevState.online ? 'Online' : 'Offline'} → ${player.online ? 'Online' : 'Offline'}`);
+                }
+            }
+            
+            if (changes.length > 0) {
+                console.log(`%c  🎮 ${player.name}:`, 'color: #2196F3; font-weight: bold');
+                changes.forEach(change => {
+                    console.log(`    • ${change}`);
+                });
+            } else if (!prevState) {
+                // First load
+                console.log(`  🎮 ${player.name}: Online=${player.online}, Volume=${player.volume}%, Playing=${player.playing}`);
+            }
+            
+            // Store current state for next comparison
+            previousPlayerStates[player.id] = {
+                volume: player.volume,
+                playing: player.playing,
+                battery_level: player.battery_level,
+                active_card: player.active_card,
+                online: player.online
+            };
+        });
+        
         // Update player count
         document.getElementById('player-count').textContent = players.length;
         
@@ -351,7 +406,7 @@ function startPlayerAutoRefresh() {
             await loadPlayers();
         } catch (error) {
             // Log error but don't stop the interval
-            console.error('Auto-refresh error:', error);
+            console.error('%c[MQTT] ❌ Auto-refresh error:', 'color: #f44336; font-weight: bold', error);
         }
     }, 5000);
 }
@@ -371,6 +426,9 @@ function stopPlayerAutoRefresh() {
  */
 async function controlPlayer(playerId, action) {
     try {
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+        console.log(`%c[${timestamp}] 🎮 Control: ${action}`, 'color: #FF9800; font-weight: bold', `Player: ${playerId}`);
+        
         const response = await fetch(`${API_BASE}/players/${playerId}/control`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -396,6 +454,10 @@ async function controlPlayer(playerId, action) {
  */
 async function setPlayerVolume(playerId, volume) {
     try {
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+        const prevVolume = previousPlayerStates[playerId]?.volume || '?';
+        console.log(`%c[${timestamp}] 🔊 Volume Control`, 'color: #9C27B0; font-weight: bold', `${prevVolume}% → ${volume}%`, `(Player: ${playerId})`);
+        
         // Update the volume label immediately for responsiveness
         const volumeControl = document.querySelector(`.volume-control[data-player-id="${playerId}"]`);
         if (volumeControl) {
