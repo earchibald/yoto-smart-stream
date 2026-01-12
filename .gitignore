@@ -88,15 +88,3 @@ card_scripts/
 user_data/
 recordings/
 .playwright-mcp/
-
-# Playwright (e2e) artifacts
-node_modules/
-playwright-report/
-test-results/
-blob-report/
-**/__screenshots__/
-**/screenshots/
-**/videos/
-**/traces/
-trace.zip
-trace.*.zip
