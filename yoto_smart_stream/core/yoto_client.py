@@ -108,12 +108,34 @@ class YotoClient:
         self.manager.update_players_status()
         logger.debug(f"Updated status for {len(self.manager.players)} players")
 
+    def update_library(self) -> None:
+        """Update library from API to get card metadata."""
+        self.ensure_authenticated()
+        self.manager.update_library()
+        logger.debug(f"Updated library with {len(self.manager.library)} items")
+
+    def _mqtt_event_callback(self) -> None:
+        """
+        Callback for MQTT events - triggered when real-time events are received.
+        
+        The yoto_api library has already updated the manager.players dict with
+        the MQTT event data BEFORE this callback is invoked. We don't need to
+        query the API here because:
+        1. The player objects are already updated with fresh MQTT data
+        2. Querying the API would overwrite fresh data with stale data (30-60s lag)
+        3. The Web UI will read from manager.players which has the fresh data
+        
+        For debugging, log that we received an event (library logs the full payload).
+        """
+        logger.debug("MQTT: Event received - player data already updated by library")
+
     def connect_mqtt(self) -> None:
         """Connect to MQTT for real-time events."""
         self.ensure_authenticated()
         try:
-            self.manager.connect_to_events()
-            logger.info("Connected to MQTT")
+            # Connect with callback for event logging
+            self.manager.connect_to_events(callback=self._mqtt_event_callback)
+            logger.info("Connected to MQTT with event logging enabled")
         except Exception as e:
             logger.error(f"Failed to connect to MQTT: {e}")
             raise
@@ -144,16 +166,16 @@ class YotoClient:
     def get_access_token(self) -> Optional[str]:
         """
         Get the current access token from the YotoManager.
-        
+
         Returns:
             Access token string, or None if not available
-            
+
         Raises:
             RuntimeError: If not authenticated
         """
         if not self.is_authenticated():
             raise RuntimeError("Client not authenticated. Call authenticate() first.")
-        
+
         # The yoto_api library stores tokens in manager.token object
         if hasattr(self.manager, 'token') and self.manager.token:
             # token object should have access_token attribute
@@ -162,7 +184,7 @@ class YotoClient:
             # Or it might be stored as 'token' string directly
             elif isinstance(self.manager.token, str):
                 return self.manager.token
-        
+
         return None
 
     def set_authenticated(self, authenticated: bool) -> None:

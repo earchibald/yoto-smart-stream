@@ -189,17 +189,29 @@ class TestPlayerDataExtraction:
             mock_player.id = "test-player-1"
             mock_player.name = "Test Player"
             mock_player.online = True
-            mock_player.volume = 12  # MQTT volume
+            mock_player.volume = 12  # MQTT volume (0-16 range)
             mock_player.user_volume = None
+            mock_player.system_volume = None
             mock_player.playback_status = "playing"
             mock_player.is_playing = None
             mock_player.battery_level_percentage = 85
+            # New fields for card/track info
+            mock_player.charging = None
+            mock_player.temperature_celcius = None
+            mock_player.sleep_timer_active = None
+            mock_player.sleep_timer_seconds_remaining = None
+            mock_player.bluetooth_audio_connected = None
+            mock_player.card_id = None
+            mock_player.chapter_title = None
+            mock_player.track_title = None
 
             # Setup mock client
             mock_client = MagicMock()
             mock_manager = MagicMock()
             mock_manager.players = {"test-player-1": mock_player}
+            mock_manager.library = {}
             mock_client.get_manager.return_value = mock_manager
+            mock_client.update_library.return_value = None
             mock_get_client.return_value = mock_client
 
             # Call endpoint
@@ -208,29 +220,42 @@ class TestPlayerDataExtraction:
 
             players = response.json()
             assert len(players) == 1
-            assert players[0]["volume"] == 12
+            # Volume is converted from 0-16 to 0-100 scale: 12/16 * 100 = 75
+            assert players[0]["volume"] == 75
             assert players[0]["playing"] is True
             assert players[0]["battery_level"] == 85
 
     def test_player_volume_fallback_to_user_volume(self, client):
-        """Test that player volume falls back to user_volume when MQTT volume is None."""
+        """Test that player volume uses user_volume (already in 0-100 scale) when available."""
         with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
-            # Create mock player with user_volume but no MQTT volume
+            # Create mock player with user_volume (0-100 scale)
             mock_player = MagicMock()
             mock_player.id = "test-player-2"
             mock_player.name = "Test Player 2"
             mock_player.online = True
             mock_player.volume = None  # No MQTT volume
-            mock_player.user_volume = 10  # User volume
+            mock_player.user_volume = 62  # User volume (0-100 scale, no conversion needed)
+            mock_player.system_volume = None
             mock_player.playback_status = None
             mock_player.is_playing = False
             mock_player.battery_level_percentage = None
+            # New fields for card/track info
+            mock_player.charging = None
+            mock_player.temperature_celcius = None
+            mock_player.sleep_timer_active = None
+            mock_player.sleep_timer_seconds_remaining = None
+            mock_player.bluetooth_audio_connected = None
+            mock_player.card_id = None
+            mock_player.chapter_title = None
+            mock_player.track_title = None
 
             # Setup mock client
             mock_client = MagicMock()
             mock_manager = MagicMock()
             mock_manager.players = {"test-player-2": mock_player}
+            mock_manager.library = {}
             mock_client.get_manager.return_value = mock_manager
+            mock_client.update_library.return_value = None
             mock_get_client.return_value = mock_client
 
             # Call endpoint
@@ -239,7 +264,8 @@ class TestPlayerDataExtraction:
 
             players = response.json()
             assert len(players) == 1
-            assert players[0]["volume"] == 10
+            # user_volume is already in 0-100 scale, no conversion needed
+            assert players[0]["volume"] == 62
             assert players[0]["playing"] is False
 
     def test_player_playback_status_parsing(self, client):
@@ -255,6 +281,14 @@ class TestPlayerDataExtraction:
             mock_player1.playback_status = "playing"
             mock_player1.is_playing = None
             mock_player1.battery_level_percentage = None
+            mock_player1.charging = None
+            mock_player1.temperature_celcius = None
+            mock_player1.sleep_timer_active = None
+            mock_player1.sleep_timer_seconds_remaining = None
+            mock_player1.bluetooth_audio_connected = None
+            mock_player1.card_id = None
+            mock_player1.chapter_title = None
+            mock_player1.track_title = None
 
             mock_player2 = MagicMock()
             mock_player2.id = "player-paused"
@@ -265,6 +299,14 @@ class TestPlayerDataExtraction:
             mock_player2.playback_status = "paused"
             mock_player2.is_playing = None
             mock_player2.battery_level_percentage = None
+            mock_player2.charging = None
+            mock_player2.temperature_celcius = None
+            mock_player2.sleep_timer_active = None
+            mock_player2.sleep_timer_seconds_remaining = None
+            mock_player2.bluetooth_audio_connected = None
+            mock_player2.card_id = None
+            mock_player2.chapter_title = None
+            mock_player2.track_title = None
 
             mock_player3 = MagicMock()
             mock_player3.id = "player-stopped"
@@ -275,6 +317,14 @@ class TestPlayerDataExtraction:
             mock_player3.playback_status = "stopped"
             mock_player3.is_playing = None
             mock_player3.battery_level_percentage = None
+            mock_player3.charging = None
+            mock_player3.temperature_celcius = None
+            mock_player3.sleep_timer_active = None
+            mock_player3.sleep_timer_seconds_remaining = None
+            mock_player3.bluetooth_audio_connected = None
+            mock_player3.card_id = None
+            mock_player3.chapter_title = None
+            mock_player3.track_title = None
 
             # Setup mock client
             mock_client = MagicMock()
@@ -284,7 +334,9 @@ class TestPlayerDataExtraction:
                 "player-paused": mock_player2,
                 "player-stopped": mock_player3,
             }
+            mock_manager.library = {}
             mock_client.get_manager.return_value = mock_manager
+            mock_client.update_library.return_value = None
             mock_get_client.return_value = mock_client
 
             # Call endpoint
@@ -314,15 +366,26 @@ class TestPlayerDataExtraction:
             mock_player.online = True
             mock_player.volume = 8
             mock_player.user_volume = None
+            mock_player.system_volume = None
             mock_player.playback_status = None  # No MQTT playback_status
             mock_player.is_playing = True  # API is_playing
             mock_player.battery_level_percentage = None
+            mock_player.charging = None
+            mock_player.temperature_celcius = None
+            mock_player.sleep_timer_active = None
+            mock_player.sleep_timer_seconds_remaining = None
+            mock_player.bluetooth_audio_connected = None
+            mock_player.card_id = None
+            mock_player.chapter_title = None
+            mock_player.track_title = None
 
             # Setup mock client
             mock_client = MagicMock()
             mock_manager = MagicMock()
             mock_manager.players = {"test-player-3": mock_player}
+            mock_manager.library = {}
             mock_client.get_manager.return_value = mock_manager
+            mock_client.update_library.return_value = None
             mock_get_client.return_value = mock_client
 
             # Call endpoint
@@ -334,24 +397,36 @@ class TestPlayerDataExtraction:
             assert players[0]["playing"] is True
 
     def test_player_volume_range_0_to_100(self, client):
-        """Test that player volume accepts values in 0-100 range (API range, not hardware 0-16)."""
+        """Test that player volume is converted from hardware range (0-16) to API range (0-100)."""
         with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
-            # Create mock player with volume=50 (the value that was causing ValidationError)
+            # Create mock player with volume=8 in hardware range (0-16), should convert to 50 in API range (0-100)
             mock_player = MagicMock()
             mock_player.id = "test-player-volume"
             mock_player.name = "Test Player Volume"
             mock_player.online = True
-            mock_player.volume = 50  # API volume range (0-100), not hardware range (0-16)
+            mock_player.volume = 8  # Hardware volume range (0-16), 50% volume
             mock_player.user_volume = None
+            mock_player.system_volume = None
             mock_player.playback_status = None
             mock_player.is_playing = False
             mock_player.battery_level_percentage = None
+            # New fields for card/track info
+            mock_player.charging = None
+            mock_player.temperature_celcius = None
+            mock_player.sleep_timer_active = None
+            mock_player.sleep_timer_seconds_remaining = None
+            mock_player.bluetooth_audio_connected = None
+            mock_player.card_id = None
+            mock_player.chapter_title = None
+            mock_player.track_title = None
 
             # Setup mock client
             mock_client = MagicMock()
             mock_manager = MagicMock()
             mock_manager.players = {"test-player-volume": mock_player}
+            mock_manager.library = {}
             mock_client.get_manager.return_value = mock_manager
+            mock_client.update_library.return_value = None
             mock_get_client.return_value = mock_client
 
             # Call endpoint - should NOT raise ValidationError
@@ -360,31 +435,52 @@ class TestPlayerDataExtraction:
 
             players = response.json()
             assert len(players) == 1
+            # Volume should be converted: 8/16 * 100 = 50
             assert players[0]["volume"] == 50
 
     def test_player_volume_boundary_values(self, client):
-        """Test that player volume accepts boundary values (0, 100)."""
+        """Test that player volume converts boundary hardware values (0, 16) to API range (0, 100)."""
         with patch("yoto_smart_stream.api.routes.players.get_yoto_client") as mock_get_client:
-            # Create mock players with boundary volume values
+            # Create mock players with boundary volume values in hardware range (0-16)
             mock_player1 = MagicMock()
             mock_player1.id = "player-vol-0"
             mock_player1.name = "Volume 0"
             mock_player1.online = True
-            mock_player1.volume = 0
+            mock_player1.volume = 0  # Hardware minimum (0)
             mock_player1.user_volume = None
+            mock_player1.system_volume = None
             mock_player1.playback_status = None
             mock_player1.is_playing = False
             mock_player1.battery_level_percentage = None
+            # New fields for card/track info
+            mock_player1.charging = None
+            mock_player1.temperature_celcius = None
+            mock_player1.sleep_timer_active = None
+            mock_player1.sleep_timer_seconds_remaining = None
+            mock_player1.bluetooth_audio_connected = None
+            mock_player1.card_id = None
+            mock_player1.chapter_title = None
+            mock_player1.track_title = None
 
             mock_player2 = MagicMock()
             mock_player2.id = "player-vol-100"
             mock_player2.name = "Volume 100"
             mock_player2.online = True
-            mock_player2.volume = 100
+            mock_player2.volume = 16  # Hardware maximum (16)
             mock_player2.user_volume = None
+            mock_player2.system_volume = None
             mock_player2.playback_status = None
             mock_player2.is_playing = False
             mock_player2.battery_level_percentage = None
+            # New fields for card/track info
+            mock_player2.charging = None
+            mock_player2.temperature_celcius = None
+            mock_player2.sleep_timer_active = None
+            mock_player2.sleep_timer_seconds_remaining = None
+            mock_player2.bluetooth_audio_connected = None
+            mock_player2.card_id = None
+            mock_player2.chapter_title = None
+            mock_player2.track_title = None
 
             # Setup mock client
             mock_client = MagicMock()
@@ -393,7 +489,9 @@ class TestPlayerDataExtraction:
                 "player-vol-0": mock_player1,
                 "player-vol-100": mock_player2,
             }
+            mock_manager.library = {}
             mock_client.get_manager.return_value = mock_manager
+            mock_client.update_library.return_value = None
             mock_get_client.return_value = mock_client
 
             # Call endpoint - should accept both boundary values
@@ -404,10 +502,10 @@ class TestPlayerDataExtraction:
             assert len(players) == 2
 
             vol_0_player = next(p for p in players if p["id"] == "player-vol-0")
-            assert vol_0_player["volume"] == 0
+            assert vol_0_player["volume"] == 0  # 0/16 * 100 = 0
 
             vol_100_player = next(p for p in players if p["id"] == "player-vol-100")
-            assert vol_100_player["volume"] == 100
+            assert vol_100_player["volume"] == 100  # 16/16 * 100 = 100
 
     def test_player_detail_endpoint_returns_comprehensive_info(self, client):
         """Test that /api/players/{player_id} returns detailed player information."""
@@ -417,30 +515,41 @@ class TestPlayerDataExtraction:
             mock_player.id = "test-player-detail"
             mock_player.name = "Test Detail Player"
             mock_player.online = True
-            mock_player.volume = 75
+            mock_player.volume = 12  # Hardware volume (0-16 range), will convert to 75%
             mock_player.user_volume = None
+            mock_player.system_volume = None
             mock_player.playback_status = "playing"
             mock_player.is_playing = None
             mock_player.battery_level_percentage = 85
-            mock_player.is_charging = True
+            mock_player.charging = True  # Note: attribute is 'charging' not 'is_charging'
             mock_player.firmware_version = "v2.17.5-5"
             mock_player.wifi_strength = -55
-            mock_player.temperature_celsius = 24.5
-            mock_player.active_card = "card-123"
-            mock_player.playback_position = 120
+            mock_player.temperature_celcius = 24.5  # Note the typo in API
+            mock_player.ambient_light_sensor_reading = None
+            mock_player.card_id = "card-123"
+            mock_player.track_position = 120
             mock_player.track_length = 300
-            mock_player.current_chapter = "Chapter 1"
-            mock_player.nightlight_mode = "#40bfd9"
-            mock_player.day_mode = True
-            mock_player.power_source = 3  # Wireless Charging
+            mock_player.chapter_key = "1"
+            mock_player.track_key = "1"
+            mock_player.chapter_title = "Chapter 1"
+            mock_player.track_title = "Track 1"
+            mock_player.night_light_mode = "#40bfd9"
+            mock_player.day_mode_on = True
             mock_player.device_type = "v3"
+            mock_player.bluetooth_audio_connected = None
+            mock_player.audio_device_connected = None
+            mock_player.sleep_timer_active = None
+            mock_player.sleep_timer_seconds_remaining = None
+            mock_player.last_updated_at = None
 
             # Setup mock client
             mock_client = MagicMock()
             mock_manager = MagicMock()
             mock_manager.players = {"test-player-detail": mock_player}
+            mock_manager.library = {}
             mock_client.get_manager.return_value = mock_manager
             mock_client.update_player_status = MagicMock()
+            mock_client.update_library = MagicMock()
             mock_get_client.return_value = mock_client
 
             # Call endpoint
@@ -448,12 +557,12 @@ class TestPlayerDataExtraction:
             assert response.status_code == 200
 
             player = response.json()
-            
+
             # Verify all detailed fields are returned
             assert player["id"] == "test-player-detail"
             assert player["name"] == "Test Detail Player"
             assert player["online"] is True
-            assert player["volume"] == 75
+            assert player["volume"] == 75  # 12/16 * 100 = 75
             assert player["playing"] is True
             assert player["battery_level"] == 85
             assert player["is_charging"] is True
@@ -464,10 +573,12 @@ class TestPlayerDataExtraction:
             assert player["playback_status"] == "playing"
             assert player["playback_position"] == 120
             assert player["track_length"] == 300
-            assert player["current_chapter"] == "Chapter 1"
+            assert player["current_chapter"] == "1"
+            assert player["chapter_title"] == "Chapter 1"
+            assert player["track_title"] == "Track 1"
             assert player["nightlight_mode"] == "#40bfd9"
             assert player["day_mode"] is True
-            assert player["power_source"] == "Wireless Charging"
+            assert player["power_source"] is None  # Not directly available
             assert player["device_type"] == "v3"
 
     def test_player_detail_endpoint_not_found(self, client):

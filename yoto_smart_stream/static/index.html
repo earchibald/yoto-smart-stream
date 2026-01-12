@@ -331,6 +331,38 @@
         </div>
     </div>
 
+    <!-- Library Browser Modal -->
+    <div id="libraryModal" class="modal">
+        <div class="modal-content library-modal-content">
+            <div class="modal-header">
+                <h3>Select from Library</h3>
+                <span class="modal-close" onclick="closeLibraryBrowser()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="libraryLoading" class="loading">Loading library...</div>
+                <div id="libraryContent" class="library-grid" style="display: none;">
+                    <!-- Library cards will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chapter Browser Modal -->
+    <div id="chapterModal" class="modal">
+        <div class="modal-content chapter-modal-content">
+            <div class="modal-header">
+                <h3 id="chapterModalTitle">Select Chapter</h3>
+                <span class="modal-close" onclick="closeChapterBrowser()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="chapterLoading" class="loading">Loading chapters...</div>
+                <div id="chapterContent" class="chapter-list" style="display: none;">
+                    <!-- Chapters will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/dashboard.js"></script>
 </body>
 </html>

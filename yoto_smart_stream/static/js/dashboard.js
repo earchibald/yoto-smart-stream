@@ -50,6 +50,13 @@ async function userLogout() {
         window.location.href = '/login';
     }
 }
+// Track previous player states for change detection
+let previousPlayerStates = {};
+
+// Track active slider interactions to prevent updates during drag/change
+let activeSliders = new Set();
+let sliderCooldowns = new Map(); // playerId -> timestamp
+let programmaticUpdates = new Set(); // playerId -> currently being updated programmatically
 
 // Load initial data
 document.addEventListener('DOMContentLoaded', async () => {
@@ -304,6 +311,58 @@ async function loadPlayers() {
         
         const players = await response.json();
         
+        // Console logging for MQTT events and status changes
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+        console.log(`%c[${timestamp}] 📡 Player Status Update`, 'color: #4CAF50; font-weight: bold');
+        
+        // Detect and log changes for each player
+        players.forEach(player => {
+            const prevState = previousPlayerStates[player.id];
+            const changes = [];
+            
+            if (prevState) {
+                // Volume change (likely MQTT event)
+                if (prevState.volume !== player.volume) {
+                    changes.push(`Volume: ${prevState.volume}/16 → ${player.volume}/16`);
+                }
+                // Playing status change
+                if (prevState.playing !== player.playing) {
+                    changes.push(`Playback: ${prevState.playing ? 'Playing' : 'Stopped'} → ${player.playing ? 'Playing' : 'Stopped'}`);
+                }
+                // Battery change
+                if (prevState.battery_level !== player.battery_level) {
+                    changes.push(`Battery: ${prevState.battery_level}% → ${player.battery_level}%`);
+                }
+                // Card change
+                if (prevState.active_card !== player.active_card) {
+                    changes.push(`Card: ${prevState.active_card || 'none'} → ${player.active_card || 'none'}`);
+                }
+                // Online status change
+                if (prevState.online !== player.online) {
+                    changes.push(`Status: ${prevState.online ? 'Online' : 'Offline'} → ${player.online ? 'Online' : 'Offline'}`);
+                }
+            }
+            
+            if (changes.length > 0) {
+                console.log(`%c  🎮 ${player.name}:`, 'color: #2196F3; font-weight: bold');
+                changes.forEach(change => {
+                    console.log(`    • ${change}`);
+                });
+            } else if (!prevState) {
+                // First load
+                console.log(`  🎮 ${player.name}: Online=${player.online}, Volume=${player.volume}/16, Playing=${player.playing}`);
+            }
+            
+            // Store current state for next comparison
+            previousPlayerStates[player.id] = {
+                volume: player.volume,
+                playing: player.playing,
+                battery_level: player.battery_level,
+                active_card: player.active_card,
+                online: player.online
+            };
+        });
+        
         // Update player count
         document.getElementById('player-count').textContent = players.length;
         
@@ -312,108 +371,272 @@ async function loadPlayers() {
             return;
         }
         
-        container.innerHTML = players.map(player => {
-            // Build additional status indicators
-            const indicators = [];
-            
-            // Battery with charging
-            if (player.battery_level !== null && player.battery_level !== undefined) {
-                const chargingIcon = player.is_charging ? '⚡' : '';
-                const batteryIcon = player.battery_level < 20 ? '🪫' : '🔋';
-                indicators.push(`${batteryIcon} ${player.battery_level}%${chargingIcon}`);
-            }
-            
-            // Temperature if available
-            if (player.temperature !== null && player.temperature !== undefined) {
-                indicators.push(`🌡️ ${player.temperature}°C`);
-            }
-            
-            // Sleep timer if active
-            if (player.sleep_timer_active && player.sleep_timer_seconds_remaining) {
-                const minutes = Math.floor(player.sleep_timer_seconds_remaining / 60);
-                indicators.push(`😴 ${minutes}m`);
-            }
-            
-            // Audio connections
-            if (player.bluetooth_audio_connected) {
-                indicators.push('🎧 BT');
-            }
-            
-            // Build media display (what's playing)
-            let mediaInfo = '';
-            if (player.active_card) {
-                // Card/Album info (like yoto_ha media_album_name, media_artist)
-                const cardTitle = player.card_title || 'Unknown Card';
-                const cardAuthor = player.card_author ? ` by ${player.card_author}` : '';
-                
-                // Chapter/Track info (like yoto_ha media_title)
-                let trackInfo = '';
-                if (player.chapter_title || player.track_title) {
-                    const title = player.chapter_title && player.track_title && player.chapter_title !== player.track_title
-                        ? `${player.chapter_title} - ${player.track_title}`
-                        : (player.chapter_title || player.track_title);
-                    trackInfo = `<div class="now-playing-track">${escapeHtml(title)}</div>`;
-                }
-                
-                mediaInfo = `
-                    <div class="now-playing">
-                        <span class="now-playing-label">♫</span>
-                        <div class="now-playing-info">
-                            <div class="now-playing-title">${escapeHtml(cardTitle)}${escapeHtml(cardAuthor)}</div>
-                            ${trackInfo}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            return `
-                <div class="list-item player-card">
-                    <div class="list-item-header">
-                        <span class="list-item-title">${escapeHtml(player.name)}</span>
-                        <span class="badge ${player.online ? 'online' : 'offline'}">
-                            ${player.online ? 'Online' : 'Offline'}
-                        </span>
-                    </div>
-                    ${mediaInfo}
-                    <div class="list-item-details">
-                        <span>🔊 ${player.volume}%</span>
-                        <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
-                        ${indicators.map(ind => `<span>${ind}</span>`).join('')}
-                    </div>
-                    <div class="player-controls">
-                        <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'play')" title="Play" ${!player.online ? 'disabled' : ''}>
-                            ▶️
-                        </button>
-                        <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'pause')" title="Pause" ${!player.online ? 'disabled' : ''}>
-                            ⏸️
-                        </button>
-                        <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'stop')" title="Stop" ${!player.online ? 'disabled' : ''}>
-                            ⏹️
-                        </button>
-                        <div class="volume-control">
-                            <input type="range" 
-                                class="volume-slider" 
-                                min="0" 
-                                max="100" 
-                                value="${player.volume}" 
-                                onchange="setPlayerVolume('${escapeHtml(player.id)}', this.value)"
-                                ${!player.online ? 'disabled' : ''}>
-                            <span class="volume-label">${player.volume}%</span>
-                        </div>
-                        <button class="control-btn info-btn" onclick="showPlayerDetail('${escapeHtml(player.id)}')" title="Player Details">
-                            ℹ️
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        // Check if we need to do a full rebuild or just update values
+        const existingPlayerIds = new Set(
+            Array.from(container.querySelectorAll('.player-card')).map(card => card.dataset.playerId)
+        );
+        const newPlayerIds = new Set(players.map(p => p.id));
+        const needsRebuild = existingPlayerIds.size !== newPlayerIds.size || 
+                            ![...newPlayerIds].every(id => existingPlayerIds.has(id));
         
+        if (needsRebuild) {
+            // Full rebuild needed (player added/removed)
+            container.innerHTML = players.map(player => createPlayerCardHTML(player)).join('');
+        } else {
+            // Just update existing cards without rebuilding
+            players.forEach(player => {
+                updatePlayerCard(player);
+            });
+        }
     } catch (error) {
         console.error('Error loading players:', error);
-        container.innerHTML = '<p class="error-message">Failed to load players. Check your Yoto API authentication.</p>';
+        document.getElementById('players-list').innerHTML = 
+            `<p class="error">Failed to load players: ${error.message}</p>`;
     } finally {
         isLoadingPlayers = false;
     }
+}
+
+/**
+ * Create HTML for a player card
+ */
+function createPlayerCardHTML(player) {
+    // Build additional status indicators
+    const indicators = [];
+    
+    // Battery with charging
+    if (player.battery_level !== null && player.battery_level !== undefined) {
+        const chargingIcon = player.is_charging ? '⚡' : '';
+        const batteryIcon = player.battery_level < 20 ? '🪫' : '🔋';
+        indicators.push(`${batteryIcon} ${player.battery_level}%${chargingIcon}`);
+    }
+    
+    // Temperature if available
+    if (player.temperature !== null && player.temperature !== undefined) {
+        indicators.push(`🌡️ ${player.temperature}°C`);
+    }
+    
+    // Sleep timer if active
+    if (player.sleep_timer_active && player.sleep_timer_seconds_remaining) {
+        const minutes = Math.floor(player.sleep_timer_seconds_remaining / 60);
+        indicators.push(`😴 ${minutes}m`);
+    }
+    
+    // Audio connections
+    if (player.bluetooth_audio_connected) {
+        indicators.push('🎧 BT');
+    }
+    
+    // Build media display (what's playing)
+    let mediaInfo = '';
+    if (player.active_card) {
+        // Card/Album info (like yoto_ha media_album_name, media_artist)
+        const cardTitle = player.card_title || 'Unknown Card';
+        const cardAuthor = player.card_author ? ` by ${player.card_author}` : '';
+        
+        // Chapter/Track info (like yoto_ha media_title)
+        let trackInfo = '';
+        if (player.chapter_title || player.track_title) {
+            const title = player.chapter_title && player.track_title && player.chapter_title !== player.track_title
+                ? `${player.chapter_title} - ${player.track_title}`
+                : (player.chapter_title || player.track_title);
+            trackInfo = `<div class="now-playing-track">${escapeHtml(title)}</div>`;
+        }
+        
+        mediaInfo = `
+            <div class="now-playing">
+                <span class="now-playing-label">♫</span>
+                <div class="now-playing-info">
+                    <div class="now-playing-title">${escapeHtml(cardTitle)}${escapeHtml(cardAuthor)}</div>
+                    ${trackInfo}
+                </div>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="list-item player-card" data-player-id="${escapeHtml(player.id)}">
+            <div class="list-item-header">
+                <span class="list-item-title">${escapeHtml(player.name)}</span>
+                <span class="badge status-badge ${player.online ? 'online' : 'offline'}">
+                    ${player.online ? '🟢 Online' : '🔴 Offline'}
+                </span>
+            </div>
+            ${mediaInfo}
+            <div class="list-item-details">
+                <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
+                ${indicators.map(ind => `<span>${ind}</span>`).join('')}
+            </div>
+            <div class="player-controls">
+                <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'play')" title="Play" ${!player.online ? 'disabled' : ''}>
+                    ▶️
+                </button>
+                <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'pause')" title="Pause" ${!player.online ? 'disabled' : ''}>
+                    ⏸️
+                </button>
+                <button class="control-btn" onclick="controlPlayer('${escapeHtml(player.id)}', 'stop')" title="Stop" ${!player.online ? 'disabled' : ''}>
+                    ⏹️
+                </button>
+                <div class="volume-control" data-player-id="${escapeHtml(player.id)}">
+                    <input type="range" 
+                        id="volume-slider-${escapeHtml(player.id)}"
+                        class="volume-slider" 
+                        min="0" 
+                        max="16" 
+                        value="${player.volume}" 
+                        onmousedown="startSliderInteraction('${escapeHtml(player.id)}')"
+                        ontouchstart="startSliderInteraction('${escapeHtml(player.id)}')"
+                        oninput="setPlayerVolume('${escapeHtml(player.id)}', this.value)"
+                        onmouseup="endSliderInteraction('${escapeHtml(player.id)}')"
+                        ontouchend="endSliderInteraction('${escapeHtml(player.id)}')"
+                        ${!player.online ? 'disabled' : ''}>
+                    <span class="volume-label" id="volume-label-${escapeHtml(player.id)}">${player.volume}/16</span>
+                </div>
+                <button class="control-btn library-btn" onclick="showLibraryBrowser('${escapeHtml(player.id)}')" title="Select from Library" ${!player.online ? 'disabled' : ''}>
+                    📚
+                </button>
+                <button class="control-btn info-btn" onclick="showPlayerDetail('${escapeHtml(player.id)}')" title="Player Details">
+                    ℹ️
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Update an existing player card without rebuilding (for smooth slider interaction)
+ */
+function updatePlayerCard(player) {
+    const card = document.querySelector(`.player-card[data-player-id="${player.id}"]`);
+    if (!card) return;
+    
+    // Update online status
+    const statusBadge = card.querySelector('.status-badge');
+    if (statusBadge) {
+        statusBadge.className = `badge status-badge ${player.online ? 'online' : 'offline'}`;
+        statusBadge.textContent = player.online ? '🟢 Online' : '🔴 Offline';
+    }
+    
+    // Update now playing info (card and chapter titles)
+    const existingMediaInfo = card.querySelector('.now-playing');
+    if (player.active_card && player.active_card !== 'none') {
+        // Card/Album info
+        const cardTitle = player.card_title || 'Unknown Card';
+        const cardAuthor = player.card_author ? ` by ${player.card_author}` : '';
+        
+        // Chapter/Track info
+        let trackInfo = '';
+        if (player.chapter_title || player.track_title) {
+            const title = player.chapter_title && player.track_title && player.chapter_title !== player.track_title
+                ? `${player.chapter_title} - ${player.track_title}`
+                : (player.chapter_title || player.track_title);
+            trackInfo = `<div class="now-playing-track">${escapeHtml(title)}</div>`;
+        }
+        
+        const mediaInfoHtml = `
+            <div class="now-playing">
+                <span class="now-playing-label">♫</span>
+                <div class="now-playing-info">
+                    <div class="now-playing-title">${escapeHtml(cardTitle)}${escapeHtml(cardAuthor)}</div>
+                    ${trackInfo}
+                </div>
+            </div>
+        `;
+        
+        if (existingMediaInfo) {
+            // Update existing media info
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = mediaInfoHtml;
+            existingMediaInfo.replaceWith(tempDiv.firstElementChild);
+        } else {
+            // Insert new media info after header
+            const header = card.querySelector('.list-item-header');
+            if (header) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = mediaInfoHtml;
+                header.insertAdjacentElement('afterend', tempDiv.firstElementChild);
+            }
+        }
+    } else if (existingMediaInfo) {
+        // Remove media info if no active card
+        existingMediaInfo.remove();
+    }
+    
+    // Update playing/paused status in details
+    const details = card.querySelector('.list-item-details');
+    if (details) {
+        const playingSpan = details.querySelector('span:first-child');
+        if (playingSpan) {
+            playingSpan.textContent = player.playing ? '▶️ Playing' : '⏸️ Paused';
+        }
+    }
+    
+    // Update volume slider and label only if not being interacted with
+    if (canUpdateSlider(player.id)) {
+        const slider = document.getElementById(`volume-slider-${player.id}`);
+        const label = document.getElementById(`volume-label-${player.id}`);
+        if (slider && label && slider.value != player.volume) {
+            // Mark as programmatic update to prevent feedback loop
+            programmaticUpdates.add(player.id);
+            slider.value = player.volume;
+            label.textContent = `${player.volume}/16`;
+            // Clear flag after a brief delay to allow oninput to check it
+            setTimeout(() => programmaticUpdates.delete(player.id), 10);
+        }
+    }
+    
+    // Update control buttons enabled/disabled state
+    const controls = card.querySelectorAll('.player-controls button:not(.library-btn):not(.info-btn)');
+    controls.forEach(btn => {
+        if (!player.online) {
+            btn.setAttribute('disabled', '');
+        } else {
+            btn.removeAttribute('disabled');
+        }
+    });
+}
+
+// Slider Interaction Tracking
+
+/**
+ * Mark slider as being actively interacted with
+ */
+function startSliderInteraction(playerId) {
+    activeSliders.add(playerId);
+    console.log(`%c🎚️ Slider interaction started`, 'color: #9C27B0', `Player: ${playerId}`);
+}
+
+/**
+ * Mark slider interaction as complete and set cooldown
+ */
+function endSliderInteraction(playerId) {
+    activeSliders.delete(playerId);
+    // Set cooldown to prevent updates for 3 seconds after interaction ends
+    sliderCooldowns.set(playerId, Date.now() + 3000);
+    console.log(`%c🎚️ Slider interaction ended (3s cooldown)`, 'color: #9C27B0', `Player: ${playerId}`);
+}
+
+/**
+ * Check if a slider should be updated (not active and not in cooldown)
+ */
+function canUpdateSlider(playerId) {
+    // Don't update if actively being dragged
+    if (activeSliders.has(playerId)) {
+        return false;
+    }
+    
+    // Don't update if in cooldown period
+    const cooldownUntil = sliderCooldowns.get(playerId);
+    if (cooldownUntil && Date.now() < cooldownUntil) {
+        return false;
+    }
+    
+    // Cleanup expired cooldown
+    if (cooldownUntil) {
+        sliderCooldowns.delete(playerId);
+    }
+    
+    return true;
 }
 
 // Start automatic player refresh every 5 seconds
@@ -429,7 +652,7 @@ function startPlayerAutoRefresh() {
             await loadPlayers();
         } catch (error) {
             // Log error but don't stop the interval
-            console.error('Auto-refresh error:', error);
+            console.error('%c[MQTT] ❌ Auto-refresh error:', 'color: #f44336; font-weight: bold', error);
         }
     }, 5000);
 }
@@ -442,6 +665,47 @@ function stopPlayerAutoRefresh() {
     }
 }
 
+// Slider Interaction Tracking
+
+/**
+ * Mark slider as being actively interacted with
+ */
+function startSliderInteraction(playerId) {
+    activeSliders.add(playerId);
+}
+
+/**
+ * Mark slider interaction as complete and set cooldown
+ */
+function endSliderInteraction(playerId) {
+    activeSliders.delete(playerId);
+    // Set cooldown to prevent updates for 3 seconds after interaction ends
+    sliderCooldowns.set(playerId, Date.now() + 3000);
+}
+
+/**
+ * Check if a slider should be updated (not active and not in cooldown)
+ */
+function canUpdateSlider(playerId) {
+    // Don't update if actively being dragged
+    if (activeSliders.has(playerId)) {
+        return false;
+    }
+    
+    // Don't update if in cooldown period
+    const cooldownUntil = sliderCooldowns.get(playerId);
+    if (cooldownUntil && Date.now() < cooldownUntil) {
+        return false;
+    }
+    
+    // Cleanup expired cooldown
+    if (cooldownUntil) {
+        sliderCooldowns.delete(playerId);
+    }
+    
+    return true;
+}
+
 // Player Control Functions
 
 /**
@@ -449,6 +713,9 @@ function stopPlayerAutoRefresh() {
  */
 async function controlPlayer(playerId, action) {
     try {
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+        console.log(`%c[${timestamp}] 🎮 Control: ${action}`, 'color: #FF9800; font-weight: bold', `Player: ${playerId}`);
+        
         const response = await fetch(`${API_BASE}/players/${playerId}/control`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -473,11 +740,24 @@ async function controlPlayer(playerId, action) {
  * Set player volume
  */
 async function setPlayerVolume(playerId, volume) {
+    // Skip if this is a programmatic update (to prevent feedback loop)
+    if (programmaticUpdates.has(playerId)) {
+        console.log(`%c🔇 Skipping programmatic volume update`, 'color: #999', `Player: ${playerId}`);
+        return;
+    }
+    
     try {
+        const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+        const prevVolume = previousPlayerStates[playerId]?.volume || '?';
+        console.log(`%c[${timestamp}] 🔊 Volume Control`, 'color: #9C27B0; font-weight: bold', `${prevVolume}/16 → ${volume}/16`, `(Player: ${playerId})`);
+        
         // Update the volume label immediately for responsiveness
-        const volumeLabel = event.target.nextElementSibling;
-        if (volumeLabel) {
-            volumeLabel.textContent = `${volume}%`;
+        const volumeControl = document.querySelector(`.volume-control[data-player-id="${playerId}"]`);
+        if (volumeControl) {
+            const volumeLabel = volumeControl.querySelector('.volume-label');
+            if (volumeLabel) {
+                volumeLabel.textContent = `${volume}/16`;
+            }
         }
         
         const response = await fetch(`${API_BASE}/players/${playerId}/control`, {
@@ -491,8 +771,11 @@ async function setPlayerVolume(playerId, volume) {
             throw new Error(error.detail || 'Failed to set volume');
         }
         
-        // Refresh players to sync state
-        await loadPlayers();
+        // Wait 2 seconds for MQTT to propagate before refreshing
+        // This prevents the old volume value from overwriting the UI
+        setTimeout(() => {
+            loadPlayers();
+        }, 2000);
         
     } catch (error) {
         console.error('Error setting volume:', error);
@@ -1152,4 +1435,199 @@ function showTTSError(message) {
     errorMessage.textContent = message;
     errorDiv.style.display = 'block';
     result.style.display = 'block';
+}
+
+// ============================================================================
+// Library Browser Functions
+// ============================================================================
+
+/**
+ * Show library browser modal for selecting cards
+ */
+async function showLibraryBrowser(playerId) {
+    const modal = document.getElementById('libraryModal');
+    const loadingEl = document.getElementById('libraryLoading');
+    const contentEl = document.getElementById('libraryContent');
+    
+    // Show modal and reset to loading state
+    modal.style.display = 'flex';
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    contentEl.innerHTML = '';
+    
+    // Store player ID for later use
+    modal.dataset.playerId = playerId;
+    
+    try {
+        const response = await fetch('/api/library');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const library = await response.json();
+        
+        // Hide loading, show content
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'grid';
+        
+        if (!library.cards || library.cards.length === 0) {
+            contentEl.innerHTML = '<p class="no-content">No cards found in your library.</p>';
+            return;
+        }
+        
+        // Render cards
+        contentEl.innerHTML = library.cards.map(card => `
+            <div class="library-card" onclick="selectCard('${escapeHtml(playerId)}', '${escapeHtml(card.id)}')">
+                ${card.cover ? `<img src="${escapeHtml(card.cover)}" alt="${escapeHtml(card.title)}" />` : '<div class="no-cover">📚</div>'}
+                <div class="library-card-info">
+                    <div class="library-card-title">${escapeHtml(card.title || 'Untitled')}</div>
+                    ${card.author ? `<div class="library-card-author">${escapeHtml(card.author)}</div>` : ''}
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading library:', error);
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+        contentEl.innerHTML = '<p class="error-message">Failed to load library.</p>';
+    }
+}
+
+/**
+ * Close library browser modal
+ */
+function closeLibraryBrowser() {
+    document.getElementById('libraryModal').style.display = 'none';
+}
+
+/**
+ * Select a card and show chapters
+ */
+async function selectCard(playerId, cardId) {
+    const modal = document.getElementById('chapterModal');
+    const loadingEl = document.getElementById('chapterLoading');
+    const contentEl = document.getElementById('chapterContent');
+    const titleEl = document.getElementById('chapterModalTitle');
+    
+    // Show modal and reset to loading state
+    modal.style.display = 'flex';
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    contentEl.innerHTML = '';
+    titleEl.textContent = 'Loading...';
+    
+    // Store player and card IDs
+    modal.dataset.playerId = playerId;
+    modal.dataset.cardId = cardId;
+    
+    try {
+        const response = await fetch(`/api/library/${cardId}/chapters`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        // Update modal title
+        titleEl.textContent = data.card_title || 'Select Chapter';
+        
+        // Hide loading, show content
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+        
+        if (!data.chapters || data.chapters.length === 0) {
+            contentEl.innerHTML = '<p class="no-content">No chapters available.</p>';
+            return;
+        }
+        
+        // Render chapters
+        contentEl.innerHTML = data.chapters.map(chapter => `
+            <div class="chapter-item" onclick="playChapter('${escapeHtml(playerId)}', '${escapeHtml(cardId)}', '${escapeHtml(chapter.key)}')">
+                ${chapter.icon ? `<img src="${escapeHtml(chapter.icon)}" alt="Chapter ${escapeHtml(chapter.key)}" class="chapter-icon" />` : ''}
+                <div class="chapter-info">
+                    <div class="chapter-title">${escapeHtml(chapter.title || `Chapter ${chapter.key}`)}</div>
+                    ${chapter.duration ? `<div class="chapter-duration">${formatDuration(chapter.duration)}</div>` : ''}
+                </div>
+                <button class="chapter-play-btn" title="Play">▶️</button>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading chapters:', error);
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+        contentEl.innerHTML = '<p class="error-message">Failed to load chapters.</p>';
+    }
+}
+
+/**
+ * Close chapter modal
+ */
+function closeChapterBrowser() {
+    document.getElementById('chapterModal').style.display = 'none';
+}
+
+/**
+ * Play a chapter on the specified player
+ */
+async function playChapter(playerId, cardId, chapterKey) {
+    try {
+        // Convert chapter key to number (removing leading zeros)
+        const chapterNum = parseInt(chapterKey, 10);
+        
+        console.log(`🎵 Playing chapter ${chapterNum} from card ${cardId} on player ${playerId}`);
+        
+        // Step 1: Load the card and chapter
+        const loadResponse = await fetch(`/api/players/${playerId}/play-card?card_id=${encodeURIComponent(cardId)}&chapter=${chapterNum}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (!loadResponse.ok) {
+            const errorData = await loadResponse.json().catch(() => ({}));
+            throw new Error(errorData.detail || `HTTP error! status: ${loadResponse.status}`);
+        }
+        
+        console.log('✓ Card and chapter loaded');
+        
+        // Step 2: Issue play command to start playback
+        const playResponse = await fetch(`/api/players/${playerId}/control`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'play'
+            })
+        });
+        
+        if (!playResponse.ok) {
+            const errorData = await playResponse.json().catch(() => ({}));
+            throw new Error(errorData.detail || `HTTP error! status: ${playResponse.status}`);
+        }
+        
+        console.log('✓ Successfully started playback');
+        
+        // Close both modals
+        closeChapterBrowser();
+        closeLibraryBrowser();
+        
+        // Refresh players to show updated state
+        setTimeout(() => loadPlayers(), 1000);
+        
+    } catch (error) {
+        console.error('Error playing chapter:', error);
+        alert(`Failed to play chapter: ${error.message}`);
+    }
+}
+
+/**
+ * Format duration in seconds to MM:SS
+ */
+function formatDuration(seconds) {
+    if (!seconds) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
