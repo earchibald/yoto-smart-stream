@@ -58,8 +58,13 @@
         </section>
 
         <section class="section">
-            <h3>Managed Streams</h3>
-            <p class="info-text">Server-controlled playlists that stream multiple files sequentially.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <h3>Managed Streams</h3>
+                    <p class="info-text">Server-controlled playlists that stream multiple files sequentially.</p>
+                </div>
+                <button class="btn-primary" onclick="openStreamScripter()">🎬 Stream Scripter</button>
+            </div>
             <div id="managed-streams" class="streams-grid">
                 <p class="loading">Loading managed streams...</p>
             </div>
@@ -103,6 +108,56 @@
                     Your browser does not support the audio element.
                 </audio>
                 <p id="player-url" class="player-url"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stream Scripter Modal -->
+    <div id="stream-scripter-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>🎬 Stream Scripter</h3>
+                <button class="close-btn" onclick="closeStreamScripter()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="queue-selector">Queue</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="queue-selector" style="flex: 1;">
+                            <option value="">-- Select Queue --</option>
+                        </select>
+                        <button class="btn-secondary" onclick="startNewQueue()">New Queue</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="queue-name">Queue Name</label>
+                    <input type="text" id="queue-name" placeholder="my-awesome-queue" pattern="[a-zA-Z0-9-]+" required>
+                    <small style="color: #666;">Only alphanumeric characters and hyphens allowed</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Available Files</label>
+                    <div id="file-selector" class="file-selector-grid">
+                        <p class="loading">Loading files...</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Current Queue (<span id="queue-count">0</span> files)</label>
+                    <div id="queue-list" class="queue-list">
+                        <p style="color: #999; text-align: center; padding: 2rem;">No files added yet. Select files above to add them.</p>
+                    </div>
+                </div>
+
+                <div id="scripter-result" class="result-message" style="display: none;"></div>
+
+                <div class="form-actions">
+                    <button class="btn-primary" onclick="saveQueue()">Save Queue</button>
+                    <button id="delete-queue-btn" class="btn-danger" onclick="confirmDeleteQueue()" style="display: none;">Delete Queue</button>
+                    <button class="btn-secondary" onclick="clearQueueSelection()">Clear Selection</button>
+                    <button class="btn-secondary" onclick="closeStreamScripter()">Cancel</button>
+                </div>
             </div>
         </div>
     </div>

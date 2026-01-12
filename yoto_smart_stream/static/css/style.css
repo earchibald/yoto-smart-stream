@@ -13,6 +13,141 @@ body {
     min-height: 100vh;
 }
 
+/* Stream Scripter Styles */
+.file-selector-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    background: white;
+}
+
+.file-checkbox-item {
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    background: white;
+}
+
+.file-checkbox-item label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.file-checkbox-item input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.queue-list {
+    min-height: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    background: white;
+    padding: 0.5rem;
+}
+
+.queue-file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    background: white;
+    cursor: move;
+    transition: all 0.2s;
+}
+
+.queue-file-item:hover {
+    background: #f7fafc;
+    border-color: #cbd5e0;
+}
+
+.queue-file-item.dragging {
+    opacity: 0.5;
+    background: #edf2f7;
+}
+
+.queue-file-item.drag-over {
+    border: 2px dashed #667eea;
+    background: #f0f4ff;
+}
+
+.queue-file-item .drag-handle {
+    color: #a0aec0;
+    font-size: 1.25rem;
+    cursor: grab;
+}
+
+.queue-file-item .drag-handle:active {
+    cursor: grabbing;
+}
+
+.queue-file-item .file-name {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.queue-file-item .file-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.btn-icon {
+    background: #e2e8f0;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: background 0.2s;
+}
+
+.btn-icon:hover:not(:disabled) {
+    background: #cbd5e0;
+}
+
+.btn-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-icon.btn-remove {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.btn-icon.btn-remove:hover {
+    background: #fc8181;
+    color: white;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
 /* Sidebar Navigation */
 .sidebar {
     width: 250px;
