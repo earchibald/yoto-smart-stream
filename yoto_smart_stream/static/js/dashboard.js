@@ -384,7 +384,6 @@ function createPlayerCardHTML(player) {
             </div>
             ${mediaInfo}
             <div class="list-item-details">
-                <span>🔊 ${player.volume}/16</span>
                 <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
                 ${indicators.map(ind => `<span>${ind}</span>`).join('')}
             </div>
