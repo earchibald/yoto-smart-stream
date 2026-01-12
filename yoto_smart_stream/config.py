@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
-
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -27,7 +26,7 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = "Yoto Smart Stream"
-    app_version: str = "0.2.0"
+    app_version: str = "0.2.1"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
     environment: str = Field(

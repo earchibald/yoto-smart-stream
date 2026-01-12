@@ -3,48 +3,87 @@ name: railway-service-management
 description: Specialized knowledge for managing multi-environment Railway deployments, including development branch previews, production services, and full lifecycle management. Use this when setting up Railway infrastructure, configuring multi-environment workflows, or managing Railway deployments.
 ---
 
-# Railway Service Management
+# Railway CPWTR Workflow (Assumed Defaults)
 
-This skill provides comprehensive guidance for managing applications on Railway.app with multi-environment support. All detailed reference documentation is included in the `reference/` folder.
+This skill is intentionally minimal. It encodes the default Railway workflow for this repo so you don’t need to restate it elsewhere. Use this CPWTR loop by default; reach for references only when you need deeper detail.
 
-## Overview
+## Assumed Defaults
 
-Railway is a modern platform-as-a-service (PaaS) that simplifies application deployment and infrastructure management. This skill focuses on:
+- Environments: `main` → production. Pull requests → PR Environments (automatic, ephemeral).
+- Start: `uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT`.
+- Healthcheck: `GET /api/health` with 100s timeout.
+- Restart policy: `ON_FAILURE`, max retries 10.
+- Volume mount: `/data` when required by a service.
+- Logs/Deploys via Railway MCP tools (preferred), CLI as fallback.
 
-- **Multi-Environment Architecture** for dev/staging/production workflows
-- **Automated Deployments** triggered by GitHub branches
-- **PR Environments** - Native automatic ephemeral environments for pull requests
-- **Service Management** including databases, Redis, and application services
-- **Environment Configuration** with secrets and variables
-- **Secret Management** with GitHub Secrets and Railway variables
-- **Monitoring & Logging** for production operations
-- **Cost Optimization** strategies for efficient resource usage
-- **Railway MCP Server** - AI-powered Railway management tools for GitHub Copilot Workspace
+Repo docs to consult when needed: docs/RAILWAY_DEPLOYMENT.md, docs/RAILWAY_QUICK_REF.md, docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md, docs/VALIDATING_PR_ENVIRONMENTS.md, docs/RAILWAY_CONFIG_SYNC.md, docs/REQUIRED_SECRETS.md.
 
-### Key Railway Concepts
+## CPWTR Loop
 
-**Projects**: Top-level containers that hold all your environments and services
-**Environments**: Isolated deployment contexts (production, staging, development)
-**Services**: Individual deployable units (your app, databases, Redis, etc.)
-**Deployments**: Immutable builds of your service at a specific point in time
+0) Update version if relevant (`yoto_smart_stream/config.py` → `app_version`).
 
-### Base URLs
-- Dashboard: https://railway.app/dashboard
-- CLI Documentation: https://docs.railway.app/reference/cli
-- API Reference: https://docs.railway.app/reference/api-reference
-- MCP Server: https://github.com/railwayapp/railway-mcp-server
+1) Commit
+```bash
+git add -A
+git commit -m "<change> - bump to vX.Y.Z"
+```
 
-## Reference Documentation
+2) Push
+```bash
+git push origin <branch>
+```
 
-**Load these reference documents as needed:**
+3) Wait (prefer MCP; fallback CLI)
+- List latest deployments (MCP): list deployments (limit 1)
+- Build logs (MCP): get logs type=build, lines=50
+- Deploy logs (MCP): get logs type=deploy, lines=200
+- Health: hit `/api/health` for the target environment
 
-- [🏗️ Railway Platform Fundamentals](./reference/platform_fundamentals.md) - Core concepts, project structure, and Railway architecture
-- [🌍 Multi-Environment Architecture](./reference/multi_environment_architecture.md) - Strategies for dev/staging/prod setup with branch-based deployments
-- [🚀 Deployment Workflows](./reference/deployment_workflows.md) - Automated deployments, GitHub integration, and CI/CD patterns
-- [🔀 PR Environments](./reference/pr_environments.md) - Railway's native PR Environments feature for automatic PR deployments
-- [⚙️ Configuration Management](./reference/configuration_management.md) - Environment variables, secrets, and configuration strategies including GitHub Secrets integration
-- [💾 Database & Services](./reference/database_services.md) - PostgreSQL, Redis, and service configuration
-- [📊 Monitoring & Logging](./reference/monitoring_logging.md) - Application observability, logs, and metrics
+4) Test
+- Production: https://<service>.up.railway.app/api/health
+- PR: https://<service>-pr-{number}.up.railway.app/api/health
+- Verify response includes current `version`.
+
+5) Repeat
+- Fix, commit, push. Re-check build → deploy → health.
+
+## Fast Commands (CLI Fallback)
+
+```bash
+# One-time
+npm i -g @railway/cli
+railway login
+railway link
+
+# Observe
+railway deployments list --json | head -n 60
+railway logs -e production --follow
+
+# Variables
+railway variables -e production
+railway variables set KEY=value -e production
+
+# Manual redeploy (rare)
+railway redeploy -e production
+```
+
+## Troubleshooting (Fast Path)
+
+- Build failed → open build logs (MCP/CLI); fix imports/deps; rerun CPWTR.
+- Deploy failed but build passed → open deploy logs; verify `uvicorn` target and healthcheck. Common fixes:
+  - Use `Session` from `sqlalchemy.orm`, `require_auth` from `.user_auth`, `get_db` from `...database`.
+  - Healthcheck path must be `/api/health`.
+  - Ensure required env vars (see docs/REQUIRED_SECRETS.md).
+- Health passed but container stopped → check restart policy/logs; transient restarts are normal during replacement.
+
+## MCP Quick Actions
+
+- List latest deployment: Railway MCP → list deployments (limit 1)
+- Build logs: Railway MCP → get logs type=build, lines=100
+- Deploy logs: Railway MCP → get logs type=deploy, lines=200
+- Domain URL: Railway MCP → generate domain for service
+- Variables: Railway MCP → list variables (env: production)
+- Redeploy: Railway MCP → deploy current workspace (or use CLI fallback above)
 - [💰 Cost Optimization](./reference/cost_optimization.md) - Resource management and billing optimization
 - [🔧 Railway CLI & Scripts](./reference/cli_scripts.md) - Command-line tools, Railway MCP Server, and automation scripts
 - [🔐 Secrets Management](./reference/secrets_management.md) - GitHub Secrets, Railway variables, and secure credential handling
@@ -175,6 +214,60 @@ YOTO_CLIENT_ID         # Yoto API client ID (from https://yoto.dev/)
 
 **Note:** Yoto uses OAuth2 Device Flow which doesn't require callback/logout URLs. The registration form may ask for them, but use localhost placeholders - they won't be called. Device Flow authentication doesn't redirect to your application.
 ```
+
+## Development Workflow: CPWTR
+
+**CPWTR** stands for: **Commit, Push, Wait, Test, Repeat**
+
+This is the standard development cycle when working with Railway deployments:
+
+```bash
+# 0. UPDATE VERSION - Bump the version in config.py
+# Edit yoto_smart_stream/config.py and update app_version
+# Example: app_version: str = "0.2.1"
+
+# 1. COMMIT - Stage and commit your changes (including version bump)
+git add .
+git commit -m "Add feature X - bump to v0.2.1"
+
+# 2. PUSH - Push to GitHub
+git push origin feature-branch
+
+# 3. WAIT - Wait for Railway to build and deploy
+# Railway automatically deploys when:
+# - PR is opened (PR Environments)
+# - Commits are pushed to main (Production)
+# - Commits are pushed to tracked branches
+# in a sleep/check loop:
+# Check deployment status
+# - PREFER the railway MCP server tools
+# - FALL BACK to using the railway CLI
+# - FALL BACK to using the server health/ API
+# Verify using the /api/health version
+# If it's taking forever consider a failed deployment and check that with the available tools (MCP and railway cli to examine logs, deployment status)
+
+# 4. TEST - Test the deployed changes
+# if in develop we use
+https://yoto-smart-stream-develop.up.railway.app/api/health
+# in PR Environments we use
+curl https://yoto-smart-stream-pr-{number}.up.railway.app/health
+# Verify version in response: "version": "0.2.1"
+# Or access via browser, test API endpoints, etc.
+
+# 5. REPEAT - Make adjustments and start again
+# If tests fail, fix code locally and repeat: version → commit → push → wait → test
+# When our last objective is fulfilled and anything we introduced is clean, we are done.
+
+# ENCOUNTERING ISSUES
+# Unless otherwise instructed always return to CPWRT workflow with the next user query.
+```
+
+**Tips for efficient CPWTR:**
+- Monitor deployments in real-time: `railway logs --follow`
+- Check deployment status: `railway deployments list --json`
+- Test locally before pushing when possible
+- Use Railway's healthcheck endpoint to verify deployment success
+- Keep PR commits focused to reduce test cycles
 
 ### Railway Environment Variables
 
