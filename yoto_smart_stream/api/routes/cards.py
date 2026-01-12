@@ -6,11 +6,12 @@ import tempfile
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Session, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from gtts import gTTS
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
+from sqlalchemy.orm import Session
 
 from ...config import get_settings
 from ..dependencies import get_yoto_client, get_db

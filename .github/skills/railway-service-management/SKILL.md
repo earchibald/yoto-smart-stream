@@ -200,17 +200,24 @@ git push origin feature-branch
 # - Commits are pushed to main (Production)
 # - Commits are pushed to tracked branches
 # in a sleep/check loop:
-# Use MCP server to check deployment status if available
-# Verify using the version
-# If it's taking forever consider a failed deployment and check that
+# Check deployment status
+# - PREFER the railway MCP server tools
+# - FALL BACK to using the railway CLI
+# - FALL BACK to using the server health/ API
+# Verify using the /api/health version
+# If it's taking forever consider a failed deployment and check that with the available tools (MCP and railway cli to examine logs, deployment status)
 
 # 4. TEST - Test the deployed changes
+# if in develop we use
+https://yoto-smart-stream-develop.up.railway.app/api/health
+# in PR Environments we use
 curl https://yoto-smart-stream-pr-{number}.up.railway.app/health
 # Verify version in response: "version": "0.2.1"
 # Or access via browser, test API endpoints, etc.
 
 # 5. REPEAT - Make adjustments and start again
 # If tests fail, fix code locally and repeat: version → commit → push → wait → test
+# When our last objective is fulfilled and anything we introduced is clean, we are done.
 ```
 
 **Tips for efficient CPWTR:**
