@@ -199,7 +199,10 @@ git push origin feature-branch
 # - PR is opened (PR Environments)
 # - Commits are pushed to main (Production)
 # - Commits are pushed to tracked branches
+# in a sleep/check loop:
 # Use MCP server to check deployment status if available
+# Verify using the version
+# If it's taking forever consider a failed deployment and check that
 
 # 4. TEST - Test the deployed changes
 curl https://yoto-smart-stream-pr-{number}.up.railway.app/health
