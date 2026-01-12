@@ -6,6 +6,7 @@ const API_BASE = '/api';
 document.addEventListener('DOMContentLoaded', () => {
     loadSystemInfo();
     loadAudioFiles();
+    loadManagedStreams();
     setupFormHandler();
 });
 
@@ -83,6 +84,86 @@ async function loadAudioFiles() {
     } catch (error) {
         console.error('Error loading audio files:', error);
         container.innerHTML = '<p class="error-message">Failed to load audio files.</p>';
+    }
+}
+
+// Load managed streams (queues)
+async function loadManagedStreams() {
+    const container = document.getElementById('managed-streams');
+    
+    try {
+        const response = await fetch(`${API_BASE}/streams/queues`);
+        if (!response.ok) throw new Error('Failed to fetch managed streams');
+        
+        const data = await response.json();
+        const queues = data.queues || [];
+        
+        if (queues.length === 0) {
+            container.innerHTML = '<p class="loading">No managed streams available.</p>';
+            return;
+        }
+        
+        // Fetch details for each queue
+        const queueDetails = await Promise.all(
+            queues.map(async (queueName) => {
+                try {
+                    const res = await fetch(`${API_BASE}/streams/${queueName}/queue`);
+                    if (res.ok) {
+                        return await res.json();
+                    }
+                    return null;
+                } catch (err) {
+                    console.error(`Error fetching queue ${queueName}:`, err);
+                    return null;
+                }
+            })
+        );
+        
+        // Display queue cards
+        container.innerHTML = queueDetails
+            .filter(queue => queue !== null)
+            .map(queue => `
+                <div class="stream-card">
+                    <div class="stream-header">
+                        <h4>${escapeHtml(queue.name)}</h4>
+                        <span class="stream-type ${queue.name === 'test-stream' ? 'test' : 'managed'}">
+                            ${queue.name === 'test-stream' ? 'Test Stream' : 'Managed'}
+                        </span>
+                    </div>
+                    <p class="stream-url">/api/streams/${escapeHtml(queue.name)}/stream.mp3</p>
+                    <p class="stream-description">
+                        ${queue.file_count} file(s) in queue
+                        ${queue.name === 'test-stream' ? ' • Always available for testing' : ''}
+                    </p>
+                    <details class="stream-details">
+                        <summary>Show queue contents</summary>
+                        <ul class="queue-files">
+                            ${queue.files.map(file => `<li>${escapeHtml(file)}</li>`).join('')}
+                        </ul>
+                    </details>
+                    <div class="stream-actions">
+                        <button class="btn-small" data-action="copy" data-url="/api/streams/${escapeHtml(queue.name, true)}/stream.mp3">📋 Copy URL</button>
+                        <button class="btn-small" data-action="play" data-url="/api/streams/${escapeHtml(queue.name, true)}/stream.mp3">▶️ Preview</button>
+                    </div>
+                </div>
+            `).join('');
+        
+        // Add event listeners to action buttons
+        container.querySelectorAll('[data-action]').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const action = e.currentTarget.dataset.action;
+                const url = e.currentTarget.dataset.url;
+                if (action === 'copy') {
+                    copyUrl(url);
+                } else if (action === 'play') {
+                    playAudio(url);
+                }
+            });
+        });
+        
+    } catch (error) {
+        console.error('Error loading managed streams:', error);
+        container.innerHTML = '<p class="error-message">Failed to load managed streams.</p>';
     }
 }
 

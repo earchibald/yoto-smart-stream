@@ -1456,3 +1456,60 @@ header h2 {
     border: 1px solid #f56565;
     color: #fc8181;
 }
+
+/* Managed Streams Styles */
+.stream-type.managed {
+    background: #4299e1;
+}
+
+.stream-type.test {
+    background: #48bb78;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.stream-details {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: #f7fafc;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.stream-details summary {
+    font-weight: 600;
+    color: #4a5568;
+    user-select: none;
+}
+
+.stream-details summary:hover {
+    color: #667eea;
+}
+
+.queue-files {
+    list-style: none;
+    padding: 0.75rem 0 0 0;
+    margin: 0;
+}
+
+.queue-files li {
+    padding: 0.5rem;
+    background: white;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: #2d3748;
+}
+
+.queue-files li:last-child {
+    margin-bottom: 0;
+}
