@@ -396,8 +396,8 @@ async function loadAvailableFilesForScripter() {
             fileDiv.className = 'file-checkbox-item';
             fileDiv.innerHTML = `
                 <label>
-                    <input type="checkbox" value="${escapeHtml(file.name, true)}" onchange="toggleFileSelection('${escapeHtml(file.name, true)}')">
-                    <span>${escapeHtml(file.name)}</span>
+                    <input type="checkbox" value="${escapeHtml(file.filename, true)}" onchange="toggleFileSelection('${escapeHtml(file.filename, true)}')">
+                    <span>${escapeHtml(file.filename)}</span>
                 </label>
             `;
             container.appendChild(fileDiv);
