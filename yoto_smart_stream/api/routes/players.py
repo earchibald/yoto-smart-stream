@@ -589,17 +589,27 @@ async def get_player_config(player_id: str):
 @router.post("/players/{player_id}/control")
 async def control_player(player_id: str, control: PlayerControl):
     """
-    Control a Yoto player.
-
+    Control a Yoto player via MQTT using official Yoto command topics.
+    
+    Uses official Yoto MQTT commands:
+    - pause: /device/{id}/command/card/pause
+    - play: /device/{id}/command/card/resume  
+    - stop: /device/{id}/command/card/stop
+    - volume: /device/{id}/command/volume/set
+    
     Supported actions:
     - play: Resume playback
     - pause: Pause playback
+    - stop: Stop playback
     - skip_forward: Skip to next chapter
     - skip_backward: Skip to previous chapter
+    - volume: Set volume level
 
     Optional parameters:
     - volume: Set volume level (0-100)
     """
+    import json
+    
     client = get_yoto_client()
     manager = client.get_manager()
 
@@ -608,18 +618,38 @@ async def control_player(player_id: str, control: PlayerControl):
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Player {player_id} not found"
         )
 
+    # Check MQTT connection
+    if not hasattr(manager, 'mqtt_client') or not manager.mqtt_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="MQTT connection not available"
+        )
+
     try:
-        # Execute action
+        # Execute action using official MQTT topics
         if control.action == "pause":
-            manager.pause_player(player_id)
+            topic = f"device/{player_id}/command/card/pause"
+            logger.info(f"Publishing MQTT pause command to {topic}")
+            manager.mqtt_client.publish(topic, "")
+            
         elif control.action == "play":
-            manager.resume_player(player_id)
+            topic = f"device/{player_id}/command/card/resume"
+            logger.info(f"Publishing MQTT resume command to {topic}")
+            manager.mqtt_client.publish(topic, "")
+            
         elif control.action == "stop":
-            manager.stop_player(player_id)
+            topic = f"device/{player_id}/command/card/stop"
+            logger.info(f"Publishing MQTT stop command to {topic}")
+            manager.mqtt_client.publish(topic, "")
+            
         elif control.action == "skip_forward":
+            # Skip forward uses the library method (no official MQTT topic documented)
             manager.skip_chapter(player_id, direction="forward")
+            
         elif control.action == "skip_backward":
+            # Skip backward uses the library method (no official MQTT topic documented)
             manager.skip_chapter(player_id, direction="backward")
+            
         elif control.action == "volume":
             # Volume-only action
             if control.volume is None:
@@ -627,34 +657,15 @@ async def control_player(player_id: str, control: PlayerControl):
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Volume value required for volume action"
                 )
-            # Get the player object from manager
-            player = manager.players.get(player_id)
-            if player and hasattr(player, 'set_volume'):
-                # Use player method if available
-                player.set_volume(control.volume)
-                logger.info(f"Set volume via player.set_volume() for {player_id} to {control.volume}%")
-            elif hasattr(manager, 'set_volume'):
-                # Use manager method if available
-                manager.set_volume(player_id, control.volume)
-                logger.info(f"Set volume via manager.set_volume() for {player_id} to {control.volume}%")
-            else:
-                # Fallback: send MQTT command directly
-                logger.warning(f"set_volume method not found, falling back to direct MQTT command")
-                import json
-                topic = f"device/{player_id}/command/set-volume"
-                payload = json.dumps({"volume": control.volume})
-                if hasattr(manager, 'mqtt_client') and manager.mqtt_client:
-                    manager.mqtt_client.publish(topic, payload)
-                    logger.info(f"Set volume via MQTT for {player_id} to {control.volume}/16")
-                else:
-                    raise HTTPException(
-                        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                        detail="Volume control not available - set_volume method not found"
-                    )
+            # Official topic: device/{id}/command/volume/set
+            topic = f"device/{player_id}/command/volume/set"
+            payload = json.dumps({"volume": control.volume})
+            logger.info(f"Publishing MQTT volume command to {topic}: {payload}")
+            manager.mqtt_client.publish(topic, payload)
             
             # Cache the volume change to prevent stale MQTT data from overriding it
             _volume_cache[player_id] = (control.volume, time.time())
-            logger.info(f"Cached volume {control.volume}/16 for player {player_id}")
+            logger.info(f"Cached volume {control.volume} for player {player_id}")
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown action: {control.action}"
@@ -662,17 +673,14 @@ async def control_player(player_id: str, control: PlayerControl):
 
         # Set volume if provided for other actions
         if control.action != "volume" and control.volume is not None:
-            player = manager.players.get(player_id)
-            if player and hasattr(player, 'set_volume'):
-                player.set_volume(control.volume)
-            elif hasattr(manager, 'set_volume'):
-                manager.set_volume(player_id, control.volume)
-            else:
-                logger.warning(f"Cannot set volume - set_volume method not found")
+            topic = f"device/{player_id}/command/volume/set"
+            payload = json.dumps({"volume": control.volume})
+            logger.info(f"Publishing MQTT volume command with action to {topic}: {payload}")
+            manager.mqtt_client.publish(topic, payload)
             
             # Cache the volume change
             _volume_cache[player_id] = (control.volume, time.time())
-            logger.info(f"Cached volume {control.volume}/16 for player {player_id}")
+            logger.info(f"Cached volume {control.volume} for player {player_id}")
 
         return {"success": True, "player_id": player_id, "action": control.action}
 
@@ -689,7 +697,11 @@ async def control_player(player_id: str, control: PlayerControl):
 @router.post("/players/{player_id}/play-card")
 async def play_card(player_id: str, card_id: str, chapter: int = 1):
     """
-    Play a specific card and chapter on a Yoto player.
+    Play a specific card and chapter on a Yoto player via MQTT.
+    
+    Uses the official Yoto MQTT command format:
+    Topic: /device/{id}/command/card/start
+    Payload: {"uri": "https://yoto.io/{card_id}", "chapterKey": "01"}
     
     Args:
         player_id: The player ID
@@ -699,6 +711,8 @@ async def play_card(player_id: str, card_id: str, chapter: int = 1):
     Returns:
         Success status
     """
+    import json
+    
     client = get_yoto_client()
     manager = client.get_manager()
 
@@ -707,23 +721,44 @@ async def play_card(player_id: str, card_id: str, chapter: int = 1):
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Player {player_id} not found"
         )
 
-    try:
-        # Use the yoto_manager's play_card method (like yoto_ha does)
-        manager.play_card(
-            player_id=player_id,
-            card=card_id,
-            chapterKey=str(chapter).zfill(2) if chapter < 10 else str(chapter)
+    # Check MQTT connection
+    if not hasattr(manager, 'mqtt_client') or not manager.mqtt_client:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="MQTT connection not available"
         )
+
+    try:
+        # Format chapter key with zero-padding (e.g., "01", "02", "10")
+        chapter_key = str(chapter).zfill(2)
+        
+        # Build MQTT payload per official Yoto MQTT documentation
+        # https://yoto.dev/players-mqtt/mqtt-docs/
+        payload = {
+            "uri": f"https://yoto.io/{card_id}",
+            "chapterKey": chapter_key
+        }
+        
+        # Official MQTT topic format: device/{id}/command/card/start
+        topic = f"device/{player_id}/command/card/start"
+        
+        logger.info(f"Publishing to MQTT - Topic: {topic}, Payload: {payload}")
+        
+        # Publish directly to MQTT
+        manager.mqtt_client.publish(topic, json.dumps(payload))
+        
+        logger.info(f"Successfully published card play command for player {player_id}")
         
         return {
             "success": True,
             "player_id": player_id,
             "card_id": card_id,
-            "chapter": chapter
+            "chapter": chapter,
+            "mqtt_topic": topic
         }
 
     except Exception as e:
-        logger.error(f"Failed to play card: {e}")
+        logger.error(f"Failed to play card via MQTT: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to play card: {str(e)}",
