@@ -17,9 +17,10 @@ from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings, log_configuration
 from ..core import YotoClient
+from ..database import init_db
 from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
-from .routes import auth, cards, health, library, players, streams
+from .routes import auth, cards, health, library, players, streams, user_auth
 from .stream_manager import get_stream_manager
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,35 @@ async def lifespan(app: FastAPI):
     - Cleanup on shutdown
     """
     settings = get_settings()
+
+    # Initialize database
+    logger.info("Initializing database...")
+    init_db()
+    
+    # Create default admin user if it doesn't exist
+    from ..auth import get_password_hash
+    from ..database import SessionLocal
+    from ..models import User
+    
+    db = SessionLocal()
+    try:
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            admin_user = User(
+                username="admin",
+                hashed_password=get_password_hash("yoto"),
+                is_active=True
+            )
+            db.add(admin_user)
+            db.commit()
+            logger.info("✓ Default admin user created (username: admin, password: yoto)")
+        else:
+            logger.info("✓ Admin user already exists")
+    except Exception as e:
+        logger.error(f"Failed to create admin user: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
     # Wait for Railway shared variables to initialize if configured
     # This helps when Railway shared variables take time to load at startup
@@ -212,11 +242,20 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(health.router, prefix="/api", tags=["Health"])
-    app.include_router(auth.router, prefix="/api", tags=["Authentication"])
+    app.include_router(user_auth.router, prefix="/api", tags=["User Authentication"])
+    app.include_router(auth.router, prefix="/api", tags=["Yoto Authentication"])
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
     app.include_router(library.router, prefix="/api", tags=["Library"])
     app.include_router(streams.router, prefix="/api", tags=["Streams"])
+
+    @app.get("/login", tags=["Web UI"])
+    async def login_page():
+        """Serve the login page."""
+        login_path = static_dir / "login.html"
+        if login_path.exists():
+            return FileResponse(login_path)
+        return {"message": "Login page not available"}
 
     @app.get("/", tags=["Web UI"])
     async def root():
