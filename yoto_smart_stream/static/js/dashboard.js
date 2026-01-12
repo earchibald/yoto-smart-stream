@@ -1391,3 +1391,183 @@ function showTTSError(message) {
     errorDiv.style.display = 'block';
     result.style.display = 'block';
 }
+
+// ============================================================================
+// Library Browser Functions
+// ============================================================================
+
+/**
+ * Show library browser modal for selecting cards
+ */
+async function showLibraryBrowser(playerId) {
+    const modal = document.getElementById('libraryModal');
+    const loadingEl = document.getElementById('libraryLoading');
+    const contentEl = document.getElementById('libraryContent');
+    
+    // Show modal and reset to loading state
+    modal.style.display = 'flex';
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    contentEl.innerHTML = '';
+    
+    // Store player ID for later use
+    modal.dataset.playerId = playerId;
+    
+    try {
+        const response = await fetch('/api/library');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const library = await response.json();
+        
+        // Hide loading, show content
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'grid';
+        
+        if (!library.cards || library.cards.length === 0) {
+            contentEl.innerHTML = '<p class="no-content">No cards found in your library.</p>';
+            return;
+        }
+        
+        // Render cards
+        contentEl.innerHTML = library.cards.map(card => `
+            <div class="library-card" onclick="selectCard('${escapeHtml(playerId)}', '${escapeHtml(card.id)}')">
+                ${card.cover ? `<img src="${escapeHtml(card.cover)}" alt="${escapeHtml(card.title)}" />` : '<div class="no-cover">📚</div>'}
+                <div class="library-card-info">
+                    <div class="library-card-title">${escapeHtml(card.title || 'Untitled')}</div>
+                    ${card.author ? `<div class="library-card-author">${escapeHtml(card.author)}</div>` : ''}
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading library:', error);
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+        contentEl.innerHTML = '<p class="error-message">Failed to load library.</p>';
+    }
+}
+
+/**
+ * Close library browser modal
+ */
+function closeLibraryBrowser() {
+    document.getElementById('libraryModal').style.display = 'none';
+}
+
+/**
+ * Select a card and show chapters
+ */
+async function selectCard(playerId, cardId) {
+    const modal = document.getElementById('chapterModal');
+    const loadingEl = document.getElementById('chapterLoading');
+    const contentEl = document.getElementById('chapterContent');
+    const titleEl = document.getElementById('chapterModalTitle');
+    
+    // Show modal and reset to loading state
+    modal.style.display = 'flex';
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+    contentEl.innerHTML = '';
+    titleEl.textContent = 'Loading...';
+    
+    // Store player and card IDs
+    modal.dataset.playerId = playerId;
+    modal.dataset.cardId = cardId;
+    
+    try {
+        const response = await fetch(`/api/library/${cardId}/chapters`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        // Update modal title
+        titleEl.textContent = data.card_title || 'Select Chapter';
+        
+        // Hide loading, show content
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+        
+        if (!data.chapters || data.chapters.length === 0) {
+            contentEl.innerHTML = '<p class="no-content">No chapters available.</p>';
+            return;
+        }
+        
+        // Render chapters
+        contentEl.innerHTML = data.chapters.map(chapter => `
+            <div class="chapter-item" onclick="playChapter('${escapeHtml(playerId)}', '${escapeHtml(cardId)}', '${escapeHtml(chapter.key)}')">
+                ${chapter.icon ? `<img src="${escapeHtml(chapter.icon)}" alt="Chapter ${escapeHtml(chapter.key)}" class="chapter-icon" />` : ''}
+                <div class="chapter-info">
+                    <div class="chapter-title">${escapeHtml(chapter.title || `Chapter ${chapter.key}`)}</div>
+                    ${chapter.duration ? `<div class="chapter-duration">${formatDuration(chapter.duration)}</div>` : ''}
+                </div>
+                <button class="chapter-play-btn" title="Play">▶️</button>
+            </div>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading chapters:', error);
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+        contentEl.innerHTML = '<p class="error-message">Failed to load chapters.</p>';
+    }
+}
+
+/**
+ * Close chapter modal
+ */
+function closeChapterBrowser() {
+    document.getElementById('chapterModal').style.display = 'none';
+}
+
+/**
+ * Play a chapter on the specified player
+ */
+async function playChapter(playerId, cardId, chapterKey) {
+    try {
+        // Convert chapter key to number (removing leading zeros)
+        const chapterNum = parseInt(chapterKey, 10);
+        
+        console.log(`🎵 Playing chapter ${chapterNum} from card ${cardId} on player ${playerId}`);
+        
+        const response = await fetch(`/api/players/${playerId}/play-card`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                card_id: cardId,
+                chapter: chapterNum
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+        }
+        
+        console.log('✓ Successfully started playback');
+        
+        // Close both modals
+        closeChapterBrowser();
+        closeLibraryBrowser();
+        
+        // Refresh players to show updated state
+        setTimeout(() => loadPlayers(), 1000);
+        
+    } catch (error) {
+        console.error('Error playing chapter:', error);
+        alert(`Failed to play chapter: ${error.message}`);
+    }
+}
+
+/**
+ * Format duration in seconds to MM:SS
+ */
+function formatDuration(seconds) {
+    if (!seconds) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
