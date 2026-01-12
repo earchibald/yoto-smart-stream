@@ -44,7 +44,7 @@ class GenerateTTSRequest(BaseModel):
 
 # Audio streaming endpoints
 @router.get("/audio/list")
-async def list_audio_files():
+async def list_audio_files(user: User = Depends(require_auth)):
     """
     List available audio files.
 

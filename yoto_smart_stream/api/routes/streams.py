@@ -3,11 +3,15 @@
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from ...config import get_settings
+from ...database import get_db
+from ...models import User
+from ...auth import require_auth
 from ..stream_manager import get_stream_manager, StreamQueue
 
 router = APIRouter()
@@ -64,7 +68,7 @@ class QueuesListResponse(BaseModel):
 
 
 @router.get("/streams/queues", response_model=QueuesListResponse)
-async def list_stream_queues():
+async def list_stream_queues(user: User = Depends(require_auth)):
     """
     List all available stream queues.
 
@@ -77,7 +81,7 @@ async def list_stream_queues():
 
 
 @router.get("/streams/{stream_name}/queue", response_model=QueueInfoResponse)
-async def get_stream_queue(stream_name: str):
+async def get_stream_queue(stream_name: str, user: User = Depends(require_auth)):
     """
     Get information about a specific stream queue.
 
@@ -100,7 +104,7 @@ async def get_stream_queue(stream_name: str):
 
 
 @router.post("/streams/{stream_name}/queue", status_code=status.HTTP_200_OK)
-async def add_files_to_queue(stream_name: str, request: AddFilesRequest):
+async def add_files_to_queue(stream_name: str, request: AddFilesRequest, user: User = Depends(require_auth)):
     """
     Add audio files to a stream queue.
 
@@ -146,7 +150,7 @@ async def add_files_to_queue(stream_name: str, request: AddFilesRequest):
 
 
 @router.delete("/streams/{stream_name}/queue/{file_index}", status_code=status.HTTP_200_OK)
-async def remove_file_from_queue(stream_name: str, file_index: int):
+async def remove_file_from_queue(stream_name: str, file_index: int, user: User = Depends(require_auth)):
     """
     Remove a file from the stream queue at the specified index.
 
@@ -182,7 +186,7 @@ async def remove_file_from_queue(stream_name: str, file_index: int):
 
 
 @router.delete("/streams/{stream_name}/queue", status_code=status.HTTP_200_OK)
-async def clear_stream_queue(stream_name: str):
+async def clear_stream_queue(stream_name: str, user: User = Depends(require_auth)):
     """
     Clear all files from a stream queue.
 
@@ -211,7 +215,7 @@ async def clear_stream_queue(stream_name: str):
 
 
 @router.put("/streams/{stream_name}/queue/reorder", status_code=status.HTTP_200_OK)
-async def reorder_queue(stream_name: str, request: ReorderRequest):
+async def reorder_queue(stream_name: str, request: ReorderRequest, user: User = Depends(require_auth)):
     """
     Reorder files in the stream queue by moving a file from one index to another.
 
@@ -248,7 +252,7 @@ async def reorder_queue(stream_name: str, request: ReorderRequest):
 
 
 @router.delete("/streams/{stream_name}", status_code=status.HTTP_200_OK)
-async def delete_stream_queue(stream_name: str):
+async def delete_stream_queue(stream_name: str, user: User = Depends(require_auth)):
     """
     Delete a stream queue entirely.
 
