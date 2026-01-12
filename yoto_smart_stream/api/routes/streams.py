@@ -8,10 +8,26 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ...config import get_settings
-from ..stream_manager import get_stream_manager
+from ..stream_manager import get_stream_manager, StreamQueue
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Constants
+STREAM_CHUNK_SIZE = 64 * 1024  # 64KB chunks for streaming
+
+
+# Helper functions
+
+
+def _build_queue_response(queue: StreamQueue) -> dict:
+    """Build a consistent queue response object."""
+    files = queue.get_files()
+    return {
+        "name": queue.name,
+        "files": files,
+        "file_count": len(files),
+    }
 
 
 # Request/Response models
@@ -125,11 +141,7 @@ async def add_files_to_queue(stream_name: str, request: AddFilesRequest):
     return {
         "success": True,
         "message": f"Added {len(request.files)} file(s) to stream '{stream_name}'",
-        "queue": {
-            "name": queue.name,
-            "files": queue.get_files(),
-            "file_count": len(queue.files),
-        },
+        "queue": _build_queue_response(queue),
     }
 
 
@@ -165,11 +177,7 @@ async def remove_file_from_queue(stream_name: str, file_index: int):
     return {
         "success": True,
         "message": f"Removed '{removed_file}' from stream '{stream_name}'",
-        "queue": {
-            "name": queue.name,
-            "files": queue.get_files(),
-            "file_count": len(queue.files),
-        },
+        "queue": _build_queue_response(queue),
     }
 
 
@@ -198,11 +206,7 @@ async def clear_stream_queue(stream_name: str):
     return {
         "success": True,
         "message": f"Cleared all files from stream '{stream_name}'",
-        "queue": {
-            "name": queue.name,
-            "files": queue.get_files(),
-            "file_count": len(queue.files),
-        },
+        "queue": _build_queue_response(queue),
     }
 
 
@@ -239,11 +243,7 @@ async def reorder_queue(stream_name: str, request: ReorderRequest):
     return {
         "success": True,
         "message": f"Reordered queue '{stream_name}'",
-        "queue": {
-            "name": queue.name,
-            "files": queue.get_files(),
-            "file_count": len(queue.files),
-        },
+        "queue": _build_queue_response(queue),
     }
 
 
@@ -301,9 +301,8 @@ async def generate_sequential_stream(queue_files: List[str], audio_files_dir):
         try:
             with open(audio_path, "rb") as f:
                 # Read and yield in chunks
-                chunk_size = 64 * 1024  # 64KB chunks
                 while True:
-                    chunk = f.read(chunk_size)
+                    chunk = f.read(STREAM_CHUNK_SIZE)
                     if not chunk:
                         break
                     yield chunk

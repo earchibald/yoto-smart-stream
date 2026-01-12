@@ -109,11 +109,12 @@ class StreamManager:
         """Get information about a specific queue."""
         queue = await self.get_queue(name)
         if queue:
+            files = queue.get_files()
             return {
                 "name": queue.name,
-                "files": queue.files.copy(),
+                "files": files,
                 "loop": queue.loop,
-                "file_count": len(queue.files),
+                "file_count": len(files),
             }
         return None
 
