@@ -13,7 +13,7 @@
         </div>
         <ul class="nav-menu">
             <li><a href="/">🏠 Dashboard</a></li>
-            <li><a href="/streams">🎵 Music Streams</a></li>
+            <li><a href="/streams">✨ Smart Streams</a></li>
             <li class="active"><a href="/library">📚 Library</a></li>
             <li><a href="/docs" target="_blank">📖 API Docs</a></li>
         </ul>
@@ -61,7 +61,10 @@
         <!-- Cards Section -->
         <section class="section" id="cards-section" style="display: none;">
             <div class="section-header">
-                <h3>Your Cards</h3>
+                <div style="display: flex; align-items: center; gap: 1rem; flex-grow: 1;">
+                    <h3>Your Cards</h3>
+                    <input type="text" id="cards-filter" placeholder="🔍 Filter cards..." class="filter-input" style="flex-grow: 1; max-width: 300px;">
+                </div>
                 <button class="refresh-btn" onclick="refreshLibrary()">🔄 Refresh</button>
             </div>
             <div id="cards-grid" class="library-grid">
@@ -72,7 +75,10 @@
         <!-- Playlists Section -->
         <section class="section" id="playlists-section" style="display: none;">
             <div class="section-header">
-                <h3>Your Playlists</h3>
+                <div style="display: flex; align-items: center; gap: 1rem; flex-grow: 1;">
+                    <h3>Your Playlists</h3>
+                    <input type="text" id="playlists-filter" placeholder="🔍 Filter playlists..." class="filter-input" style="flex-grow: 1; max-width: 300px;">
+                </div>
             </div>
             <div id="playlists-list" class="list-container">
                 <p class="loading">Loading playlists...</p>

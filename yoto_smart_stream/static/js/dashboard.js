@@ -3,6 +3,44 @@
 // API base URL
 const API_BASE = '/api';
 
+// Fuzzy match helper
+function fuzzyMatch(query, text) {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    const t = text.toLowerCase();
+    let qi = 0;
+    for (let i = 0; i < t.length && qi < q.length; i++) {
+        if (t[i] === q[qi]) qi++;
+    }
+    return qi === q.length;
+}
+
+// Apply fuzzy filter to library modal
+function applyLibraryFilter() {
+    const query = document.getElementById('libraryFilter')?.value || '';
+    const cards = document.querySelectorAll('#libraryContent .library-card');
+    let visibleCount = 0;
+    cards.forEach(card => {
+        const title = card.getAttribute('data-title') || '';
+        const match = fuzzyMatch(query, title);
+        card.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+    // Show "no results" message if nothing matches
+    const grid = document.getElementById('libraryContent');
+    if (visibleCount === 0 && query) {
+        if (!grid.querySelector('.no-results')) {
+            const msg = document.createElement('p');
+            msg.className = 'no-results';
+            msg.textContent = `No cards match "${query}"`;
+            grid.appendChild(msg);
+        }
+    } else {
+        const msg = grid.querySelector('.no-results');
+        if (msg) msg.remove();
+    }
+}
+
 // Auth polling state
 let authPollInterval = null;
 let deviceCode = null;
@@ -1448,12 +1486,14 @@ async function showLibraryBrowser(playerId) {
     const modal = document.getElementById('libraryModal');
     const loadingEl = document.getElementById('libraryLoading');
     const contentEl = document.getElementById('libraryContent');
+    const filterEl = document.getElementById('libraryFilter');
     
     // Show modal and reset to loading state
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
     contentEl.style.display = 'none';
     contentEl.innerHTML = '';
+    filterEl.value = '';
     
     // Store player ID for later use
     modal.dataset.playerId = playerId;
@@ -1476,7 +1516,7 @@ async function showLibraryBrowser(playerId) {
         
         // Render cards
         contentEl.innerHTML = library.cards.map(card => `
-            <div class="library-card" onclick="selectCard('${escapeHtml(playerId)}', '${escapeHtml(card.id)}')">
+            <div class="library-card" data-title="${escapeHtml(card.title || 'Untitled')}" onclick="selectCard('${escapeHtml(playerId)}', '${escapeHtml(card.id)}')">
                 ${card.cover ? `<img src="${escapeHtml(card.cover)}" alt="${escapeHtml(card.title)}" />` : '<div class="no-cover">📚</div>'}
                 <div class="library-card-info">
                     <div class="library-card-title">${escapeHtml(card.title || 'Untitled')}</div>
@@ -1484,6 +1524,10 @@ async function showLibraryBrowser(playerId) {
                 </div>
             </div>
         `).join('');
+        
+        // Setup filter listener
+        filterEl.removeEventListener('input', applyLibraryFilter);
+        filterEl.addEventListener('input', applyLibraryFilter);
         
     } catch (error) {
         console.error('Error loading library:', error);

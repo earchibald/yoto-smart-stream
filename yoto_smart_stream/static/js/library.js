@@ -3,6 +3,70 @@
 // API base URL
 const API_BASE = '/api';
 
+// Fuzzy matching helper
+function fuzzyMatch(query, text) {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    const t = text.toLowerCase();
+    let qi = 0;
+    for (let i = 0; i < t.length && qi < q.length; i++) {
+        if (t[i] === q[qi]) qi++;
+    }
+    return qi === q.length;
+}
+
+// Apply filter to cards
+function applyCardsFilter() {
+    const query = document.getElementById('cards-filter')?.value || '';
+    const cards = document.querySelectorAll('#cards-grid .library-card');
+    let visibleCount = 0;
+    cards.forEach(card => {
+        const title = card.getAttribute('data-content-title') || '';
+        const match = fuzzyMatch(query, title);
+        card.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+    // Show "no results" message if nothing matches
+    const grid = document.getElementById('cards-grid');
+    if (visibleCount === 0 && query) {
+        if (!grid.querySelector('.no-results')) {
+            const msg = document.createElement('p');
+            msg.className = 'no-results loading';
+            msg.textContent = `No cards match "${query}"`;
+            grid.appendChild(msg);
+        }
+    } else {
+        const msg = grid.querySelector('.no-results');
+        if (msg) msg.remove();
+    }
+}
+
+// Apply filter to playlists
+function applyPlaylistsFilter() {
+    const query = document.getElementById('playlists-filter')?.value || '';
+    const items = document.querySelectorAll('#playlists-list .list-item');
+    let visibleCount = 0;
+    items.forEach(item => {
+        const title = item.getAttribute('data-content-title') || '';
+        const match = fuzzyMatch(query, title);
+        item.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+    // Show "no results" message if nothing matches
+    const list = document.getElementById('playlists-list');
+    if (visibleCount === 0 && query) {
+        if (!list.querySelector('.no-results')) {
+            const msg = document.createElement('p');
+            msg.className = 'no-results loading';
+            msg.textContent = `No playlists match "${query}"`;
+            list.appendChild(msg);
+        }
+    } else {
+        const msg = list.querySelector('.no-results');
+        if (msg) msg.remove();
+    }
+}
+
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
     loadSystemStatus();
@@ -23,6 +87,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeContentModal();
             }
         });
+    }
+    
+    // Setup filter listeners
+    const cardsFilter = document.getElementById('cards-filter');
+    const playlistsFilter = document.getElementById('playlists-filter');
+    if (cardsFilter) {
+        cardsFilter.addEventListener('input', applyCardsFilter);
+    }
+    if (playlistsFilter) {
+        playlistsFilter.addEventListener('input', applyPlaylistsFilter);
     }
 });
 

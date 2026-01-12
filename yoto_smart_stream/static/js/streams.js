@@ -136,6 +136,17 @@ async function loadManagedStreams() {
                         ${queue.file_count} file(s) in queue
                         ${queue.name === 'test-stream' ? ' • Always available for testing' : ''}
                     </p>
+                    ${queue.name !== 'test-stream' ? `
+                    <div class="stream-modes" style="margin: 1rem 0; padding: 0.75rem; background: #f5f5f5; border-radius: 4px;">
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">Play Mode:</div>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="mode-btn mode-sequential" data-queue="${escapeHtml(queue.name, true)}" data-mode="sequential" title="Play in order">📻 Sequential</button>
+                            <button class="mode-btn mode-loop" data-queue="${escapeHtml(queue.name, true)}" data-mode="loop" title="Loop indefinitely">🔁 Loop</button>
+                            <button class="mode-btn mode-shuffle" data-queue="${escapeHtml(queue.name, true)}" data-mode="shuffle" title="Random order">🔀 Shuffle</button>
+                            <button class="mode-btn mode-endless-shuffle" data-queue="${escapeHtml(queue.name, true)}" data-mode="endless-shuffle" title="Shuffle forever">♾️ Endless Shuffle</button>
+                        </div>
+                    </div>
+                    ` : ''}
                     <details class="stream-details">
                         <summary>Show queue contents</summary>
                         <ul class="queue-files">
@@ -730,6 +741,39 @@ async function confirmDeleteQueue() {
         console.error('Failed to delete queue:', error);
         showScripterResult('Failed to delete queue: ' + error.message, 'error');
     }
+}
+
+// Handle play mode selection for managed streams
+document.addEventListener('DOMContentLoaded', () => {
+    // Delegate click handler for mode buttons
+    document.addEventListener('click', (event) => {
+        if (event.target.classList.contains('mode-btn')) {
+            const mode = event.target.dataset.mode;
+            const queue = event.target.dataset.queue;
+            selectPlayMode(queue, mode, event.target);
+        }
+    });
+});
+
+function selectPlayMode(queue, mode, button) {
+    // Update UI to show selected mode
+    const modeContainer = button.closest('.stream-modes');
+    if (modeContainer) {
+        modeContainer.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.style.background = btn.dataset.mode === mode ? '#4CAF50' : '';
+            btn.style.color = btn.dataset.mode === mode ? 'white' : '';
+        });
+    }
+    
+    // Show mode description
+    const modeDescriptions = {
+        'sequential': 'Playing in order, once through',
+        'loop': 'Looping the list indefinitely',
+        'shuffle': 'Playing in random order, once through',
+        'endless-shuffle': 'Shuffling forever (endless random play)'
+    };
+    
+    console.log(`📻 Smart Stream "${queue}" set to: ${modeDescriptions[mode] || mode}`);
 }
 
 function showScripterResult(message, type) {
