@@ -963,7 +963,7 @@ async function showLibraryBrowser(playerId) {
         // Render cards
         contentEl.innerHTML = library.cards.map(card => `
             <div class="library-card" onclick="selectCard('${escapeHtml(playerId)}', '${escapeHtml(card.id)}')">
-                ${card.cover_image_large ? `<img src="${escapeHtml(card.cover_image_large)}" alt="${escapeHtml(card.title)}" />` : '<div class="no-cover">📚</div>'}
+                ${card.cover ? `<img src="${escapeHtml(card.cover)}" alt="${escapeHtml(card.title)}" />` : '<div class="no-cover">📚</div>'}
                 <div class="library-card-info">
                     <div class="library-card-title">${escapeHtml(card.title || 'Untitled')}</div>
                     ${card.author ? `<div class="library-card-author">${escapeHtml(card.author)}</div>` : ''}
