@@ -119,7 +119,7 @@ def cache_refresh_token(manager: YotoManager) -> None:
 def build_interactive_payload() -> Dict[str, Any]:
     """Return a minimal interactive card schema with a single choice."""
     payload: Dict[str, Any] = {
-        "title": "4 Interactive Sandbox (LLM Test)",
+        "title": "5 Interactive Sandbox (LLM Test)",
         "metadata": {
             "description": "Minimal interactive card with one branching choice.",
             "author": "LLM Sandbox",
@@ -156,7 +156,7 @@ def build_interactive_payload() -> Dict[str, Any]:
           "format": "aac",
           "display": None,
           "ambient": None,
-          "trackUrl": "https://secure-media.yotoplay.com/yoto/Xwgu8BQP_sPXb-t0xDPowo8Eth4nodVTXupyyClinac?Expires=1768289566&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9zZWN1cmUtbWVkaWEueW90b3BsYXkuY29tL3lvdG8vWHdndThCUVBfc1BYYi10MHhEUG93bzhFdGg0bm9kVlRYdXB5eUNsaW5hYyIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc2ODI4OTU2Nn19fV19&Signature=q7X%7EzX1BKk%7E4Q5OxUSYDvWYtDr50CbgYLlCRfZmPCn9nR4fmqh1P2qEsr%7E7-CIfHO4B61Xz0Wb5w25Z6NJToNaNqWrNJqdSBnCBlsj0Q99tSJ2ViKckNSZkSq4igyspi3OjTe4tiZWx9olTvTsFLla0tcdJsP2FXSVy37jUo0lqjJPQsATflxh6xTWnrTtCh19-vNw5-RazVU2nBk-ylf7gJWiHC2pMNSHeQ7oB%7EO%7EuQGjl%7Eax2kS-TxMUlilxDjdZHrDSyMaTzo6OhFh8Ry06uphSRNlT18%7E5nQ984rdJVWIe6nmrCM2dLJx9NcVQ6nqLbhctqigkxq%7E7E-2cM6ew__&Key-Pair-Id=K11LSW6MOXJ7KP#sha256=Xwgu8BQP_sPXb-t0xDPowo8Eth4nodVTXupyyClinac",
+          "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch1.mp3",
           "events": {
             "onLhb": {
               "cmd": "goto",
@@ -198,7 +198,7 @@ def build_interactive_payload() -> Dict[str, Any]:
           "format": "aac",
           "display": None,
           "ambient": None,
-          "trackUrl": "https://secure-media.yotoplay.com/yoto/KVRFV4bXml23wILXoVN_heHlc2t87SnUFkN1N_hSzVY?Expires=1768289566&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9zZWN1cmUtbWVkaWEueW90b3BsYXkuY29tL3lvdG8vS1ZSRlY0YlhtbDIzd0lMWG9WTl9oZUhsYzJ0ODdTblVGa04xTl9oU3pWWSIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc2ODI4OTU2Nn19fV19&Signature=IEYnHeeK9CGSe7M83xKvHEP6aG1FOn2Kdd1Uu1oLERxVoOXi2d7sacEgyShAGbJWeXM2K8ncweZ21P1oFz6MQrSJFXp7Ezf2OEq%7EHGF3n0kL9mMlw%7EDC1CNdUr2sxrEzAozfF3H8vOzwZEI2N2KmEqoOR3x%7E0SPRryKY7sdalTSpYMAKhmBkItlOV%7Ehps9anrfrrr5cL-WJQmtsZ8R3SNXg7MkGxabTpgQIaBroEuRxoYsZeXb7JIYz93VeFJAUb37f7smKsk25YILo8lkUSUzd4sOQNVbfTXu4Odxzc2Nd5HhEqilcyWO1L5aiQUDtzxDfmczOostQgRYUOTF%7EZAQ__&Key-Pair-Id=K11LSW6MOXJ7KP#sha256=KVRFV4bXml23wILXoVN_heHlc2t87SnUFkN1N_hSzVY",
+          "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch2.mp3",
           "events": {
             "onEnd": {
               "cmd": "stop"
@@ -236,7 +236,7 @@ def build_interactive_payload() -> Dict[str, Any]:
           "format": "aac",
           "display": None,
           "ambient": None,
-          "trackUrl": "https://secure-media.yotoplay.com/yoto/6fTOk05cN6T6_kGI5ASo9be1Ahcsr3s5eQet8V1zBTs?Expires=1768289566&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9zZWN1cmUtbWVkaWEueW90b3BsYXkuY29tL3lvdG8vNmZUT2swNWNONlQ2X2tHSTVBU285YmUxQWhjc3IzczVlUWV0OFYxekJUcyIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc2ODI4OTU2Nn19fV19&Signature=MkTymwDy2HlbpddPRAKbC-vlMq1Dn7CQbY0rMcMDFaYCSR1RaVyP8dFWVt0S9E6GXP0SBrT9wbXkpsxN3RbzJzWoIvefUWknpb8fOy-N4hAQsdpmF-L-3BFQ%7Ew1%7EZhJMNu5VNDSpfIW-nGw6oBTCOxQ9SsaY%7E0YQq6Dg8T934Fd9Dvtl3lkoCJMlwLRy2mCNmP%7EqCfGmcrZVtA5sekLoP2BfB3bzDp-3U5B5PQDxZfeS0duE%7El4x4naRZ-lyQuU-XUlRiBpICLcjOhwo%7EZFYwMPwLHz%7EQoYUDibJRXvEgutYwWujQapQkPvSFH4gsCUI0uQolOS7nLG7E-XOw3Y1EA__&Key-Pair-Id=K11LSW6MOXJ7KP#sha256=6fTOk05cN6T6_kGI5ASo9be1Ahcsr3s5eQet8V1zBTs",
+          "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch3.mp3",
           "events": {
             "onEnd": {
               "cmd": "stop"
@@ -260,7 +260,7 @@ def build_interactive_payload() -> Dict[str, Any]:
           "format": "aac",
           "display": None,
           "ambient": None,
-          "trackUrl": "https://secure-media.yotoplay.com/yoto/Fvc7xJU0pQUAyPL2HDEnogLIOLvB_haSXLQ0CqidKcQ?Expires=1768289566&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9zZWN1cmUtbWVkaWEueW90b3BsYXkuY29tL3lvdG8vRnZjN3hKVTBwUVVBeVBMMkhERW5vZ0xJT0x2Ql9oYVNYTFEwQ3FpZEtjUSIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc2ODI4OTU2Nn19fV19&Signature=VrUFBcQ6He%7EdKw6S1COZTwAp7Sg9AJ%7EfuEKHW9yOqknHkfd7ek-hHKZ5dM8DpPcoK1AM71FYxgYju7HxIGc%7EPuL5ew0w078S5Z9iMqL7e5WxOt5gcucFQR8GkhbcbwpXVZpf3tNiES7UJ05AT8Fu1Q7ONKnY0zn4jMSQ4tgqkjNze7%7EyIqkWjwLnJ-HkA4ac6DVu74V6DQkfoJXlUh5KlRfSj-kWectsPTcfLSSXTZXJjiAfD6s-Yer9H0r%7EpC%7E1KLfVml%7EmyzCYKCNE2hoi-M6RuntMjIYFFiyxqc9BvrFeWYSpgFZSbeIPM7cCpF9h5bGnmh32o4no3QjQcSlVKw__&Key-Pair-Id=K11LSW6MOXJ7KP#sha256=Fvc7xJU0pQUAyPL2HDEnogLIOLvB_haSXLQ0CqidKcQ",
+          "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch4.mp3",
           "events": {
             "onEnd": {
               "cmd": "stop"

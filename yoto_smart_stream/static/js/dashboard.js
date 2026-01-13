@@ -891,7 +891,7 @@ async function loadAudioFiles() {
                     <span class="list-item-title">🎵 ${escapeHtml(file.filename)}</span>
                 </div>
                 <div class="list-item-details">
-                    <span>Size: ${formatFileSize(file.size)}</span>
+                    <span>Duration: ${file.duration}s | Size: ${file.size} bytes (${formatFileSize(file.size)})</span>
                     <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
                         📋
                     </button>
