@@ -383,9 +383,9 @@ async def create_playlist_from_stream(
     }
     
     try:
-        # Create the playlist via Yoto API
+        # Create the playlist via Yoto API (playlists are MYO cards)
         response = requests.post(
-            "https://api.yotoplay.com/playlist",
+            "https://api.yotoplay.com/card",
             headers={
                 "Authorization": f"Bearer {manager.token.access_token}",
                 "Content-Type": "application/json",
@@ -397,11 +397,11 @@ async def create_playlist_from_stream(
         response.raise_for_status()
         playlist = response.json()
         
-        logger.info(f"Created playlist '{request.playlist_name}' (ID: {playlist.get('playlistId')}) for stream '{stream_name}'")
+        logger.info(f"Created playlist '{request.playlist_name}' (ID: {playlist.get('cardId')}) for stream '{stream_name}'")
         
         return {
             "success": True,
-            "playlist_id": playlist.get("playlistId"),
+            "playlist_id": playlist.get("cardId"),
             "playlist_name": request.playlist_name,
             "stream_name": stream_name,
             "streaming_url": streaming_url,
@@ -443,9 +443,9 @@ async def delete_playlist(
         manager = client.get_manager()
         manager.check_and_refresh_token()
         
-        # Delete the playlist via Yoto API
+        # Delete the playlist via Yoto API (playlists are MYO cards)
         response = requests.delete(
-            f"https://api.yotoplay.com/playlist/{playlist_id}",
+            f"https://api.yotoplay.com/card/{playlist_id}",
             headers={
                 "Authorization": f"Bearer {manager.token.access_token}",
                 "Content-Type": "application/json",
