@@ -2,6 +2,7 @@
 
 import logging
 from typing import List, Optional
+from datetime import datetime
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
@@ -13,6 +14,7 @@ from ...config import get_settings
 from ...database import get_db
 from ...models import User
 from .user_auth import require_auth
+from ..mqtt_event_store import get_mqtt_event_store
 from ..stream_manager import get_stream_manager, StreamQueue
 from ..dependencies import get_yoto_client
 
@@ -725,18 +727,47 @@ async def stream_dynamic_audio(stream_name: str, play_mode: str = "sequential", 
         Streaming audio response with MP3 content
     """
     settings = get_settings()
+    mqtt_store = get_mqtt_event_store()
     
-    # Log incoming audio stream request if enabled
-    if settings.log_full_streams_requests and request:
-        logger.info(f"Incoming AUDIO STREAM request: {request.method} {request.url}")
-        # Log headers (redact Authorization)
-        log_headers = dict(request.headers)
-        if "authorization" in log_headers:
-            log_headers["authorization"] = "[REDACTED]"
-        logger.info(f"Headers: {log_headers}")
-        # Log query parameters
-        if request.query_params:
-            logger.info(f"Query params: {dict(request.query_params)}")
+    # Log incoming audio stream request with device state correlation
+    if request:
+        # Record stream request and correlate with MQTT events
+        stream_request = mqtt_store.add_stream_request(
+            stream_name=stream_name,
+            device_ip=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+        
+        # Get current device state
+        device_state = mqtt_store.get_device_state()
+        
+        # Enhanced logging
+        if settings.log_full_streams_requests:
+            logger.info(
+                f"🎵 STREAM REQUEST: {stream_name} "
+                f"from {request.client.host if request.client else 'unknown'}"
+            )
+            
+            # Log headers (redact Authorization)
+            log_headers = dict(request.headers)
+            if "authorization" in log_headers:
+                log_headers["authorization"] = "[REDACTED]"
+            logger.info(f"  Headers: {log_headers}")
+            
+            # Log query parameters
+            if request.query_params:
+                logger.info(f"  Query params: {dict(request.query_params)}")
+        
+        # Always log device state correlation if available
+        if device_state:
+            logger.info(
+                f"  📱 Device State: status={device_state.playback_status}, "
+                f"volume={device_state.volume}/{device_state.volume_max}, "
+                f"streaming={device_state.streaming}, card={device_state.card_id}"
+            )
+        
+        if settings.debug:
+            logger.debug(f"  Stream request details: {stream_request.to_dict()}")
     
     stream_manager = get_stream_manager()
     queue = await stream_manager.get_queue(stream_name)
@@ -774,3 +805,76 @@ async def stream_dynamic_audio(stream_name: str, play_mode: str = "sequential", 
             "X-Play-Mode": play_mode,
         },
     )
+
+
+# MQTT Analysis and Device Control Endpoints
+
+
+@router.get("/api/mqtt/analyzer")
+async def get_mqtt_analyzer_data(user: User = Depends(require_auth)):
+    """
+    Get MQTT event data for the analyzer dashboard.
+
+    Returns recent device state, MQTT events, and stream requests for visualization.
+    """
+    mqtt_store = get_mqtt_event_store()
+    
+    return {
+        "success": True,
+        "data": mqtt_store.to_dict(),
+        "recent_events": [e.to_dict() for e in mqtt_store.get_recent_events(30)],
+        "recent_stream_requests": [r.to_dict() for r in mqtt_store.get_stream_requests_since(300)],
+    }
+
+
+@router.post("/api/mqtt/track-nav")
+async def track_navigation(
+    direction: str,  # "next" or "previous"
+    stream_name: str = None,
+    user: User = Depends(require_auth)
+):
+    """
+    Handle track navigation (next/previous) from device button clicks.
+    
+    This endpoint receives MQTT button click events (via left/right clicks)
+    and can signal the streaming client to skip to next/previous track.
+    
+    Args:
+        direction: "next" or "previous"
+        stream_name: Optional stream context
+    """
+    mqtt_store = get_mqtt_event_store()
+    
+    if direction not in ["next", "previous"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="direction must be 'next' or 'previous'"
+        )
+    
+    logger.info(f"Track navigation: {direction} for stream {stream_name}")
+    
+    return {
+        "success": True,
+        "direction": direction,
+        "stream_name": stream_name,
+        "current_state": mqtt_store.get_device_state().to_dict() if mqtt_store.get_device_state() else None,
+    }
+
+
+@router.get("/api/mqtt/device-state")
+async def get_device_state(user: User = Depends(require_auth)):
+    """Get current device state from last MQTT event."""
+    mqtt_store = get_mqtt_event_store()
+    device_state = mqtt_store.get_device_state()
+    
+    if not device_state:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No device state available yet. Waiting for MQTT events from device."
+        )
+    
+    return {
+        "success": True,
+        "device_state": device_state.to_dict(),
+    }
+

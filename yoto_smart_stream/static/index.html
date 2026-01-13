@@ -15,6 +15,7 @@
             <li class="active"><a href="/">🏠 Dashboard</a></li>
             <li><a href="/streams">✨ Smart Streams</a></li>
             <li><a href="/library">📚 Library</a></li>
+            <li><button class="nav-button" onclick="openMQTTAnalyzer()">📊 MQTT Analyzer</button></li>
             <li><a href="/docs" target="_blank">📖 API Docs</a></li>
         </ul>
         <div class="sidebar-footer">
@@ -364,6 +365,59 @@
         </div>
     </div>
 
+    <!-- MQTT Analyzer Modal -->
+    <div id="mqttAnalyzerModal" class="modal">
+        <div class="modal-content mqtt-modal-content">
+            <div class="modal-header">
+                <h3>📊 MQTT Device Analyzer</h3>
+                <span class="modal-close" onclick="closeMQTTAnalyzer()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Device State Section -->
+                <div class="analyzer-section">
+                    <h4>Current Device State</h4>
+                    <div id="deviceStateSummary" class="device-state-box">
+                        <p class="loading">Loading device state...</p>
+                    </div>
+                </div>
+
+                <!-- Recent Events Section -->
+                <div class="analyzer-section">
+                    <h4>Recent MQTT Events (Last 30)</h4>
+                    <div id="recentEventsList" class="events-list">
+                        <p class="loading">Loading events...</p>
+                    </div>
+                </div>
+
+                <!-- Stream Requests Section -->
+                <div class="analyzer-section">
+                    <h4>Recent Stream Requests (Last 5 minutes)</h4>
+                    <div id="streamRequestsList" class="requests-list">
+                        <p class="loading">Loading stream requests...</p>
+                    </div>
+                </div>
+
+                <!-- Track Navigation -->
+                <div class="analyzer-section">
+                    <h4>Track Navigation (via MQTT)</h4>
+                    <div class="button-group">
+                        <button class="btn-secondary" onclick="sendTrackNavigation('previous')">⏮️ Previous Track</button>
+                        <button class="btn-secondary" onclick="sendTrackNavigation('next')">⏭️ Next Track</button>
+                    </div>
+                </div>
+
+                <!-- Auto-Refresh Control -->
+                <div class="analyzer-section">
+                    <label>
+                        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)"> 
+                        Auto-refresh (2 seconds)
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/mqtt-analyzer.js"></script>
 </body>
 </html>
