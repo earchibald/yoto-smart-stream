@@ -810,7 +810,7 @@ async def stream_dynamic_audio(stream_name: str, play_mode: str = "sequential", 
 # MQTT Analysis and Device Control Endpoints
 
 
-@router.get("/api/mqtt/analyzer")
+@router.get("/mqtt/analyzer")
 async def get_mqtt_analyzer_data(user: User = Depends(require_auth)):
     """
     Get MQTT event data for the analyzer dashboard.
@@ -827,7 +827,7 @@ async def get_mqtt_analyzer_data(user: User = Depends(require_auth)):
     }
 
 
-@router.post("/api/mqtt/track-nav")
+@router.post("/mqtt/track-nav")
 async def track_navigation(
     direction: str,  # "next" or "previous"
     stream_name: str = None,
@@ -861,7 +861,7 @@ async def track_navigation(
     }
 
 
-@router.get("/api/mqtt/device-state")
+@router.get("/mqtt/device-state")
 async def get_device_state(user: User = Depends(require_auth)):
     """Get current device state from last MQTT event."""
     mqtt_store = get_mqtt_event_store()
