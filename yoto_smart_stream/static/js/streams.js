@@ -170,7 +170,10 @@ async function loadManagedStreams() {
                     <div class="stream-actions">
                         <button class="btn-small" data-action="copy" data-url="/api/streams/${escapeHtml(queue.name, true)}/stream.mp3">📋 Copy URL</button>
                         <button class="btn-small" data-action="play" data-url="/api/streams/${escapeHtml(queue.name, true)}/stream.mp3" data-queue="${escapeHtml(queue.name, true)}">▶️ Preview</button>
-                        ${queue.name !== 'test-stream' ? `<button class="btn-small btn-delete" data-action="delete" data-queue="${escapeHtml(queue.name, true)}">🗑️ Delete</button>` : ''}
+                        ${queue.name !== 'test-stream' ? `
+                            <button class="btn-small btn-playlist" data-action="create-playlist" data-queue="${escapeHtml(queue.name, true)}">📋 Create Playlist</button>
+                            <button class="btn-small btn-delete" data-action="delete" data-queue="${escapeHtml(queue.name, true)}">🗑️ Delete</button>
+                        ` : ''}
                     </div>
                 </div>
             `).join('');
@@ -191,6 +194,8 @@ async function loadManagedStreams() {
                         if (match) qName = match[1];
                     }
                     playAudio(url, qName);
+                } else if (action === 'create-playlist') {
+                    openPlaylistModal(queueName);
                 } else if (action === 'delete') {
                     deleteStreamFromCard(queueName);
                 }
@@ -822,4 +827,162 @@ function showScripterResult(message, type) {
     setTimeout(() => {
         resultDiv.style.display = 'none';
     }, 5000);
+}
+
+
+// Playlist Management Functions
+
+function openPlaylistModal(selectedStream = null) {
+    const modal = document.getElementById('create-playlist-modal');
+    const selector = document.getElementById('playlist-stream-selector');
+    const resultDiv = document.getElementById('playlist-result');
+    
+    // Clear previous results
+    resultDiv.style.display = 'none';
+    resultDiv.textContent = '';
+    
+    // Clear form
+    document.getElementById('playlist-name').value = '';
+    
+    // Load available streams
+    loadPlaylistStreamSelector(selectedStream);
+    
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+function closePlaylistModal() {
+    const modal = document.getElementById('create-playlist-modal');
+    modal.style.display = 'none';
+}
+
+async function loadPlaylistStreamSelector(selectedStream = null) {
+    const selector = document.getElementById('playlist-stream-selector');
+    
+    try {
+        const response = await fetch(`${API_BASE}/streams/queues`);
+        if (!response.ok) throw new Error('Failed to fetch streams');
+        
+        const data = await response.json();
+        const queues = data.queues || [];
+        
+        // Filter out test-stream
+        const availableStreams = queues.filter(q => q !== 'test-stream');
+        
+        if (availableStreams.length === 0) {
+            selector.innerHTML = '<option value="">No streams available. Create a stream first.</option>';
+            return;
+        }
+        
+        selector.innerHTML = '<option value="">-- Select a stream --</option>' +
+            availableStreams.map(q => `<option value="${escapeHtml(q)}">${escapeHtml(q)}</option>`).join('');
+        
+        // Select the provided stream if available
+        if (selectedStream && availableStreams.includes(selectedStream)) {
+            selector.value = selectedStream;
+        }
+    } catch (error) {
+        console.error('Failed to load streams:', error);
+        selector.innerHTML = '<option value="">Error loading streams</option>';
+    }
+}
+
+async function createPlaylist() {
+    const streamName = document.getElementById('playlist-stream-selector').value;
+    const playlistName = document.getElementById('playlist-name').value.trim();
+    const resultDiv = document.getElementById('playlist-result');
+    const createBtn = document.querySelector('#create-playlist-modal .btn-primary');
+    
+    if (!streamName) {
+        showPlaylistResult('Please select a stream', 'error');
+        return;
+    }
+    
+    if (!playlistName) {
+        showPlaylistResult('Please enter a playlist name', 'error');
+        return;
+    }
+    
+    createBtn.disabled = true;
+    createBtn.textContent = 'Creating...';
+    
+    try {
+        const response = await fetch(`${API_BASE}/streams/${encodeURIComponent(streamName)}/create-playlist`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                playlist_name: playlistName,
+                stream_name: streamName,
+            }),
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.detail || 'Failed to create playlist');
+        }
+        
+        showPlaylistResult(
+            `✅ Playlist "${playlistName}" created successfully! Playlist ID: ${result.playlist_id}`,
+            'success'
+        );
+        
+        // Clear form and close modal after a delay
+        setTimeout(() => {
+            closePlaylistModal();
+            // Reload managed streams to show any updates
+            loadManagedStreams();
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Failed to create playlist:', error);
+        showPlaylistResult('Failed to create playlist: ' + error.message, 'error');
+    } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = 'Create Playlist';
+    }
+}
+
+async function deletePlaylist(playlistId) {
+    if (!confirm('Are you sure you want to delete this playlist? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/streams/playlists/${encodeURIComponent(playlistId)}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.detail || 'Failed to delete playlist');
+        }
+        
+        // Show success message and reload
+        alert('Playlist deleted successfully!');
+        loadManagedStreams();
+        
+    } catch (error) {
+        console.error('Failed to delete playlist:', error);
+        alert('Failed to delete playlist: ' + error.message);
+    }
+}
+
+function showPlaylistResult(message, type) {
+    const resultDiv = document.getElementById('playlist-result');
+    resultDiv.textContent = message;
+    resultDiv.className = `result-message ${type === 'error' ? 'error-message' : 'success-message'}`;
+    resultDiv.style.display = 'block';
+    
+    if (type === 'error') {
+        setTimeout(() => {
+            resultDiv.style.display = 'none';
+        }, 5000);
+    }
 }

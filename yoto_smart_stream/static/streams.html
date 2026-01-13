@@ -162,6 +162,38 @@
         </div>
     </div>
 
+    <!-- Create Playlist Modal -->
+    <div id="create-playlist-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>📋 Create Playlist</h3>
+                <button class="close-btn" onclick="closePlaylistModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="playlist-stream-selector">Select Stream</label>
+                    <select id="playlist-stream-selector" required>
+                        <option value="">-- Select a stream --</option>
+                    </select>
+                    <small style="color: #666;">Choose a managed stream to link to the playlist</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="playlist-name">Playlist Name</label>
+                    <input type="text" id="playlist-name" required placeholder="My Custom Playlist">
+                    <small style="color: #666;">This will be the name shown in your Yoto library</small>
+                </div>
+
+                <div id="playlist-result" class="result-message" style="display: none;"></div>
+
+                <div class="form-actions">
+                    <button class="btn-primary" onclick="createPlaylist()">Create Playlist</button>
+                    <button class="btn-secondary" onclick="closePlaylistModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/streams.js"></script>
 </body>
 </html>

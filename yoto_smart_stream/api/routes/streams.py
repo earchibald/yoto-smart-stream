@@ -3,6 +3,7 @@
 import logging
 from typing import List, Optional
 
+import requests
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -13,6 +14,7 @@ from ...database import get_db
 from ...models import User
 from .user_auth import require_auth
 from ..stream_manager import get_stream_manager, StreamQueue
+from ..dependencies import get_yoto_client
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -62,6 +64,19 @@ class QueuesListResponse(BaseModel):
 
     queues: List[str]
     count: int
+
+
+class CreatePlaylistRequest(BaseModel):
+    """Request model for creating a Yoto playlist from a stream."""
+    
+    playlist_name: str = Field(..., description="Name for the playlist")
+    stream_name: str = Field(..., description="Name of the stream to link to the playlist")
+
+
+class DeletePlaylistRequest(BaseModel):
+    """Request model for deleting a Yoto playlist."""
+    
+    playlist_id: str = Field(..., description="ID of the playlist to delete")
 
 
 # Queue Management Endpoints
@@ -275,6 +290,196 @@ async def delete_stream_queue(stream_name: str, user: User = Depends(require_aut
         "success": True,
         "message": f"Deleted stream queue '{stream_name}'",
     }
+
+
+# Playlist Management Endpoints
+
+
+@router.post("/streams/{stream_name}/create-playlist", status_code=status.HTTP_201_CREATED)
+async def create_playlist_from_stream(
+    stream_name: str,
+    request: CreatePlaylistRequest,
+    user: User = Depends(require_auth),
+):
+    """
+    Create a Yoto playlist from a managed stream.
+    
+    This creates a new playlist in your Yoto library that points to the specified stream.
+    The playlist will stream audio from the server-managed queue.
+    
+    Args:
+        stream_name: Name of the stream to link to the playlist
+        request: CreatePlaylistRequest with playlist_name
+        
+    Returns:
+        Created playlist information including playlist ID
+    """
+    settings = get_settings()
+    client = get_yoto_client()
+    stream_manager = get_stream_manager()
+    
+    # Verify the stream exists
+    queue = await stream_manager.get_queue(stream_name)
+    if queue is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stream queue '{stream_name}' not found. Create the stream first.",
+        )
+    
+    if not queue.files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Stream queue '{stream_name}' is empty. Add files to the stream first.",
+        )
+    
+    # Verify PUBLIC_URL is configured
+    if not settings.public_url:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="PUBLIC_URL environment variable not set. "
+            "Set it to your public server URL (e.g., https://example.ngrok.io)",
+        )
+    
+    # Ensure we're authenticated
+    try:
+        manager = client.get_manager()
+        manager.check_and_refresh_token()
+    except Exception as e:
+        logger.error(f"Failed to authenticate with Yoto API: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Failed to authenticate with Yoto API. Please ensure you're logged in.",
+        ) from e
+    
+    # Build the streaming URL for this queue
+    streaming_url = f"{settings.public_url}/api/streams/{stream_name}/stream.mp3"
+    
+    # Create playlist data structure
+    playlist_data = {
+        "title": request.playlist_name,
+        "description": f"Playlist streaming from '{stream_name}' queue",
+        "author": "Yoto Smart Stream",
+        "metadata": {
+            "source": "yoto-smart-stream",
+            "stream_name": stream_name,
+        },
+        "content": {
+            "chapters": [
+                {
+                    "key": "01",
+                    "title": request.playlist_name,
+                    "tracks": [
+                        {
+                            "key": "01",
+                            "title": request.playlist_name,
+                            "format": "mp3",
+                            "channels": "mono",
+                            "url": streaming_url,
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+    
+    try:
+        # Create the playlist via Yoto API
+        response = requests.post(
+            "https://api.yotoplay.com/playlist",
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            json=playlist_data,
+            timeout=30,
+        )
+        
+        response.raise_for_status()
+        playlist = response.json()
+        
+        logger.info(f"Created playlist '{request.playlist_name}' (ID: {playlist.get('playlistId')}) for stream '{stream_name}'")
+        
+        return {
+            "success": True,
+            "playlist_id": playlist.get("playlistId"),
+            "playlist_name": request.playlist_name,
+            "stream_name": stream_name,
+            "streaming_url": streaming_url,
+            "message": f"Playlist '{request.playlist_name}' created successfully!",
+        }
+        
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"Failed to create playlist: {e.response.text}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create playlist: {e.response.text}",
+        ) from e
+    except Exception as e:
+        logger.error(f"Failed to create playlist: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create playlist: {str(e)}",
+        ) from e
+
+
+@router.delete("/streams/playlists/{playlist_id}", status_code=status.HTTP_200_OK)
+async def delete_playlist(
+    playlist_id: str,
+    user: User = Depends(require_auth),
+):
+    """
+    Delete a Yoto playlist.
+    
+    Args:
+        playlist_id: ID of the playlist to delete
+        
+    Returns:
+        Success message
+    """
+    client = get_yoto_client()
+    
+    try:
+        # Ensure we're authenticated
+        manager = client.get_manager()
+        manager.check_and_refresh_token()
+        
+        # Delete the playlist via Yoto API
+        response = requests.delete(
+            f"https://api.yotoplay.com/playlist/{playlist_id}",
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+        )
+        
+        # 204 No Content or 200 OK both indicate success
+        if response.status_code not in (200, 204):
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Failed to delete playlist: {response.text}",
+            )
+        
+        logger.info(f"Deleted playlist (ID: {playlist_id})")
+        
+        return {
+            "success": True,
+            "playlist_id": playlist_id,
+            "message": "Playlist deleted successfully!",
+        }
+        
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"Failed to delete playlist: {e.response.text}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete playlist: {e.response.text}",
+        ) from e
+    except Exception as e:
+        logger.error(f"Failed to delete playlist: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete playlist: {str(e)}",
+        ) from e
 
 
 # Streaming Endpoint
