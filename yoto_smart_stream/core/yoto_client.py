@@ -122,26 +122,27 @@ class YotoClient:
         Callback for MQTT events - triggered when real-time events are received.
         
         The yoto_api library has already updated the manager.players dict with
-        the MQTT event data BEFORE this callback is invoked. We don't need to
-        query the API here because:
-        1. The player objects are already updated with fresh MQTT data
-        2. Querying the API would overwrite fresh data with stale data (30-60s lag)
-        3. The Web UI will read from manager.players which has the fresh data
-        
-        We also store the event in the MQTT event store for correlation with
-        stream requests and real-time analytics.
+        the MQTT event data BEFORE this callback is invoked. We extract the
+        current player state and store it in the MQTT event store for correlation
+        with stream requests and real-time analytics.
         """
+        logger.info("MQTT Callback: Event received, processing...")
         try:
             mqtt_store = get_mqtt_event_store()
             
+            # The yoto_api library updates manager.players during MQTT events
+            if not hasattr(self.manager, 'players') or not self.manager.players:
+                logger.debug("No players available in manager, skipping MQTT event store")
+                return
+            
             # Extract event data from the latest manager state
-            # The yoto_api library updates manager.players with event data
             for player_id, player in self.manager.players.items():
                 # Create MQTT event from player state
+                # The player object may have various attribute names depending on the yoto_api version
                 mqtt_event = MQTTEvent(
                     timestamp=datetime.now(),
                     device_id=player_id,
-                    raw_payload=player.__dict__ if hasattr(player, '__dict__') else {},
+                    raw_payload=getattr(player, '__dict__', {}),
                     volume=getattr(player, 'volume', None),
                     volume_max=getattr(player, 'volume_max', None),
                     card_id=getattr(player, 'card_id', None),
