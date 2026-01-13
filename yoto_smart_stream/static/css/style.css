@@ -1962,6 +1962,10 @@ audio::-webkit-media-controls-pause-button {
 }
 
 /* JSON Viewer Modal */
+#jsonViewerModal {
+    z-index: 1100;
+}
+
 .json-viewer-modal {
     max-width: 800px;
     max-height: 90vh;
