@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from ...config import get_settings
 from ..dependencies import get_yoto_client
 from ...database import get_db
-from ..utils import get_time_based_audio_file, get_time_schedule
 from ...models import User
 from .user_auth import require_auth
 
@@ -166,46 +165,6 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
         ) from e
 
 
-@router.get("/audio/dynamic/{card_id}.mp3")
-async def stream_dynamic_audio(card_id: str):
-    """
-    Stream dynamic audio based on time or other factors.
-
-    This endpoint demonstrates how to serve different content
-    for the same URL based on context (time, user, etc.).
-
-    Example use case: Bedtime stories that change based on time of day.
-
-    Args:
-        card_id: Identifier for the dynamic card
-
-    Returns:
-        Audio file appropriate for current context
-    """
-    settings = get_settings()
-    audio_file = get_time_based_audio_file()
-    audio_path = settings.audio_files_dir / audio_file
-
-    # Fallback to default if specific file doesn't exist
-    if not audio_path.exists():
-        audio_path = settings.audio_files_dir / "default-story.mp3"
-
-    if not audio_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No audio files found. Add MP3 files to {settings.audio_files_dir}/",
-        )
-
-    return FileResponse(
-        audio_path,
-        media_type="audio/mpeg",
-        headers={
-            "Accept-Ranges": "bytes",
-            "Cache-Control": "no-cache",  # Don't cache dynamic content
-        },
-    )
-
-
 @router.get("/audio/{filename}")
 async def stream_audio(filename: str):
     """
@@ -352,83 +311,4 @@ async def create_streaming_card(request: CreateCardRequest, user: User = Depends
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create card: {str(e)}",
-        ) from e
-
-
-@router.post("/cards/create-dynamic")
-async def create_dynamic_card(title: str, card_id: str, user: User = Depends(require_auth)):
-    """
-    Create a dynamic MYO card that serves different content based on time.
-
-    This creates a card that streams from /audio/dynamic/{card_id}.mp3,
-    which serves different audio files based on time of day.
-
-    Args:
-        title: Card title
-        card_id: Unique identifier for this dynamic card
-
-    Returns:
-        Created card information
-    """
-    settings = get_settings()
-    client = get_yoto_client()
-    manager = client.get_manager()
-
-    if not settings.public_url:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="PUBLIC_URL environment variable not set",
-        )
-
-    streaming_url = f"{settings.public_url}/audio/dynamic/{card_id}.mp3"
-
-    card_data = {
-        "title": title,
-        "description": "Dynamic content that changes based on time of day",
-        "author": "Yoto Smart Stream",
-        "content": {
-            "chapters": [
-                {
-                    "key": "01",
-                    "title": "Chapter 1",
-                    "tracks": [
-                        {
-                            "key": "01",
-                            "title": title,
-                            "format": "mp3",
-                            "channels": "mono",
-                            "url": streaming_url,
-                        }
-                    ],
-                }
-            ]
-        },
-    }
-
-    try:
-        response = requests.post(
-            "https://api.yotoplay.com/card",
-            headers={
-                "Authorization": f"Bearer {manager.token.access_token}",
-                "Content-Type": "application/json",
-            },
-            json=card_data,
-            timeout=30,
-        )
-
-        response.raise_for_status()
-        card = response.json()
-
-        return {
-            "success": True,
-            "card_id": card.get("cardId"),
-            "streaming_url": streaming_url,
-            "message": "Dynamic card created! Content will change based on time of day.",
-            "time_schedule": get_time_schedule(),
-        }
-
-    except requests.exceptions.HTTPError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create card: {e.response.text}",
         ) from e
