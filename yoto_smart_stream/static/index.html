@@ -365,6 +365,22 @@
         </div>
     </div>
 
+    <!-- JSON Viewer Modal -->
+    <div id="jsonViewerModal" class="modal">
+        <div class="modal-content json-viewer-modal">
+            <div class="modal-header">
+                <h3>📋 JSON Details</h3>
+                <span class="modal-close" onclick="closeJsonViewer()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="json-viewer-container">
+                    <pre id="jsonViewerContent" class="json-content"></pre>
+                    <button class="btn-primary" id="copyJsonBtn" onclick="copyJsonContent()">📋 Copy to Clipboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MQTT Analyzer Modal -->
     <div id="mqttAnalyzerModal" class="modal">
         <div class="modal-content mqtt-modal-content">

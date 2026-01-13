@@ -1900,6 +1900,19 @@ audio::-webkit-media-controls-pause-button {
     flex: 1;
 }
 
+/* Clickable events */
+.clickable-event {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clickable-event:hover {
+    background: #edf2f7 !important;
+    border-left-color: #5a67d8 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transform: translateX(4px);
+}
+
 .event-details p,
 .request-content p {
     margin: 0.25rem 0;
@@ -1946,6 +1959,64 @@ audio::-webkit-media-controls-pause-button {
     border: 1px solid #fc8181;
     border-radius: 4px;
     margin: 1rem 0;
+}
+
+/* JSON Viewer Modal */
+.json-viewer-modal {
+    max-width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.json-viewer-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.json-viewer-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 1rem;
+}
+
+.json-content {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 1rem;
+    border-radius: 6px;
+    font-family: 'Courier New', 'Monaco', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    overflow-y: auto;
+    flex: 1;
+    border: 1px solid #334155;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.json-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.json-content::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+
+.json-content::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+}
+
+.json-content::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+.json-viewer-container .btn-primary {
+    align-self: flex-end;
 }
 
 /* Navigation button in sidebar */

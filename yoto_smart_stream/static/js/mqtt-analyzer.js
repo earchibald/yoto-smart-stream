@@ -4,6 +4,7 @@
  */
 
 let mqttAutoRefreshInterval = null;
+let currentJsonData = null;
 
 async function openMQTTAnalyzer() {
     document.getElementById('mqttAnalyzerModal').style.display = 'block';
@@ -103,9 +104,10 @@ function updateRecentEvents(events) {
     events.reverse().forEach((event, index) => {
         const timestamp = new Date(event.timestamp).toLocaleTimeString();
         const icon = getEventIcon(event);
+        const eventJsonStr = JSON.stringify(event).replace(/"/g, '&quot;');
 
         html += `
-            <div class="timeline-event">
+            <div class="timeline-event clickable-event" data-json="${eventJsonStr}" onclick="showJsonViewerFromElement(this)" title="Click to view full JSON">
                 <div class="event-time">${timestamp}</div>
                 <div class="event-content">
                     <div class="event-icon">${icon}</div>
@@ -135,14 +137,15 @@ function updateStreamRequests(requests) {
 
     let html = '<div class="requests-timeline">';
 
-    requests.reverse().forEach((request) => {
+    requests.reverse().forEach((request, index) => {
         const timestamp = new Date(request.timestamp).toLocaleTimeString();
         const mqttContext = request.preceding_mqtt_events && request.preceding_mqtt_events.length > 0
             ? `<p><strong>Device was:</strong> ${request.preceding_mqtt_events[request.preceding_mqtt_events.length - 1].playback_status}</p>`
             : '<p><em>No MQTT context</em></p>';
+        const requestJsonStr = JSON.stringify(request).replace(/"/g, '&quot;');
 
         html += `
-            <div class="timeline-request">
+            <div class="timeline-request clickable-event" data-json="${requestJsonStr}" onclick="showJsonViewerFromElement(this)" title="Click to view full JSON">
                 <div class="request-time">${timestamp}</div>
                 <div class="request-content">
                     <p><strong>Stream:</strong> ${request.stream_name}</p>
@@ -219,8 +222,72 @@ function toggleAutoRefresh(enabled) {
 
 // Close modal when clicking outside
 window.addEventListener('click', function (event) {
-    const modal = document.getElementById('mqttAnalyzerModal');
-    if (event.target === modal) {
+    const jsonModal = document.getElementById('jsonViewerModal');
+    if (event.target === jsonModal) {
+        closeJsonViewer();
+    }
+    
+    const mqttModal = document.getElementById('mqttAnalyzerModal');
+    if (event.target === mqttModal) {
         closeMQTTAnalyzer();
     }
 });
+
+// Close modals with Escape key
+window.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+        const jsonModal = document.getElementById('jsonViewerModal');
+        if (jsonModal.style.display === 'block') {
+            closeJsonViewer();
+        }
+        const mqttModal = document.getElementById('mqttAnalyzerModal');
+        if (mqttModal.style.display === 'block') {
+            closeMQTTAnalyzer();
+        }
+    }
+});
+
+function showJsonViewerFromElement(element) {
+    const jsonStr = element.getAttribute('data-json');
+    if (!jsonStr) return;
+    
+    try {
+        currentJsonData = JSON.parse(jsonStr.replace(/&quot;/g, '"'));
+        const jsonViewerContent = document.getElementById('jsonViewerContent');
+        jsonViewerContent.textContent = JSON.stringify(currentJsonData, null, 2);
+        document.getElementById('jsonViewerModal').style.display = 'block';
+    } catch (error) {
+        console.error('Failed to parse JSON:', error);
+        alert('Failed to parse JSON data');
+    }
+}
+
+function showJsonViewer(id, jsonString) {
+    currentJsonData = JSON.parse(jsonString);
+    const jsonViewerContent = document.getElementById('jsonViewerContent');
+    jsonViewerContent.textContent = JSON.stringify(currentJsonData, null, 2);
+    document.getElementById('jsonViewerModal').style.display = 'block';
+}
+
+function closeJsonViewer() {
+    document.getElementById('jsonViewerModal').style.display = 'none';
+    currentJsonData = null;
+}
+
+function copyJsonContent() {
+    if (!currentJsonData) return;
+    const jsonString = JSON.stringify(currentJsonData, null, 2);
+    navigator.clipboard.writeText(jsonString).then(() => {
+        const btn = document.getElementById('copyJsonBtn');
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => {
+            btn.textContent = originalText;
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy JSON');
+    });
+}
+
+
