@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     app_version: str = "0.2.1"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
+    log_full_streams_requests: bool = Field(
+        default=False, description="Log full HTTP requests (headers and body) for audio stream endpoints"
+    )
     environment: str = Field(
         default="development",
         description="Environment name (auto-populated from RAILWAY_ENVIRONMENT_NAME)",

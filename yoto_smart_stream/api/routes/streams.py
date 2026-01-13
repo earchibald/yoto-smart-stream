@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -443,24 +443,13 @@ async def delete_playlist(
         manager = client.get_manager()
         manager.check_and_refresh_token()
         
-        token = manager.token
-        if not token or not hasattr(token, 'access_token'):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated. Please log in to Yoto first."
-            )
-        
-        # Use correct authentication headers format
-        headers = {
-            'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
-            'Content-Type': 'application/json',
-            'Authorization': f'{token.token_type} {token.access_token}',
-        }
-        
         # Delete the playlist via Yoto API using /content endpoint
         response = requests.delete(
             f"https://api.yotoplay.com/content/{playlist_id}",
-            headers=headers,
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+                "Content-Type": "application/json",
+            },
             timeout=30,
         )
         
@@ -510,9 +499,9 @@ async def search_playlists_by_name(
     user: User = Depends(require_auth),
 ):
     """
-    Search for Yoto playlists (MYO cards) by name.
+    Search for Yoto playlists by name.
     
-    This searches the user's already-loaded Yoto library for playlists matching the given name.
+    This searches the user's Yoto library for playlists matching the given name.
     Useful for finding and managing playlists, including orphaned ones.
     
     Args:
@@ -528,52 +517,35 @@ async def search_playlists_by_name(
         manager = client.get_manager()
         manager.check_and_refresh_token()
         
-        # Get MYO content from /content/mine endpoint (this is what library.py uses)
-        token = manager.token
-        if not token or not hasattr(token, 'access_token'):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated. Please log in to Yoto first."
-            )
-        
-        # Use the same authentication headers format as library.py
-        headers = {
-            'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
-            'Content-Type': 'application/json',
-            'Authorization': f'{token.token_type} {token.access_token}',
-        }
-        
-        logger.info("Fetching MYO content from /content/mine endpoint...")
+        # Get all content/playlists from user's library
+        # The Yoto API v2 provides a content endpoint to list user content
         response = requests.get(
-            'https://api.yotoplay.com/content/mine',
-            headers=headers,
-            timeout=30
+            "https://api.yotoplay.com/content",
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
         )
         
         response.raise_for_status()
         data = response.json()
         
-        # Extract playlists/cards from response (handle both list and dict formats)
-        all_playlists = []
-        if isinstance(data, list):
-            all_playlists = data
-        elif isinstance(data, dict) and 'items' in data:
-            all_playlists = data['items']
-        elif isinstance(data, dict) and 'content' in data:
-            all_playlists = data['content']
+        # Extract playlists from response
+        all_playlists = data.get("items", []) if isinstance(data, dict) else data if isinstance(data, list) else []
         
         # Filter by name (case-insensitive, partial match)
         search_term = playlist_name.lower()
         matching_playlists = [
             {
-                "id": p.get("id"),
-                "title": p.get("title") or p.get("name", "Untitled"),
-                "description": p.get("description", ""),
-                "type": p.get("type", "myo"),
-                "created_at": p.get("createdAt", ""),
+                "id": p.get("id") or p.get("cardId") or p.get("contentId"),
+                "title": p.get("title", "Untitled"),
+                "description": p.get("metadata", {}).get("description", ""),
+                "type": p.get("type", "unknown"),
+                "created_at": p.get("created_at", p.get("createdAt", "")),
             }
             for p in all_playlists
-            if search_term in (p.get("title") or p.get("name", "")).lower()
+            if search_term in p.get("title", "").lower()
         ]
         
         logger.info(f"Found {len(matching_playlists)} playlists matching '{playlist_name}'")
@@ -632,26 +604,15 @@ async def delete_multiple_playlists(
         manager = client.get_manager()
         manager.check_and_refresh_token()
         
-        token = manager.token
-        if not token or not hasattr(token, 'access_token'):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated. Please log in to Yoto first."
-            )
-        
-        # Use correct authentication headers format
-        headers = {
-            'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
-            'Content-Type': 'application/json',
-            'Authorization': f'{token.token_type} {token.access_token}',
-        }
-        
         for playlist_id in request.playlist_ids:
             try:
                 # Delete the playlist via Yoto API
                 response = requests.delete(
                     f"https://api.yotoplay.com/content/{playlist_id}",
-                    headers=headers,
+                    headers={
+                        "Authorization": f"Bearer {manager.token.access_token}",
+                        "Content-Type": "application/json",
+                    },
                     timeout=30,
                 )
                 
@@ -747,7 +708,7 @@ async def generate_sequential_stream(queue_files: List[str], audio_files_dir, pl
 
 
 @router.get("/streams/{stream_name}/stream.mp3")
-async def stream_dynamic_audio(stream_name: str, play_mode: str = "sequential"):
+async def stream_dynamic_audio(stream_name: str, play_mode: str = "sequential", request: Request = None):
     """
     Stream audio from a named queue as a continuous MP3 file.
 
@@ -758,10 +719,25 @@ async def stream_dynamic_audio(stream_name: str, play_mode: str = "sequential"):
     Args:
         stream_name: Name of the stream queue to play
         play_mode: How to play the files - "sequential", "loop", "shuffle", or "endless-shuffle"
+        request: HTTP request object for logging
 
     Returns:
         Streaming audio response with MP3 content
     """
+    settings = get_settings()
+    
+    # Log incoming audio stream request if enabled
+    if settings.log_full_streams_requests and request:
+        logger.info(f"Incoming AUDIO STREAM request: {request.method} {request.url}")
+        # Log headers (redact Authorization)
+        log_headers = dict(request.headers)
+        if "authorization" in log_headers:
+            log_headers["authorization"] = "[REDACTED]"
+        logger.info(f"Headers: {log_headers}")
+        # Log query parameters
+        if request.query_params:
+            logger.info(f"Query params: {dict(request.query_params)}")
+    
     stream_manager = get_stream_manager()
     queue = await stream_manager.get_queue(stream_name)
 
@@ -776,8 +752,6 @@ async def stream_dynamic_audio(stream_name: str, play_mode: str = "sequential"):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Stream queue '{stream_name}' is empty. Add files to the queue first.",
         )
-
-    settings = get_settings()
     
     # Get a snapshot of the current queue state for this client
     queue_snapshot = queue.get_files()
