@@ -2014,6 +2014,7 @@ audio::-webkit-media-controls-pause-button {
     max-height: 90vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .json-viewer-modal .modal-body {
@@ -2021,6 +2022,7 @@ audio::-webkit-media-controls-pause-button {
     flex-direction: column;
     flex: 1;
     overflow: hidden;
+    min-height: 0;
 }
 
 .json-viewer-container {
@@ -2028,6 +2030,7 @@ audio::-webkit-media-controls-pause-button {
     flex-direction: column;
     flex: 1;
     gap: 1rem;
+    min-height: 0;
 }
 
 .json-content {
@@ -2039,7 +2042,10 @@ audio::-webkit-media-controls-pause-button {
     font-size: 0.85rem;
     line-height: 1.5;
     overflow-y: auto;
+    overflow-x: auto;
     flex: 1;
+    min-height: 0;
+    max-height: 60vh;
     border: 1px solid #334155;
     white-space: pre-wrap;
     word-break: break-word;
