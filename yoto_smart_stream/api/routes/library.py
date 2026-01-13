@@ -286,3 +286,116 @@ async def get_card_chapters(card_id: str, user: User = Depends(require_auth)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch card chapters: {str(e)}"
         ) from e
+
+
+@router.get("/library/{card_id}/raw")
+async def get_card_raw_data(card_id: str, user: User = Depends(require_auth)):
+    """
+    Get comprehensive raw data for a card including all metadata, chapters, and attributes.
+    Useful for debugging and inspecting interactive cards.
+    
+    Args:
+        card_id: The card ID
+        
+    Returns:
+        Dictionary with all available card data
+    """
+    try:
+        client = get_yoto_client()
+        manager = client.get_manager()
+        
+        # Ensure library is loaded
+        if not manager.library:
+            manager.update_library()
+        
+        # Check if card exists in library
+        if card_id not in manager.library:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Card {card_id} not found in library"
+            )
+        
+        card = manager.library[card_id]
+        
+        # Update card details to get all information
+        logger.info(f"Fetching comprehensive raw data for card {card_id}")
+        manager.update_card_detail(card_id)
+        
+        # Extract all attributes from the card object
+        raw_data = {
+            'card_id': card_id,
+            'metadata': {},
+            'chapters': {},
+            'attributes': {},
+            'raw_object': {}
+        }
+        
+        # Get all card attributes
+        for attr_name in dir(card):
+            # Skip private/magic methods and callables
+            if attr_name.startswith('_') or callable(getattr(card, attr_name)):
+                continue
+            
+            try:
+                attr_value = getattr(card, attr_name)
+                
+                # Convert to serializable format
+                if isinstance(attr_value, (str, int, float, bool, type(None))):
+                    raw_data['attributes'][attr_name] = attr_value
+                elif isinstance(attr_value, dict):
+                    raw_data['attributes'][attr_name] = dict(attr_value)
+                elif isinstance(attr_value, list):
+                    raw_data['attributes'][attr_name] = list(attr_value)
+                else:
+                    # Try to convert to string for complex objects
+                    raw_data['attributes'][attr_name] = str(attr_value)
+            except Exception as e:
+                logger.warning(f"Could not serialize attribute {attr_name}: {e}")
+                raw_data['attributes'][attr_name] = f"<Error: {str(e)}>"
+        
+        # Extract standard metadata fields
+        standard_fields = ['title', 'author', 'description', 'language', 'duration', 
+                          'cover_image', 'cover_image_large', 'card_type', 'content_type',
+                          'interactive', 'is_interactive', 'is_myo', 'is_podcast']
+        for field in standard_fields:
+            if hasattr(card, field):
+                raw_data['metadata'][field] = getattr(card, field)
+        
+        # Extract chapters with full details
+        if hasattr(card, 'chapters') and card.chapters:
+            for chapter_key, chapter in card.chapters.items():
+                chapter_data = {}
+                for attr in dir(chapter):
+                    if attr.startswith('_') or callable(getattr(chapter, attr)):
+                        continue
+                    try:
+                        chapter_data[attr] = getattr(chapter, attr)
+                    except:
+                        pass
+                raw_data['chapters'][chapter_key] = chapter_data
+        
+        # Try to get the raw JSON representation if available
+        if hasattr(card, '__dict__'):
+            try:
+                raw_data['raw_object'] = {
+                    k: v for k, v in card.__dict__.items() 
+                    if not k.startswith('_')
+                }
+            except:
+                pass
+        
+        return raw_data
+        
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Please log in to Yoto first."
+        ) from e
+    except Exception as e:
+        logger.error(f"Error fetching raw card data: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch raw card data: {str(e)}"
+        ) from e

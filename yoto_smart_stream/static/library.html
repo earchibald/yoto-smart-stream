@@ -109,6 +109,22 @@
         </div>
     </div>
 
+    <!-- Raw Data Modal -->
+    <div id="raw-data-modal" class="modal">
+        <div class="modal-content json-viewer-modal">
+            <div class="modal-header">
+                <h3 id="raw-data-title">Raw Card Data</h3>
+                <span class="modal-close" onclick="closeRawDataModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="json-viewer-container">
+                    <pre id="raw-data-body" class="json-content">Loading...</pre>
+                    <button class="btn-primary" id="copy-raw-data-btn">📋 Copy to Clipboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/library.js"></script>
 </body>
 </html>

@@ -196,6 +196,7 @@ function displayCards(cards) {
                     ${card.author ? `<p class="library-card-author">by ${escapeHtml(card.author)}</p>` : ''}
                     ${card.description ? `<p class="library-card-description">${escapeHtml(card.description)}</p>` : ''}
                 </div>
+                <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data">ℹ️</button>
             </div>
         `;
     }).join('');
@@ -203,7 +204,7 @@ function displayCards(cards) {
     // Add event listeners using delegation
     cardsGrid.addEventListener('click', function(event) {
         const card = event.target.closest('.library-card');
-        if (card) {
+        if (card && !event.target.closest('.library-card-info-btn')) {
             const contentId = card.getAttribute('data-content-id');
             const contentTitle = card.getAttribute('data-content-title');
             showContentDetails(contentId, contentTitle);
@@ -224,7 +225,10 @@ function displayPlaylists(playlists) {
         <div class="list-item" data-content-id="${escapeHtml(playlist.id)}" data-content-title="${escapeHtml(playlist.name)}">
             <div class="list-item-header">
                 <span class="list-item-title">📁 ${escapeHtml(playlist.name)}</span>
-                <span class="badge enabled">${escapeHtml(String(playlist.itemCount))} items</span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <span class="badge enabled">${escapeHtml(String(playlist.itemCount))} items</span>
+                    <button class="info-btn-small" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(playlist.id)}', '${escapeHtml(playlist.name)}');" title="View Raw Data">ℹ️</button>
+                </div>
             </div>
             ${playlist.imageId ? `<div class="list-item-details"><span>Image ID: ${escapeHtml(playlist.imageId)}</span></div>` : ''}
         </div>
@@ -233,7 +237,7 @@ function displayPlaylists(playlists) {
     // Add event listeners using delegation
     playlistsList.addEventListener('click', function(event) {
         const listItem = event.target.closest('.list-item');
-        if (listItem) {
+        if (listItem && !event.target.closest('.info-btn-small')) {
             const contentId = listItem.getAttribute('data-content-id');
             const contentTitle = listItem.getAttribute('data-content-title');
             showContentDetails(contentId, contentTitle);
@@ -351,6 +355,56 @@ function formatDuration(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Show raw card data in JSON format
+async function showCardRawData(cardId, cardTitle) {
+    const modal = document.getElementById('raw-data-modal');
+    const modalTitle = document.getElementById('raw-data-title');
+    const modalBody = document.getElementById('raw-data-body');
+    const copyBtn = document.getElementById('copy-raw-data-btn');
+    
+    // Show modal with loading state
+    modalTitle.textContent = `Raw Data: ${cardTitle}`;
+    modalBody.innerHTML = '<p class="loading">Loading all card data...</p>';
+    modal.style.display = 'flex';
+    
+    try {
+        // Fetch comprehensive card data from new endpoint
+        const response = await fetch(`${API_BASE}/library/${cardId}/raw`);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch raw data: ${response.statusText}`);
+        }
+        
+        const rawData = await response.json();
+        
+        // Display formatted JSON
+        modalBody.innerHTML = `<pre class="json-content">${escapeHtml(JSON.stringify(rawData, null, 2))}</pre>`;
+        
+        // Setup copy button
+        copyBtn.onclick = function() {
+            navigator.clipboard.writeText(JSON.stringify(rawData, null, 2)).then(() => {
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = '✓ Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy to clipboard');
+            });
+        };
+        
+    } catch (error) {
+        console.error('Error loading raw card data:', error);
+        modalBody.innerHTML = `<p class="error-message">Failed to load raw data: ${error.message}</p>`;
+    }
+}
+
+// Close raw data modal
+function closeRawDataModal() {
+    document.getElementById('raw-data-modal').style.display = 'none';
 }
 
 // Utility functions
