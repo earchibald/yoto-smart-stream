@@ -258,13 +258,28 @@ async function showContentDetails(contentId, contentTitle) {
     modal.style.display = 'flex';
     
     try {
-        const response = await fetch(`${API_BASE}/library/content/${contentId}`);
+        // Use the chapters endpoint which uses local cache
+        const response = await fetch(`${API_BASE}/library/${contentId}/chapters`);
         
         if (!response.ok) {
             throw new Error(`Failed to fetch content details: ${response.statusText}`);
         }
         
-        const content = await response.json();
+        const data = await response.json();
+        
+        // Map the chapters response to content format
+        const content = {
+            title: data.card_title,
+            author: data.card_author,
+            coverImageLarge: data.card_cover,
+            coverImage: data.card_cover,
+            chapters: data.chapters ? data.chapters.map(ch => ({
+                title: ch.title,
+                display: ch.title,
+                duration: ch.duration,
+                icon: ch.icon
+            })) : []
+        };
         
         // Build content details HTML
         let detailsHtml = '';
