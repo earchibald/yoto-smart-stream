@@ -482,6 +482,168 @@ async def delete_playlist(
         ) from e
 
 
+# Playlist Search and Management
+
+
+class PlaylistSearchResponse(BaseModel):
+    """Response model for playlist search results."""
+    
+    playlists: List[dict] = Field(..., description="List of matching playlists")
+    count: int = Field(..., description="Number of matching playlists")
+    query: str = Field(..., description="The search query used")
+
+
+@router.get("/streams/playlists/search/{playlist_name}", response_model=PlaylistSearchResponse)
+async def search_playlists_by_name(
+    playlist_name: str,
+    user: User = Depends(require_auth),
+):
+    """
+    Search for Yoto playlists by name.
+    
+    This searches the user's Yoto library for playlists matching the given name.
+    Useful for finding and managing playlists, including orphaned ones.
+    
+    Args:
+        playlist_name: Name (or partial name) to search for
+        
+    Returns:
+        List of matching playlists with IDs and metadata
+    """
+    client = get_yoto_client()
+    
+    try:
+        # Ensure we're authenticated
+        manager = client.get_manager()
+        manager.check_and_refresh_token()
+        
+        # Get all content/playlists from user's library
+        # The Yoto API v2 provides a content endpoint to list user content
+        response = requests.get(
+            "https://api.yotoplay.com/content",
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+        )
+        
+        response.raise_for_status()
+        data = response.json()
+        
+        # Extract playlists from response
+        all_playlists = data.get("items", []) if isinstance(data, dict) else data if isinstance(data, list) else []
+        
+        # Filter by name (case-insensitive, partial match)
+        search_term = playlist_name.lower()
+        matching_playlists = [
+            {
+                "id": p.get("id") or p.get("cardId") or p.get("contentId"),
+                "title": p.get("title", "Untitled"),
+                "description": p.get("metadata", {}).get("description", ""),
+                "type": p.get("type", "unknown"),
+                "created_at": p.get("created_at", p.get("createdAt", "")),
+            }
+            for p in all_playlists
+            if search_term in p.get("title", "").lower()
+        ]
+        
+        logger.info(f"Found {len(matching_playlists)} playlists matching '{playlist_name}'")
+        
+        return {
+            "playlists": matching_playlists,
+            "count": len(matching_playlists),
+            "query": playlist_name,
+        }
+        
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"Failed to search playlists: {e.response.text}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to search playlists: {e.response.text}",
+        ) from e
+    except Exception as e:
+        logger.error(f"Failed to search playlists: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to search playlists: {str(e)}",
+        ) from e
+
+
+class DeletePlaylistsRequest(BaseModel):
+    """Request model for deleting multiple playlists."""
+    
+    playlist_ids: List[str] = Field(..., description="List of playlist IDs to delete", min_length=1)
+
+
+@router.post("/streams/playlists/delete-multiple", status_code=status.HTTP_200_OK)
+async def delete_multiple_playlists(
+    request: DeletePlaylistsRequest,
+    user: User = Depends(require_auth),
+):
+    """
+    Delete multiple Yoto playlists by ID.
+    
+    This allows batch deletion of playlists, useful for cleaning up orphaned playlists.
+    
+    Args:
+        request: DeletePlaylistsRequest with list of playlist IDs
+        
+    Returns:
+        Results for each deletion attempt
+    """
+    client = get_yoto_client()
+    results = {
+        "success": [],
+        "failed": [],
+        "total": len(request.playlist_ids),
+    }
+    
+    try:
+        # Ensure we're authenticated
+        manager = client.get_manager()
+        manager.check_and_refresh_token()
+        
+        for playlist_id in request.playlist_ids:
+            try:
+                # Delete the playlist via Yoto API
+                response = requests.delete(
+                    f"https://api.yotoplay.com/content/{playlist_id}",
+                    headers={
+                        "Authorization": f"Bearer {manager.token.access_token}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=30,
+                )
+                
+                # 204 No Content or 200 OK both indicate success
+                if response.status_code in (200, 204):
+                    results["success"].append(playlist_id)
+                    logger.info(f"Deleted playlist (ID: {playlist_id})")
+                else:
+                    results["failed"].append({
+                        "playlist_id": playlist_id,
+                        "error": f"Status {response.status_code}: {response.text}",
+                    })
+                    logger.warning(f"Failed to delete playlist {playlist_id}: {response.text}")
+                    
+            except Exception as e:
+                results["failed"].append({
+                    "playlist_id": playlist_id,
+                    "error": str(e),
+                })
+                logger.error(f"Error deleting playlist {playlist_id}: {e}")
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error in bulk delete operation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error during bulk delete: {str(e)}",
+        ) from e
+
+
 # Streaming Endpoint
 
 
