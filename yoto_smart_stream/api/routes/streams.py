@@ -354,15 +354,10 @@ async def create_playlist_from_stream(
     # Build the streaming URL for this queue
     streaming_url = f"{settings.public_url}/api/streams/{stream_name}/stream.mp3"
     
-    # Create playlist data structure
+    # Create playlist data structure following Yoto API specification
+    # https://yoto.dev/myo/streaming-tracks/
     playlist_data = {
         "title": request.playlist_name,
-        "description": f"Playlist streaming from '{stream_name}' queue",
-        "author": "Yoto Smart Stream",
-        "metadata": {
-            "source": "yoto-smart-stream",
-            "stream_name": stream_name,
-        },
         "content": {
             "chapters": [
                 {
@@ -371,21 +366,24 @@ async def create_playlist_from_stream(
                     "tracks": [
                         {
                             "key": "01",
-                            "title": request.playlist_name,
+                            "type": "stream",
                             "format": "mp3",
-                            "channels": "mono",
-                            "url": streaming_url,
+                            "title": request.playlist_name,
+                            "trackUrl": streaming_url,
                         }
                     ],
                 }
             ]
         },
+        "metadata": {
+            "description": f"Playlist streaming from '{stream_name}' queue"
+        },
     }
     
     try:
-        # Create the playlist via Yoto API (playlists are MYO cards)
+        # Create the playlist via Yoto API using /content endpoint
         response = requests.post(
-            "https://api.yotoplay.com/card",
+            "https://api.yotoplay.com/content",
             headers={
                 "Authorization": f"Bearer {manager.token.access_token}",
                 "Content-Type": "application/json",
@@ -397,11 +395,13 @@ async def create_playlist_from_stream(
         response.raise_for_status()
         playlist = response.json()
         
-        logger.info(f"Created playlist '{request.playlist_name}' (ID: {playlist.get('cardId')}) for stream '{stream_name}'")
+        # The /content endpoint returns an id field
+        playlist_id = playlist.get("id") or playlist.get("cardId") or playlist.get("contentId")
+        logger.info(f"Created playlist '{request.playlist_name}' (ID: {playlist_id}) for stream '{stream_name}'")
         
         return {
             "success": True,
-            "playlist_id": playlist.get("cardId"),
+            "playlist_id": playlist_id,
             "playlist_name": request.playlist_name,
             "stream_name": stream_name,
             "streaming_url": streaming_url,
@@ -443,9 +443,9 @@ async def delete_playlist(
         manager = client.get_manager()
         manager.check_and_refresh_token()
         
-        # Delete the playlist via Yoto API (playlists are MYO cards)
+        # Delete the playlist via Yoto API using /content endpoint
         response = requests.delete(
-            f"https://api.yotoplay.com/card/{playlist_id}",
+            f"https://api.yotoplay.com/content/{playlist_id}",
             headers={
                 "Authorization": f"Bearer {manager.token.access_token}",
                 "Content-Type": "application/json",
