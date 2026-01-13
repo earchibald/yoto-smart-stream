@@ -443,13 +443,24 @@ async def delete_playlist(
         manager = client.get_manager()
         manager.check_and_refresh_token()
         
+        token = manager.token
+        if not token or not hasattr(token, 'access_token'):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated. Please log in to Yoto first."
+            )
+        
+        # Use correct authentication headers format
+        headers = {
+            'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
+            'Content-Type': 'application/json',
+            'Authorization': f'{token.token_type} {token.access_token}',
+        }
+        
         # Delete the playlist via Yoto API using /content endpoint
         response = requests.delete(
             f"https://api.yotoplay.com/content/{playlist_id}",
-            headers={
-                "Authorization": f"Bearer {manager.token.access_token}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             timeout=30,
         )
         
@@ -499,9 +510,9 @@ async def search_playlists_by_name(
     user: User = Depends(require_auth),
 ):
     """
-    Search for Yoto playlists by name.
+    Search for Yoto playlists (MYO cards) by name.
     
-    This searches the user's Yoto library for playlists matching the given name.
+    This searches the user's already-loaded Yoto library for playlists matching the given name.
     Useful for finding and managing playlists, including orphaned ones.
     
     Args:
@@ -517,35 +528,52 @@ async def search_playlists_by_name(
         manager = client.get_manager()
         manager.check_and_refresh_token()
         
-        # Get all content/playlists from user's library
-        # The Yoto API v2 provides a content endpoint to list user content
+        # Get MYO content from /content/mine endpoint (this is what library.py uses)
+        token = manager.token
+        if not token or not hasattr(token, 'access_token'):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated. Please log in to Yoto first."
+            )
+        
+        # Use the same authentication headers format as library.py
+        headers = {
+            'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
+            'Content-Type': 'application/json',
+            'Authorization': f'{token.token_type} {token.access_token}',
+        }
+        
+        logger.info("Fetching MYO content from /content/mine endpoint...")
         response = requests.get(
-            "https://api.yotoplay.com/content",
-            headers={
-                "Authorization": f"Bearer {manager.token.access_token}",
-                "Content-Type": "application/json",
-            },
-            timeout=30,
+            'https://api.yotoplay.com/content/mine',
+            headers=headers,
+            timeout=30
         )
         
         response.raise_for_status()
         data = response.json()
         
-        # Extract playlists from response
-        all_playlists = data.get("items", []) if isinstance(data, dict) else data if isinstance(data, list) else []
+        # Extract playlists/cards from response (handle both list and dict formats)
+        all_playlists = []
+        if isinstance(data, list):
+            all_playlists = data
+        elif isinstance(data, dict) and 'items' in data:
+            all_playlists = data['items']
+        elif isinstance(data, dict) and 'content' in data:
+            all_playlists = data['content']
         
         # Filter by name (case-insensitive, partial match)
         search_term = playlist_name.lower()
         matching_playlists = [
             {
-                "id": p.get("id") or p.get("cardId") or p.get("contentId"),
-                "title": p.get("title", "Untitled"),
-                "description": p.get("metadata", {}).get("description", ""),
-                "type": p.get("type", "unknown"),
-                "created_at": p.get("created_at", p.get("createdAt", "")),
+                "id": p.get("id"),
+                "title": p.get("title") or p.get("name", "Untitled"),
+                "description": p.get("description", ""),
+                "type": p.get("type", "myo"),
+                "created_at": p.get("createdAt", ""),
             }
             for p in all_playlists
-            if search_term in p.get("title", "").lower()
+            if search_term in (p.get("title") or p.get("name", "")).lower()
         ]
         
         logger.info(f"Found {len(matching_playlists)} playlists matching '{playlist_name}'")
@@ -604,15 +632,26 @@ async def delete_multiple_playlists(
         manager = client.get_manager()
         manager.check_and_refresh_token()
         
+        token = manager.token
+        if not token or not hasattr(token, 'access_token'):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated. Please log in to Yoto first."
+            )
+        
+        # Use correct authentication headers format
+        headers = {
+            'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
+            'Content-Type': 'application/json',
+            'Authorization': f'{token.token_type} {token.access_token}',
+        }
+        
         for playlist_id in request.playlist_ids:
             try:
                 # Delete the playlist via Yoto API
                 response = requests.delete(
                     f"https://api.yotoplay.com/content/{playlist_id}",
-                    headers={
-                        "Authorization": f"Bearer {manager.token.access_token}",
-                        "Content-Type": "application/json",
-                    },
+                    headers=headers,
                     timeout=30,
                 )
                 
