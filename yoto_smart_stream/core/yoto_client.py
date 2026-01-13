@@ -1,11 +1,14 @@
 """Core Yoto API client wrapper with enhanced features."""
 
+import json
 import logging
+from datetime import datetime
 from typing import Optional
 
 from yoto_api import YotoManager
 
 from ..config import Settings
+from ..api.mqtt_event_store import MQTTEvent, get_mqtt_event_store
 
 logger = logging.getLogger(__name__)
 
@@ -125,9 +128,39 @@ class YotoClient:
         2. Querying the API would overwrite fresh data with stale data (30-60s lag)
         3. The Web UI will read from manager.players which has the fresh data
         
-        For debugging, log that we received an event (library logs the full payload).
+        We also store the event in the MQTT event store for correlation with
+        stream requests and real-time analytics.
         """
-        logger.debug("MQTT: Event received - player data already updated by library")
+        try:
+            mqtt_store = get_mqtt_event_store()
+            
+            # Extract event data from the latest manager state
+            # The yoto_api library updates manager.players with event data
+            for player_id, player in self.manager.players.items():
+                # Create MQTT event from player state
+                mqtt_event = MQTTEvent(
+                    timestamp=datetime.now(),
+                    device_id=player_id,
+                    raw_payload=player.__dict__ if hasattr(player, '__dict__') else {},
+                    volume=getattr(player, 'volume', None),
+                    volume_max=getattr(player, 'volume_max', None),
+                    card_id=getattr(player, 'card_id', None),
+                    playback_status=getattr(player, 'playback_status', None),
+                    streaming=getattr(player, 'streaming', None),
+                    playback_wait=getattr(player, 'playback_wait', None),
+                    sleep_timer_active=getattr(player, 'sleep_timer_active', None),
+                    repeat_all=getattr(player, 'repeat_all', None),
+                )
+                
+                # Store the event
+                mqtt_store.add_event(mqtt_event)
+                
+                logger.debug(
+                    f"MQTT event stored for {player_id}: "
+                    f"status={mqtt_event.playback_status}, volume={mqtt_event.volume}"
+                )
+        except Exception as e:
+            logger.error(f"Error in MQTT event callback: {e}", exc_info=True)
 
     def connect_mqtt(self) -> None:
         """Connect to MQTT for real-time events."""
