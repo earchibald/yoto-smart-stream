@@ -98,6 +98,35 @@ class Settings(BaseSettings):
 
     # Storage settings
     audio_files_dir: Path = Field(default=Path("audio_files"), description="Audio files directory")
+    
+    @field_validator("audio_files_dir", mode="before")
+    @classmethod
+    def get_audio_files_dir(cls, v):
+        """
+        Get audio files directory based on environment.
+        
+        Uses /data directory for Railway deployments (persistent volume) so TTS
+        files survive restarts. Falls back to local path for development.
+        """
+        # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
+        railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
+        
+        if railway_env:
+            # On Railway, use persistent volume at /data/audio_files
+            data_dir = Path("/data/audio_files")
+            # Try to create directory if it doesn't exist
+            try:
+                data_dir.mkdir(parents=True, exist_ok=True)
+            except (PermissionError, OSError) as e:
+                logger.debug(
+                    f"Could not create {data_dir} during validation (expected in tests): {e}"
+                )
+            return data_dir
+        
+        # Local development - use provided value or default
+        if v and str(v) != "audio_files":
+            return v if isinstance(v, Path) else Path(v)
+        return Path("audio_files")
     database_url: str = Field(
         default="sqlite:///./yoto_smart_stream.db", description="Database connection URL"
     )
