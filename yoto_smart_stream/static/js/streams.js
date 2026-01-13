@@ -912,6 +912,7 @@ async function createPlaylist() {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include',
             body: JSON.stringify({
                 playlist_name: playlistName,
                 stream_name: streamName,
@@ -956,6 +957,7 @@ async function deletePlaylist(playlistId) {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include',
         });
         
         const result = await response.json();
