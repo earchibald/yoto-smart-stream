@@ -878,3 +878,130 @@ async def get_device_state(user: User = Depends(require_auth)):
         "device_state": device_state.to_dict(),
     }
 
+
+@router.get("/detect-smart-stream/{device_id}")
+async def detect_smart_stream(device_id: str, user: User = Depends(require_auth)):
+    """
+    Detect if a device is playing a smart stream and identify the current track.
+    
+    Returns:
+        {
+            "is_playing_smart_stream": bool,
+            "stream_name": str or None,
+            "current_track_index": int or None,
+            "current_track_name": str or None,
+            "total_tracks": int or None,
+            "streaming_url": str or None,
+            "device_id": str,
+            "playback_status": str or None,
+            "playback_position": float or None (seconds)
+        }
+    """
+    try:
+        mqtt_store = get_mqtt_event_store()
+        stream_manager = get_stream_manager()
+        
+        # Get the latest device state
+        device_state = mqtt_store.get_device_state()
+        
+        # If no device state yet, return not playing
+        if not device_state or device_state.device_id != device_id:
+            return {
+                "is_playing_smart_stream": False,
+                "stream_name": None,
+                "current_track_index": None,
+                "current_track_name": None,
+                "total_tracks": None,
+                "streaming_url": None,
+                "device_id": device_id,
+                "playback_status": None,
+                "playback_position": None,
+            }
+        
+        # Check if device is streaming from our smart stream endpoint
+        # The stream URL pattern is: /api/streams/{stream_name}/stream.mp3
+        settings = get_settings()
+        
+        # List all available streams to check if any match the streaming URL
+        is_playing_smart_stream = False
+        matching_stream = None
+        
+        for stream_name in stream_manager.get_queue_names():
+            queue = stream_manager.get_queue(stream_name)
+            if queue:
+                streaming_url = f"{settings.public_url}/api/streams/{stream_name}/stream.mp3"
+                # In a real scenario, we'd need to track the actual card URL the device is playing
+                # For now, we check if the stream name appears in recent requests
+                matching_stream = stream_name
+                break
+        
+        # Get recent stream requests to find matching stream
+        recent_requests = mqtt_store.get_stream_requests_since(seconds=300)  # Last 5 minutes
+        current_stream = None
+        stream_start_time = None
+        
+        for req in recent_requests:
+            if req.stream_name and req.timestamp:
+                current_stream = req.stream_name
+                stream_start_time = req.timestamp
+                break
+        
+        if not current_stream:
+            return {
+                "is_playing_smart_stream": False,
+                "stream_name": None,
+                "current_track_index": None,
+                "current_track_name": None,
+                "total_tracks": None,
+                "streaming_url": None,
+                "device_id": device_id,
+                "playback_status": device_state.playback_status,
+                "playback_position": None,
+            }
+        
+        # We found a recently requested stream
+        queue = stream_manager.get_queue(current_stream)
+        if not queue or not queue.get_files():
+            return {
+                "is_playing_smart_stream": False,
+                "stream_name": current_stream,
+                "current_track_index": None,
+                "current_track_name": None,
+                "total_tracks": 0,
+                "streaming_url": f"{settings.public_url}/api/streams/{current_stream}/stream.mp3",
+                "device_id": device_id,
+                "playback_status": device_state.playback_status,
+                "playback_position": None,
+            }
+        
+        # Calculate which track is currently playing based on playback position
+        files = queue.get_files()
+        current_track_index = 0
+        current_track_name = files[0] if files else None
+        
+        # In a real implementation, you'd calculate this based on:
+        # 1. When the stream started playing on the device
+        # 2. How long it's been playing
+        # 3. The duration of each audio file
+        # For now, we assume it's the first track if it's playing
+        
+        is_playing_smart_stream = device_state.streaming and device_state.playback_status == "playing"
+        
+        return {
+            "is_playing_smart_stream": is_playing_smart_stream,
+            "stream_name": current_stream if is_playing_smart_stream else None,
+            "current_track_index": current_track_index if is_playing_smart_stream else None,
+            "current_track_name": current_track_name if is_playing_smart_stream else None,
+            "total_tracks": len(files),
+            "streaming_url": f"{settings.public_url}/api/streams/{current_stream}/stream.mp3",
+            "device_id": device_id,
+            "playback_status": device_state.playback_status,
+            "playback_position": None,  # Would need audio duration metadata to calculate
+        }
+        
+    except Exception as e:
+        logger.error(f"Error detecting smart stream for device {device_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to detect smart stream: {str(e)}"
+        )

@@ -426,6 +426,11 @@ async function loadPlayers() {
                 updatePlayerCard(player);
             });
         }
+        
+        // Update smart stream track information for all players
+        players.forEach(player => {
+            updateSmartStreamTrack(player.id);
+        });
     } catch (error) {
         console.error('Error loading players:', error);
         document.getElementById('players-list').innerHTML = 
@@ -501,6 +506,10 @@ function createPlayerCardHTML(player) {
                 </span>
             </div>
             ${mediaInfo}
+            <div class="smart-stream-track" data-player-id="${escapeHtml(player.id)}" style="display: none;">
+                <div class="stream-track-label">🎵 Now Playing:</div>
+                <div class="stream-track-name" id="stream-track-${escapeHtml(player.id)}">Loading...</div>
+            </div>
             <div class="list-item-details">
                 <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
                 ${indicators.map(ind => `<span>${ind}</span>`).join('')}
@@ -634,7 +643,43 @@ function updatePlayerCard(player) {
     });
 }
 
-// Slider Interaction Tracking
+/**
+ * Detect and display smart stream track information for a player
+ */
+async function updateSmartStreamTrack(playerId) {
+    try {
+        const response = await fetch(`${API_BASE}/streams/detect-smart-stream/${playerId}`);
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const card = document.querySelector(`.player-card[data-player-id="${playerId}"]`);
+        if (!card) return;
+        
+        const streamTrackElement = card.querySelector('.smart-stream-track');
+        const trackNameElement = card.querySelector(`#stream-track-${playerId}`);
+        
+        if (!streamTrackElement || !trackNameElement) return;
+        
+        if (data.is_playing_smart_stream && data.current_track_name) {
+            // Show the smart stream track display
+            let displayText = escapeHtml(data.current_track_name);
+            
+            // Add track number if available
+            if (data.current_track_index !== null && data.total_tracks !== null) {
+                displayText += ` (${data.current_track_index + 1}/${data.total_tracks})`;
+            }
+            
+            trackNameElement.textContent = displayText;
+            streamTrackElement.style.display = 'block';
+        } else {
+            // Hide the smart stream track display
+            streamTrackElement.style.display = 'none';
+        }
+    } catch (error) {
+        // Silently fail - not all players will be playing smart streams
+    }
+}
+
 
 /**
  * Mark slider as being actively interacted with
