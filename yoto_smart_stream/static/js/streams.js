@@ -23,6 +23,26 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAudioFiles();
     loadManagedStreams();
     setupFormHandler();
+    
+    // Add Escape key listener to close modals
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const audioPlayerModal = document.getElementById('audio-player-modal');
+            const playlistModal = document.getElementById('create-playlist-modal');
+            const scripterModal = document.getElementById('stream-scripter-modal');
+            
+            // Close whichever modal is currently open
+            if (audioPlayerModal && audioPlayerModal.style.display === 'flex') {
+                closeAudioPlayer();
+            }
+            if (playlistModal && playlistModal.style.display === 'flex') {
+                closePlaylistModal();
+            }
+            if (scripterModal && scripterModal.style.display === 'flex') {
+                closeStreamScripter();
+            }
+        }
+    });
 });
 
 // Load system info
