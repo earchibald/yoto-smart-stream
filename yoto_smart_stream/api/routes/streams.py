@@ -879,7 +879,7 @@ async def get_device_state(user: User = Depends(require_auth)):
     }
 
 
-@router.get("/detect-smart-stream/{device_id}")
+@router.get("/streams/detect-smart-stream/{device_id}")
 async def detect_smart_stream(device_id: str, user: User = Depends(require_auth)):
     """
     Detect if a device is playing a smart stream and identify the current track.
