@@ -892,6 +892,9 @@ async function loadAudioFiles() {
                 </div>
                 <div class="list-item-details">
                     <span>Size: ${formatFileSize(file.size)}</span>
+                    <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
+                        📋
+                    </button>
                     <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
                         <source src="${escapeHtml(file.url)}" type="audio/mpeg">
                         Your browser does not support the audio element.
@@ -926,6 +929,26 @@ function formatFileSize(bytes) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Copy audio URL to clipboard
+async function copyAudioUrl(url, event) {
+    event.preventDefault();
+    const fullUrl = window.location.origin + url;
+    try {
+        await navigator.clipboard.writeText(fullUrl);
+        alert('URL copied to clipboard!');
+    } catch (error) {
+        console.error('Error copying URL:', error);
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = fullUrl;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert('URL copied to clipboard!');
+    }
 }
 
 // Player Detail Modal Functions
