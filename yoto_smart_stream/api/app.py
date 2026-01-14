@@ -20,7 +20,7 @@ from ..core import YotoClient
 from ..database import init_db
 from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
-from .routes import auth, cards, health, library, players, streams, user_auth
+from .routes import auth, cards, cover_images, health, library, players, streams, user_auth
 from .stream_manager import get_stream_manager
 
 logger = logging.getLogger(__name__)
@@ -84,18 +84,18 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
     logger.info(f"Database URL: {settings.database_url}")
     init_db()
-    
+
     # Create default admin user if it doesn't exist
     from ..auth import get_password_hash
     from ..database import SessionLocal
     from ..models import User
-    
+
     db = SessionLocal()
     try:
         # Count existing users
         user_count = db.query(User).count()
         logger.info(f"Current user count in database: {user_count}")
-        
+
         admin_user = db.query(User).filter(User.username == "admin").first()
         if not admin_user:
             try:
@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI):
                 logger.info("Hashing default password...")
                 hashed = get_password_hash("yoto")
                 logger.info(f"Password hash generated successfully (length: {len(hashed)} bytes)")
-                
+
                 admin_user = User(
                     username="admin",
                     hashed_password=hashed,
@@ -120,7 +120,10 @@ async def lifespan(app: FastAPI):
                 db.rollback()
                 raise
         else:
-            logger.info(f"✓ Admin user already exists (id: {admin_user.id}, active: {admin_user.is_active})")
+            logger.info(
+                f"✓ Admin user already exists "
+                f"(id: {admin_user.id}, active: {admin_user.is_active})"
+            )
     except Exception as e:
         logger.error(f"Failed to create admin user: {e}")
         logger.error(f"Database URL was: {settings.database_url}")
@@ -132,7 +135,8 @@ async def lifespan(app: FastAPI):
     # This helps when Railway shared variables take time to load at startup
     if settings.railway_startup_wait_seconds > 0:
         logger.info(
-            f"Waiting {settings.railway_startup_wait_seconds} seconds for Railway shared variables to initialize..."
+            f"Waiting {settings.railway_startup_wait_seconds} seconds "
+            "for Railway shared variables to initialize..."
         )
         # Use asyncio.sleep for async context
         await asyncio.sleep(settings.railway_startup_wait_seconds)
@@ -147,7 +151,7 @@ async def lifespan(app: FastAPI):
     yoto_api_logger.setLevel(logging.DEBUG)
     mqtt_logger = logging.getLogger('paho.mqtt')
     mqtt_logger.setLevel(logging.INFO)
-    
+
     # Startup
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     logger.info(f"Environment: {settings.environment}")
@@ -184,7 +188,7 @@ async def lifespan(app: FastAPI):
     try:
         stream_manager = get_stream_manager()
         test_queue = await stream_manager.get_or_create_queue("test-stream")
-        
+
         # Check if test files exist and add them to the queue
         test_files = [f"{i}.mp3" for i in range(1, 11)]
         existing_files = []
@@ -192,7 +196,7 @@ async def lifespan(app: FastAPI):
             audio_path = settings.audio_files_dir / filename
             if audio_path.exists():
                 existing_files.append(filename)
-        
+
         if existing_files:
             # Clear any existing files and add all test files
             test_queue.clear()
@@ -273,6 +277,7 @@ def create_app() -> FastAPI:
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
     app.include_router(library.router, prefix="/api", tags=["Library"])
     app.include_router(streams.router, prefix="/api", tags=["Streams"])
+    app.include_router(cover_images.router, prefix="/api", tags=["Cover Images"])
 
     @app.get("/login", tags=["Web UI"])
     async def login_page():

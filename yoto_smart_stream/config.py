@@ -97,24 +97,29 @@ class Settings(BaseSettings):
         return Path(".yoto_refresh_token")
 
     # Storage settings
-    audio_files_dir: Path = Field(default=Path("audio_files"), description="Audio files directory")
+    audio_files_dir: Path = Field(
+        default=Path("audio_files"), description="Audio files directory"
+    )
+    cover_images_dir: Path = Field(
+        default=Path("cover_images"), description="Cover images directory"
+    )
     database_url: str = Field(
         default="sqlite:///./yoto_smart_stream.db", description="Database connection URL"
     )
-    
+
     @field_validator("database_url", mode="before")
     @classmethod
     def get_database_url(cls, v):
         """
         Get database URL based on environment.
-        
+
         Uses /data directory for Railway deployments (persistent volume) with
         environment-specific database names to avoid conflicts between environments.
         Falls back to local path for development.
         """
         # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
         railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
-        
+
         if railway_env:
             # On Railway, use persistent volume at /data with environment-specific name
             # This prevents different environments from sharing the same database
@@ -129,7 +134,7 @@ class Settings(BaseSettings):
             # Use environment name in database filename (e.g., yoto_smart_stream_pr-56.db)
             db_filename = f"yoto_smart_stream_{railway_env}.db"
             return f"sqlite:///{data_dir}/{db_filename}"
-        
+
         # Local development - use provided value or default
         if v and v != "sqlite:///./yoto_smart_stream.db":
             return v
@@ -155,7 +160,10 @@ class Settings(BaseSettings):
     )
     log_env_on_startup: bool = Field(
         default=False,
-        description="Log all environment variables on startup (useful for debugging Railway variables)",
+        description=(
+            "Log all environment variables on startup "
+            "(useful for debugging Railway variables)"
+        ),
     )
 
     # CORS settings
@@ -168,6 +176,7 @@ class Settings(BaseSettings):
         """Initialize settings and create required directories."""
         super().__init__(**kwargs)
         self.audio_files_dir.mkdir(exist_ok=True)
+        self.cover_images_dir.mkdir(exist_ok=True)
 
 
 # Global settings instance

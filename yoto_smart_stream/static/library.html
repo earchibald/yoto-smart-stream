@@ -85,6 +85,7 @@
             <div class="actions-grid">
                 <a href="/" class="action-button">🏠 Back to Dashboard</a>
                 <a href="/streams" class="action-button">🎵 View Streams</a>
+                <button class="action-button" onclick="openCoverArtManager()">🖼️ Manage Cover Art</button>
                 <a href="/docs" target="_blank" class="action-button">📖 API Documentation</a>
             </div>
         </section>
@@ -103,6 +104,79 @@
         </div>
     </div>
 
+    <!-- Cover Art Manager Modal -->
+    <div id="cover-art-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>🖼️ Cover Art Manager</h3>
+                <span class="modal-close" onclick="closeCoverArtManager()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="info-box" style="margin-bottom: 1.5rem;">
+                    <p><strong>Yoto Cover Art Requirements:</strong></p>
+                    <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <li>Recommended sizes: 661×1054 or 784×1248 pixels</li>
+                        <li>Aspect ratio: 3:5 (vertical/portrait)</li>
+                        <li>Formats: PNG or JPEG</li>
+                    </ul>
+                </div>
+
+                <div class="tabs-container" style="margin-bottom: 1rem;">
+                    <button class="tab-btn active" onclick="switchTab('upload')">📤 Upload</button>
+                    <button class="tab-btn" onclick="switchTab('remote')">🌐 From URL</button>
+                </div>
+
+                <!-- Upload Tab -->
+                <div id="upload-tab" class="tab-content">
+                    <div class="form-group">
+                        <label for="cover-art-file">Select Image File</label>
+                        <input type="file" id="cover-art-file" accept=".png,.jpg,.jpeg" />
+                    </div>
+                    <button class="btn-primary" onclick="uploadCoverArt()">Upload Image</button>
+                </div>
+
+                <!-- Remote URL Tab -->
+                <div id="remote-tab" class="tab-content" style="display: none;">
+                    <div class="form-group">
+                        <label for="remote-image-url">Image URL</label>
+                        <input type="url" id="remote-image-url" placeholder="https://example.com/image.png" />
+                    </div>
+                    <div class="form-group">
+                        <label for="remote-filename">Filename (optional)</label>
+                        <input type="text" id="remote-filename" placeholder="my-cover.png" />
+                    </div>
+                    <button class="btn-primary" onclick="fetchRemoteCoverArt()">Fetch Image</button>
+                </div>
+
+                <div id="cover-art-result" class="result-message" style="display: none; margin-top: 1rem;"></div>
+
+                <!-- Existing Cover Art -->
+                <div style="margin-top: 2rem;">
+                    <h4>Your Cover Art</h4>
+                    <div id="cover-art-grid" class="cover-art-grid">
+                        <p class="loading">Loading cover art...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="image-preview-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 id="preview-title">Image Preview</h3>
+                <span class="modal-close" onclick="closeImagePreview()">&times;</span>
+            </div>
+            <div class="modal-body" style="text-align: center;">
+                <img id="preview-image" style="max-width: 100%; max-height: 70vh; border-radius: 8px;" />
+                <div id="preview-info" style="margin-top: 1rem; text-align: left;"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/library.js"></script>
+    <script src="/static/js/cover-art.js"></script>
+
 </body>
 </html>
