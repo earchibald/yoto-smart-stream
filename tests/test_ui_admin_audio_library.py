@@ -63,9 +63,12 @@ def test_navigation_links(page: Page):
     nav_menu = page.locator(".nav-menu")
     expect(nav_menu.locator("a[href='/']")).to_contain_text("Dashboard")
     expect(nav_menu.locator("a[href='/streams']")).to_contain_text("Smart Streams")
-    expect(nav_menu.locator("a[href='/library']")).to_contain_text("Library")
+    expect(nav_menu.locator("a[href='/library']")).to_contain_text("Yoto Library")
     expect(nav_menu.locator("a[href='/audio-library']")).to_contain_text("Audio Library")
     expect(nav_menu.locator("a[href='/admin']")).to_contain_text("Admin")
+    
+    # Verify MQTT Analyzer button is NOT in navigation
+    expect(nav_menu.locator("button").filter(has_text="MQTT Analyzer")).not_to_be_visible()
     
     # Test navigation to Audio Library
     page.click("a[href='/audio-library']")
@@ -128,6 +131,9 @@ def test_admin_page_access(page: Page):
     # Check System Administration section
     expect(page.locator("h3").filter(has_text="System Administration")).to_be_visible()
     expect(page.locator("button").filter(has_text="Refresh Data")).to_be_visible()
+    
+    # Check MQTT Analyzer button is in Admin page
+    expect(page.locator("button").filter(has_text="MQTT Analyzer")).to_be_visible()
     
     # Check User Management section
     expect(page.locator("h3").filter(has_text="User Management")).to_be_visible()
@@ -211,6 +217,62 @@ def test_tooltips_present(page: Page):
     # Test Audio Library page tooltips
     page.goto(f"{BASE_URL}/audio-library")
     expect(page.locator("label[title]")).to_have_count(2)  # Filename and Text labels
+
+
+def test_admin_user_edit_button(page: Page):
+    """Test that edit button appears for users and opens modal."""
+    login(page)
+    page.goto(f"{BASE_URL}/admin")
+    
+    # Wait for users list to load
+    page.wait_for_selector("#users-list .list-item", timeout=10000)
+    
+    # Check that edit button exists
+    expect(page.locator(".edit-user-btn").first).to_be_visible()
+    
+    # Click edit button
+    page.locator(".edit-user-btn").first.click()
+    
+    # Check modal opens
+    expect(page.locator("#edit-user-modal")).to_be_visible()
+    expect(page.locator("#edit-username")).to_be_visible()
+    expect(page.locator("#edit-email")).to_be_visible()
+    expect(page.locator("#edit-password")).to_be_visible()
+
+
+def test_keyboard_shortcut_library(page: Page):
+    """Test that '/' key focuses the filter input in Yoto Library."""
+    login(page)
+    page.goto(f"{BASE_URL}/library")
+    
+    # Wait for page to load
+    page.wait_for_timeout(1000)
+    
+    # Press '/' key
+    page.keyboard.press("/")
+    
+    # Check that filter input is focused (either cards or playlists)
+    cards_filter = page.locator("#cards-filter")
+    playlists_filter = page.locator("#playlists-filter")
+    
+    # At least one should be focused
+    is_focused = cards_filter.is_focused() or playlists_filter.is_focused()
+    assert is_focused, "Neither filter input is focused after pressing '/'"
+
+
+def test_static_audio_badges(page: Page):
+    """Test that static audio files (1.mp3-10.mp3) have badges."""
+    login(page)
+    page.goto(f"{BASE_URL}/audio-library")
+    
+    # Wait for audio list to load
+    page.wait_for_selector("#audio-list", timeout=10000)
+    
+    # Check for static badges
+    static_badges = page.locator(".badge").filter(has_text="Static")
+    
+    # Should have at least one static file badge
+    expect(static_badges.first).to_be_visible()
 
 
 if __name__ == "__main__":
