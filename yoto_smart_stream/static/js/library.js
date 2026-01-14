@@ -213,7 +213,7 @@ function displayCards(cards) {
                     ${card.author ? `<p class="library-card-author">by ${escapeHtml(card.author)}</p>` : ''}
                     ${card.description ? `<p class="library-card-description">${escapeHtml(card.description)}</p>` : ''}
                 </div>
-                <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data">ℹ️</button>
+                <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data" aria-label="View Raw Data"></button>
             </div>
         `;
     }).join('');
