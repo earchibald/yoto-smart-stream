@@ -134,6 +134,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 playlistsFilter.focus();
             }
         }
+        
+        // Add Escape key listener to close modals
+        if (event.key === 'Escape') {
+            const contentModal = document.getElementById('content-modal');
+            const rawDataModal = document.getElementById('raw-data-modal');
+            
+            // Close whichever modal is currently open
+            if (contentModal && contentModal.style.display === 'flex') {
+                closeContentModal();
+            }
+            if (rawDataModal && rawDataModal.style.display === 'flex') {
+                closeRawDataModal();
+            }
+        }
     });
 });
 

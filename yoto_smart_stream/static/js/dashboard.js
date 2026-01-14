@@ -1186,6 +1186,26 @@ window.addEventListener('click', function(event) {
     }
 });
 
+// Add Escape key listener to close modals
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const playerModal = document.getElementById('playerModal');
+        const libraryModal = document.getElementById('libraryModal');
+        const chapterModal = document.getElementById('chapterModal');
+        
+        // Close whichever modal is currently open
+        if (playerModal && playerModal.style.display === 'flex') {
+            closePlayerModal();
+        }
+        if (libraryModal && libraryModal.style.display === 'flex') {
+            closeLibraryBrowser();
+        }
+        if (chapterModal && chapterModal.style.display === 'flex') {
+            closeChapterBrowser();
+        }
+    }
+});
+
 /**
  * Store technical information about the API request and response
  */

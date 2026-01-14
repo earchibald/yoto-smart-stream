@@ -77,6 +77,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (createUserForm) {
         createUserForm.addEventListener('submit', handleCreateUser);
     }
+    
+    // Add Escape key listener to close modals
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const editUserModal = document.getElementById('edit-user-modal');
+            
+            if (editUserModal && editUserModal.style.display === 'flex') {
+                closeEditUserModal();
+            }
+        }
+    });
 });
 
 // Load system status
