@@ -88,3 +88,4 @@ card_scripts/
 user_data/
 recordings/
 .playwright-mcp/
+.yoto_refresh_token

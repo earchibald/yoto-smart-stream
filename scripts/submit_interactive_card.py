@@ -15,7 +15,10 @@ Prerequisites:
     pip install yoto_api requests
     export YOTO_CLIENT_ID=...   # from https://yoto.dev/
 """
+
 from __future__ import annotations
+
+COUNT = 12
 
 import json
 import os
@@ -119,159 +122,190 @@ def cache_refresh_token(manager: YotoManager) -> None:
 def build_interactive_payload() -> Dict[str, Any]:
     """Return a minimal interactive card schema with a single choice."""
     payload: Dict[str, Any] = {
-        "title": "5 Interactive Sandbox (LLM Test)",
+        "title": f"{COUNT} Interactive Sandbox (LLM Test)",
         "metadata": {
             "description": "Minimal interactive card with one branching choice.",
             "author": "LLM Sandbox",
         },
-"content": {
-  "version": "1",
-  "activity": "yoto_Player",
-  "config": {
-    "resumeTimeout": 2592000,
-    "disableTrackNav": True,
-    "disableChapterNav": True,
-    "autoadvance": "none"
-  },
-  "availability": "",
-  "playbackType": "interactive",
-  "editSettings": {
-    "autoOverlayLabels": "chapters",
-    "editKeys": False,
-    "interactiveContent": True
-  },
-  "chapters": [
-    {
-      "title": "01 Chapter 1 ",
-      "key": "01 Chapter 1",
-      "availableFrom": None,
-      "ambient": None,
-      "defaultTrackDisplay": None,
-      "defaultTrackAmbient": None,
-      "tracks": [
-        {
-          "key": "01 Chapter 1",
-          "title": "01 Chapter 1",
-          "type": "audio",
-          "format": "aac",
-          "display": None,
-          "ambient": None,
-          "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch1.mp3",
-          "events": {
-            "onLhb": {
-              "cmd": "goto",
-              "params": {
-                "chapterKey": "02 Chapter 2",
-                "trackKey": "02 Chapter 2"
-              }
+        "content": {
+            "version": "1",
+            "activity": "yoto_Player",
+            "config": {
+                "resumeTimeout": 2592000,
+                "disableTrackNav": True,
+                "disableChapterNav": True,
+                "autoadvance": "none"
             },
-            "onRhb": {
-              "cmd": "goto",
-              "params": {
-                "chapterKey": "02 Chapter 2",
-                "trackKey": "02 Chapter 2"
-              }
+            "availability": "",
+            "playbackType": "interactive",
+            "editSettings": {
+                "autoOverlayLabels": "chapters",
+                "editKeys": False,
+                "interactiveContent": True
             },
-            "onEnd": {
-              "cmd": "goto",
-              "params": {
-                "chapterKey": "02 Chapter 2",
-                "trackKey": "02 Chapter 2"
-              }
-            }
-          }
+            "chapters": [
+                {
+                    "title": "01 Chapter 1 ",
+                    "key": "01 Chapter 1",
+                    "tracks": [
+                        {
+                            "key": "01 Chapter 1",
+                            "title": "01 Chapter 1",
+                            "type": "stream",
+                            "format": "mp3",
+                            "display": None,
+                            "ambient": None,
+                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch1.mp3",
+                            "events": {
+                                "onLhb": {
+                                    "cmd": "goto",
+                                    "params": {
+                                        "chapterKey": "02 Chapter 2",
+                                        "trackKey": "02 Chapter 2"
+                                    }
+                                },
+                                "onRhb": {
+                                    "cmd": "goto",
+                                    "params": {
+                                        "chapterKey": "02 Chapter 2",
+                                        "trackKey": "02 Chapter 2"
+                                    }
+                                },
+                                "onEnd":
+                                {
+                                    "cmd": "stop"
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "title": "02 Chapter 2 ",
+                    "key": "02 Chapter 2",
+                    "availableFrom": None,
+                    "ambient": None,
+                    "defaultTrackDisplay": None,
+                    "defaultTrackAmbient": None,
+                    "tracks": [
+                        {
+                            "key": "02 Chapter 2",
+                            "title": "02 Chapter 2",
+                            "type": "stream",
+                            "format": "mp3",
+                            "display": None,
+                            "ambient": None,
+                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch2.mp3",
+                            "events": {
+                                "onEnd": {
+                                    "cmd": "stop"
+                                },
+                                "onLhb": {
+                                    "cmd": "goto",
+                                    "params": {
+                                        "chapterKey": "03 Chapter 3",
+                                        "trackKey": "03 Chapter 3"
+                                    }
+                                },
+                                "onRhb": {
+                                    "cmd": "goto",
+                                    "params": {
+                                        "chapterKey": "04 Chapter 4",
+                                        "trackKey": "04 Chapter 4"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "title": "03 Chapter 3",
+                    "key": "03 Chapter 3",
+                    "availableFrom": None,
+                    "ambient": None,
+                    "defaultTrackDisplay": None,
+                    "defaultTrackAmbient": None,
+                    "tracks": [
+                        {
+                            "key": "03 Chapter 3",
+                            "title": "03 Chapter 3",
+                            "type": "stream",
+                            "format": "mp3",
+                            "display": None,
+                            "ambient": None,
+                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch3.mp3",
+                            "events": {
+                                "onEnd": {
+                                "cmd": "stop"
+                                },
+                                "onLhb": {
+                                    "cmd": "goto",
+                                    "params": {
+                                        "chapterKey": "01 Chapter 1",
+                                        "trackKey": "01 Chapter 1"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "title": "04 Chapter 4 ",
+                    "key": "04 Chapter 4",
+                    "availableFrom": None,
+                    "ambient": None,
+                    "defaultTrackDisplay": None,
+                    "defaultTrackAmbient": None,
+                    "tracks": [
+                        {
+                            "key": "04 Chapter 4",
+                            "title": "04 Chapter 4",
+                            "type": "stream",
+                            "format": "mp3",
+                            "display": None,
+                            "ambient": None,
+                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch4.mp3",
+                            "events": {
+                                "onEnd": {
+                                "cmd": "stop"
+                                },
+                                "onLhb": {
+                                    "cmd": "goto",
+                                    "params": {
+                                        "chapterKey": "01 Chapter 1",
+                                        "trackKey": "01 Chapter 1"
+                                    }
+                                },
+                            }
+                        }
+                    ]
+                },
+                {
+                "title": "04 Chapter 5",
+                "key": "04 Chapter 5",
+                "availableFrom": None,
+                "ambient": None,
+                "defaultTrackDisplay": None,
+                "defaultTrackAmbient": None,
+                    "tracks": [
+                        {
+                            "key": "04 Chapter 5",
+                            "title": "04 Chapter 5",
+                            "type": "stream",
+                            "format": "mp3",
+                            "display": None,
+                            "ambient": None,
+                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch4.mp3",
+                            "events": {
+                                "onEnd": {
+                                    "cmd": "stop"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
         }
-      ]
-    },
-    {
-      "title": "02 Chapter 2 ",
-      "key": "02 Chapter 2",
-      "availableFrom": None,
-      "ambient": None,
-      "defaultTrackDisplay": None,
-      "defaultTrackAmbient": None,
-      "tracks": [
-        {
-          "key": "02 Chapter 2",
-          "title": "02 Chapter 2",
-          "type": "audio",
-          "format": "aac",
-          "display": None,
-          "ambient": None,
-          "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch2.mp3",
-          "events": {
-            "onEnd": {
-              "cmd": "stop"
-            },
-            "onLhb": {
-              "cmd": "goto",
-              "params": {
-                "chapterKey": "03 Chapter 3",
-                "trackKey": "03 Chapter 3"
-              }
-            },
-            "onRhb": {
-              "cmd": "goto",
-              "params": {
-                "chapterKey": "04 Chapter 4",
-                "trackKey": "04 Chapter 4"
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "title": "03 Chapter 3",
-      "key": "03 Chapter 3",
-      "availableFrom": None,
-      "ambient": None,
-      "defaultTrackDisplay": None,
-      "defaultTrackAmbient": None,
-      "tracks": [
-        {
-          "key": "03 Chapter 3",
-          "title": "03 Chapter 3",
-          "type": "audio",
-          "format": "aac",
-          "display": None,
-          "ambient": None,
-          "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch3.mp3",
-          "events": {
-            "onEnd": {
-              "cmd": "stop"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "title": "04 Chapter 4 ",
-      "key": "04 Chapter 4",
-      "availableFrom": None,
-      "ambient": None,
-      "defaultTrackDisplay": None,
-      "defaultTrackAmbient": None,
-      "tracks": [
-        {
-          "key": "04 Chapter 4",
-          "title": "04 Chapter 4",
-          "type": "audio",
-          "format": "aac",
-          "display": None,
-          "ambient": None,
-          "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch4.mp3",
-          "events": {
-            "onEnd": {
-              "cmd": "stop"
-            }
-          }
-        }
-      ]
-    }
-  ]
 }
-    }
     return payload
 
 
@@ -345,8 +379,8 @@ def main() -> None:
         cache_refresh_token(manager)
 
     # Submit baseline streaming card using /content endpoint
-    streaming_payload = build_simple_streaming_payload()
-    submit_card(manager, streaming_payload, label="Baseline Streaming Card", endpoint=CONTENT_URL)
+    # streaming_payload = build_simple_streaming_payload()
+    # submit_card(manager, streaming_payload, label="Baseline Streaming Card", endpoint=CONTENT_URL)
 
     # Submit interactive card using /content endpoint
     interactive_payload = build_interactive_payload()
