@@ -136,12 +136,18 @@
                 const response = await fetch('/api/user/session', { credentials: 'include' });
                 if (response.ok) {
                     const data = await response.json();
-                    if (!data.is_admin) {
+                    console.log('Session data:', data);
+                    if (data.is_admin) {
+                        console.log('User is admin, showing admin nav');
+                    } else {
+                        console.log('User is not admin, hiding admin nav');
                         const adminLink = document.querySelector('a[href="/admin"]');
                         if (adminLink) {
                             adminLink.parentElement.style.display = 'none';
                         }
                     }
+                } else {
+                    console.log('Session check failed with status:', response.status);
                 }
             } catch (error) {
                 console.error('Error checking admin status:', error);
