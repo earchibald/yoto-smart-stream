@@ -99,6 +99,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (playlistsFilter) {
         playlistsFilter.addEventListener('input', applyPlaylistsFilter);
     }
+    
+    // Add keyboard shortcut: '/' key focuses the filter input
+    document.addEventListener('keydown', (event) => {
+        // Check if '/' key is pressed and not in an input field
+        if (event.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+            event.preventDefault();
+            // Focus the cards filter if visible, otherwise the playlists filter
+            const cardsFilter = document.getElementById('cards-filter');
+            const playlistsFilter = document.getElementById('playlists-filter');
+            if (cardsFilter && cardsFilter.offsetParent !== null) {
+                cardsFilter.focus();
+            } else if (playlistsFilter && playlistsFilter.offsetParent !== null) {
+                playlistsFilter.focus();
+            }
+        }
+    });
 });
 
 // Load system status

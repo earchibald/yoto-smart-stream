@@ -50,10 +50,14 @@ async def list_audio_files(user: User = Depends(require_auth)):
     List available audio files.
 
     Returns:
-        List of audio files in the audio_files directory with duration and size info
+        List of audio files in the audio_files directory with duration and size info.
+        Static files (1.mp3 through 10.mp3) are marked with is_static flag.
     """
     settings = get_settings()
     audio_files = []
+    
+    # Define static file names
+    static_files = {f"{i}.mp3" for i in range(1, 11)}
 
     for audio_path in settings.audio_files_dir.glob("*.mp3"):
         try:
@@ -64,12 +68,16 @@ async def list_audio_files(user: User = Depends(require_auth)):
             logger.warning(f"Could not read duration for {audio_path.name}: {e}")
             duration_seconds = 0
         
+        # Check if this is a static file
+        is_static = audio_path.name in static_files
+        
         audio_files.append(
             {
                 "filename": audio_path.name,
                 "size": audio_path.stat().st_size,
                 "duration": duration_seconds,
                 "url": f"/api/audio/{audio_path.name}",
+                "is_static": is_static,
             }
         )
 

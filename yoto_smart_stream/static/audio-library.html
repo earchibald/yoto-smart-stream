@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Library - Yoto Smart Stream</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <h1>🎵 Yoto Stream</h1>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="/">🏠 Dashboard</a></li>
+            <li><a href="/streams">✨ Smart Streams</a></li>
+            <li><a href="/library">📚 Yoto Library</a></li>
+            <li class="active"><a href="/audio-library">🎙️ Audio Library</a></li>
+            <li><a href="/admin">⚙️ Admin</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p id="app-version">Loading...</p>
+        </div>
+    </nav>
+
+    <main class="content">
+        <header>
+            <h2>Audio Library</h2>
+            <div class="status-indicator" id="status">
+                <span class="dot"></span>
+                <span id="status-text">Checking...</span>
+            </div>
+        </header>
+
+        <section class="section">
+            <h3>Audio Files</h3>
+            <div id="audio-list" class="list-container">
+                <p class="loading">Loading audio files...</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Generate Text-to-Speech Audio</h3>
+            <div class="tts-generator-container">
+                <form id="tts-form" class="tts-form">
+                    <div class="form-group">
+                        <label for="tts-filename" title="Filename for the generated audio (without .mp3 extension)">
+                            Filename (without extension):
+                        </label>
+                        <input
+                            type="text"
+                            id="tts-filename"
+                            name="filename"
+                            placeholder="e.g., my-story"
+                            required
+                            pattern="[a-zA-Z0-9\s_-]+"
+                            title="Only letters, numbers, spaces, hyphens, and underscores allowed"
+                        />
+                        <small>File will be saved as: <strong id="filename-preview">my-story.mp3</strong></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="tts-text" title="Text that will be converted to speech">
+                            Text to convert to speech:
+                        </label>
+                        <textarea
+                            id="tts-text"
+                            name="text"
+                            rows="8"
+                            placeholder="Enter the text you want to convert to speech..."
+                            required
+                            minlength="1"
+                        ></textarea>
+                        <small id="text-length">0 characters</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary" id="tts-submit-btn">
+                            <span id="tts-submit-text">🎙️ Generate Audio</span>
+                            <span id="tts-submit-spinner" style="display: none;">⏳ Generating...</span>
+                        </button>
+                    </div>
+                </form>
+                <div id="tts-result" style="display: none; margin-top: 20px;">
+                    <div id="tts-success" class="success-message" style="display: none;">
+                        ✓ <span id="tts-success-message"></span>
+                    </div>
+                    <div id="tts-error" class="error-message" style="display: none;">
+                        ✗ <span id="tts-error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MQTT Analyzer Modal (shared) -->
+    <div id="mqttAnalyzerModal" class="modal">
+        <div class="modal-content mqtt-modal-content">
+            <div class="modal-header">
+                <h3>📊 MQTT Device Analyzer</h3>
+                <span class="modal-close" onclick="closeMQTTAnalyzer()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Device State Section -->
+                <div class="analyzer-section">
+                    <h4>Current Device State</h4>
+                    <div id="deviceStateSummary" class="device-state-box">
+                        <p class="loading">Loading device state...</p>
+                    </div>
+                </div>
+
+                <!-- Recent Events Section -->
+                <div class="analyzer-section">
+                    <h4>Recent MQTT Events (Last 30)</h4>
+                    <div id="recentEventsList" class="events-list">
+                        <p class="loading">Loading events...</p>
+                    </div>
+                </div>
+
+                <!-- Stream Requests Section -->
+                <div class="analyzer-section">
+                    <h4>Recent Stream Requests (Last 5 minutes)</h4>
+                    <div id="streamRequestsList" class="requests-list">
+                        <p class="loading">Loading stream requests...</p>
+                    </div>
+                </div>
+
+                <!-- Track Navigation -->
+                <div class="analyzer-section">
+                    <h4>Track Navigation (via MQTT)</h4>
+                    <div class="button-group">
+                        <button class="btn-secondary" onclick="sendTrackNavigation('previous')">⏮️ Previous Track</button>
+                        <button class="btn-secondary" onclick="sendTrackNavigation('next')">⏭️ Next Track</button>
+                    </div>
+                </div>
+
+                <!-- Auto-Refresh Control -->
+                <div class="analyzer-section">
+                    <label>
+                        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)"> 
+                        Auto-refresh (2 seconds)
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/mqtt-analyzer.js"></script>
+    <script src="/static/js/audio-library.js"></script>
+</body>
+</html>
