@@ -5,7 +5,7 @@ Provides SQLAlchemy database setup and session management for the application.
 """
 
 import logging
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -54,22 +54,27 @@ def init_db():
     if "users" in inspector.get_table_names():
         users_columns = [col["name"] for col in inspector.get_columns("users")]
         
-        db = SessionLocal()
-        try:
-            # Add email column if missing
-            if "email" not in users_columns:
-                logger.info("Migrating database: Adding 'email' column to users table...")
-                engine.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255)")
-                logger.info("✓ Added email column to users table")
+        # Create a connection to execute raw SQL
+        with engine.connect() as connection:
+            try:
+                # Add email column if missing
+                if "email" not in users_columns:
+                    logger.info("Migrating database: Adding 'email' column to users table...")
+                    connection.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(255)"))
+                    connection.commit()
+                    logger.info("✓ Added email column to users table")
+            except Exception as e:
+                logger.debug(f"Email column migration info: {e}")
+                # Column may already exist, which is fine
             
-            # Add is_admin column if missing
-            if "is_admin" not in users_columns:
-                logger.info("Migrating database: Adding 'is_admin' column to users table...")
-                engine.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
-                logger.info("✓ Added is_admin column to users table")
-        except Exception as e:
-            logger.debug(f"Column migration info: {e}")
-            # Columns may already exist, which is fine
-        finally:
-            db.close()
+            try:
+                # Add is_admin column if missing
+                if "is_admin" not in users_columns:
+                    logger.info("Migrating database: Adding 'is_admin' column to users table...")
+                    connection.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
+                    connection.commit()
+                    logger.info("✓ Added is_admin column to users table")
+            except Exception as e:
+                logger.debug(f"Is_admin column migration info: {e}")
+                # Column may already exist, which is fine
 
