@@ -114,6 +114,12 @@ class YotoClient:
     def update_library(self) -> None:
         """Update library from API to get card metadata."""
         self.ensure_authenticated()
+        # Clear any cached library items before refreshing to avoid stale merges
+        try:
+            if hasattr(self.manager, "library") and isinstance(self.manager.library, dict):
+                self.manager.library.clear()
+        except Exception:
+            logger.debug("Could not clear cached library before refresh", exc_info=True)
         self.manager.update_library()
         logger.debug(f"Updated library with {len(self.manager.library)} items")
 

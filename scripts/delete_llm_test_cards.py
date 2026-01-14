@@ -37,7 +37,8 @@ def authenticate(session: requests.Session, base_url: str, username: str, passwo
 
 def fetch_library(session: requests.Session, base_url: str) -> dict:
     """Fetch the library payload from the server."""
-    response = session.get(f"{base_url}/library", timeout=30)
+    # Request a fresh view to avoid stale cached titles
+    response = session.get(f"{base_url}/library?fresh=1", timeout=30)
     response.raise_for_status()
     return response.json()
 

@@ -4,7 +4,7 @@ import logging
 import re
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from ..dependencies import get_yoto_client
@@ -17,7 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/library")
-async def get_library(user: User = Depends(require_auth)):
+async def get_library(
+    fresh: bool = Query(False, description="Force refresh and prune stale items"),
+    user: User = Depends(require_auth)
+):
     """
     Get user's Yoto library including cards and MYO (Make Your Own) content/playlists.
     
@@ -27,9 +30,9 @@ async def get_library(user: User = Depends(require_auth)):
     try:
         client = get_yoto_client()
         manager = client.get_manager()
-        
-        # Update library from Yoto API
-        manager.update_library()
+
+        # Update library from Yoto API (with cache clear via YotoClient)
+        client.update_library()
         
         # Get library data - library is a dict with card IDs as keys
         library_dict = manager.library
@@ -91,6 +94,7 @@ async def get_library(user: User = Depends(require_auth)):
         
         # Extract playlists (MYO content) - fetch from /content/mine endpoint
         playlists = []
+        existing_content_ids = set()
         try:
             # Make direct API call to MYO content endpoint
             # Note: yoto_api library doesn't have a built-in method for this yet
@@ -122,6 +126,8 @@ async def get_library(user: User = Depends(require_auth)):
                     logger.info(f"Found {len(items)} MYO content items")
                     for item in items:
                         playlist_id = item.get('id') or item.get('cardId') or item.get('contentId')
+                        if playlist_id:
+                            existing_content_ids.add(item.get('contentId') or playlist_id)
                         playlist_info = {
                             'id': playlist_id,
                             'cardId': item.get('cardId'),
@@ -141,6 +147,18 @@ async def get_library(user: User = Depends(require_auth)):
         except Exception as e:
             logger.error(f"Could not fetch MYO content/playlists: {e}", exc_info=True)
         
+        # When fresh is requested, prune stale MYO-backed cards no longer present
+        if fresh:
+            pruned_cards = []
+            for c in cards:
+                cid = c.get('contentId')
+                # Only prune if it looks like MYO content (has a contentId) and is missing
+                if cid and existing_content_ids and cid not in existing_content_ids:
+                    logger.info(f"Pruning stale card not in MYO content list: {c.get('title')} ({cid})")
+                    continue
+                pruned_cards.append(c)
+            cards = pruned_cards
+
         return {
             'cards': cards,
             'playlists': playlists,
