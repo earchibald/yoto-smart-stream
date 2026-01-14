@@ -980,6 +980,314 @@ Solution:
    - Review changes in PRs
    - Document reasons for configuration changes in commit messages
 
+## GitHub Deployment Status Checks (Authoritative Process)
+
+### Overview
+
+Railway automatically posts **GitHub commit status checks** when deploying your code. This is the authoritative way for GitHub agents and CI/CD workflows to track Railway deployment status without polling or manual checks.
+
+### What Railway Posts
+
+When Railway deploys, it creates a GitHub commit status with:
+
+- **Context**: `{service-name}` or `zippy-encouragement - {service-name}`
+- **State**: `pending`, `success`, `failure`, or `error`
+- **Description**: Human-readable status (e.g., "Success - yoto-smart-stream-pr-61.up.railway.app")
+- **Target URL**: Direct link to Railway deployment logs
+- **Timestamps**: `created_at` and `updated_at` in ISO 8601 format
+
+### Status Check States
+
+| State | Meaning | Agent Action |
+|-------|---------|--------------|
+| `pending` | Build/Deploy in progress | Wait and retry |
+| `success` | Deployment successful and healthy | Proceed with tests/merge |
+| `failure` | Build or deploy failed | Investigate logs, fix issues |
+| `error` | Health check failed | Check application logs |
+
+### Querying Status via GitHub API
+
+**Using GitHub CLI:**
+```bash
+# Check deployment status for a commit
+gh api repos/OWNER/REPO/commits/COMMIT_SHA/status --jq '.statuses'
+
+# Filter for Railway status only
+gh api repos/OWNER/REPO/commits/COMMIT_SHA/status --jq '.statuses[] | select(.context | contains("railway") or contains("yoto-smart-stream"))'
+
+# Example output:
+{
+  "context": "zippy-encouragement - yoto-smart-stream",
+  "state": "success",
+  "description": "Success - yoto-smart-stream-pr-61.up.railway.app",
+  "target_url": "https://railway.com/project/.../deployments/560ed5ff...",
+  "created_at": "2026-01-14T06:43:15Z"
+}
+```
+
+**Using REST API directly:**
+```bash
+curl -H "Authorization: Bearer $GITHUB_TOKEN" \
+  "https://api.github.com/repos/OWNER/REPO/commits/COMMIT_SHA/status" | \
+  jq '.statuses[] | select(.context | contains("railway"))'
+```
+
+### Using with GitHub MCP
+
+**Step 1: Get PR information**
+```python
+pr = mcp_github_pull_request_read(
+    method="get",
+    owner="earchibald",
+    repo="yoto-smart-stream",
+    pullNumber=61
+)
+
+commit_sha = pr["head"]["sha"]
+```
+
+**Step 2: Query deployment status via GitHub API**
+```python
+import requests
+
+response = requests.get(
+    f"https://api.github.com/repos/earchibald/yoto-smart-stream/commits/{commit_sha}/status",
+    headers={"Authorization": f"Bearer {github_token}"}
+)
+statuses = response.json()["statuses"]
+
+# Find Railway deployment status
+railway_status = next(
+    (s for s in statuses if "railway" in s["context"].lower() or "yoto-smart-stream" in s["context"]),
+    None
+)
+```
+
+**Step 3: Make decisions based on status**
+```python
+if railway_status:
+    if railway_status["state"] == "success":
+        print(f"✅ Deployment succeeded: {railway_status['description']}")
+        deployment_url = railway_status["target_url"]
+        # Proceed with testing or merge
+    elif railway_status["state"] == "pending":
+        print(f"⏳ Deployment in progress, waiting...")
+        # Wait and retry after delay
+    elif railway_status["state"] in ["failure", "error"]:
+        print(f"❌ Deployment failed")
+        print(f"Logs: {railway_status['target_url']}")
+        # Investigate and fix issues
+```
+
+### Agent Workflow Pattern
+
+**Wait for deployment before testing:**
+```python
+def wait_for_railway_deployment(owner, repo, commit_sha, timeout=600):
+    """Wait for Railway deployment to complete before running tests"""
+    import time
+    
+    start = time.time()
+    while time.time() - start < timeout:
+        # Query status
+        response = requests.get(
+            f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}/status",
+            headers={"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"}
+        )
+        statuses = response.json()["statuses"]
+        
+        railway = next(
+            (s for s in statuses if "railway" in s["context"].lower()),
+            None
+        )
+        
+        if not railway:
+            time.sleep(10)
+            continue
+        
+        if railway["state"] == "success":
+            return railway["description"]  # Return deployment URL
+        elif railway["state"] in ["failure", "error"]:
+            raise Exception(f"Railway deployment failed: {railway['description']}")
+        
+        time.sleep(10)  # Check every 10 seconds
+    
+    raise TimeoutError("Railway deployment timed out")
+
+# Usage
+deployment_url = wait_for_railway_deployment("earchibald", "yoto-smart-stream", commit_sha)
+run_integration_tests(deployment_url)
+```
+
+**Check status before merge:**
+```python
+def can_merge_pr(owner, repo, pr_number):
+    """Verify Railway deployment succeeded before allowing merge"""
+    pr = mcp_github_pull_request_read(
+        method="get",
+        owner=owner,
+        repo=repo,
+        pullNumber=pr_number
+    )
+    
+    commit_sha = pr["head"]["sha"]
+    response = requests.get(
+        f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}/status",
+        headers={"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"}
+    )
+    
+    statuses = response.json()["statuses"]
+    railway = next(
+        (s for s in statuses if "railway" in s["context"].lower()),
+        None
+    )
+    
+    return railway and railway["state"] == "success"
+```
+
+### Using in GitHub Actions
+
+**Wait for deployment before running tests:**
+```yaml
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Wait for Railway deployment
+        timeout-minutes: 10
+        run: |
+          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          MAX_ATTEMPTS=60
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            STATUS=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA/status \
+              --jq '.statuses[] | select(.context | contains("railway")) | .state' 2>/dev/null)
+            
+            if [ "$STATUS" = "success" ]; then
+              echo "✅ Railway deployment succeeded"
+              break
+            elif [ "$STATUS" = "failure" ] || [ "$STATUS" = "error" ]; then
+              echo "❌ Railway deployment failed"
+              exit 1
+            fi
+            
+            echo "⏳ Waiting for Railway deployment... (attempt $((ATTEMPT+1))/$MAX_ATTEMPTS)"
+            sleep 10
+            ATTEMPT=$((ATTEMPT+1))
+          done
+          
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "⏱️  Timeout waiting for Railway deployment"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Get deployment URL
+        id: deployment
+        run: |
+          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          URL=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA/status \
+            --jq '.statuses[] | select(.context | contains("railway")) | .target_url')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run integration tests
+        env:
+          TEST_URL: ${{ steps.deployment.outputs.url }}
+        run: |
+          pytest tests/integration/ -v --base-url=$TEST_URL
+```
+
+### Best Practices for Status Checks
+
+1. **Always query for Railway status before deployment decisions**
+   - Don't rely on git push timestamps
+   - Don't poll Railway API directly
+   - Use GitHub's authoritative status checks
+
+2. **Handle all status states gracefully**
+   - `pending`: Implement exponential backoff retry
+   - `success`: Proceed with confidence
+   - `failure`/`error`: Log and investigate
+
+3. **Set appropriate timeouts**
+   - Allow 5-10 minutes for builds (depends on image size)
+   - Allow 2-5 minutes for deployments (depends on app startup)
+   - Use total timeout of 10-15 minutes
+
+4. **Log deployment information**
+   - Record commit SHA, PR number, timestamp
+   - Store target_url for investigation
+   - Include in agent decision logs
+
+5. **Combine with other checks**
+   - Use "Wait for CI" feature (GitHub Actions)
+   - Only deploy after Railway + your tests pass
+   - Document the order of checks
+
+### Troubleshooting Status Checks
+
+**Problem: No Railway status appears**
+- Deployment may not have started yet
+- Check if Railway integration is properly connected
+- Verify service is configured for auto-deploy
+
+**Problem: Status stuck in "pending"**
+- Check Railway dashboard for build errors
+- Verify healthcheck configuration
+- Check service logs via `railway logs`
+- May indicate build timeout
+
+**Problem: Status shows "failure" without details**
+- Click target_url to see full Railway logs
+- Check build logs vs deploy logs
+- Verify all environment variables are set
+
+**Problem: Old PR status interfering**
+- Status checks accumulate; most recent takes precedence
+- Each new push updates the status
+- Manual redeploy also updates status
+
+### Example: Real-World Implementation
+
+For PR #61 (`yoto-smart-stream`):
+
+```bash
+# Check latest deployment status
+gh api repos/earchibald/yoto-smart-stream/commits/53db1fc/status \
+  --jq '.statuses[] | select(.context | contains("yoto-smart-stream"))'
+
+# Output:
+{
+  "context": "zippy-encouragement - yoto-smart-stream",
+  "state": "success",
+  "description": "Success - yoto-smart-stream-yoto-smart-stream-pr-61.up.railway.app",
+  "target_url": "https://railway.com/project/.../deployments/560ed5ff...",
+  "created_at": "2026-01-14T06:43:15Z",
+  "updated_at": "2026-01-14T06:43:15Z"
+}
+
+# Access deployed application
+curl https://yoto-smart-stream-yoto-smart-stream-pr-61.up.railway.app/health
+
+# View deployment logs
+open https://railway.com/project/.../deployments/560ed5ff...
+```
+
+---
+
 ## Best Practices
 
 ### ✅ DO:

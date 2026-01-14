@@ -347,6 +347,28 @@ railway up -s web -e staging
 railway redeploy -e production
 ```
 
+## Tracking Deployment Status via GitHub (Authoritative)
+
+Railway automatically posts **GitHub commit status checks** for every deployment. This is the preferred way for agents to track deployment status:
+
+```bash
+# Query deployment status
+gh api repos/OWNER/REPO/commits/COMMIT_SHA/status --jq '.statuses[] | select(.context | contains("railway"))'
+```
+
+**Status States:**
+- `pending` → Deployment in progress
+- `success` → Deployment succeeded and healthy
+- `failure` → Build or deploy failed
+- `error` → Health check failed
+
+**In GitHub MCP workflows:**
+1. Get commit SHA from PR via `mcp_github_pull_request_read`
+2. Query GitHub API for status (not directly in MCP)
+3. Check state to decide next action
+
+**Complete documentation:** See [GitHub Deployment Status Checks](./reference/deployment_workflows.md#github-deployment-status-checks-authoritative-process) for agent patterns, timeouts, and integration examples.
+
 ## Database Management
 
 ### PostgreSQL Setup
