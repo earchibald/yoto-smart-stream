@@ -81,6 +81,7 @@
                                 name="username"
                                 placeholder="e.g., john_doe"
                                 required
+                                autocomplete="username"
                                 pattern="[a-zA-Z0-9_-]+"
                                 minlength="3"
                                 maxlength="50"
@@ -97,6 +98,7 @@
                                 name="password"
                                 placeholder="Minimum 4 characters"
                                 required
+                                autocomplete="new-password"
                                 minlength="4"
                             />
                         </div>
@@ -109,6 +111,7 @@
                                 id="email"
                                 name="email"
                                 placeholder="e.g., john@example.com"
+                                autocomplete="email"
                             />
                         </div>
                         <div class="form-actions">
@@ -153,6 +156,7 @@
                             id="edit-email"
                             name="email"
                             placeholder="e.g., user@example.com"
+                            autocomplete="email"
                         />
                         <small>Leave unchanged or update the email address</small>
                     </div>
@@ -165,6 +169,7 @@
                             id="edit-password"
                             name="password"
                             placeholder="Leave blank to keep current password"
+                            autocomplete="new-password"
                             minlength="4"
                         />
                         <small>Passwords are stored as one-way hashes and cannot be retrieved. Leave blank to keep the current password.</small>
