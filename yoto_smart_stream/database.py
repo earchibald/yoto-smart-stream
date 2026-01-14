@@ -74,6 +74,12 @@ def init_db():
                     connection.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
                     connection.commit()
                     logger.info("✓ Added is_admin column to users table")
+                    
+                    # Set is_admin=True for the admin user
+                    logger.info("Setting is_admin=True for admin user...")
+                    connection.execute(text("UPDATE users SET is_admin = 1 WHERE username = 'admin'"))
+                    connection.commit()
+                    logger.info("✓ Updated admin user with is_admin=True")
             except Exception as e:
                 logger.debug(f"Is_admin column migration info: {e}")
                 # Column may already exist, which is fine
