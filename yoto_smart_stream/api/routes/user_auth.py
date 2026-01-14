@@ -37,6 +37,7 @@ class SessionResponse(BaseModel):
 
     authenticated: bool
     username: Optional[str] = None
+    is_admin: bool = False
 
 
 def get_current_user(
@@ -193,7 +194,7 @@ async def check_session(user: Optional[User] = Depends(get_current_user)):
         Session status and username if authenticated
     """
     if user:
-        return SessionResponse(authenticated=True, username=user.username)
+        return SessionResponse(authenticated=True, username=user.username, is_admin=user.is_admin)
     return SessionResponse(authenticated=False)
 
 

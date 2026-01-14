@@ -1124,8 +1124,8 @@ label[title]:not([title=""]):hover::before,
 
 .library-card-info-btn {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: 6px;
+    right: 6px;
     background: rgba(255, 255, 255, 0.9);
     border: 2px solid #cbd5e0;
     border-radius: 50%;
@@ -1141,7 +1141,7 @@ label[title]:not([title=""]):hover::before,
     color: #4a5568;
     transition: all 0.2s;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-    z-index: 10;
+    z-index: 20;
 }
 
 .library-card-info-btn::before {
