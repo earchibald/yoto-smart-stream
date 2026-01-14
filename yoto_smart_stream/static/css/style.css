@@ -574,12 +574,65 @@ header h2 {
     display: inline-block;
     text-align: center;
     transition: all 0.2s;
+    position: relative;
 }
 
 .action-button:hover {
     background: #667eea;
     color: white;
     transform: translateY(-2px);
+}
+
+/* Tooltip styles for elements with title attribute */
+[title]:not([title=""]) {
+    cursor: help;
+}
+
+button[title]:not([title=""]),
+input[title]:not([title=""]),
+label[title]:not([title=""]),
+.action-button[title]:not([title=""]) {
+    position: relative;
+}
+
+button[title]:not([title=""]):hover::after,
+input[title]:not([title=""]):focus::after,
+label[title]:not([title=""]):hover::after,
+.action-button[title]:not([title=""]):hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    font-size: 12px;
+    font-weight: normal;
+    line-height: 1.4;
+    border-radius: 4px;
+    max-width: 300px;
+    white-space: normal;
+    z-index: 10000;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+button[title]:not([title=""]):hover::before,
+input[title]:not([title=""]):focus::before,
+label[title]:not([title=""]):hover::before,
+.action-button[title]:not([title=""]):hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 2px;
+    border: 6px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+    z-index: 10000;
+    pointer-events: none;
 }
 
 /* Messages */
