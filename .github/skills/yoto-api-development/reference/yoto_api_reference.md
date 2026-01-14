@@ -39,6 +39,19 @@ Auth: https://login.yotoplay.com
 
 ---
 
+### Smart Stream Service Proxy Endpoints
+
+The FastAPI service in this repository exposes helper endpoints that proxy to the Yoto API using the server's authenticated session. This allows tooling to manage library content without embedding Yoto credentials locally.
+
+- `DELETE /api/library/{contentId}`: Remove a card or MYO playlist from the authenticated user's library. Requires a valid session cookie obtained via `POST /api/user/login`. Returns `200`/`204` with `{ success, contentId }` on success or `404` if the item is missing.
+- Library listing includes stable identifiers (`id`, `cardId`, `contentId`, `type`, `source`) so clients can safely target items for deletion.
+
+Refresh and cache control:
+
+- `GET /api/library?fresh=1` forces a hard refresh and prunes stale MYO-backed cards whose `contentId` no longer exists in `/content/mine`. Use this after bulk deletions to avoid cached titles lingering.
+
+The automation script [scripts/delete_llm_test_cards.py](scripts/delete_llm_test_cards.py) consumes these endpoints to delete matched items without calling Yoto APIs directly.
+
 ## Authentication
 
 ### OAuth2 Device Flow

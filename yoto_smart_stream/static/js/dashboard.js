@@ -3,6 +3,44 @@
 // API base URL
 const API_BASE = '/api';
 
+// Fuzzy match helper
+function fuzzyMatch(query, text) {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    const t = text.toLowerCase();
+    let qi = 0;
+    for (let i = 0; i < t.length && qi < q.length; i++) {
+        if (t[i] === q[qi]) qi++;
+    }
+    return qi === q.length;
+}
+
+// Apply fuzzy filter to library modal
+function applyLibraryFilter() {
+    const query = document.getElementById('libraryFilter')?.value || '';
+    const cards = document.querySelectorAll('#libraryContent .library-card');
+    let visibleCount = 0;
+    cards.forEach(card => {
+        const title = card.getAttribute('data-title') || '';
+        const match = fuzzyMatch(query, title);
+        card.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+    // Show "no results" message if nothing matches
+    const grid = document.getElementById('libraryContent');
+    if (visibleCount === 0 && query) {
+        if (!grid.querySelector('.no-results')) {
+            const msg = document.createElement('p');
+            msg.className = 'no-results';
+            msg.textContent = `No cards match "${query}"`;
+            grid.appendChild(msg);
+        }
+    } else {
+        const msg = grid.querySelector('.no-results');
+        if (msg) msg.remove();
+    }
+}
+
 // Auth polling state
 let authPollInterval = null;
 let deviceCode = null;
@@ -413,6 +451,11 @@ async function loadPlayers() {
                 updatePlayerCard(player);
             });
         }
+        
+        // Update smart stream track information for all players
+        players.forEach(player => {
+            updateSmartStreamTrack(player.id);
+        });
     } catch (error) {
         console.error('Error loading players:', error);
         if (container) {
@@ -490,6 +533,10 @@ function createPlayerCardHTML(player) {
                 </span>
             </div>
             ${mediaInfo}
+            <div class="smart-stream-track" data-player-id="${escapeHtml(player.id)}" style="display: none;">
+                <div class="stream-track-label">🎵 Now Playing:</div>
+                <div class="stream-track-name" id="stream-track-${escapeHtml(player.id)}">Loading...</div>
+            </div>
             <div class="list-item-details">
                 <span>${player.playing ? '▶️ Playing' : '⏸️ Paused'}</span>
                 ${indicators.map(ind => `<span>${ind}</span>`).join('')}
@@ -623,7 +670,43 @@ function updatePlayerCard(player) {
     });
 }
 
-// Slider Interaction Tracking
+/**
+ * Detect and display smart stream track information for a player
+ */
+async function updateSmartStreamTrack(playerId) {
+    try {
+        const response = await fetch(`${API_BASE}/streams/detect-smart-stream/${playerId}`);
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const card = document.querySelector(`.player-card[data-player-id="${playerId}"]`);
+        if (!card) return;
+        
+        const streamTrackElement = card.querySelector('.smart-stream-track');
+        const trackNameElement = card.querySelector(`#stream-track-${playerId}`);
+        
+        if (!streamTrackElement || !trackNameElement) return;
+        
+        if (data.is_playing_smart_stream && data.current_track_name) {
+            // Show the smart stream track display
+            let displayText = escapeHtml(data.current_track_name);
+            
+            // Add track number if available
+            if (data.current_track_index !== null && data.total_tracks !== null) {
+                displayText += ` (${data.current_track_index + 1}/${data.total_tracks})`;
+            }
+            
+            trackNameElement.textContent = displayText;
+            streamTrackElement.style.display = 'block';
+        } else {
+            // Hide the smart stream track display
+            streamTrackElement.style.display = 'none';
+        }
+    } catch (error) {
+        // Silently fail - not all players will be playing smart streams
+    }
+}
+
 
 /**
  * Mark slider as being actively interacted with
@@ -841,7 +924,10 @@ async function loadAudioFiles() {
                     <span class="list-item-title">🎵 ${escapeHtml(file.filename)}</span>
                 </div>
                 <div class="list-item-details">
-                    <span>Size: ${formatFileSize(file.size)}</span>
+                    <span>Duration: ${file.duration}s | Size: ${file.size} bytes (${formatFileSize(file.size)})</span>
+                    <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
+                        📋
+                    </button>
                     <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
                         <source src="${escapeHtml(file.url)}" type="audio/mpeg">
                         Your browser does not support the audio element.
@@ -878,6 +964,26 @@ function formatFileSize(bytes) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// Copy audio URL to clipboard
+async function copyAudioUrl(url, event) {
+    event.preventDefault();
+    const fullUrl = window.location.origin + url;
+    try {
+        await navigator.clipboard.writeText(fullUrl);
+        alert('URL copied to clipboard!');
+    } catch (error) {
+        console.error('Error copying URL:', error);
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = fullUrl;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert('URL copied to clipboard!');
+    }
 }
 
 // Player Detail Modal Functions
@@ -1483,12 +1589,14 @@ async function showLibraryBrowser(playerId) {
     const modal = document.getElementById('libraryModal');
     const loadingEl = document.getElementById('libraryLoading');
     const contentEl = document.getElementById('libraryContent');
+    const filterEl = document.getElementById('libraryFilter');
     
     // Show modal and reset to loading state
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
     contentEl.style.display = 'none';
     contentEl.innerHTML = '';
+    filterEl.value = '';
     
     // Store player ID for later use
     modal.dataset.playerId = playerId;
@@ -1511,7 +1619,7 @@ async function showLibraryBrowser(playerId) {
         
         // Render cards
         contentEl.innerHTML = library.cards.map(card => `
-            <div class="library-card" onclick="selectCard('${escapeHtml(playerId)}', '${escapeHtml(card.id)}')">
+            <div class="library-card" data-title="${escapeHtml(card.title || 'Untitled')}" onclick="selectCard('${escapeHtml(playerId)}', '${escapeHtml(card.id)}')">
                 ${card.cover ? `<img src="${escapeHtml(card.cover)}" alt="${escapeHtml(card.title)}" />` : '<div class="no-cover">📚</div>'}
                 <div class="library-card-info">
                     <div class="library-card-title">${escapeHtml(card.title || 'Untitled')}</div>
@@ -1519,6 +1627,10 @@ async function showLibraryBrowser(playerId) {
                 </div>
             </div>
         `).join('');
+        
+        // Setup filter listener
+        filterEl.removeEventListener('input', applyLibraryFilter);
+        filterEl.addEventListener('input', applyLibraryFilter);
         
     } catch (error) {
         console.error('Error loading library:', error);
@@ -1611,7 +1723,7 @@ async function playChapter(playerId, cardId, chapterKey) {
         
         console.log(`🎵 Playing chapter ${chapterNum} from card ${cardId} on player ${playerId}`);
         
-        // Step 1: Load the card and chapter
+        // Load the card and chapter (card/start triggers playback itself)
         const loadResponse = await fetch(`/api/players/${playerId}/play-card?card_id=${encodeURIComponent(cardId)}&chapter=${chapterNum}`, {
             method: 'POST',
             headers: {
@@ -1624,25 +1736,7 @@ async function playChapter(playerId, cardId, chapterKey) {
             throw new Error(errorData.detail || `HTTP error! status: ${loadResponse.status}`);
         }
         
-        console.log('✓ Card and chapter loaded');
-        
-        // Step 2: Issue play command to start playback
-        const playResponse = await fetch(`/api/players/${playerId}/control`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'play'
-            })
-        });
-        
-        if (!playResponse.ok) {
-            const errorData = await playResponse.json().catch(() => ({}));
-            throw new Error(errorData.detail || `HTTP error! status: ${playResponse.status}`);
-        }
-        
-        console.log('✓ Successfully started playback');
+        console.log('✓ Playback started via card/start');
         
         // Close both modals
         closeChapterBrowser();

@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     app_version: str = "0.2.1"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
+    log_full_streams_requests: bool = Field(
+        default=False, description="Log full HTTP requests (headers and body) for audio stream endpoints"
+    )
     environment: str = Field(
         default="development",
         description="Environment name (auto-populated from RAILWAY_ENVIRONMENT_NAME)",
@@ -97,9 +100,37 @@ class Settings(BaseSettings):
         return Path(".yoto_refresh_token")
 
     # Storage settings
-    audio_files_dir: Path = Field(
-        default=Path("audio_files"), description="Audio files directory"
-    )
+    audio_files_dir: Path = Field(default=Path("audio_files"), description="Audio files directory")
+    
+    @field_validator("audio_files_dir", mode="before")
+    @classmethod
+    def get_audio_files_dir(cls, v):
+        """
+        Get audio files directory based on environment.
+        
+        Uses /data directory for Railway deployments (persistent volume) so TTS
+        files survive restarts. Falls back to local path for development.
+        """
+        # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
+        railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
+        
+        if railway_env:
+            # On Railway, use persistent volume at /data/audio_files
+            data_dir = Path("/data/audio_files")
+            # Try to create directory if it doesn't exist
+            try:
+                data_dir.mkdir(parents=True, exist_ok=True)
+            except (PermissionError, OSError) as e:
+                logger.debug(
+                    f"Could not create {data_dir} during validation (expected in tests): {e}"
+                )
+            return data_dir
+        
+        # Local development - use provided value or default
+        if v and str(v) != "audio_files":
+            return v if isinstance(v, Path) else Path(v)
+        return Path("audio_files")
+    
     cover_images_dir: Path = Field(
         default=Path("cover_images"), description="Cover images directory"
     )

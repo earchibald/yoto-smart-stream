@@ -1,11 +1,14 @@
 """Core Yoto API client wrapper with enhanced features."""
 
+import json
 import logging
+from datetime import datetime
 from typing import Optional
 
 from yoto_api import YotoManager
 
 from ..config import Settings
+from ..api.mqtt_event_store import MQTTEvent, get_mqtt_event_store
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +114,12 @@ class YotoClient:
     def update_library(self) -> None:
         """Update library from API to get card metadata."""
         self.ensure_authenticated()
+        # Clear any cached library items before refreshing to avoid stale merges
+        try:
+            if hasattr(self.manager, "library") and isinstance(self.manager.library, dict):
+                self.manager.library.clear()
+        except Exception:
+            logger.debug("Could not clear cached library before refresh", exc_info=True)
         self.manager.update_library()
         logger.debug(f"Updated library with {len(self.manager.library)} items")
 
@@ -119,15 +128,46 @@ class YotoClient:
         Callback for MQTT events - triggered when real-time events are received.
         
         The yoto_api library has already updated the manager.players dict with
-        the MQTT event data BEFORE this callback is invoked. We don't need to
-        query the API here because:
-        1. The player objects are already updated with fresh MQTT data
-        2. Querying the API would overwrite fresh data with stale data (30-60s lag)
-        3. The Web UI will read from manager.players which has the fresh data
-        
-        For debugging, log that we received an event (library logs the full payload).
+        the MQTT event data BEFORE this callback is invoked. We extract the
+        current player state and store it in the MQTT event store for correlation
+        with stream requests and real-time analytics.
         """
-        logger.debug("MQTT: Event received - player data already updated by library")
+        logger.info("MQTT Callback: Event received, processing...")
+        try:
+            mqtt_store = get_mqtt_event_store()
+            
+            # The yoto_api library updates manager.players during MQTT events
+            if not hasattr(self.manager, 'players') or not self.manager.players:
+                logger.debug("No players available in manager, skipping MQTT event store")
+                return
+            
+            # Extract event data from the latest manager state
+            for player_id, player in self.manager.players.items():
+                # Create MQTT event from player state
+                # The player object may have various attribute names depending on the yoto_api version
+                mqtt_event = MQTTEvent(
+                    timestamp=datetime.now(),
+                    device_id=player_id,
+                    raw_payload=getattr(player, '__dict__', {}),
+                    volume=getattr(player, 'volume', None),
+                    volume_max=getattr(player, 'volume_max', None),
+                    card_id=getattr(player, 'card_id', None),
+                    playback_status=getattr(player, 'playback_status', None),
+                    streaming=getattr(player, 'streaming', None),
+                    playback_wait=getattr(player, 'playback_wait', None),
+                    sleep_timer_active=getattr(player, 'sleep_timer_active', None),
+                    repeat_all=getattr(player, 'repeat_all', None),
+                )
+                
+                # Store the event
+                mqtt_store.add_event(mqtt_event)
+                
+                logger.debug(
+                    f"MQTT event stored for {player_id}: "
+                    f"status={mqtt_event.playback_status}, volume={mqtt_event.volume}"
+                )
+        except Exception as e:
+            logger.error(f"Error in MQTT event callback: {e}", exc_info=True)
 
     def connect_mqtt(self) -> None:
         """Connect to MQTT for real-time events."""

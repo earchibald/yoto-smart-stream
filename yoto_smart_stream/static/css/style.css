@@ -404,6 +404,30 @@ header h2 {
     margin-top: 0.2rem;
 }
 
+/* Smart Stream Track Display */
+.smart-stream-track {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 6px;
+    color: white;
+}
+
+.stream-track-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    opacity: 0.9;
+    margin-bottom: 0.3rem;
+}
+
+.stream-track-name {
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
 /* Player Card Controls */
 .player-card {
     cursor: default;
@@ -1036,11 +1060,54 @@ header h2 {
 .library-card {
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
 }
 
 .library-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.library-card-info-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #cbd5e0;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+.library-card-info-btn:hover {
+    background: #667eea;
+    color: white;
+    transform: scale(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.info-btn-small {
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+
+.info-btn-small:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
 }
 
 .list-item {
@@ -1973,4 +2040,263 @@ input[type="text"]:focus {
 
 #preview-info p:last-child {
     margin-bottom: 0;
+}
+
+/* MQTT Analyzer Modal */
+.mqtt-modal-content {
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.analyzer-section {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.analyzer-section:last-child {
+    border-bottom: none;
+}
+
+.analyzer-section h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #2d3748;
+}
+
+.device-state-box {
+    background: #f7fafc;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.device-state-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.state-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.state-item .label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #718096;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.state-item .value {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #2d3748;
+    font-family: 'Courier New', monospace;
+}
+
+.value.status-playing {
+    color: #48bb78;
+}
+
+.value.status-paused {
+    color: #ecc94b;
+}
+
+.value.status-stopped {
+    color: #f56565;
+}
+
+.events-timeline,
+.requests-timeline {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.timeline-event,
+.timeline-request {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f7fafc;
+    border-left: 3px solid #667eea;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+}
+
+.timeline-event .event-time,
+.timeline-request .request-time {
+    font-size: 0.75rem;
+    color: #718096;
+    font-weight: 600;
+    min-width: 50px;
+}
+
+.event-content {
+    display: flex;
+    gap: 1rem;
+    flex: 1;
+}
+
+.event-icon {
+    font-size: 1.5rem;
+    min-width: 30px;
+}
+
+.event-details,
+.request-content {
+    flex: 1;
+}
+
+/* Clickable events */
+.clickable-event {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clickable-event:hover {
+    background: #edf2f7 !important;
+    border-left-color: #5a67d8 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transform: translateX(4px);
+}
+
+.event-details p,
+.request-content p {
+    margin: 0.25rem 0;
+    font-size: 0.875rem;
+    color: #2d3748;
+}
+
+.event-details strong,
+.request-content strong {
+    color: #1a202c;
+    font-weight: 600;
+}
+
+.button-event {
+    color: #d69e2e !important;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.button-group button {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.info {
+    color: #718096;
+    font-style: italic;
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+.error-message {
+    color: #c53030;
+    padding: 1rem;
+    background: #fff5f5;
+    border: 1px solid #fc8181;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+/* JSON Viewer Modal */
+#jsonViewerModal {
+    z-index: 1100;
+}
+
+.json-viewer-modal {
+    max-width: 800px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.json-viewer-modal .modal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.json-viewer-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 1rem;
+    min-height: 0;
+}
+
+.json-content {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 1rem;
+    border-radius: 6px;
+    font-family: 'Courier New', 'Monaco', monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    overflow-y: auto;
+    overflow-x: auto;
+    flex: 1;
+    min-height: 0;
+    max-height: 60vh;
+    border: 1px solid #334155;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.json-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.json-content::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+
+.json-content::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+}
+
+.json-content::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+.json-viewer-container .btn-primary {
+    align-self: flex-end;
+}
+
+/* Navigation button in sidebar */
+.nav-button {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 1rem;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    width: 100%;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.nav-button:hover {
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
 }

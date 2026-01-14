@@ -269,6 +269,12 @@ VOLUME_MAPPING_INVERTED = [
 
 ### Playback Control
 
+#### Best Practice: Start Playback
+
+- Start playback by publishing to `device/{device_id}/command/card/start` with payload `{ "uri": "https://yoto.io/{card_id}", "chapterKey": "01" }`.
+- Do not immediately send a separate `resume` command after `card/start`. In practice, an immediate resume can override the requested `chapterKey` and cause the player to resume a previous position/track.
+- Confirmation arrives on `device/{device_id}/response` with a `status.card-play` entry and subsequent `events` will report `playbackStatus: "playing"` plus `cardId`, `chapterKey`, etc.
+
 #### Play Card
 
 ```python

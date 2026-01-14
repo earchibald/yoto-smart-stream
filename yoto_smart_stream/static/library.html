@@ -13,7 +13,7 @@
         </div>
         <ul class="nav-menu">
             <li><a href="/">🏠 Dashboard</a></li>
-            <li><a href="/streams">🎵 Music Streams</a></li>
+            <li><a href="/streams">✨ Smart Streams</a></li>
             <li class="active"><a href="/library">📚 Library</a></li>
             <li><a href="/docs" target="_blank">📖 API Docs</a></li>
         </ul>
@@ -61,8 +61,13 @@
         <!-- Cards Section -->
         <section class="section" id="cards-section" style="display: none;">
             <div class="section-header">
-                <h3>Your Cards</h3>
-                <button class="refresh-btn" onclick="refreshLibrary()">🔄 Refresh</button>
+                <div style="display: flex; align-items: center; gap: 1rem; flex-grow: 1;">
+                    <h3>Your Cards</h3>
+                    <input type="text" id="cards-filter" placeholder="🔍 Filter cards..." class="filter-input" style="flex-grow: 1; max-width: 300px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <button class="refresh-btn" onclick="refreshLibrary()">🔄 Refresh</button>
+                </div>
             </div>
             <div id="cards-grid" class="library-grid">
                 <p class="loading">Loading cards...</p>
@@ -72,7 +77,10 @@
         <!-- Playlists Section -->
         <section class="section" id="playlists-section" style="display: none;">
             <div class="section-header">
-                <h3>Your Playlists</h3>
+                <div style="display: flex; align-items: center; gap: 1rem; flex-grow: 1;">
+                    <h3>Your Playlists</h3>
+                    <input type="text" id="playlists-filter" placeholder="🔍 Filter playlists..." class="filter-input" style="flex-grow: 1; max-width: 300px;">
+                </div>
             </div>
             <div id="playlists-list" class="list-container">
                 <p class="loading">Loading playlists...</p>
@@ -161,6 +169,22 @@
         </div>
     </div>
 
+    <!-- Raw Data Modal -->
+    <div id="raw-data-modal" class="modal">
+        <div class="modal-content json-viewer-modal">
+            <div class="modal-header">
+                <h3 id="raw-data-title">Raw Card Data</h3>
+                <span class="modal-close" onclick="closeRawDataModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="json-viewer-container">
+                    <pre id="raw-data-body" class="json-content">Loading...</pre>
+                    <button class="btn-primary" id="copy-raw-data-btn">📋 Copy to Clipboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Image Preview Modal -->
     <div id="image-preview-modal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 700px;">
@@ -174,7 +198,6 @@
             </div>
         </div>
     </div>
-
     <script src="/static/js/library.js"></script>
     <script src="/static/js/cover-art.js"></script>
 
