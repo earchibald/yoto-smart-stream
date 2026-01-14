@@ -235,6 +235,7 @@ async def upload_audio(
     
     logger.info(f"Uploading audio file: {final_filename} (original: {file.filename})")
     
+    temp_path = None
     try:
         # Save uploaded file to temporary location
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
@@ -242,41 +243,40 @@ async def upload_audio(
             content = await file.read()
             temp_file.write(content)
         
-        try:
-            # Load audio with pydub (supports many formats)
-            audio = AudioSegment.from_file(temp_path)
-            
-            # Convert to mono and set appropriate settings for Yoto compatibility
-            audio = audio.set_channels(1)  # Mono
-            audio = audio.set_frame_rate(44100)  # 44.1kHz sample rate
-            
-            # Export as optimized MP3
-            audio.export(
-                output_path,
-                format="mp3",
-                bitrate="192k",
-                parameters=["-ac", "1"],  # Ensure mono
-            )
-            
-            file_size = output_path.stat().st_size
-            duration_seconds = int(len(audio) / 1000)
-            
-            logger.info(f"✓ Audio uploaded and converted: {final_filename} ({file_size} bytes, {duration_seconds}s)")
-            
-            return {
-                "success": True,
-                "filename": final_filename,
-                "size": file_size,
-                "duration": duration_seconds,
-                "description": description,
-                "url": f"/api/audio/{final_filename}",
-                "message": f"Successfully uploaded '{final_filename}'"
-            }
-            
-        finally:
-            # Clean up temporary file
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+        # Load audio with pydub (supports many formats)
+        audio = AudioSegment.from_file(temp_path)
+        
+        # Convert to mono and set appropriate settings for Yoto compatibility
+        audio = audio.set_channels(1)  # Mono
+        audio = audio.set_frame_rate(44100)  # 44.1kHz sample rate
+        
+        # Export as optimized MP3
+        audio.export(
+            output_path,
+            format="mp3",
+            bitrate="192k",
+            parameters=["-ac", "1"],  # Ensure mono
+        )
+        
+        file_size = output_path.stat().st_size
+        duration_seconds = int(len(audio) / 1000)
+        
+        logger.info(f"✓ Audio uploaded and converted: {final_filename} ({file_size} bytes, {duration_seconds}s)")
+        
+        return {
+            "success": True,
+            "filename": final_filename,
+            "size": file_size,
+            "duration": duration_seconds,
+            "description": description,
+            "url": f"/api/audio/{final_filename}",
+            "message": f"Successfully uploaded '{final_filename}'"
+        }
+        
+    finally:
+        # Clean up temporary file
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
                 
     except Exception as e:
         logger.error(f"Failed to upload audio: {e}", exc_info=True)

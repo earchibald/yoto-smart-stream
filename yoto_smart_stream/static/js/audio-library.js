@@ -570,6 +570,8 @@ function stopVisualization() {
 
 function startTimer() {
     const timerElement = document.getElementById('recorder-timer');
+    if (!timerElement) return;
+    
     timerInterval = setInterval(() => {
         const elapsed = Date.now() - recordingStartTime;
         const minutes = Math.floor(elapsed / 60000);
@@ -631,9 +633,16 @@ function showPreview() {
         const url = URL.createObjectURL(recordedBlob);
         audio.src = url;
         
-        // Generate default filename with timestamp
-        const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-        filenameInput.value = `recording-${timestamp}`;
+        // Generate default filename with readable timestamp
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hour = String(now.getHours()).padStart(2, '0');
+        const minute = String(now.getMinutes()).padStart(2, '0');
+        const second = String(now.getSeconds()).padStart(2, '0');
+        const timestamp = `${year}${month}${day}_${hour}${minute}${second}`;
+        filenameInput.value = `recording_${timestamp}`;
         
         // Show preview
         preview.style.display = 'block';
