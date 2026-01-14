@@ -67,8 +67,28 @@ function applyPlaylistsFilter() {
     }
 }
 
+// Check if user is admin and hide admin nav if not
+async function checkAdminStatus() {
+    try {
+        const response = await fetch('/api/user/session', { credentials: 'include' });
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.is_admin) {
+                // Hide admin nav link for non-admin users
+                const adminLink = document.querySelector('a[href="/admin"]');
+                if (adminLink) {
+                    adminLink.parentElement.style.display = 'none';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error checking admin status:', error);
+    }
+}
+
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
+    checkAdminStatus();
     loadSystemStatus();
     loadLibrary();
     
@@ -207,13 +227,13 @@ function displayCards(cards) {
             <div class="library-card" data-content-id="${escapeHtml(card.id)}" data-content-title="${escapeHtml(card.title)}">
                 <div class="library-card-image">
                     <img src="${escapeHtml(coverImage)}" alt="${escapeHtml(card.title)}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                    <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data" aria-label="View Raw Data"></button>
                 </div>
                 <div class="library-card-content">
                     <h4 class="library-card-title">${escapeHtml(card.title)}</h4>
                     ${card.author ? `<p class="library-card-author">by ${escapeHtml(card.author)}</p>` : ''}
                     ${card.description ? `<p class="library-card-description">${escapeHtml(card.description)}</p>` : ''}
                 </div>
-                <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data" aria-label="View Raw Data"></button>
             </div>
         `;
     }).join('');

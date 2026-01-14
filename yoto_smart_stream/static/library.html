@@ -129,5 +129,25 @@
     </div>
 
     <script src="/static/js/library.js"></script>
+    <script>
+        // Hide admin nav for non-admin users
+        async function checkAdminStatusNav() {
+            try {
+                const response = await fetch('/api/user/session', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (!data.is_admin) {
+                        const adminLink = document.querySelector('a[href="/admin"]');
+                        if (adminLink) {
+                            adminLink.parentElement.style.display = 'none';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+            }
+        }
+        checkAdminStatusNav();
+    </script>
 </body>
 </html>
