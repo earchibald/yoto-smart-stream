@@ -6,6 +6,16 @@ const API_BASE = '/api';
 // Default filename for TTS generator
 const DEFAULT_TTS_FILENAME = 'my-story';
 
+// Audio Recorder State
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingStartTime = null;
+let timerInterval = null;
+let audioContext = null;
+let analyser = null;
+let animationFrameId = null;
+let recordedBlob = null;
+
 // Check user authentication first
 async function checkUserAuth() {
     try {
@@ -58,6 +68,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initial preview update
     updateFilenamePreview();
     updateTextLength();
+    
+    // Setup audio recorder
+    setupRecorder();
 });
 
 // Load system status
@@ -276,4 +289,387 @@ function showTTSError(message) {
     errorMessage.textContent = message;
     errorDiv.style.display = 'block';
     result.style.display = 'block';
+}
+
+// ============================================================================
+// Audio Recorder Functions
+// ============================================================================
+
+function setupRecorder() {
+    const recordBtn = document.getElementById('record-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const rerecordBtn = document.getElementById('rerecord-btn');
+    const saveBtn = document.getElementById('save-btn');
+    
+    if (recordBtn) recordBtn.addEventListener('click', startRecording);
+    if (stopBtn) stopBtn.addEventListener('click', stopRecording);
+    if (rerecordBtn) rerecordBtn.addEventListener('click', reRecord);
+    if (saveBtn) saveBtn.addEventListener('click', saveRecording);
+    
+    // Setup keyboard shortcuts
+    document.addEventListener('keydown', handleRecorderKeyboard);
+    
+    // Check browser support
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showRecorderError('Your browser does not support audio recording. Please use a modern browser like Chrome, Firefox, or Edge.');
+        if (recordBtn) recordBtn.disabled = true;
+    }
+}
+
+function handleRecorderKeyboard(event) {
+    // Ctrl/Cmd + R: Start recording
+    if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
+        event.preventDefault();
+        const recordBtn = document.getElementById('record-btn');
+        if (recordBtn && !recordBtn.disabled) {
+            startRecording();
+        }
+    }
+    
+    // Ctrl/Cmd + S: Stop recording
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        const stopBtn = document.getElementById('stop-btn');
+        if (stopBtn && !stopBtn.disabled) {
+            stopRecording();
+        }
+    }
+    
+    // Ctrl/Cmd + Delete: Re-record
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Delete') {
+        event.preventDefault();
+        const rerecordBtn = document.getElementById('rerecord-btn');
+        if (rerecordBtn && !rerecordBtn.disabled) {
+            reRecord();
+        }
+    }
+    
+    // Ctrl/Cmd + Enter: Save recording
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        const saveBtn = document.getElementById('save-btn');
+        if (saveBtn && !saveBtn.disabled) {
+            saveRecording();
+        }
+    }
+}
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Create MediaRecorder
+        const options = { mimeType: 'audio/webm' };
+        mediaRecorder = new MediaRecorder(stream, options);
+        audioChunks = [];
+        
+        mediaRecorder.addEventListener('dataavailable', event => {
+            audioChunks.push(event.data);
+        });
+        
+        mediaRecorder.addEventListener('stop', () => {
+            recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            showPreview();
+            
+            // Stop all tracks
+            stream.getTracks().forEach(track => track.stop());
+            
+            // Stop visualization
+            stopVisualization();
+        });
+        
+        mediaRecorder.start();
+        recordingStartTime = Date.now();
+        
+        // Setup audio visualization
+        setupVisualization(stream);
+        
+        // Start timer
+        startTimer();
+        
+        // Update UI
+        updateRecorderUI('recording');
+        updateRecorderStatus('Recording...', '#ef4444');
+        
+    } catch (error) {
+        console.error('Error starting recording:', error);
+        showRecorderError('Failed to access microphone. Please allow microphone access and try again.');
+    }
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        stopTimer();
+        updateRecorderUI('stopped');
+        updateRecorderStatus('Recording stopped', '#10b981');
+    }
+}
+
+function reRecord() {
+    // Clear previous recording
+    recordedBlob = null;
+    audioChunks = [];
+    
+    // Hide preview
+    const preview = document.getElementById('recorder-preview');
+    if (preview) preview.style.display = 'none';
+    
+    // Reset UI
+    updateRecorderUI('ready');
+    updateRecorderStatus('Ready to record', '#667eea');
+    resetTimer();
+    
+    // Clear canvas
+    const canvas = document.getElementById('waveform');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    // Hide result messages
+    hideRecorderResult();
+}
+
+async function saveRecording() {
+    if (!recordedBlob) {
+        showRecorderError('No recording to save');
+        return;
+    }
+    
+    const filenameInput = document.getElementById('recording-filename');
+    const descriptionInput = document.getElementById('recording-description');
+    const saveBtn = document.getElementById('save-btn');
+    const saveText = document.getElementById('save-text');
+    const saveSpinner = document.getElementById('save-spinner');
+    
+    const filename = filenameInput.value.trim();
+    const description = descriptionInput.value.trim();
+    
+    if (!filename) {
+        showRecorderError('Please enter a filename');
+        return;
+    }
+    
+    // Show loading state
+    saveBtn.disabled = true;
+    saveText.style.display = 'none';
+    saveSpinner.style.display = 'inline';
+    hideRecorderResult();
+    
+    try {
+        // Create FormData
+        const formData = new FormData();
+        formData.append('file', recordedBlob, 'recording.webm');
+        formData.append('filename', filename);
+        formData.append('description', description);
+        
+        // Upload to server
+        const response = await fetch(`${API_BASE}/audio/upload`, {
+            method: 'POST',
+            body: formData,
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to save recording');
+        }
+        
+        // Show success message
+        showRecorderSuccess(data.message || `Successfully saved ${data.filename}`);
+        
+        // Clear form
+        filenameInput.value = '';
+        descriptionInput.value = '';
+        
+        // Refresh audio files list
+        setTimeout(() => {
+            loadAudioFiles();
+        }, 1000);
+        
+        // Reset recorder after delay
+        setTimeout(() => {
+            reRecord();
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Error saving recording:', error);
+        showRecorderError(error.message);
+    } finally {
+        saveBtn.disabled = false;
+        saveText.style.display = 'inline';
+        saveSpinner.style.display = 'none';
+    }
+}
+
+function setupVisualization(stream) {
+    const canvas = document.getElementById('waveform');
+    if (!canvas) return;
+    
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioContext.createAnalyser();
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(analyser);
+    
+    analyser.fftSize = 2048;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    function draw() {
+        animationFrameId = requestAnimationFrame(draw);
+        
+        analyser.getByteTimeDomainData(dataArray);
+        
+        // Clear canvas with dark background
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, width, height);
+        
+        // Draw waveform
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#667eea';
+        ctx.beginPath();
+        
+        const sliceWidth = width / bufferLength;
+        let x = 0;
+        
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = v * height / 2;
+            
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+            
+            x += sliceWidth;
+        }
+        
+        ctx.lineTo(width, height / 2);
+        ctx.stroke();
+    }
+    
+    draw();
+}
+
+function stopVisualization() {
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+}
+
+function startTimer() {
+    const timerElement = document.getElementById('recorder-timer');
+    timerInterval = setInterval(() => {
+        const elapsed = Date.now() - recordingStartTime;
+        const minutes = Math.floor(elapsed / 60000);
+        const seconds = Math.floor((elapsed % 60000) / 1000);
+        timerElement.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }, 100);
+}
+
+function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
+function resetTimer() {
+    const timerElement = document.getElementById('recorder-timer');
+    if (timerElement) {
+        timerElement.textContent = '00:00';
+    }
+}
+
+function updateRecorderUI(state) {
+    const recordBtn = document.getElementById('record-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const rerecordBtn = document.getElementById('rerecord-btn');
+    
+    if (state === 'recording') {
+        recordBtn.disabled = true;
+        stopBtn.disabled = false;
+        rerecordBtn.disabled = true;
+    } else if (state === 'stopped') {
+        recordBtn.disabled = true;
+        stopBtn.disabled = true;
+        rerecordBtn.disabled = false;
+    } else {
+        // ready
+        recordBtn.disabled = false;
+        stopBtn.disabled = true;
+        rerecordBtn.disabled = true;
+    }
+}
+
+function updateRecorderStatus(text, color) {
+    const statusText = document.getElementById('recorder-status');
+    if (statusText) {
+        statusText.textContent = text;
+        statusText.style.color = color;
+    }
+}
+
+function showPreview() {
+    const preview = document.getElementById('recorder-preview');
+    const audio = document.getElementById('preview-audio');
+    const filenameInput = document.getElementById('recording-filename');
+    
+    if (preview && audio && recordedBlob) {
+        // Create URL for recorded audio
+        const url = URL.createObjectURL(recordedBlob);
+        audio.src = url;
+        
+        // Generate default filename with timestamp
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+        filenameInput.value = `recording-${timestamp}`;
+        
+        // Show preview
+        preview.style.display = 'block';
+    }
+}
+
+function showRecorderSuccess(message) {
+    const result = document.getElementById('recorder-result');
+    const successDiv = document.getElementById('recorder-success');
+    const errorDiv = document.getElementById('recorder-error');
+    const successMessage = document.getElementById('recorder-success-message');
+    
+    successMessage.textContent = message;
+    successDiv.style.display = 'block';
+    errorDiv.style.display = 'none';
+    result.style.display = 'block';
+}
+
+function showRecorderError(message) {
+    const result = document.getElementById('recorder-result');
+    const successDiv = document.getElementById('recorder-success');
+    const errorDiv = document.getElementById('recorder-error');
+    const errorMessage = document.getElementById('recorder-error-message');
+    
+    errorMessage.textContent = message;
+    errorDiv.style.display = 'block';
+    successDiv.style.display = 'none';
+    result.style.display = 'block';
+}
+
+function hideRecorderResult() {
+    const result = document.getElementById('recorder-result');
+    const successDiv = document.getElementById('recorder-success');
+    const errorDiv = document.getElementById('recorder-error');
+    
+    if (result) result.style.display = 'none';
+    if (successDiv) successDiv.style.display = 'none';
+    if (errorDiv) errorDiv.style.display = 'none';
 }

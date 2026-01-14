@@ -6,7 +6,7 @@ import tempfile
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from gtts import gTTS
 from pydantic import BaseModel, Field
@@ -179,6 +179,110 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate TTS audio. Please try again."
+        ) from e
+
+
+@router.post("/audio/upload")
+async def upload_audio(
+    file: UploadFile = File(...),
+    filename: str = Form(...),
+    description: str = Form(default=""),
+    user: User = Depends(require_auth)
+):
+    """
+    Upload a recorded or imported audio file to the audio library.
+    
+    This endpoint accepts audio files (MP3, WebM, WAV) and saves them to the audio_files
+    directory. If the uploaded file is not MP3, it will be converted to MP3 format.
+    
+    Args:
+        file: Audio file upload
+        filename: Desired filename (without extension)
+        description: Optional description for the audio file
+        
+    Returns:
+        Success message with filename and file information
+    """
+    settings = get_settings()
+    
+    # Sanitize filename
+    filename = filename.strip()
+    if filename.lower().endswith(('.mp3', '.webm', '.wav', '.ogg', '.m4a')):
+        filename = os.path.splitext(filename)[0]
+    
+    # Only allow alphanumeric, hyphens, underscores, and spaces
+    sanitized_filename = "".join(
+        c if c.isalnum() or c in ('-', '_') else '-' if c == ' ' else ''
+        for c in filename
+    )
+    
+    if not sanitized_filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid filename. Use only letters, numbers, hyphens, underscores, and spaces."
+        )
+    
+    # Create final filename with .mp3 extension
+    final_filename = f"{sanitized_filename}.mp3"
+    output_path = settings.audio_files_dir / final_filename
+    
+    # Check if file already exists
+    if output_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"File '{final_filename}' already exists. Please choose a different name."
+        )
+    
+    logger.info(f"Uploading audio file: {final_filename} (original: {file.filename})")
+    
+    try:
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
+            temp_path = temp_file.name
+            content = await file.read()
+            temp_file.write(content)
+        
+        try:
+            # Load audio with pydub (supports many formats)
+            audio = AudioSegment.from_file(temp_path)
+            
+            # Convert to mono and set appropriate settings for Yoto compatibility
+            audio = audio.set_channels(1)  # Mono
+            audio = audio.set_frame_rate(44100)  # 44.1kHz sample rate
+            
+            # Export as optimized MP3
+            audio.export(
+                output_path,
+                format="mp3",
+                bitrate="192k",
+                parameters=["-ac", "1"],  # Ensure mono
+            )
+            
+            file_size = output_path.stat().st_size
+            duration_seconds = int(len(audio) / 1000)
+            
+            logger.info(f"✓ Audio uploaded and converted: {final_filename} ({file_size} bytes, {duration_seconds}s)")
+            
+            return {
+                "success": True,
+                "filename": final_filename,
+                "size": file_size,
+                "duration": duration_seconds,
+                "description": description,
+                "url": f"/api/audio/{final_filename}",
+                "message": f"Successfully uploaded '{final_filename}'"
+            }
+            
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+                
+    except Exception as e:
+        logger.error(f"Failed to upload audio: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload audio: {str(e)}"
         ) from e
 
 
