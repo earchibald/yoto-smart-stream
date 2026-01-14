@@ -57,17 +57,32 @@ async def get_library(user: User = Depends(require_auth)):
                             pass
                 logger.info(f"  card attributes and values: {card_attrs}")
         
-        # Extract cards from the dictionary
+        def _safe_attr(obj, *names):
+            for name in names:
+                if hasattr(obj, name):
+                    value = getattr(obj, name)
+                    if value:
+                        return value
+            return None
+
+        # Extract cards from the dictionary with stable identifiers for downstream deletion
         cards = []
         if library_dict and isinstance(library_dict, dict):
             for card_id, card in library_dict.items():
+                card_identifier = _safe_attr(card, 'cardId', 'id') or card_id
+                content_id = _safe_attr(card, 'contentId', 'content_id', 'card_id') or card_identifier
+
                 card_info = {
-                    'id': card.id if hasattr(card, 'id') else card_id,
+                    'id': card_identifier,
+                    'cardId': card_identifier,
+                    'contentId': content_id,
                     'title': card.title if hasattr(card, 'title') and card.title else 'Unknown Title',
                     'description': card.description if hasattr(card, 'description') else '',
                     'author': card.author if hasattr(card, 'author') else '',
                     'icon': None,
                     'cover': card.cover_image_large if hasattr(card, 'cover_image_large') else None,
+                    'type': _safe_attr(card, 'type', 'cardType') or 'card',
+                    'source': 'card',
                 }
                 
                 cards.append(card_info)
@@ -106,11 +121,16 @@ async def get_library(user: User = Depends(require_auth)):
                     
                     logger.info(f"Found {len(items)} MYO content items")
                     for item in items:
+                        playlist_id = item.get('id') or item.get('cardId') or item.get('contentId')
                         playlist_info = {
-                            'id': item.get('id'),
+                            'id': playlist_id,
+                            'cardId': item.get('cardId'),
+                            'contentId': item.get('contentId') or playlist_id,
                             'name': item.get('title') or item.get('name', 'Unknown Playlist'),
                             'imageId': item.get('imageId') or item.get('coverImageId'),
                             'itemCount': len(item.get('chapters', [])) if 'chapters' in item else 0,
+                            'type': 'playlist',
+                            'source': 'playlist',
                         }
                         playlists.append(playlist_info)
                     logger.info(f"Successfully processed {len(playlists)} playlists from MYO content")
@@ -216,6 +236,78 @@ async def get_content_details(content_id: str, user: User = Depends(require_auth
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch content details: {str(e)}"
+        ) from e
+
+
+@router.delete("/library/{content_id}")
+async def delete_library_item(content_id: str, user: User = Depends(require_auth)):
+    """Delete a card or playlist from the user's library."""
+    try:
+        if not re.match(r'^[a-zA-Z0-9_-]+$', content_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid content ID format"
+            )
+
+        client = get_yoto_client()
+        manager = client.get_manager()
+
+        token = manager.token
+        if not token or not hasattr(token, 'access_token'):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated. Please log in to Yoto first."
+            )
+
+        auth_header = f"{getattr(token, 'token_type', 'Bearer')} {token.access_token}"
+        headers = {
+            'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        response = requests.delete(
+            f'https://api.yotoplay.com/content/{content_id}',
+            headers=headers,
+            timeout=10
+        )
+
+        if response.status_code in (200, 204):
+            try:
+                manager.update_library()
+            except Exception:
+                logger.warning("Library refresh failed after delete", exc_info=True)
+
+            return {
+                'success': True,
+                'contentId': content_id,
+                'status': response.status_code,
+                'message': 'Deleted from library'
+            }
+
+        if response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Content with ID {content_id} not found"
+            )
+
+        raise HTTPException(
+            status_code=response.status_code,
+            detail=f"Failed to delete content: {response.text[:200]}"
+        )
+
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Please log in to Yoto first."
+        ) from e
+    except Exception as e:
+        logger.error(f"Error deleting content: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete content: {str(e)}"
         ) from e
 
 
