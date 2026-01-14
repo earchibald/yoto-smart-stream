@@ -236,31 +236,37 @@ function showCreateUserError(message) {
 }
 
 // Refresh data function (from dashboard)
-async function refreshData() {
+async function refreshData(event) {
     try {
-        const button = event.target;
-        button.disabled = true;
-        button.textContent = '🔄 Refreshing...';
+        const button = event ? event.target : document.querySelector("button[onclick*='refreshData']");
+        if (button) {
+            button.disabled = true;
+            button.textContent = '🔄 Refreshing...';
+        }
         
         // Call the players endpoint to refresh
         const response = await fetch(`${API_BASE}/players`);
         if (!response.ok) throw new Error('Failed to refresh data');
         
         // Success feedback
-        button.textContent = '✓ Data Refreshed';
-        setTimeout(() => {
-            button.disabled = false;
-            button.textContent = '🔄 Refresh Data';
-        }, 2000);
+        if (button) {
+            button.textContent = '✓ Data Refreshed';
+            setTimeout(() => {
+                button.disabled = false;
+                button.textContent = '🔄 Refresh Data';
+            }, 2000);
+        }
         
     } catch (error) {
         console.error('Error refreshing data:', error);
-        const button = event.target;
-        button.textContent = '✗ Refresh Failed';
-        setTimeout(() => {
-            button.disabled = false;
-            button.textContent = '🔄 Refresh Data';
-        }, 2000);
+        const button = event ? event.target : document.querySelector("button[onclick*='refreshData']");
+        if (button) {
+            button.textContent = '✗ Refresh Failed';
+            setTimeout(() => {
+                button.disabled = false;
+                button.textContent = '🔄 Refresh Data';
+            }, 2000);
+        }
     }
 }
 
