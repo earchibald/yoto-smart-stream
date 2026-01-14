@@ -1,6 +1,5 @@
 // Cover Art Management JavaScript
-
-const API_BASE = '/api';
+// Note: Assumes API_BASE is already defined in library.js
 
 // Modal management
 function openCoverArtManager() {
