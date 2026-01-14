@@ -46,7 +46,23 @@ Yoto is an audio player system for children that uses physical cards to control 
 - [📝 Implementation Summary](./reference/implementation_summary.md) - Summary of recent implementation work including device capabilities and icon management features
 - [✅ Testing Guide](./reference/testing_guide.md) - Comprehensive automated functional testing approach with test-and-fix loop, patterns, and guardrails
 
-## Quick Start
+## Scope & Audience
+
+**This skill is for developers implementing Yoto API integration in their own applications.**
+
+If you are a **user or agent testing the Yoto Smart Stream service**, see the [yoto-smart-stream-service skill](../yoto-smart-stream-service/SKILL.md) for:
+- How to access deployed Yoto Smart Stream instances
+- Service authentication (username/password)
+- Completing Yoto OAuth authorization in the web UI
+- User workflows and testing procedures
+
+**This skill covers:**
+- Implementing Yoto API integration from scratch
+- Understanding OAuth2 Device Flow for developers
+- Writing code that interacts with Yoto REST API and MQTT
+- Building your own Yoto-powered applications
+
+## Quick Start (For Developers)
 
 ### Prerequisites
 
@@ -59,7 +75,9 @@ Yoto is an audio player system for children that uses physical cards to control 
 
 **Note:** Yoto uses OAuth2 Device Flow which doesn't require callback URLs. If the registration form requires them, use localhost placeholders - they won't be called.
 
-### Authentication Flow (Python)
+### Authentication Flow (Python Example)
+
+**For implementing OAuth in your own code:**
 
 ```python
 from yoto_api import YotoManager
@@ -82,6 +100,8 @@ ym.device_code_flow_complete()
 # Store refresh token for future use
 refresh_token = ym.token.refresh_token
 ```
+
+**For using the deployed Yoto Smart Stream service**, OAuth is handled through the web UI - see [yoto-smart-stream-service skill](../yoto-smart-stream-service/SKILL.md).
 
 ### Basic Device Control
 
