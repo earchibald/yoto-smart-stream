@@ -2359,3 +2359,48 @@ audio::-webkit-media-controls-pause-button {
     opacity: 0.8;
     margin-left: 0.5rem;
 }
+
+/* Transcript Modal Styles */
+.transcript-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.transcript-header h4 {
+    margin: 0 0 0.5rem 0;
+    color: #1e293b;
+    font-size: 1.25rem;
+}
+
+.transcript-meta {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
+.transcript-text {
+    background: #f8fafc;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.transcript-text p {
+    margin: 0;
+    line-height: 1.7;
+    color: #334155;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.modal-footer {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}

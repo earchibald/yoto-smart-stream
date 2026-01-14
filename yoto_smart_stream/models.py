@@ -32,3 +32,25 @@ class User(Base):
 
     def __repr__(self):
         return f"<User(id={self.id}, username={self.username}, is_admin={self.is_admin})>"
+
+
+class AudioFile(Base):
+    """Audio file model for storing metadata and transcripts."""
+
+    __tablename__ = "audio_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String(255), unique=True, index=True, nullable=False)
+    size = Column(Integer, nullable=False)  # File size in bytes
+    duration = Column(Integer, nullable=True)  # Duration in seconds
+    transcript = Column(Text, nullable=True)  # Speech-to-text transcript
+    transcript_status = Column(
+        String(20), default="pending", nullable=False
+    )  # pending, processing, completed, error
+    transcript_error = Column(Text, nullable=True)  # Error message if transcription failed
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    transcribed_at = Column(DateTime, nullable=True)  # When transcription completed
+
+    def __repr__(self):
+        return f"<AudioFile(id={self.id}, filename={self.filename}, transcript_status={self.transcript_status})>"
