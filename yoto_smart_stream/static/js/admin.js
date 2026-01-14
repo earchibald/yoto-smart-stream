@@ -121,7 +121,7 @@ async function loadUsers() {
         }
         
         container.innerHTML = users.map(user => `
-            <div class="list-item">
+            <div class="list-item" data-user-id="${user.id}" data-username="${escapeHtml(user.username)}" data-email="${escapeHtml(user.email || '')}" data-is-admin="${user.is_admin}">
                 <div class="list-item-header">
                     <span class="list-item-title">
                         ${user.is_admin ? '👑 ' : '👤 '}${escapeHtml(user.username)}
@@ -130,7 +130,7 @@ async function loadUsers() {
                         <span class="badge ${user.is_active ? 'online' : 'offline'}">
                             ${user.is_active ? 'Active' : 'Inactive'}
                         </span>
-                        <button class="control-btn" onclick="openEditUserModal(${user.id}, '${escapeHtml(user.username)}', '${escapeHtml(user.email || '')}', ${user.is_admin})" title="Edit user">
+                        <button class="control-btn edit-user-btn" title="Edit user">
                             ✏️
                         </button>
                     </div>
@@ -142,6 +142,18 @@ async function loadUsers() {
                 </div>
             </div>
         `).join('');
+        
+        // Add event listeners for edit buttons
+        container.querySelectorAll('.edit-user-btn').forEach((btn, index) => {
+            btn.addEventListener('click', function() {
+                const listItem = this.closest('.list-item');
+                const userId = parseInt(listItem.dataset.userId);
+                const username = listItem.dataset.username;
+                const email = listItem.dataset.email;
+                const isAdmin = listItem.dataset.isAdmin === 'true';
+                openEditUserModal(userId, username, email, isAdmin);
+            });
+        });
         
     } catch (error) {
         console.error('Error loading users:', error);

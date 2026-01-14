@@ -233,6 +233,16 @@ async def update_user(
     try:
         # Update email if provided
         if update_data.email is not None:
+            # Check if email is already in use by another user
+            existing_user = db.query(User).filter(
+                User.email == update_data.email,
+                User.id != user_id
+            ).first()
+            if existing_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Email '{update_data.email}' is already in use by another user"
+                )
             user.email = update_data.email
             logger.info(f"Updated email for user {user.username}")
         

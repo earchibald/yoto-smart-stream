@@ -1314,6 +1314,9 @@ function copyToClipboard(elementId, buttonElement) {
 /**
  * Show library browser modal for selecting cards
  */
+// Store the keyboard handler so we can remove it later
+let libraryKeyboardHandler = null;
+
 async function showLibraryBrowser(playerId) {
     const modal = document.getElementById('libraryModal');
     const loadingEl = document.getElementById('libraryLoading');
@@ -1361,16 +1364,19 @@ async function showLibraryBrowser(playerId) {
         filterEl.removeEventListener('input', applyLibraryFilter);
         filterEl.addEventListener('input', applyLibraryFilter);
         
+        // Remove old keyboard handler if exists
+        if (libraryKeyboardHandler) {
+            document.removeEventListener('keydown', libraryKeyboardHandler);
+        }
+        
         // Add keyboard shortcut for '/' key to focus filter
-        const keyHandler = (event) => {
+        libraryKeyboardHandler = (event) => {
             if (event.key === '/' && document.activeElement !== filterEl) {
                 event.preventDefault();
                 filterEl.focus();
             }
         };
-        // Remove any existing listener first
-        document.removeEventListener('keydown', keyHandler);
-        document.addEventListener('keydown', keyHandler);
+        document.addEventListener('keydown', libraryKeyboardHandler);
         
     } catch (error) {
         console.error('Error loading library:', error);
@@ -1385,6 +1391,12 @@ async function showLibraryBrowser(playerId) {
  */
 function closeLibraryBrowser() {
     document.getElementById('libraryModal').style.display = 'none';
+    
+    // Remove keyboard event listener to prevent memory leak
+    if (libraryKeyboardHandler) {
+        document.removeEventListener('keydown', libraryKeyboardHandler);
+        libraryKeyboardHandler = null;
+    }
 }
 
 /**
