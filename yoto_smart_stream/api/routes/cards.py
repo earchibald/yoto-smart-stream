@@ -238,7 +238,14 @@ async def upload_audio(
     temp_path = None
     try:
         # Save uploaded file to temporary location
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
+        # Get safe file extension, default to empty string if filename is None
+        file_ext = ''
+        if file.filename:
+            # Only use the extension, not the path components
+            _, ext = os.path.splitext(os.path.basename(file.filename))
+            file_ext = ext
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
             temp_path = temp_file.name
             content = await file.read()
             temp_file.write(content)
