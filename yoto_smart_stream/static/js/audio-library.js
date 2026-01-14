@@ -116,21 +116,7 @@ async function loadAudioFiles() {
         }
         
         container.innerHTML = files.map(file => {
-            const transcriptBtn = file.transcript && file.transcript.has_transcript
-                ? `<button class="control-btn" onclick="viewTranscript('${escapeHtml(file.filename)}', event)" title="View Transcript">
-                       📝 Transcript
-                   </button>`
-                : file.transcript && file.transcript.status === 'processing'
-                ? `<button class="control-btn" disabled title="Transcription in progress">
-                       ⏳ Processing...
-                   </button>`
-                : file.transcript && file.transcript.status === 'error'
-                ? `<button class="control-btn" onclick="retryTranscription('${escapeHtml(file.filename)}', event)" title="Retry Transcription">
-                       ⚠️ Retry
-                   </button>`
-                : `<button class="control-btn" onclick="startTranscription('${escapeHtml(file.filename)}', event)" title="Generate Transcript">
-                       📝 Transcribe
-                   </button>`;
+            const transcriptBtn = getTranscriptButton(file);
             
             return `
                 <div class="list-item">
@@ -142,7 +128,7 @@ async function loadAudioFiles() {
                     </div>
                     <div class="list-item-details">
                         <span>Duration: ${file.duration}s | Size: ${file.size} bytes (${formatFileSize(file.size)})</span>
-                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
                             <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
                                 📋
                             </button>
@@ -161,6 +147,38 @@ async function loadAudioFiles() {
         console.error('Error loading audio files:', error);
         container.innerHTML = '<p class="error-message">Failed to load audio files.</p>';
     }
+}
+
+// Get transcript button HTML based on transcript state
+function getTranscriptButton(file) {
+    if (!file.transcript) {
+        return `<button class="control-btn" onclick="startTranscription('${escapeHtml(file.filename)}', event)" title="Generate Transcript">
+                   📝 Transcribe
+               </button>`;
+    }
+    
+    if (file.transcript.has_transcript) {
+        return `<button class="control-btn" onclick="viewTranscript('${escapeHtml(file.filename)}', event)" title="View Transcript">
+                   📝 Transcript
+               </button>`;
+    }
+    
+    if (file.transcript.status === 'processing') {
+        return `<button class="control-btn" disabled title="Transcription in progress">
+                   ⏳ Processing...
+               </button>`;
+    }
+    
+    if (file.transcript.status === 'error') {
+        return `<button class="control-btn" onclick="retryTranscription('${escapeHtml(file.filename)}', event)" title="Retry Transcription">
+                   ⚠️ Retry
+               </button>`;
+    }
+    
+    // Default: pending state
+    return `<button class="control-btn" onclick="startTranscription('${escapeHtml(file.filename)}', event)" title="Generate Transcript">
+               📝 Transcribe
+           </button>`;
 }
 
 // Utility functions

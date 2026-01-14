@@ -303,14 +303,14 @@ async def upload_audio(
         
         audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
         
-        # Start transcription in background (non-blocking)
-        # Note: In production, this should use a task queue like Celery
-        # For now, we'll just mark it as pending and let user trigger manually
+        # Start transcription
+        # WARNING: This runs synchronously and will block the request for large files.
+        # TODO: Move to async background task queue (e.g., Celery, RQ, or FastAPI BackgroundTasks)
+        #       to prevent timeouts and improve UX for production deployments.
         try:
             update_transcript(db, final_filename, None, "processing", None)
             
-            # Perform transcription synchronously for now
-            # TODO: Move to background task queue in production
+            # Perform transcription synchronously (blocks request)
             transcription_service = get_transcription_service()
             transcript_text, error_msg = transcription_service.transcribe_audio(output_path)
             
@@ -321,7 +321,7 @@ async def upload_audio(
                 update_transcript(db, final_filename, None, "error", error_msg)
                 logger.warning(f"Transcription failed for {final_filename}: {error_msg}")
         except Exception as e:
-            logger.error(f"Background transcription error for {final_filename}: {e}", exc_info=True)
+            logger.error(f"Transcription error for {final_filename}: {e}", exc_info=True)
             update_transcript(db, final_filename, None, "error", str(e))
         
         return {
@@ -597,8 +597,7 @@ async def trigger_transcription(filename: str, user: User = Depends(require_auth
 
     except Exception as e:
         logger.error(f"Error during transcription: {e}", exc_info=True)
-        # Update record with error
-        from ...core.audio_db import update_transcript
+        # Update record with error (import already done above)
         update_transcript(db, filename, None, "error", str(e))
 
         raise HTTPException(
