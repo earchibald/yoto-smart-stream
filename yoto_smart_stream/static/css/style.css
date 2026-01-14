@@ -1069,6 +1069,14 @@ label[title]:not([title=""]):hover::before,
     display: block;
 }
 
+/* Ensure card artwork scales without cropping and fills area nicely */
+.library-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* avoid aggressive cropping; show full image */
+    display: block;
+}
+
 .library-card-content {
     padding: 1rem;
 }
@@ -1115,7 +1123,7 @@ label[title]:not([title=""]):hover::before,
 }
 
 .library-card-info-btn {
-    position: absolute;
+    position: absolute; /* overlay on image container */
     top: 8px;
     right: 8px;
     background: rgba(255, 255, 255, 0.9);

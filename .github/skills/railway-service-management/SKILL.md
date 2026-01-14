@@ -475,7 +475,7 @@ app = FastAPI()
 # Railway provides PORT environment variable
 PORT = int(os.getenv("PORT", 8000))
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
     """Health check endpoint for Railway"""
     return {"status": "healthy"}
@@ -495,10 +495,23 @@ buildCommand = "pip install -r requirements.txt"
 
 [deploy]
 startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
-healthcheckPath = "/health"
+healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
+
+# Watch for changes to trigger rebuilds
+watchPatterns = [
+    "**/*.py",
+    "requirements.txt",
+    "pyproject.toml"
+]
+
+# Persistent volumes survive deployments and restarts
+# Use for storing tokens, cache, or other stateful data
+[[deploy.volumes]]
+name = "data"
+mountPath = "/data"
 ```
 
 ## Integration with CI/CD

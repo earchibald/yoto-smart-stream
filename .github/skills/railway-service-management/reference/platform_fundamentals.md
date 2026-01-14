@@ -207,6 +207,22 @@ buildCommand = "pip install -r requirements.txt && pip install -r requirements-p
 [deploy]
 startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT --workers 4"
 healthcheckPath = "/health"
+
+# Optional: Specify which file changes should trigger rebuilds
+# By default, any file change triggers a rebuild
+watchPatterns = [
+    "**/*.py",           # All Python files
+    "requirements.txt",  # Python dependencies
+    "pyproject.toml",    # Project configuration
+    "Dockerfile"         # If using custom Docker builds
+]
+
+# Optional: Persistent volumes for stateful data
+# Volumes survive deployments and container restarts
+# Use for storing tokens, cache, databases, etc.
+[[deploy.volumes]]
+name = "data"
+mountPath = "/data"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
