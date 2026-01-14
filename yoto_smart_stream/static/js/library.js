@@ -99,12 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (playlistsFilter) {
         playlistsFilter.addEventListener('input', applyPlaylistsFilter);
     }
-    if (freshToggle) {
-        freshToggle.addEventListener('change', () => {
-            // Reload library when fresh toggle changes
-            refreshLibrary();
-        });
-    }
 });
 
 // Load system status
@@ -136,9 +130,7 @@ async function loadLibrary() {
     statusTextEl.textContent = 'Loading library...';
     
     try {
-        const freshEl = document.getElementById('fresh-toggle');
-        const freshParam = freshEl && freshEl.checked ? '?fresh=1' : '';
-        const response = await fetch(`${API_BASE}/library${freshParam}`);
+        const response = await fetch(`${API_BASE}/library`);
         
         if (response.status === 401) {
             // Not authenticated
