@@ -15,6 +15,7 @@
             <li class="active"><a href="/">🏠 Dashboard</a></li>
             <li><a href="/streams">✨ Smart Streams</a></li>
             <li><a href="/library">📚 Library</a></li>
+            <li><button class="nav-button" onclick="openMQTTAnalyzer()">📊 MQTT Analyzer</button></li>
             <li><a href="/docs" target="_blank">📖 API Docs</a></li>
         </ul>
         <div class="sidebar-footer">
@@ -50,99 +51,373 @@
                         <p>Waiting for authorization...</p>
                     </div>
                 </div>
-            </div>
-        </section>
-
-        <!-- Devices Section -->
-        <section class="section" id="devices-section" style="display: none;">
-            <div class="section-header">
-                <h3>Your Devices</h3>
-                <div class="controls">
-                    <button id="refresh-devices" class="btn-secondary">🔄 Refresh</button>
-                </div>
-            </div>
-
-            <div id="devices-list" class="devices-grid">
-                <!-- Device cards will be inserted here by JavaScript -->
-            </div>
-        </section>
-
-        <!-- Active Stream Section -->
-        <section class="section" id="stream-section" style="display: none;">
-            <div class="section-header">
-                <h3>Active Stream</h3>
-                <button id="stop-stream" class="btn-danger">⏹️ Stop</button>
-            </div>
-
-            <div class="stream-info">
-                <div class="info-group">
-                    <label>Playing:</label>
-                    <p id="current-title">Loading...</p>
-                </div>
-                <div class="info-group">
-                    <label>URL:</label>
-                    <code id="current-url"></code>
-                </div>
-                <div class="info-group">
-                    <label>Device:</label>
-                    <p id="current-device">Loading...</p>
-                </div>
-                <div class="progress-bar">
-                    <div id="progress" class="progress-fill"></div>
+                
+                <div id="auth-actions">
+                    <button id="login-button" class="action-button primary" onclick="startAuth()">
+                        🔑 Connect Yoto Account
+                    </button>
                 </div>
             </div>
         </section>
 
-        <!-- Streaming Section -->
-        <section class="section" id="streaming-section" style="display: none;">
-            <div class="section-header">
-                <h3>Stream Audio</h3>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📱</div>
+                <div class="stat-content">
+                    <h3 id="player-count">-</h3>
+                    <p>Connected Players</p>
+                </div>
             </div>
-
-            <div class="streaming-controls">
-                <div class="control-group">
-                    <label for="stream-url">Stream URL</label>
-                    <input 
-                        type="text" 
-                        id="stream-url" 
-                        placeholder="https://example.com/stream.mp3"
-                        value="http://localhost:8000/test_stream"
-                    >
-                    <small>MP3 format recommended (128-256 kbps)</small>
+            <div class="stat-card">
+                <div class="stat-icon">🎵</div>
+                <div class="stat-content">
+                    <h3 id="audio-count">-</h3>
+                    <p>Audio Files</p>
                 </div>
-
-                <div class="control-group">
-                    <label for="device-select">Select Device</label>
-                    <select id="device-select">
-                        <option value="">Loading devices...</option>
-                    </select>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔌</div>
+                <div class="stat-content">
+                    <h3 id="mqtt-status">-</h3>
+                    <p>MQTT Status</p>
                 </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🌍</div>
+                <div class="stat-content">
+                    <h3 id="environment">-</h3>
+                    <p>Environment</p>
+                </div>
+            </div>
+        </div>
 
-                <button id="start-stream" class="btn-primary" disabled>▶️ Start Stream</button>
+        <section class="section">
+            <h3>Connected Players</h3>
+            <div id="players-list" class="list-container">
+                <p class="loading">Loading players...</p>
             </div>
         </section>
 
-        <!-- System Health Section -->
-        <section class="section" id="health-section" style="display: none;">
-            <div class="section-header">
-                <h3>System Health</h3>
-                <button id="refresh-health" class="btn-secondary">🔄 Refresh</button>
-            </div>
-
-            <div id="health-info" class="health-grid">
-                <!-- Health info will be inserted here -->
+        <section class="section">
+            <h3>Audio Library</h3>
+            <div id="audio-list" class="list-container">
+                <p class="loading">Loading audio files...</p>
             </div>
         </section>
 
-        <!-- Error Messages Section -->
-        <section class="section" id="error-section" style="display: none;">
-            <h3>⚠️ Errors</h3>
-            <div id="error-list" class="error-list">
-                <!-- Errors will be inserted here -->
+        <section class="section">
+            <h3>Quick Actions</h3>
+            <div class="actions-grid">
+                <button class="action-button" onclick="openTTSModal()">🎙️ Generate TTS Audio</button>
+                <button class="action-button" onclick="refreshData()">🔄 Refresh Data</button>
+                <button id="logout-button" class="action-button" onclick="userLogout()" style="display: none;">🚪 Logout</button>
+                <a href="/api/docs" target="_blank" class="action-button">📖 API Documentation</a>
+                <a href="/streams" class="action-button">🎵 View Streams</a>
             </div>
         </section>
     </main>
 
+    <!-- Player Detail Modal -->
+    <div id="playerModal" class="modal">
+        <div class="modal-content player-modal-content">
+            <div class="modal-header">
+                <h3 id="modalPlayerName">Player Details</h3>
+                <div class="modal-header-actions">
+                    <button id="modalInfoButton" class="info-button" onclick="toggleTechnicalInfo()" title="Show API Details">
+                        <span class="info-icon">ℹ️</span>
+                    </button>
+                    <span class="modal-close" onclick="closePlayerModal()">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="modalPlayerLoading" class="loading">Loading player details...</div>
+                <div id="modalPlayerContent" style="display: none;">
+                    <!-- Status Overview -->
+                    <div class="player-detail-section">
+                        <h4>Status Overview</h4>
+                        <div class="player-detail-grid">
+                            <div class="player-detail-item">
+                                <span class="detail-label">Status</span>
+                                <span id="modalPlayerStatus" class="detail-value badge">Offline</span>
+                            </div>
+                            <div class="player-detail-item">
+                                <span class="detail-label">Playback</span>
+                                <span id="modalPlayerPlayback" class="detail-value">⏸️ Paused</span>
+                            </div>
+                            <div class="player-detail-item">
+                                <span class="detail-label">Volume</span>
+                                <span id="modalPlayerVolume" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-item">
+                                <span class="detail-label">Battery</span>
+                                <span id="modalPlayerBattery" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Device Information -->
+                    <div class="player-detail-section">
+                        <h4>Device Information</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Player ID</span>
+                                <span id="modalPlayerId" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Device Type</span>
+                                <span id="modalPlayerDeviceType" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Firmware Version</span>
+                                <span id="modalPlayerFirmware" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Power Source</span>
+                                <span id="modalPlayerPowerSource" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Network & Environment -->
+                    <div class="player-detail-section">
+                        <h4>Network & Environment</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">WiFi Strength</span>
+                                <span id="modalPlayerWifi" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Temperature</span>
+                                <span id="modalPlayerTemperature" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Ambient Light</span>
+                                <span id="modalPlayerAmbientLight" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Day Mode</span>
+                                <span id="modalPlayerDayMode" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Nightlight</span>
+                                <span id="modalPlayerNightlight" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Last Updated</span>
+                                <span id="modalPlayerLastUpdated" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Audio Connections -->
+                    <div class="player-detail-section">
+                        <h4>Audio Connections</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Bluetooth Audio</span>
+                                <span id="modalPlayerBluetoothAudio" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Audio Device</span>
+                                <span id="modalPlayerAudioDevice" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sleep Timer -->
+                    <div class="player-detail-section" id="modalSleepTimerSection" style="display: none;">
+                        <h4>Sleep Timer</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Time Remaining</span>
+                                <span id="modalPlayerSleepTimer" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Playback Information -->
+                    <div class="player-detail-section" id="modalPlaybackSection" style="display: none;">
+                        <h4>Current Playback</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Active Card</span>
+                                <span id="modalPlayerActiveCard" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row" id="modalCardTitleRow" style="display: none;">
+                                <span class="detail-label">Card Title</span>
+                                <span id="modalCardTitle" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row" id="modalCardAuthorRow" style="display: none;">
+                                <span class="detail-label">Card Author</span>
+                                <span id="modalCardAuthor" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Chapter</span>
+                                <span id="modalPlayerChapter" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Track</span>
+                                <span id="modalPlayerTrack" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Position</span>
+                                <span id="modalPlayerPosition" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Technical Information (API Details) -->
+                    <div class="player-detail-section technical-info-section" id="modalTechnicalInfo" style="display: none;">
+                        <h4>Technical Information</h4>
+                        <div id="technicalInfoContent" class="technical-info-content">
+                            <!-- API call info will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TTS Generator Modal -->
+    <div id="tts-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🎙️ Generate Text-to-Speech Audio</h3>
+                <span class="modal-close" id="tts-modal-close-btn">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="tts-form">
+                    <div class="form-group">
+                        <label for="tts-filename">Filename (without extension):</label>
+                        <input
+                            type="text"
+                            id="tts-filename"
+                            name="filename"
+                            placeholder="e.g., my-story"
+                            required
+                            pattern="[a-zA-Z0-9\s_-]+"
+                            title="Only letters, numbers, spaces, hyphens, and underscores allowed"
+                        />
+                        <small>File will be saved as: <strong id="filename-preview">my-story.mp3</strong></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="tts-text">Text to convert to speech:</label>
+                        <textarea
+                            id="tts-text"
+                            name="text"
+                            rows="8"
+                            placeholder="Enter the text you want to convert to speech..."
+                            required
+                            minlength="1"
+                        ></textarea>
+                        <small id="text-length">0 characters</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeTTSModal()">Cancel</button>
+                        <button type="submit" class="btn-primary" id="tts-submit-btn">
+                            <span id="tts-submit-text">Generate Audio</span>
+                            <span id="tts-submit-spinner" style="display: none;">⏳ Generating...</span>
+                        </button>
+                    </div>
+                </form>
+                <div id="tts-result" style="display: none; margin-top: 20px;">
+                    <div id="tts-success" class="success-message" style="display: none;">
+                        ✓ <span id="tts-success-message"></span>
+                    </div>
+                    <div id="tts-error" class="error-message" style="display: none;">
+                        ✗ <span id="tts-error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library Browser Modal -->
+    <div id="libraryModal" class="modal">
+        <div class="modal-content library-modal-content">
+            <div class="modal-header">
+                <h3>Select from Library</h3>
+                <span class="modal-close" onclick="closeLibraryBrowser()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="libraryFilter" placeholder="🔍 Filter library..." class="filter-input" style="width: 100%; margin-bottom: 1rem; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                <div id="libraryLoading" class="loading">Loading library...</div>
+                <div id="libraryContent" class="library-grid" style="display: none;">
+                    <!-- Library cards will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chapter Browser Modal -->
+    <div id="chapterModal" class="modal">
+        <div class="modal-content chapter-modal-content">
+            <div class="modal-header">
+                <h3 id="chapterModalTitle">Select Chapter</h3>
+                <span class="modal-close" onclick="closeChapterBrowser()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="chapterLoading" class="loading">Loading chapters...</div>
+                <div id="chapterContent" class="chapter-list" style="display: none;">
+                    <!-- Chapters will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MQTT Analyzer Modal -->
+    <div id="mqttAnalyzerModal" class="modal">
+        <div class="modal-content mqtt-modal-content">
+            <div class="modal-header">
+                <h3>📊 MQTT Device Analyzer</h3>
+                <span class="modal-close" onclick="closeMQTTAnalyzer()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Device State Section -->
+                <div class="analyzer-section">
+                    <h4>Current Device State</h4>
+                    <div id="deviceStateSummary" class="device-state-box">
+                        <p class="loading">Loading device state...</p>
+                    </div>
+                </div>
+
+                <!-- Recent Events Section -->
+                <div class="analyzer-section">
+                    <h4>Recent MQTT Events (Last 30)</h4>
+                    <div id="recentEventsList" class="events-list">
+                        <p class="loading">Loading events...</p>
+                    </div>
+                </div>
+
+                <!-- Stream Requests Section -->
+                <div class="analyzer-section">
+                    <h4>Recent Stream Requests (Last 5 minutes)</h4>
+                    <div id="streamRequestsList" class="requests-list">
+                        <p class="loading">Loading stream requests...</p>
+                    </div>
+                </div>
+
+                <!-- Track Navigation -->
+                <div class="analyzer-section">
+                    <h4>Track Navigation (via MQTT)</h4>
+                    <div class="button-group">
+                        <button class="btn-secondary" onclick="sendTrackNavigation('previous')">⏮️ Previous Track</button>
+                        <button class="btn-secondary" onclick="sendTrackNavigation('next')">⏭️ Next Track</button>
+                    </div>
+                </div>
+
+                <!-- Auto-Refresh Control -->
+                <div class="analyzer-section">
+                    <label>
+                        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)"> 
+                        Auto-refresh (2 seconds)
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/mqtt-analyzer.js"></script>
 </body>
 </html>

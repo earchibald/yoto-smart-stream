@@ -123,19 +123,23 @@ async function checkAuthStatus() {
         
         const data = await response.json();
         
+        const authSection = document.getElementById('auth-section');
+        const logoutButton = document.getElementById('logout-button');
+        
         if (data.authenticated) {
             // Hide auth section, show logout button
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('logout-button').style.display = 'inline-block';
+            if (authSection) authSection.style.display = 'none';
+            if (logoutButton) logoutButton.style.display = 'inline-block';
         } else {
             // Show auth section, hide logout button
-            document.getElementById('auth-section').style.display = 'block';
-            document.getElementById('logout-button').style.display = 'none';
+            if (authSection) authSection.style.display = 'block';
+            if (logoutButton) logoutButton.style.display = 'none';
         }
     } catch (error) {
         console.error('Error checking auth status:', error);
         // Show auth section on error
-        document.getElementById('auth-section').style.display = 'block';
+        const authSection = document.getElementById('auth-section');
+        if (authSection) authSection.style.display = 'block';
     }
 }
 
@@ -145,6 +149,11 @@ async function startAuth() {
     const authWaiting = document.getElementById('auth-waiting');
     const authActions = document.getElementById('auth-actions');
     const authMessage = document.getElementById('auth-message');
+    
+    if (!loginButton) {
+        console.error('Login button not found');
+        return;
+    }
     
     loginButton.disabled = true;
     loginButton.textContent = 'Starting...';
@@ -164,14 +173,20 @@ async function startAuth() {
         deviceCode = data.device_code;
         
         // Update UI with auth details
-        document.getElementById('auth-url').href = data.verification_uri_complete || data.verification_uri;
-        document.getElementById('auth-url').textContent = data.verification_uri;
-        document.getElementById('user-code').textContent = data.user_code;
+        const authUrl = document.getElementById('auth-url');
+        const userCode = document.getElementById('user-code');
+        if (authUrl) {
+            authUrl.href = data.verification_uri_complete || data.verification_uri;
+            authUrl.textContent = data.verification_uri;
+        }
+        if (userCode) {
+            userCode.textContent = data.user_code;
+        }
         
         // Show waiting section
-        authWaiting.style.display = 'block';
-        authActions.style.display = 'none';
-        authMessage.textContent = 'Complete the authorization in your browser, then we\'ll automatically connect.';
+        if (authWaiting) authWaiting.style.display = 'block';
+        if (authActions) authActions.style.display = 'none';
+        if (authMessage) authMessage.textContent = 'Complete the authorization in your browser, then we\'ll automatically connect.';
         
         // Start polling for completion
         startAuthPolling();
@@ -273,30 +288,39 @@ async function loadSystemStatus() {
         const data = await response.json();
         
         // Update version
-        document.getElementById('app-version').textContent = `v${data.version}`;
+        const appVersion = document.getElementById('app-version');
+        if (appVersion) appVersion.textContent = `v${data.version}`;
         
         // Update status indicator
         const statusEl = document.getElementById('status');
         const statusTextEl = document.getElementById('status-text');
-        statusEl.classList.remove('error');
-        statusTextEl.textContent = 'System Running';
+        if (statusEl) statusEl.classList.remove('error');
+        if (statusTextEl) statusTextEl.textContent = 'System Running';
         
         // Update stats - leave audio count for loadAudioFiles to set
-        document.getElementById('mqtt-status').textContent = data.features?.mqtt_events ? 'Enabled' : 'Disabled';
-        document.getElementById('environment').textContent = data.environment || 'Unknown';
+        const mqttStatus = document.getElementById('mqtt-status');
+        if (mqttStatus) mqttStatus.textContent = data.features?.mqtt_events ? 'Enabled' : 'Disabled';
+        
+        const environmentEl = document.getElementById('environment');
+        if (environmentEl) environmentEl.textContent = data.environment || 'Unknown';
         
     } catch (error) {
         console.error('Error loading status:', error);
         const statusEl = document.getElementById('status');
         const statusTextEl = document.getElementById('status-text');
-        statusEl.classList.add('error');
-        statusTextEl.textContent = 'Error';
+        if (statusEl) statusEl.classList.add('error');
+        if (statusTextEl) statusTextEl.textContent = 'Error';
     }
 }
 
 // Load players list
 async function loadPlayers() {
     const container = document.getElementById('players-list');
+    
+    // If container doesn't exist, skip
+    if (!container) {
+        return;
+    }
     
     // Prevent concurrent API calls
     if (isLoadingPlayers) {
@@ -364,7 +388,8 @@ async function loadPlayers() {
         });
         
         // Update player count
-        document.getElementById('player-count').textContent = players.length;
+        const playerCount = document.getElementById('player-count');
+        if (playerCount) playerCount.textContent = players.length;
         
         if (players.length === 0) {
             container.innerHTML = '<p class="loading">No players connected</p>';
@@ -390,8 +415,10 @@ async function loadPlayers() {
         }
     } catch (error) {
         console.error('Error loading players:', error);
-        document.getElementById('players-list').innerHTML = 
-            `<p class="error">Failed to load players: ${error.message}</p>`;
+        if (container) {
+            container.innerHTML = 
+                `<p class="error">Failed to load players: ${error.message}</p>`;
+        }
     } finally {
         isLoadingPlayers = false;
     }
@@ -787,6 +814,11 @@ async function setPlayerVolume(playerId, volume) {
 async function loadAudioFiles() {
     const container = document.getElementById('audio-list');
     
+    // If container doesn't exist, skip
+    if (!container) {
+        return;
+    }
+    
     try {
         const response = await fetch(`${API_BASE}/audio/list`);
         if (!response.ok) throw new Error('Failed to fetch audio files');
@@ -795,7 +827,8 @@ async function loadAudioFiles() {
         const files = data.files || [];
         
         // Update audio count stat
-        document.getElementById('audio-count').textContent = files.length;
+        const audioCount = document.getElementById('audio-count');
+        if (audioCount) audioCount.textContent = files.length;
         
         if (files.length === 0) {
             container.innerHTML = '<p class="loading">No audio files found. Add MP3 files to the audio_files directory.</p>';
@@ -819,7 +852,9 @@ async function loadAudioFiles() {
         
     } catch (error) {
         console.error('Error loading audio files:', error);
-        container.innerHTML = '<p class="error-message">Failed to load audio files.</p>';
+        if (container) {
+            container.innerHTML = '<p class="error-message">Failed to load audio files.</p>';
+        }
     }
 }
 
