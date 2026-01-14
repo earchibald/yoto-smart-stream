@@ -4,7 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yoto Library - Yoto Smart Stream</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=20260114">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
+    <style>
+        /* Critical overrides to ensure correct library card rendering even if external CSS is stale */
+        .library-card-image { position: relative; }
+        .library-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain !important;
+            display: block;
+        }
+        .library-card-image .library-card-info-btn {
+            position: absolute !important;
+            top: 8px;
+            right: 8px;
+            z-index: 20;
+        }
+    </style>
 </head>
 <body>
     <nav class="sidebar">

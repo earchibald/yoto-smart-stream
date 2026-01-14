@@ -588,7 +588,7 @@ header h2 {
     cursor: help;
 }
 
-button[title]:not([title=""]),
+button[title]:not([title=""]):not(.library-card-info-btn),
 input[title]:not([title=""]),
 label[title]:not([title=""]),
 .action-button[title]:not([title=""]) {

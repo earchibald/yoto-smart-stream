@@ -4,6 +4,24 @@
 
 This guide covers automated deployment workflows for Railway, including GitHub Actions integration, CI/CD pipelines, Railway's native PR Environments, and deployment automation strategies.
 
+## Quick Fixes: Env Linking + Static Cache Busting
+
+When deploys appear to succeed but the live app serves stale assets or old pages, verify these two areas first:
+
+- Environment link reset: Re-link the workspace and select the correct environment (e.g., `develop`).
+  - Commands:
+    - `railway link --project <project_id>`
+    - `railway environment --environment develop`
+    - `railway status --json`
+  - Symptom addressed: CLI errors like “Environment is deleted. Run railway environment to connect to an environment.”
+
+- Static asset cache busting: Ensure clients fetch updated CSS/JS after deploys.
+  - Pattern: Add a version query param to stylesheet/script URLs, e.g. `/static/css/style.css?v=YYYYMMDD`.
+  - Fallback: For critical fixes, add a small inline `<style>` block after the external link to override stale rules with `!important` until cache expires.
+  - Symptom addressed: Browser shows old computed styles despite new code being deployed.
+
+These fixes are safe, reversible, and helpful during fast UI iteration.
+
 ## Railway Native PR Environments
 
 Railway's PR Environments feature provides automatic ephemeral environments for pull requests with zero configuration.
