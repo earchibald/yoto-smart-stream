@@ -105,7 +105,10 @@ async function loadAudioFiles() {
         container.innerHTML = files.map(file => `
             <div class="list-item">
                 <div class="list-item-header">
-                    <span class="list-item-title">🎵 ${escapeHtml(file.filename)}</span>
+                    <span class="list-item-title">
+                        🎵 ${escapeHtml(file.filename)}
+                        ${file.is_static ? '<span class="badge" style="background: #805ad5; color: white; margin-left: 0.5rem;">Static</span>' : ''}
+                    </span>
                 </div>
                 <div class="list-item-details">
                     <span>Duration: ${file.duration}s | Size: ${file.size} bytes (${formatFileSize(file.size)})</span>

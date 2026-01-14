@@ -1361,6 +1361,17 @@ async function showLibraryBrowser(playerId) {
         filterEl.removeEventListener('input', applyLibraryFilter);
         filterEl.addEventListener('input', applyLibraryFilter);
         
+        // Add keyboard shortcut for '/' key to focus filter
+        const keyHandler = (event) => {
+            if (event.key === '/' && document.activeElement !== filterEl) {
+                event.preventDefault();
+                filterEl.focus();
+            }
+        };
+        // Remove any existing listener first
+        document.removeEventListener('keydown', keyHandler);
+        document.addEventListener('keydown', keyHandler);
+        
     } catch (error) {
         console.error('Error loading library:', error);
         loadingEl.style.display = 'none';

@@ -126,12 +126,17 @@ async function loadUsers() {
                     <span class="list-item-title">
                         ${user.is_admin ? '👑 ' : '👤 '}${escapeHtml(user.username)}
                     </span>
-                    <span class="badge ${user.is_active ? 'online' : 'offline'}">
-                        ${user.is_active ? 'Active' : 'Inactive'}
-                    </span>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <span class="badge ${user.is_active ? 'online' : 'offline'}">
+                            ${user.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        <button class="control-btn" onclick="openEditUserModal(${user.id}, '${escapeHtml(user.username)}', '${escapeHtml(user.email || '')}', ${user.is_admin})" title="Edit user">
+                            ✏️
+                        </button>
+                    </div>
                 </div>
                 <div class="list-item-details">
-                    ${user.email ? `<span>📧 ${escapeHtml(user.email)}</span>` : ''}
+                    ${user.email ? `<span>📧 ${escapeHtml(user.email)}</span>` : '<span>📧 No email</span>'}
                     <span>${user.is_admin ? '⚙️ Admin' : '📖 User'}</span>
                     <span>📅 Created: ${formatDate(user.created_at)}</span>
                 </div>
@@ -280,4 +285,119 @@ function escapeHtml(text) {
 function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+}
+
+// Open edit user modal
+function openEditUserModal(userId, username, email, isAdmin) {
+    const modal = document.getElementById('edit-user-modal');
+    if (!modal) return;
+    
+    // Store user ID
+    modal.dataset.userId = userId;
+    
+    // Populate form
+    document.getElementById('edit-username').textContent = username;
+    document.getElementById('edit-email').value = email;
+    document.getElementById('edit-password').value = '';
+    
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+// Close edit user modal
+function closeEditUserModal() {
+    const modal = document.getElementById('edit-user-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Handle edit user form submission
+async function handleEditUser(event) {
+    event.preventDefault();
+    
+    const modal = document.getElementById('edit-user-modal');
+    const userId = modal.dataset.userId;
+    const email = document.getElementById('edit-email').value.trim() || null;
+    const password = document.getElementById('edit-password').value;
+    
+    const submitBtn = document.getElementById('edit-user-btn');
+    const submitText = document.getElementById('edit-user-text');
+    const submitSpinner = document.getElementById('edit-user-spinner');
+    const result = document.getElementById('edit-user-result');
+    const successDiv = document.getElementById('edit-user-success');
+    const errorDiv = document.getElementById('edit-user-error');
+    const successMessage = document.getElementById('edit-user-success-message');
+    const errorMessage = document.getElementById('edit-user-error-message');
+    
+    // At least one field must be changed
+    if (!email && !password) {
+        showEditUserError('Please change at least one field');
+        return;
+    }
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitText.style.display = 'none';
+    submitSpinner.style.display = 'inline';
+    result.style.display = 'none';
+    successDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    
+    try {
+        const updateData = {};
+        if (email) updateData.email = email;
+        if (password) updateData.password = password;
+        
+        const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify(updateData),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to update user');
+        }
+        
+        // Show success message
+        successMessage.textContent = data.message || 'User updated successfully';
+        successDiv.style.display = 'block';
+        result.style.display = 'block';
+        
+        // Reset password field
+        document.getElementById('edit-password').value = '';
+        
+        // Refresh users list
+        setTimeout(() => {
+            loadUsers();
+            closeEditUserModal();
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Error updating user:', error);
+        errorMessage.textContent = error.message;
+        errorDiv.style.display = 'block';
+        result.style.display = 'block';
+    } finally {
+        // Reset button state
+        submitBtn.disabled = false;
+        submitText.style.display = 'inline';
+        submitSpinner.style.display = 'none';
+    }
+}
+
+// Helper function to show edit user error
+function showEditUserError(message) {
+    const result = document.getElementById('edit-user-result');
+    const errorDiv = document.getElementById('edit-user-error');
+    const errorMessage = document.getElementById('edit-user-error-message');
+    
+    errorMessage.textContent = message;
+    errorDiv.style.display = 'block';
+    result.style.display = 'block';
 }

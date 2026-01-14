@@ -14,10 +14,9 @@
         <ul class="nav-menu">
             <li><a href="/">🏠 Dashboard</a></li>
             <li><a href="/streams">✨ Smart Streams</a></li>
-            <li><a href="/library">📚 Library</a></li>
+            <li><a href="/library">📚 Yoto Library</a></li>
             <li><a href="/audio-library">🎙️ Audio Library</a></li>
             <li class="active"><a href="/admin">⚙️ Admin</a></li>
-            <li><button class="nav-button" onclick="openMQTTAnalyzer()">📊 MQTT Analyzer</button></li>
         </ul>
         <div class="sidebar-footer">
             <p id="app-version">Loading...</p>
@@ -49,6 +48,9 @@
                 <div class="actions-grid">
                     <button class="action-button" onclick="refreshData(event)" title="Refresh all player and audio data from Yoto API">
                         🔄 Refresh Data
+                    </button>
+                    <button class="action-button" onclick="openMQTTAnalyzer()" title="View MQTT device events and analytics">
+                        📊 MQTT Analyzer
                     </button>
                 </div>
             </section>
@@ -128,6 +130,64 @@
             </section>
         </div>
     </main>
+
+    <!-- Edit User Modal -->
+    <div id="edit-user-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ Edit User</h3>
+                <span class="modal-close" onclick="closeEditUserModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="edit-user-form" class="edit-user-form" onsubmit="handleEditUser(event)">
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <p id="edit-username" style="font-weight: bold; margin-top: 0.5rem;"></p>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-email" title="Email address for the user">
+                            Email:
+                        </label>
+                        <input
+                            type="email"
+                            id="edit-email"
+                            name="email"
+                            placeholder="e.g., user@example.com"
+                        />
+                        <small>Leave unchanged or update the email address</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-password" title="New password (leave blank to keep current password)">
+                            New Password:
+                        </label>
+                        <input
+                            type="password"
+                            id="edit-password"
+                            name="password"
+                            placeholder="Leave blank to keep current password"
+                            minlength="4"
+                        />
+                        <small>Passwords are stored as one-way hashes and cannot be retrieved. Leave blank to keep the current password.</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeEditUserModal()">Cancel</button>
+                        <button type="submit" class="btn-primary" id="edit-user-btn">
+                            <span id="edit-user-text">💾 Save Changes</span>
+                            <span id="edit-user-spinner" style="display: none;">⏳ Saving...</span>
+                        </button>
+                    </div>
+                </form>
+                <div id="edit-user-result" style="display: none; margin-top: 20px;">
+                    <div id="edit-user-success" class="success-message" style="display: none;">
+                        ✓ <span id="edit-user-success-message"></span>
+                    </div>
+                    <div id="edit-user-error" class="error-message" style="display: none;">
+                        ✗ <span id="edit-user-error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- MQTT Analyzer Modal (shared) -->
     <div id="mqttAnalyzerModal" class="modal">

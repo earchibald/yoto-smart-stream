@@ -48,6 +48,21 @@ class CreateUserResponse(BaseModel):
     user: Optional[UserResponse] = None
 
 
+class UpdateUserRequest(BaseModel):
+    """Request model for updating a user."""
+
+    email: Optional[EmailStr] = None
+    password: Optional[str] = Field(None, min_length=4)
+
+
+class UpdateUserResponse(BaseModel):
+    """Response model for user update."""
+
+    success: bool
+    message: str
+    user: Optional[UserResponse] = None
+
+
 def require_admin(user: User = Depends(get_current_user)) -> User:
     """
     Dependency that requires admin authentication.
@@ -173,4 +188,80 @@ async def create_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create user: {str(e)}"
+        )
+
+
+@router.patch("/admin/users/{user_id}", response_model=UpdateUserResponse)
+async def update_user(
+    user_id: int,
+    update_data: UpdateUserRequest,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Update an existing user's email and/or password (admin only).
+    
+    Passwords are stored as one-way hashes and cannot be retrieved.
+    Only email and password can be updated.
+    
+    Args:
+        user_id: ID of the user to update
+        update_data: Update data (email and/or password)
+        admin: Current admin user
+        db: Database session
+        
+    Returns:
+        Updated user information
+    """
+    logger.info(f"Admin {admin.username} updating user {user_id}")
+    
+    # At least one field must be provided
+    if not update_data.email and not update_data.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one field (email or password) must be provided"
+        )
+    
+    # Get the user
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {user_id} not found"
+        )
+    
+    try:
+        # Update email if provided
+        if update_data.email is not None:
+            user.email = update_data.email
+            logger.info(f"Updated email for user {user.username}")
+        
+        # Update password if provided
+        if update_data.password:
+            user.hashed_password = get_password_hash(update_data.password)
+            logger.info(f"Updated password for user {user.username}")
+        
+        db.commit()
+        db.refresh(user)
+        
+        logger.info(f"✓ User updated successfully: {user.username} (id: {user.id})")
+        
+        return UpdateUserResponse(
+            success=True,
+            message=f"User '{user.username}' updated successfully",
+            user=UserResponse(
+                id=user.id,
+                username=user.username,
+                email=user.email,
+                is_active=user.is_active,
+                is_admin=user.is_admin,
+                created_at=user.created_at.isoformat()
+            )
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to update user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update user: {str(e)}"
         )
