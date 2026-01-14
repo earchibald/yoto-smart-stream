@@ -2155,3 +2155,207 @@ audio::-webkit-media-controls-pause-button {
     background: rgba(102, 126, 234, 0.1);
     color: #667eea;
 }
+
+/* Audio Recorder Styles */
+.recorder-container {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.recorder-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.recorder-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 6px;
+    border-left: 4px solid #667eea;
+}
+
+.recorder-status-text {
+    font-weight: 600;
+    color: #334155;
+}
+
+.recorder-timer {
+    font-family: 'Courier New', monospace;
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.recorder-visualization {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #1e293b;
+    border-radius: 6px;
+    padding: 1rem;
+    min-height: 120px;
+}
+
+#waveform {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+.recorder-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.recorder-buttons button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.recorder-buttons button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.recorder-buttons button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.recorder-buttons button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.recorder-buttons .btn-icon {
+    font-size: 2rem;
+}
+
+.recorder-buttons .btn-text {
+    font-size: 0.875rem;
+}
+
+.recorder-buttons .btn-shortcut {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    font-weight: normal;
+}
+
+.btn-record {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+}
+
+.btn-record:hover:not(:disabled) {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.btn-stop {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+    color: white;
+}
+
+.btn-stop:hover:not(:disabled) {
+    background: linear-gradient(135deg, #475569 0%, #334155 100%);
+}
+
+.btn-rerecord {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+}
+
+.btn-rerecord:hover:not(:disabled) {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.recorder-preview {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1.5rem;
+    border: 2px solid #e2e8f0;
+}
+
+.recorder-preview h4 {
+    margin-bottom: 1rem;
+    color: #334155;
+}
+
+#preview-audio {
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+.recorder-metadata {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.recorder-metadata .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.recorder-metadata label {
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.875rem;
+}
+
+.recorder-metadata input,
+.recorder-metadata textarea {
+    padding: 0.75rem;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-family: inherit;
+}
+
+.recorder-metadata input:focus,
+.recorder-metadata textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.recorder-metadata textarea {
+    resize: vertical;
+}
+
+.recorder-metadata .form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+#save-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+}
+
+#save-btn .btn-shortcut {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-left: 0.5rem;
+}
