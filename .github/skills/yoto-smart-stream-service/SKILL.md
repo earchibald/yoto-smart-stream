@@ -32,6 +32,7 @@ Identify the Yoto Smart Stream service hostname using one of these methods:
    - `production` - main branch deployment
    - `develop` - develop branch deployment  
    - `yoto-smart-stream-pr-{PR_ID}` - PR preview environments
+     - PR_ID Pull Request ID # from github MCP
 
 ### Default Credentials
 
@@ -53,6 +54,7 @@ OAuth authorization flow is required for Yoto device access:
 2. Navigate to Dashboard
 3. Click "🔑 Connect Yoto Account" button
 4. Complete Yoto OAuth device flow in browser
+  a. Agents may not have the Yoto OAuth login credentials to perform this. In this case, the agent should pause, notify the user to perform this one-time step manually, and tell the user that the agent will wait for "continue" from the user to pick up where the agent left off.
 5. Authorization complete - tokens stored and used for all subsequent operations
 
 ## Service Structure
