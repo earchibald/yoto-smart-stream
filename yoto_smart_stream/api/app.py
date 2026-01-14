@@ -20,7 +20,7 @@ from ..core import YotoClient
 from ..database import init_db
 from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
-from .routes import auth, cards, health, library, players, streams, user_auth
+from .routes import admin, auth, cards, health, library, players, streams, user_auth
 from .stream_manager import get_stream_manager
 
 logger = logging.getLogger(__name__)
@@ -106,8 +106,10 @@ async def lifespan(app: FastAPI):
                 
                 admin_user = User(
                     username="admin",
+                    email="eugenearchibald@gmail.com",
                     hashed_password=hashed,
-                    is_active=True
+                    is_active=True,
+                    is_admin=True
                 )
                 logger.info("User object created, committing to database...")
                 db.add(admin_user)
@@ -268,6 +270,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(health.router, prefix="/api", tags=["Health"])
     app.include_router(user_auth.router, prefix="/api", tags=["User Authentication"])
+    app.include_router(admin.router, prefix="/api", tags=["Admin"])
     app.include_router(auth.router, prefix="/api", tags=["Yoto Authentication"])
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
@@ -310,6 +313,22 @@ def create_app() -> FastAPI:
         if library_path.exists():
             return FileResponse(library_path)
         return {"message": "Library UI not available", "docs": "/docs"}
+
+    @app.get("/audio-library", tags=["Web UI"])
+    async def audio_library_ui():
+        """Serve the audio library interface."""
+        audio_library_path = static_dir / "audio-library.html"
+        if audio_library_path.exists():
+            return FileResponse(audio_library_path)
+        return {"message": "Audio Library UI not available", "docs": "/docs"}
+
+    @app.get("/admin", tags=["Web UI"])
+    async def admin_ui():
+        """Serve the admin interface."""
+        admin_path = static_dir / "admin.html"
+        if admin_path.exists():
+            return FileResponse(admin_path)
+        return {"message": "Admin UI not available", "docs": "/docs"}
 
     @app.get("/api/status", tags=["General"])
     async def api_status():
