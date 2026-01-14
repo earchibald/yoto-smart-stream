@@ -150,6 +150,11 @@ async function startAuth() {
     const authActions = document.getElementById('auth-actions');
     const authMessage = document.getElementById('auth-message');
     
+    if (!loginButton) {
+        console.error('Login button not found');
+        return;
+    }
+    
     loginButton.disabled = true;
     loginButton.textContent = 'Starting...';
     
@@ -168,14 +173,20 @@ async function startAuth() {
         deviceCode = data.device_code;
         
         // Update UI with auth details
-        document.getElementById('auth-url').href = data.verification_uri_complete || data.verification_uri;
-        document.getElementById('auth-url').textContent = data.verification_uri;
-        document.getElementById('user-code').textContent = data.user_code;
+        const authUrl = document.getElementById('auth-url');
+        const userCode = document.getElementById('user-code');
+        if (authUrl) {
+            authUrl.href = data.verification_uri_complete || data.verification_uri;
+            authUrl.textContent = data.verification_uri;
+        }
+        if (userCode) {
+            userCode.textContent = data.user_code;
+        }
         
         // Show waiting section
-        authWaiting.style.display = 'block';
-        authActions.style.display = 'none';
-        authMessage.textContent = 'Complete the authorization in your browser, then we\'ll automatically connect.';
+        if (authWaiting) authWaiting.style.display = 'block';
+        if (authActions) authActions.style.display = 'none';
+        if (authMessage) authMessage.textContent = 'Complete the authorization in your browser, then we\'ll automatically connect.';
         
         // Start polling for completion
         startAuthPolling();
