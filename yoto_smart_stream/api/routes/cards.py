@@ -280,17 +280,16 @@ async def upload_audio(
             "message": f"Successfully uploaded '{final_filename}'"
         }
         
-    finally:
-        # Clean up temporary file
-        if temp_path and os.path.exists(temp_path):
-            os.remove(temp_path)
-                
     except Exception as e:
         logger.error(f"Failed to upload audio: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to upload audio: {str(e)}"
         ) from e
+    finally:
+        # Clean up temporary file
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
 
 
 @router.get("/audio/{filename}")
