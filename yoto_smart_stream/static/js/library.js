@@ -92,11 +92,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup filter listeners
     const cardsFilter = document.getElementById('cards-filter');
     const playlistsFilter = document.getElementById('playlists-filter');
+    const freshToggle = document.getElementById('fresh-toggle');
     if (cardsFilter) {
         cardsFilter.addEventListener('input', applyCardsFilter);
     }
     if (playlistsFilter) {
         playlistsFilter.addEventListener('input', applyPlaylistsFilter);
+    }
+    if (freshToggle) {
+        freshToggle.addEventListener('change', () => {
+            // Reload library when fresh toggle changes
+            refreshLibrary();
+        });
     }
 });
 
@@ -129,7 +136,9 @@ async function loadLibrary() {
     statusTextEl.textContent = 'Loading library...';
     
     try {
-        const response = await fetch(`${API_BASE}/library`);
+        const freshEl = document.getElementById('fresh-toggle');
+        const freshParam = freshEl && freshEl.checked ? '?fresh=1' : '';
+        const response = await fetch(`${API_BASE}/library${freshParam}`);
         
         if (response.status === 401) {
             // Not authenticated
