@@ -81,7 +81,7 @@
 - Full monitoring and alerting
 - Point-in-time recovery enabled
 - Multi-AZ deployment for Fargate
-- Cost: $6-8/month
+- Cost: $7.50/month
 
 ### Develop Environment
 
@@ -95,13 +95,14 @@
 - S3 Buckets: `yoto-audio-dev`, `yoto-ui-dev`
 - ECS Service: `yoto-mqtt-dev`
 - CloudFront Distribution: `d456def.cloudfront.net`
+- Amazon Polly for TTS
 
 **Characteristics:**
 - Always-on (no auto-deletion)
 - Reduced monitoring (cost savings)
 - Daily backups only
 - Single-AZ for Fargate (cost savings)
-- Cost: $6-8/month
+- Cost: $5/month
 
 ### PR Environments (Ephemeral)
 
@@ -116,6 +117,7 @@
 - S3 Buckets: `yoto-audio-pr-{number}`, `yoto-ui-pr-{number}`
 - ECS Service: `yoto-mqtt-pr-{number}`
 - CloudFront Distribution: `dXXXpr{number}.cloudfront.net`
+- Amazon Polly for TTS
 
 **Characteristics:**
 - Auto-created on PR open
@@ -124,7 +126,7 @@
 - Minimal monitoring
 - No backups
 - Single-AZ for Fargate
-- Cost: $6-8/month per PR (prorated by hours active)
+- Cost: $7.50/month per PR (prorated by hours active)
 
 **Note:**
 - PR environments are full-featured for comprehensive testing
@@ -244,6 +246,19 @@ Resources:
             BucketName: !Ref AudioBucket
         - S3ReadPolicy:
             BucketName: !Ref UIBucket
+        # Amazon Polly for TTS
+        - Statement:
+            - Effect: Allow
+              Action:
+                - polly:SynthesizeSpeech
+              Resource: '*'
+        # Amazon Transcribe (optional, for future features)
+        - Statement:
+            - Effect: Allow
+              Action:
+                - transcribe:StartTranscriptionJob
+                - transcribe:GetTranscriptionJob
+              Resource: '*'
       Events:
         ApiEvent:
           Type: HttpApi
@@ -1031,10 +1046,11 @@ jobs:
             - ✅ MQTT handler (Fargate Spot)
             - ✅ Database (DynamoDB)
             - ✅ Storage (S3 + CloudFront)
+            - ✅ TTS (Amazon Polly Neural voices)
             - ✅ Matches production environment
             
             ### Cost Info
-            - This environment costs ~$6-8/month (prorated by hours)
+            - This environment costs ~$7.50/month (prorated by hours)
             - Full stack for comprehensive testing
             - Environment will be auto-deleted when PR is closed
             
@@ -1042,6 +1058,7 @@ jobs:
             - Cold starts expected (2-5 seconds on first request)
             - Subsequent requests fast (<100ms)
             - MQTT events fully functional
+            - Polly TTS with professional voices
             `;
             
             github.rest.issues.createComment({
@@ -1372,17 +1389,17 @@ sam deploy --stack-name yoto-smart-stream-prod ...
 
 ### Monthly Cost per Environment
 
-| Environment | Lambda | Fargate | DynamoDB | S3 + CloudFront | Total |
-|-------------|--------|---------|----------|-----------------|-------|
-| **Production** | $0 | $3 | $1 | $1.50 | **$5.50** |
-| **Develop** | $0 | $3 | $0.50 | $0.50 | **$4** |
-| **PR (each)** | $0 | $3 | $0.50 | $1 | **$4.50/month** (prorated) |
+| Environment | Lambda | Fargate | DynamoDB | S3 + CloudFront | Polly TTS | Total |
+|-------------|--------|---------|----------|-----------------|-----------|-------|
+| **Production** | $0 | $3 | $1 | $1.50 | $2 | **$7.50** |
+| **Develop** | $0 | $3 | $0.50 | $0.50 | $1 | **$5** |
+| **PR (each)** | $0 | $3 | $0.50 | $1 | $1 | **$5.50/month** (prorated) |
 
-**Note:** PR environments cost ~$6-8/month if left running continuously, but are prorated by hours active. Examples:
-- PR open for 1 day: ~$0.20
-- PR open for 3 days: ~$0.60
-- PR open for 7 days: ~$1.40
-- PR open for 30 days: ~$6.00
+**Note:** PR environments cost ~$5.50-8/month if left running continuously, but are prorated by hours active. Examples:
+- PR open for 1 day: ~$0.25
+- PR open for 3 days: ~$0.75
+- PR open for 7 days: ~$1.75
+- PR open for 30 days: ~$7.50
 
 ### Cost Optimization Strategies
 

@@ -1,9 +1,9 @@
 # Architecture 1: Minimal Cost Implementation Guide
-# AWS Lambda + Fargate Spot Deployment ($5-8/month)
+# AWS Lambda + Fargate Spot + Amazon Polly Deployment ($7-10/month)
 
 **Last Updated:** 2026-01-15  
-**Architecture:** Minimal Cost (Lambda + Fargate Spot)  
-**Monthly Cost:** $5-8  
+**Architecture:** Minimal Cost (Lambda + Fargate Spot + Polly)  
+**Monthly Cost:** $7-10 ($8.50 typical)  
 **Purpose:** Step-by-step implementation reference for session continuity
 
 ---
@@ -708,7 +708,7 @@ yoto_api>=2.1.0
 pydantic>=2.4.0
 python-multipart>=0.0.6
 pillow>=10.0.0
-gtts>=2.5.0
+# Note: gTTS removed - using Amazon Polly instead (boto3 built-in)
 ```
 
 #### 5.2 Package Lambda Function
@@ -813,12 +813,158 @@ time curl ${API_URL}/api/health
 # Second request: ~0.1 seconds (warm)
 ```
 
+#### 5.6 Implement Amazon Polly for TTS
+
+Replace gTTS with Amazon Polly for professional voice quality.
+
+**Code changes in `yoto_smart_stream/api/routes/cards.py`:**
+
+```python
+# BEFORE (gTTS):
+# from gtts import gTTS
+# tts = gTTS(text=request.text, lang="en", slow=False)
+# tts.save(audio_path)
+
+# AFTER (Amazon Polly):
+import boto3
+
+polly = boto3.client('polly', region_name='us-east-1')
+
+def generate_tts_audio(text: str, output_path: str, voice_id: str = "Joanna"):
+    """
+    Generate TTS audio using Amazon Polly Neural voices.
+    
+    Args:
+        text: Text to convert to speech
+        output_path: Local path or S3 key for audio file
+        voice_id: Polly voice ID (default: Joanna - Neural, female, US)
+    
+    Returns:
+        Audio file path or S3 URL
+    """
+    response = polly.synthesize_speech(
+        Text=text,
+        OutputFormat='mp3',
+        VoiceId=voice_id,
+        Engine='neural',  # Use Neural for high-quality voices
+        TextType='text'   # Or 'ssml' for advanced control
+    )
+    
+    # Get audio stream
+    audio_stream = response['AudioStream'].read()
+    
+    # Upload directly to S3 (recommended)
+    s3_client = boto3.client('s3')
+    audio_key = f"tts/{datetime.now().strftime('%Y%m%d_%H%M%S')}_{voice_id}.mp3"
+    s3_client.put_object(
+        Bucket=os.environ['S3_BUCKET_AUDIO'],
+        Key=audio_key,
+        Body=audio_stream,
+        ContentType='audio/mpeg'
+    )
+    
+    # Generate pre-signed URL for Yoto device
+    url = s3_client.generate_presigned_url(
+        'get_object',
+        Params={'Bucket': os.environ['S3_BUCKET_AUDIO'], 'Key': audio_key},
+        ExpiresIn=3600
+    )
+    
+    return url
+
+# Usage in API endpoint:
+@router.post("/api/cards/create-tts")
+async def create_tts_card(request: TTSRequest):
+    audio_url = generate_tts_audio(
+        text=request.text,
+        output_path=f"tts/{request.card_id}.mp3",
+        voice_id="Joanna"  # or "Matthew", "Amy", etc.
+    )
+    
+    return {"audio_url": audio_url, "card_id": request.card_id}
+```
+
+**Available Neural Voices:**
+- **Joanna** (US, female) - Warm, friendly - Best for children's content
+- **Matthew** (US, male) - Clear, professional
+- **Amy** (British, female) - Clear, British accent
+- **Brian** (British, male) - Professional, British accent
+- **Ivy** (US child, female) - Child voice for peer-like stories
+
+**SSML Support (Advanced):**
+```python
+# Use SSML for emotions, pauses, emphasis
+ssml_text = '''<speak>
+    <prosody rate="slow" pitch="+10%">
+        Once upon a time, <break time="500ms"/> 
+        there was a brave little robot.
+    </prosody>
+    <amazon:emotion name="excited" intensity="medium">
+        And it went on an amazing adventure!
+    </amazon:emotion>
+</speak>'''
+
+response = polly.synthesize_speech(
+    Text=ssml_text,
+    TextType='ssml',  # Enable SSML
+    OutputFormat='mp3',
+    VoiceId='Joanna',
+    Engine='neural'
+)
+```
+
+**IAM Permissions Required:**
+
+Add to Lambda execution role:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "polly:SynthesizeSpeech"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+**Cost Monitoring:**
+```bash
+# Check Polly usage in CloudWatch
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/Polly \
+  --metric-name CharactersProcessed \
+  --dimensions Name=Operation,Value=SynthesizeSpeech \
+  --start-time $(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%S) \
+  --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+  --period 86400 \
+  --statistics Sum
+```
+
+**Testing:**
+```bash
+# Test Polly directly
+aws polly synthesize-speech \
+  --text "Hello from Yoto Smart Stream" \
+  --output-format mp3 \
+  --voice-id Joanna \
+  --engine neural \
+  test-polly.mp3
+
+# Play the audio
+mpg123 test-polly.mp3  # or open in browser
+```
+
 **Checkpoint:**
 - [ ] Lambda function deployed
 - [ ] API Gateway created
 - [ ] Cold start measured (~2-5s)
 - [ ] Warm requests measured (<100ms)
 - [ ] All endpoints working
+- [ ] **Amazon Polly TTS implemented and tested**
 
 ---
 
@@ -1085,15 +1231,20 @@ railway restart
 ### Cost Breakdown (Monthly)
 
 ```
-API Gateway:    \$0.50
-Lambda:         \$0.00 (free tier)
-DynamoDB:       \$1.00
-S3 + CloudFront:\$1.50
-Fargate Spot:   \$3.00
-CloudWatch:     \$0.50
+API Gateway:    $0.50
+Lambda:         $0.00 (free tier)
+DynamoDB:       $1.00
+S3 + CloudFront:$1.50
+Fargate Spot:   $3.00
+Amazon Polly:   $2.00
+CloudWatch:     $0.50
 ───────────────────
-TOTAL:          \$6.50
+TOTAL:          $8.50
 ```
+
+**With Free Tier (First 12 Months):**
+- Polly Neural: 1M characters free/month → Saves ~$1.50
+- **Effective Cost: $7/month** (first year)
 
 ### When to Upgrade
 
@@ -1101,7 +1252,7 @@ Consider Architecture 2 (No Cold Starts) if:
 - Cold starts become problematic
 - Usage exceeds Lambda free tier
 - Need instant response times
-- Can afford \$33/month
+- Can afford $35/month
 
 ---
 

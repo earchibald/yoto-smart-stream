@@ -16,7 +16,7 @@ This report analyzes the most cost-effective AWS architecture for Yoto Smart Str
 - Handles OAuth authentication with Yoto API
 - Stores user data and audio files
 
-**Key Recommendation:** Hybrid serverless architecture with Lambda for API endpoints, ECS Fargate Spot for long-running MQTT, and S3 for storage can reduce costs to approximately **$5-15/month** at low-to-medium usage.
+**Key Recommendation:** Hybrid serverless architecture with Lambda for API endpoints, ECS Fargate Spot for long-running MQTT, Amazon Polly for TTS, and S3 for storage can deliver professional quality at approximately **$7-14/month** at low-to-medium usage.
 
 ---
 
@@ -32,7 +32,7 @@ This report analyzes the most cost-effective AWS architecture for Yoto Smart Str
 | **Audio Storage** | Local filesystem (Railway volume) | Serve MP3 files, TTS generation | Storage + bandwidth |
 | **Static UI** | Served by FastAPI | HTML/CSS/JS files | Compute + bandwidth |
 | **OAuth Tokens** | File-based on persistent volume | Periodic refresh | Storage |
-| **TTS Generation** | Google TTS (gTTS) | On-demand audio creation | Compute |
+| **TTS Generation** | Amazon Polly (Neural) | On-demand audio creation | Per-character API calls |
 | **Background Tasks** | Token refresh every 12 hours | Periodic execution | Compute |
 
 ### Traffic & Usage Patterns
@@ -452,8 +452,44 @@ async def token_refresh_loop():
 
 **AWS Options:**
 
-#### Option A: Continue with gTTS in Lambda
-**Cost:** ~$0.10/month (compute time)
+#### Option A: AWS Polly (Neural TTS) ⭐ RECOMMENDED
+**Cost:** ~$1-2/month
+
+- **Service:** Amazon Polly Neural voices
+- **Pricing:** $16 per 1M characters (Neural), $4 per 1M characters (Standard)
+- **Typical usage:** 10 TTS/day × 500 characters = 150K characters/month = $2.40 (Neural) or $0.60 (Standard)
+- **Free tier:** 5M characters/month for Standard voices (first 12 months), 1M characters/month for Neural voices (first 12 months)
+- **API integration:** Direct boto3 calls from Lambda
+
+**Pros:**
+- **Professional quality voices** - Neural TTS sounds natural and human-like
+- 60+ voices in 30+ languages and dialects
+- SSML support (emotions, pauses, emphasis, pronunciation)
+- Real-time streaming or file generation
+- No dependencies to bundle (boto3 already in Lambda)
+- Consistent with AWS-native approach
+
+**Cons:**
+- ~$2/month cost vs. free gTTS (still very affordable)
+- Requires AWS SDK integration
+
+**Implementation:**
+```python
+import boto3
+
+polly = boto3.client('polly')
+response = polly.synthesize_speech(
+    Text='Hello from Yoto Smart Stream',
+    OutputFormat='mp3',
+    VoiceId='Joanna',  # Neural voice
+    Engine='neural'
+)
+audio_stream = response['AudioStream'].read()
+# Upload to S3 or stream directly
+```
+
+#### Option B: Continue with gTTS in Lambda
+**Cost:** $0/month (within free tier)
 
 - **Keep current implementation**
 - **Lambda execution:** ~10 seconds per TTS generation
@@ -462,28 +498,69 @@ async def token_refresh_loop():
 - **Cost:** $0 within free tier
 
 **Pros:**
-- No code changes
-- Free within Lambda free tier
+- No code changes required
+- Completely free
+- Simple implementation
 
 **Cons:**
-- Limited voices (gTTS quality)
+- **Robotic voice quality** - Not suitable for children's content
+- Limited voices and languages
+- Requires bundling gTTS dependency (~2MB)
+- Not AWS-native
 
-#### Option B: AWS Polly (Neural TTS)
-**Cost:** ~$1-2/month
+**Recommendation:** Use Amazon Polly for professional voice quality suitable for children's storytelling. The ~$2/month cost is justified by significantly better audio quality and AWS integration.
 
-- **Service:** Amazon Polly Neural voices
-- **Pricing:** $16 per 1M characters (Neural), $4 per 1M characters (Standard)
-- **Typical usage:** 10 TTS/day × 500 characters = 150K characters/month = $2.40 (Neural) or $0.60 (Standard)
+---
+
+### 8a. Speech-to-Text Transcription (Optional Feature)
+
+**Current:** Not implemented
+**Potential Use Case:** Voice commands for interactive cards, audio content indexing
+
+**AWS Option:**
+
+#### Amazon Transcribe
+**Cost:** ~$0.50-1/month (if implemented)
+
+- **Service:** Amazon Transcribe (Standard or Medical)
+- **Pricing:** $0.024 per minute for Standard, $0.031 per minute for Medical
+- **Typical usage:** 5 minutes/day × 30 days = 150 minutes/month = $3.60/month
+- **Free tier:** 60 minutes/month for first 12 months
+- **Batch or real-time:** Supports both asynchronous and streaming transcription
 
 **Pros:**
-- Higher quality voices
-- More languages and accents
-- SSML support (emotions, pauses)
+- Accurate speech recognition with punctuation
+- Speaker identification (diarization)
+- Custom vocabulary support
+- Multiple languages and dialects
+- Timestamps for word-level alignment
 
 **Cons:**
-- Costs more than gTTS (still very cheap)
+- Not currently a feature in the app
+- Would add complexity
+- Per-minute pricing can add up with heavy usage
 
-**Recommendation:** Start with gTTS in Lambda (free), upgrade to Polly if voice quality is important
+**Use Cases for Yoto:**
+- Voice commands: "Play next", "Pause", "Tell me a story about..."
+- Content creation: Upload audio story, auto-generate transcript for metadata
+- Interactive cards: Voice responses from children triggering actions
+
+**Implementation:**
+```python
+import boto3
+
+transcribe = boto3.client('transcribe')
+transcribe.start_transcription_job(
+    TranscriptionJobName='yoto-card-audio-123',
+    Media={'MediaFileUri': 's3://yoto-audio/input.mp3'},
+    MediaFormat='mp3',
+    LanguageCode='en-US',
+    OutputBucketName='yoto-transcriptions'
+)
+# Poll for completion or use EventBridge for notification
+```
+
+**Recommendation:** Not needed for MVP. Consider for future features if adding voice interaction to cards.
 
 ---
 
@@ -513,7 +590,7 @@ async def token_refresh_loop():
 ## Complete Architecture Options
 
 ### Architecture 1: Minimal Cost (Hybrid Lambda + Fargate Spot)
-**Estimated Monthly Cost: $5-10**
+**Estimated Monthly Cost: $7-10**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -541,7 +618,7 @@ async def token_refresh_loop():
              │         │                 │  S3 Bucket          │
              │         └────────────────▶│  • Audio files      │
              │                           │  • Static UI        │
-             │                           │  • TTS generated    │
+             │                           │  • Polly TTS audio  │
              ▼                           │  Cost: ~$1/month    │
 ┌─────────────────────────────┐         └─────────────────────┘
 │  DynamoDB (On-Demand)       │
@@ -558,14 +635,21 @@ async def token_refresh_loop():
 │  • Auto-reconnect on spot   │         │  • every 12 hours   │
 │  Cost: ~$2-3/month          │         │  Cost: Free         │
 └─────────────────────────────┘         └─────────────────────┘
+                                         ┌─────────────────────┐
+                                         │  Amazon Polly       │
+                                         │  • Neural TTS       │
+                                         │  • On-demand API    │
+                                         │  Cost: ~$2/month    │
+                                         └─────────────────────┘
 
-TOTAL COST: ~$5-8/month
+TOTAL COST: ~$7-10/month
 ```
 
 **Pros:**
-- Lowest cost option
+- Low cost with professional voice quality
 - Scales to zero for API (Lambda)
 - MQTT always-on but cheap (Spot)
+- AWS-native TTS integration
 
 **Cons:**
 - Cold starts on API Gateway
@@ -575,7 +659,7 @@ TOTAL COST: ~$5-8/month
 ---
 
 ### Architecture 2: Low-Cost with No Cold Starts (ALB + Fargate)
-**Estimated Monthly Cost: $15-25**
+**Estimated Monthly Cost: $35-49**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -607,20 +691,21 @@ TOTAL COST: ~$5-8/month
              ▼                           │  Cost: ~$1.50/month │
 ┌─────────────────────────────┐         └─────────────────────┘
 │  RDS db.t4g.micro           │
-│  • PostgreSQL (or Aurora)   │
-│  • 20GB storage             │
-│  • SQL compatibility        │
-│  Cost: ~$15/month           │
-└─────────────────────────────┘
+│  • PostgreSQL (or Aurora)   │         ┌─────────────────────┐
+│  • 20GB storage             │         │  Amazon Polly       │
+│  • SQL compatibility        │         │  • Neural TTS       │
+│  Cost: ~$15/month           │         │  Cost: ~$2/month    │
+└─────────────────────────────┘         └─────────────────────┘
 
-TOTAL COST: ~$47/month (with RDS)
-TOTAL COST: ~$33/month (with DynamoDB instead of RDS)
+TOTAL COST: ~$49/month (with RDS)
+TOTAL COST: ~$35/month (with DynamoDB instead of RDS)
 ```
 
 **Pros:**
 - No cold starts (instant API responses)
 - SQL database (easy migration)
 - Simpler deployment (like Railway)
+- Professional TTS quality
 
 **Cons:**
 - Always-on cost even when idle
@@ -629,7 +714,7 @@ TOTAL COST: ~$33/month (with DynamoDB instead of RDS)
 ---
 
 ### Architecture 3: Hybrid Best-of-Both (Recommended for Balance)
-**Estimated Monthly Cost: $8-15**
+**Estimated Monthly Cost: $10-14**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -649,7 +734,7 @@ TOTAL COST: ~$33/month (with DynamoDB instead of RDS)
 ┌─────────────────────────────────────────────────────────────┐
 │  Lambda Functions                                            │
 │  • Read-only operations (players, library, health)          │
-│  • Create cards, TTS generation                             │
+│  • Create cards, Amazon Polly TTS generation                 │
 │  • Cost: ~$1/month                                           │
 └────────────┬────────────────────────────────────────────────┘
              │
@@ -667,13 +752,13 @@ TOTAL COST: ~$33/month (with DynamoDB instead of RDS)
                                          │  Cost: ~$3/month    │
                                          └─────────────────────┘
                                          
-┌─────────────────────────────┐
-│  CloudWatch                 │
-│  • Logs + Metrics           │
-│  Cost: ~$0.50/month         │
-└─────────────────────────────┘
+┌─────────────────────────────┐         ┌─────────────────────┐
+│  CloudWatch                 │         │  Amazon Polly       │
+│  • Logs + Metrics           │         │  • Neural TTS       │
+│  Cost: ~$0.50/month         │         │  Cost: ~$2/month    │
+└─────────────────────────────┘         └─────────────────────┘
 
-TOTAL COST: ~$8-12/month
+TOTAL COST: ~$10-14/month
 ```
 
 **Pros:**
@@ -681,6 +766,7 @@ TOTAL COST: ~$8-12/month
 - API scales to zero (Lambda)
 - MQTT always-on (Fargate Spot)
 - Cold starts only on infrequent APIs
+- Professional voice quality
 
 **Cons:**
 - Slightly more complex than single Fargate
@@ -697,16 +783,17 @@ TOTAL COST: ~$8-12/month
 | **Database** | DynamoDB ($1) | RDS ($15) | DynamoDB ($1) | SQLite (volume) |
 | **Audio Storage** | S3 ($1) | S3 ($1.50) | S3 ($1.50) | Volume ($5-10) |
 | **Static UI** | CloudFront ($0.50) | ALB (included) | CloudFront ($0.50) | Included |
+| **TTS** | Polly Neural ($2) | Polly Neural ($2) | Polly Neural ($2) | gTTS (free) |
 | **Load Balancer** | None | ALB ($16) | None | Included |
 | **Background Jobs** | Included | Included | Included | Included |
 | **Monitoring** | CloudWatch ($0.50) | CloudWatch ($0.50) | CloudWatch ($0.50) | Included |
-| **TOTAL/MONTH** | **$5-8** | **$47** (RDS) / **$33** (DynamoDB) | **$8-12** | **$5** (Hobby) / **$20** (Pro) |
+| **TOTAL/MONTH** | **$7-10** | **$49** (RDS) / **$35** (DynamoDB) | **$10-14** | **$5** (Hobby) / **$20** (Pro) |
 
 **Railway Comparison:**
 - Railway Hobby: $5/month (500 hours execution, $10 credit)
 - Railway Pro: $20/month (unlimited execution)
 
-**Key Insight:** Architecture 1 (Minimal) matches Railway Hobby pricing but with unlimited scalability. Architecture 3 (Hybrid) provides best balance for $8-12/month.
+**Key Insight:** Architecture 1 (Minimal) now $7-10/month with Polly but with unlimited scalability. Architecture 3 (Hybrid) provides best balance for $10-14/month.
 
 ---
 
