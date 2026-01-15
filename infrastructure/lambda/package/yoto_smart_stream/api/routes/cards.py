@@ -9,7 +9,6 @@ from typing import Optional
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
-from gtts import gTTS
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
 from sqlalchemy.orm import Session
@@ -19,6 +18,7 @@ from ..dependencies import get_yoto_client
 from ...database import get_db
 from ...models import User
 from .user_auth import require_auth
+from ...core.polly_tts import get_polly_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -220,11 +220,67 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
     logger.info(f"Generating TTS audio for: {final_filename}")
 
     try:
+        # Try AWS Polly first
+        polly_service = get_polly_service()
+        success, s3_url, error_msg = polly_service.synthesize_speech(
+            text=request.text,
+            output_path=output_path,
+        )
+
+        if success:
+            # Get file information
+            file_size = output_path.stat().st_size
+            
+            # Calculate duration using pydub
+            try:
+                audio = AudioSegment.from_mp3(str(output_path))
+                duration_seconds = int(len(audio) / 1000)
+            except Exception as e:
+                logger.warning(f"Could not calculate duration: {e}")
+                duration_seconds = 0
+            
+            logger.info(f"✓ TTS audio generated with Polly: {final_filename} ({file_size} bytes, {duration_seconds}s)")
+            
+            # Create database record with the source text as transcript
+            from ...core.audio_db import get_or_create_audio_file, update_transcript
+            
+            audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
+            # Store the original text as the transcript since we already have it
+            update_transcript(db, final_filename, request.text, "completed", None)
+
+            response_data = {
+                "success": True,
+                "filename": final_filename,
+                "size": file_size,
+                "duration": duration_seconds,
+                "url": f"/api/audio/{final_filename}",
+                "message": f"Successfully generated '{final_filename}' using AWS Polly",
+                "transcript_status": "completed",
+                "engine": "polly"
+            }
+            
+            if s3_url:
+                response_data["s3_url"] = s3_url
+            
+            return response_data
+        
+        # Fallback to gTTS if Polly fails
+        logger.warning(f"Polly failed ({error_msg}), falling back to gTTS")
+        
         # Create a temporary file for the initial TTS output
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
             temp_path = temp_file.name
 
         try:
+            # Try importing gTTS
+            try:
+                from gtts import gTTS
+            except ImportError:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="TTS service unavailable. AWS Polly failed and gTTS not installed."
+                )
+            
             # Generate speech using gTTS
             tts = gTTS(text=request.text, lang="en", slow=False)
             tts.save(temp_path)
@@ -247,7 +303,7 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
             file_size = output_path.stat().st_size
             duration_seconds = int(len(audio) / 1000)
             
-            logger.info(f"✓ TTS audio generated: {final_filename} ({file_size} bytes, {duration_seconds}s)")
+            logger.info(f"✓ TTS audio generated with gTTS: {final_filename} ({file_size} bytes, {duration_seconds}s)")
             
             # Create database record with the source text as transcript
             from ...core.audio_db import get_or_create_audio_file, update_transcript
@@ -262,8 +318,9 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
                 "size": file_size,
                 "duration": duration_seconds,
                 "url": f"/api/audio/{final_filename}",
-                "message": f"Successfully generated '{final_filename}'",
-                "transcript_status": "completed"
+                "message": f"Successfully generated '{final_filename}' using gTTS",
+                "transcript_status": "completed",
+                "engine": "gtts"
             }
 
         finally:
