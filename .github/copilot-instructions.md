@@ -12,6 +12,10 @@ This is the Yoto Smart Stream project - a service to stream audio to Yoto device
 - **Linting**: ruff for code quality, black for formatting
 - **Type hints**: Use Python typing throughout the codebase
 
+## Design Principles
+### Modal Dialogs
+- Modal dialogs should close with the Escape key.
+
 ## Locally-Maintained Skills
 
 This workspace contains locally-maintained custom skills in `.github/skills/`:

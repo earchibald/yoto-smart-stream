@@ -1182,11 +1182,21 @@ function closePlaylistModal() {
     }
 }
 
-// Close modal when clicking outside
+// Close modal when clicking outside or pressing Escape
 window.addEventListener('click', (event) => {
     const playlistModal = document.getElementById('playlistModal');
     if (event.target === playlistModal) {
         closePlaylistModal();
+    }
+});
+
+// Close modal with Escape key
+window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+        const playlistModal = document.getElementById('playlistModal');
+        if (playlistModal && playlistModal.style.display === 'block') {
+            closePlaylistModal();
+        }
     }
 });
 
