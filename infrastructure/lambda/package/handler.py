@@ -14,6 +14,37 @@ from mangum import Mangum
 # Note: This assumes the yoto_smart_stream package is copied to the Lambda package
 try:
     from yoto_smart_stream.api.app import create_app
+    from yoto_smart_stream.database import init_db
+    from yoto_smart_stream.database import SessionLocal
+    from yoto_smart_stream.models import User
+    from yoto_smart_stream.auth import get_password_hash
+    import logging
+    
+    # Initialize database on cold start
+    logger = logging.getLogger(__name__)
+    logger.info("Initializing database for Lambda...")
+    init_db()
+    
+    # Create default admin user if doesn't exist  
+    db = SessionLocal()
+    try:
+        admin_user = db.query(User).filter(User.username == "admin").first()
+        if not admin_user:
+            hashed = get_password_hash("yoto")
+            admin_user = User(
+                username="admin",
+                email="admin@yoto-smart-stream.local",
+                hashed_password=hashed,
+                is_active=True,
+                is_admin=True
+            )
+            db.add(admin_user)
+            db.commit()
+            logger.info("✓ Default admin user created in Lambda")
+    except Exception as e:
+        logger.error(f"Error creating default admin user: {e}")
+    finally:
+        db.close()
     
     # Create FastAPI app
     app = create_app()
