@@ -64,6 +64,12 @@ class YotoSmartStreamStack(Stack):
         self.lambda_function = self._create_lambda_function(yoto_client_id)
         self.api_gateway = self._create_api_gateway()
         
+        # Update Lambda PUBLIC_URL now that API Gateway is created
+        self.lambda_function.add_environment(
+            "PUBLIC_URL",
+            f"https://{self.api_gateway.api_id}.execute-api.{self.region}.amazonaws.com"
+        )
+        
         if enable_mqtt:
             self.mqtt_service = self._create_mqtt_handler()
         
@@ -190,6 +196,9 @@ class YotoSmartStreamStack(Stack):
             ),
             prevent_user_existence_errors=True,
         )
+        
+        # Store client as instance variable for use in Lambda environment
+        self.cognito_user_pool_client = user_pool_client
 
         # Create a domain for hosted UI (optional)
         user_pool.add_domain(
@@ -341,13 +350,18 @@ class YotoSmartStreamStack(Stack):
                 "S3_UI_BUCKET": self.ui_bucket.bucket_name,
                 "YOTO_CLIENT_ID": yoto_client_id or "",
                 "COGNITO_USER_POOL_ID": self.cognito_user_pool.user_pool_id,
-                "COGNITO_CLIENT_ID": self.cognito_user_pool.user_pool_provider_name,
+                "COGNITO_CLIENT_ID": self.cognito_user_pool_client.user_pool_client_id,  # Fixed: use client ID not provider name
                 "AUDIO_FILES_DIR": "/tmp/audio_files",  # Lambda writable directory
                 "DATABASE_URL": "sqlite:////tmp/yoto_smart_stream.db",  # Lambda writable location
+                "PUBLIC_URL": f"https://{{api_id}}.execute-api.{self.region}.amazonaws.com",  # For audio streaming (will be populated after API creation)
                 # AWS_REGION is automatically set by Lambda runtime
             },
             log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,
         )
+        
+        # Note: ffmpeg layer removed due to permission issues with third-party layers
+        # Audio recording features requiring ffmpeg/ffprobe will not work in Lambda
+        # Users should upload pre-recorded audio files instead
 
         CfnOutput(self, "LambdaFunctionArn", value=function.function_arn)
         return function
