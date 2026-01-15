@@ -892,31 +892,31 @@ async def create_playlist_from_audio(
 
         streaming_url = f"{settings.public_url}/audio/{chapter_item.filename}"
 
-        # Create chapter with streaming track
+        # Create chapter with streaming track (Yoto streaming format)
         chapter = {
             "key": f"{idx:02d}",
             "title": chapter_item.chapter_title,
+            "overlayLabel": str(idx),
             "tracks": [
                 {
                     "key": "01",
                     "title": chapter_item.chapter_title,
+                    "type": "stream",
                     "format": "mp3",
-                    "channels": "mono",
-                    "url": streaming_url,
-                    "type": "stream",  # Mark as stream type
+                    "trackUrl": streaming_url,
                 }
             ],
         }
         chapters.append(chapter)
 
-    # Create the card
+    # Create the card payload (Yoto /content endpoint format)
     card_data = {
         "title": request.title,
-        "description": request.description,
-        "author": request.author,
-        "metadata": {},
         "content": {
             "chapters": chapters
+        },
+        "metadata": {
+            "description": request.description or ""
         },
     }
 
@@ -933,7 +933,7 @@ async def create_playlist_from_audio(
             )
 
         response = requests.post(
-            "https://api.yotoplay.com/card",
+            "https://api.yotoplay.com/content",
             headers={
                 "Authorization": f"Bearer {manager.token.access_token}",
                 "Content-Type": "application/json",
