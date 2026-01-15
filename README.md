@@ -266,6 +266,8 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Production Server Guide](PRODUCTION_SERVER_COMPLETE.md)**: Complete guide to the production server implementation
 - **[Migration Guide](MIGRATION_GUIDE_EXAMPLES_TO_PROD.md)**: Migrate from examples to production server
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
+
+### Cloud Deployment
 - **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
 - **[Railway Direct Inspection](docs/RAILWAY_DIRECT_INSPECTION.md)**: Direct API access for service inspection and troubleshooting (NEW)
 - **[Railway PR Environments](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)**: Automatic ephemeral environments for pull requests
@@ -275,6 +277,8 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md)**: Configure separate tokens per environment
 - **[Codespaces Railway Setup](docs/CODESPACES_RAILWAY_SETUP.md)**: Configure Railway access for GitHub Codespaces
 - **[Copilot Workspace Configuration](docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md)**: Network access and Railway MCP server for GitHub Copilot Workspace (NEW)
+- **[AWS Cost-Optimization Report](docs/AWS_COST_OPTIMIZATION_REPORT.md)**: Complete AWS architecture analysis with cost breakdowns ($5-47/month options) (NEW)
+- **[AWS Cost Quick Reference](docs/AWS_COST_QUICK_REFERENCE.md)**: Fast decision matrix for AWS deployment options (NEW)
 
 ### Creating Content
 - **[Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)**: Stream audio from your server (recommended approach)
