@@ -6,7 +6,7 @@ import tempfile
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from gtts import gTTS
 from pydantic import BaseModel, Field
@@ -21,6 +21,65 @@ from .user_auth import require_auth
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+# Background task for transcription
+def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
+    """
+    Background task to transcribe audio file.
+    
+    Args:
+        filename: Audio filename
+        audio_path: Full path to audio file
+        db_url: Database URL for creating a new session
+    """
+    from pathlib import Path
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from ...core.audio_db import update_transcript, get_audio_file_by_filename
+    from ...core.transcription import get_transcription_service
+    
+    # Create a new database session for this background task
+    engine = create_engine(db_url, connect_args={"check_same_thread": False} if "sqlite" in db_url else {})
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = SessionLocal()
+    
+    try:
+        logger.info(f"Starting background transcription for {filename}")
+        
+        # Update status to processing
+        update_transcript(db, filename, None, "processing", None)
+        
+        # Check if still processing (could have been cancelled)
+        audio_record = get_audio_file_by_filename(db, filename)
+        if audio_record and audio_record.transcript_status != "processing":
+            logger.info(f"Transcription was cancelled for {filename}")
+            return
+        
+        # Perform transcription
+        transcription_service = get_transcription_service()
+        transcript_text, error_msg = transcription_service.transcribe_audio(Path(audio_path))
+        
+        # Check again before saving (in case cancelled during transcription)
+        audio_record = get_audio_file_by_filename(db, filename)
+        if audio_record and audio_record.transcript_status != "processing":
+            logger.info(f"Transcription was cancelled for {filename} during processing")
+            return
+        
+        if transcript_text:
+            update_transcript(db, filename, transcript_text, "completed", None)
+            logger.info(f"✓ Background transcription completed for {filename}")
+        else:
+            update_transcript(db, filename, None, "error", error_msg)
+            logger.warning(f"Background transcription failed for {filename}: {error_msg}")
+    except Exception as e:
+        logger.error(f"Background transcription error for {filename}: {e}", exc_info=True)
+        # Only update to error if still processing
+        audio_record = get_audio_file_by_filename(db, filename)
+        if audio_record and audio_record.transcript_status == "processing":
+            update_transcript(db, filename, None, "error", str(e))
+    finally:
+        db.close()
 
 
 # Request/Response models
@@ -211,6 +270,7 @@ async def upload_audio(
     file: UploadFile = File(...),
     filename: str = Form(...),
     description: str = Form(default=""),
+    background_tasks: BackgroundTasks = None,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db)
 ):
@@ -220,7 +280,7 @@ async def upload_audio(
     This endpoint accepts audio files (MP3, WebM, WAV) and saves them to the audio_files
     directory. If the uploaded file is not MP3, it will be converted to MP3 format.
     
-    Automatic transcription is triggered in the background after upload.
+    Transcription is triggered as a background task after upload completes.
     
     Args:
         file: Audio file upload
@@ -297,32 +357,24 @@ async def upload_audio(
         
         logger.info(f"✓ Audio uploaded and converted: {final_filename} ({file_size} bytes, {duration_seconds}s)")
         
-        # Create database record and trigger background transcription
+        # Create database record
         from ...core.audio_db import get_or_create_audio_file, update_transcript
-        from ...core.transcription import get_transcription_service
         
         audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
         
-        # Start transcription
-        # WARNING: This runs synchronously and will block the request for large files.
-        # TODO: Move to async background task queue (e.g., Celery, RQ, or FastAPI BackgroundTasks)
-        #       to prevent timeouts and improve UX for production deployments.
-        try:
-            update_transcript(db, final_filename, None, "processing", None)
-            
-            # Perform transcription synchronously (blocks request)
-            transcription_service = get_transcription_service()
-            transcript_text, error_msg = transcription_service.transcribe_audio(output_path)
-            
-            if transcript_text:
-                update_transcript(db, final_filename, transcript_text, "completed", None)
-                logger.info(f"✓ Transcription completed for {final_filename}")
-            else:
-                update_transcript(db, final_filename, None, "error", error_msg)
-                logger.warning(f"Transcription failed for {final_filename}: {error_msg}")
-        except Exception as e:
-            logger.error(f"Transcription error for {final_filename}: {e}", exc_info=True)
-            update_transcript(db, final_filename, None, "error", str(e))
+        # Mark transcription as pending and schedule background task
+        update_transcript(db, final_filename, None, "pending", None)
+        
+        # Schedule background transcription (non-blocking)
+        if background_tasks:
+            settings = get_settings()
+            background_tasks.add_task(
+                transcribe_audio_background,
+                final_filename,
+                str(output_path),
+                settings.database_url
+            )
+            logger.info(f"Scheduled background transcription for {final_filename}")
         
         return {
             "success": True,
@@ -332,7 +384,7 @@ async def upload_audio(
             "description": description,
             "url": f"/api/audio/{final_filename}",
             "message": f"Successfully uploaded '{final_filename}'",
-            "transcript_status": "processing"
+            "transcript_status": "pending"
         }
         
     except Exception as e:
@@ -604,3 +656,81 @@ async def trigger_transcription(filename: str, user: User = Depends(require_auth
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to transcribe audio: {str(e)}"
         ) from e
+
+
+@router.delete("/audio/{filename}/transcript")
+async def delete_transcript(filename: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """
+    Delete the transcript for an audio file.
+    
+    This removes the transcript text but keeps the audio file record.
+    The transcript can be regenerated later.
+
+    Args:
+        filename: Audio filename
+
+    Returns:
+        Success message
+    """
+    from ...core.audio_db import get_audio_file_by_filename, update_transcript
+
+    audio_record = get_audio_file_by_filename(db, filename)
+
+    if not audio_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No audio record found for '{filename}'"
+        )
+
+    # Clear the transcript and reset status to pending
+    update_transcript(db, filename, None, "pending", None)
+    
+    logger.info(f"Deleted transcript for {filename}")
+
+    return {
+        "success": True,
+        "filename": filename,
+        "message": "Transcript deleted successfully"
+    }
+
+
+@router.post("/audio/{filename}/transcript/cancel")
+async def cancel_transcription(filename: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """
+    Cancel an in-progress transcription.
+    
+    Note: This only updates the database status. The actual background task
+    may continue to run but its result will be ignored if status is no longer 'processing'.
+
+    Args:
+        filename: Audio filename
+
+    Returns:
+        Success message
+    """
+    from ...core.audio_db import get_audio_file_by_filename, update_transcript
+
+    audio_record = get_audio_file_by_filename(db, filename)
+
+    if not audio_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No audio record found for '{filename}'"
+        )
+
+    if audio_record.transcript_status != "processing":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Transcription is not in progress (current status: {audio_record.transcript_status})"
+        )
+
+    # Update status to cancelled
+    update_transcript(db, filename, None, "cancelled", None)
+    
+    logger.info(f"Cancelled transcription for {filename}")
+
+    return {
+        "success": True,
+        "filename": filename,
+        "message": "Transcription cancelled"
+    }

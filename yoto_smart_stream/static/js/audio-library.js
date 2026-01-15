@@ -116,14 +116,15 @@ async function loadAudioFiles() {
         }
         
         container.innerHTML = files.map(file => {
-            const transcriptBtn = getTranscriptButton(file);
+            const transcriptBadge = getTranscriptBadge(file);
             
             return `
                 <div class="list-item">
                     <div class="list-item-header">
                         <span class="list-item-title">
                             🎵 ${escapeHtml(file.filename)}
-                            ${file.is_static ? '<span class="badge" style="background: #805ad5; color: white; margin-left: 0.5rem;">Static</span>' : ''}
+                            ${file.is_static ? '<span class="badge badge-static">Static</span>' : ''}
+                            ${transcriptBadge}
                         </span>
                     </div>
                     <div class="list-item-details">
@@ -132,7 +133,6 @@ async function loadAudioFiles() {
                             <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
                                 📋
                             </button>
-                            ${transcriptBtn}
                         </div>
                         <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
                             <source src="${escapeHtml(file.url)}" type="audio/mpeg">
@@ -143,42 +143,122 @@ async function loadAudioFiles() {
             `;
         }).join('');
         
+        // Start auto-refresh if any files are processing
+        checkAndStartAutoRefresh();
+        
     } catch (error) {
         console.error('Error loading audio files:', error);
         container.innerHTML = '<p class="error-message">Failed to load audio files.</p>';
     }
 }
 
-// Get transcript button HTML based on transcript state
-function getTranscriptButton(file) {
-    if (!file.transcript) {
-        return `<button class="control-btn" onclick="startTranscription('${escapeHtml(file.filename)}', event)" title="Generate Transcript">
-                   📝 Transcribe
-               </button>`;
+// Get transcript badge HTML based on transcript state
+function getTranscriptBadge(file) {
+    if (!file.transcript || file.transcript.status === 'pending') {
+        return `<span class="badge badge-transcript badge-no-transcript" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'pending', event)" 
+                      title="Click to start transcription">
+                    No Transcript
+                </span>`;
     }
     
-    if (file.transcript.has_transcript) {
-        return `<button class="control-btn" onclick="viewTranscript('${escapeHtml(file.filename)}', event)" title="View Transcript">
-                   📝 Transcript
-               </button>`;
+    if (file.transcript.has_transcript && file.transcript.status === 'completed') {
+        return `<span class="badge badge-transcript badge-completed" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'completed', event)" 
+                      title="Click to view or delete transcript">
+                    ✓ Transcript
+                </span>`;
     }
     
     if (file.transcript.status === 'processing') {
-        return `<button class="control-btn" disabled title="Transcription in progress">
-                   ⏳ Processing...
-               </button>`;
+        return `<span class="badge badge-transcript badge-processing" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'processing', event)" 
+                      title="Click to cancel transcription">
+                    ⏳ Generating...
+                </span>`;
     }
     
     if (file.transcript.status === 'error') {
-        return `<button class="control-btn" onclick="retryTranscription('${escapeHtml(file.filename)}', event)" title="Retry Transcription">
-                   ⚠️ Retry
-               </button>`;
+        return `<span class="badge badge-transcript badge-error" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'error', event)" 
+                      title="Click to retry transcription">
+                    ⚠️ Error
+                </span>`;
     }
     
-    // Default: pending state
-    return `<button class="control-btn" onclick="startTranscription('${escapeHtml(file.filename)}', event)" title="Generate Transcript">
-               📝 Transcribe
-           </button>`;
+    if (file.transcript.status === 'cancelled') {
+        return `<span class="badge badge-transcript badge-cancelled" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'cancelled', event)" 
+                      title="Click to start transcription">
+                    Cancelled
+                </span>`;
+    }
+    
+    // Default: no transcript
+    return `<span class="badge badge-transcript badge-no-transcript" 
+                  onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'pending', event)" 
+                  title="Click to start transcription">
+                No Transcript
+            </span>`;
+}
+
+// Handle transcript badge clicks
+async function handleTranscriptBadgeClick(filename, status, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (status === 'completed') {
+        // Show options: View or Delete
+        showTranscriptOptions(filename);
+    } else if (status === 'processing') {
+        // Cancel transcription
+        await cancelTranscription(filename);
+    } else if (status === 'pending' || status === 'cancelled' || status === 'error') {
+        // Start transcription
+        await startTranscription(filename, event);
+    }
+}
+
+// Show transcript options (view or delete)
+function showTranscriptOptions(filename) {
+    const modal = document.createElement('div');
+    modal.className = 'transcript-options-modal';
+    modal.innerHTML = `
+        <div class="transcript-options-content">
+            <h3>Transcript Options</h3>
+            <p>What would you like to do with the transcript for <strong>${escapeHtml(filename)}</strong>?</p>
+            <div class="transcript-options-buttons">
+                <button class="btn-primary" onclick="viewTranscriptAndCloseOptions('${escapeHtml(filename)}')">
+                    📝 View Transcript
+                </button>
+                <button class="btn-danger" onclick="deleteTranscriptConfirm('${escapeHtml(filename)}')">
+                    🗑️ Delete Transcript
+                </button>
+                <button class="btn-secondary" onclick="closeTranscriptOptions()">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    modal.onclick = function(e) {
+        if (e.target === modal) {
+            closeTranscriptOptions();
+        }
+    };
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+}
+
+function viewTranscriptAndCloseOptions(filename) {
+    closeTranscriptOptions();
+    viewTranscript(filename);
+}
+
+function closeTranscriptOptions() {
+    const modal = document.querySelector('.transcript-options-modal');
+    if (modal) {
+        modal.remove();
+    }
 }
 
 // Utility functions
@@ -815,6 +895,85 @@ async function startTranscription(filename, event) {
 
 async function retryTranscription(filename, event) {
     return startTranscription(filename, event);
+}
+
+// Cancel transcription
+async function cancelTranscription(filename) {
+    if (!confirm(`Cancel transcription for ${filename}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcript/cancel`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Failed to cancel transcription');
+        }
+        
+        // Reload the audio files list to update badge
+        await loadAudioFiles();
+        
+    } catch (error) {
+        console.error('Error cancelling transcription:', error);
+        alert(`Failed to cancel transcription: ${error.message}`);
+    }
+}
+
+// Delete transcript
+async function deleteTranscriptConfirm(filename) {
+    closeTranscriptOptions();
+    
+    if (!confirm(`Delete transcript for ${filename}? The audio file will remain, but you'll need to re-transcribe it.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcript`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Failed to delete transcript');
+        }
+        
+        const data = await response.json();
+        alert(data.message || 'Transcript deleted successfully');
+        
+        // Reload the audio files list to update badge
+        await loadAudioFiles();
+        
+    } catch (error) {
+        console.error('Error deleting transcript:', error);
+        alert(`Failed to delete transcript: ${error.message}`);
+    }
+}
+
+// Auto-refresh functionality for processing transcripts
+let autoRefreshInterval = null;
+
+function checkAndStartAutoRefresh() {
+    // Check if any files are processing
+    const container = document.getElementById('audio-list');
+    if (!container) return;
+    
+    const hasProcessing = container.innerHTML.includes('badge-processing');
+    
+    if (hasProcessing && !autoRefreshInterval) {
+        // Start auto-refresh every 3 seconds
+        autoRefreshInterval = setInterval(() => {
+            loadAudioFiles();
+        }, 3000);
+        console.log('Auto-refresh started for processing transcripts');
+    } else if (!hasProcessing && autoRefreshInterval) {
+        // Stop auto-refresh
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        console.log('Auto-refresh stopped - no processing transcripts');
+    }
 }
 
 // Close modal when clicking outside
