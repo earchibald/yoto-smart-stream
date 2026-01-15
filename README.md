@@ -583,11 +583,11 @@ This project is not affiliated with, endorsed by, or sponsored by Yoto Play. It'
 
 ## Speech-to-Text Transcription
 
-Yoto Smart Stream now includes automatic transcription of audio files using OpenAI Whisper, an open-source speech recognition model.
+Yoto Smart Stream supports automatic transcription of audio files using OpenAI Whisper. Transcription is **disabled by default** to keep container builds fast; enable it only when you need STT.
 
 ### Features
 
-- **Automatic Transcription**: Audio files are automatically transcribed when uploaded
+- **Automatic Transcription**: Audio files are automatically transcribed when uploaded (when enabled)
 - **Manual Transcription**: Trigger transcription on-demand for any audio file
 - **Transcript Storage**: Transcripts are stored in the database and associated with audio files
 - **UI Integration**: View, manage, and retry transcriptions from the Audio Library page
@@ -595,9 +595,25 @@ Yoto Smart Stream now includes automatic transcription of audio files using Open
 
 ### Usage
 
+### Enabling transcription
+
+1. Install optional dependencies (not included by default to keep builds small):
+  ```bash
+  pip install openai-whisper torch torchaudio
+  ```
+2. Set the feature flag:
+  ```bash
+  export TRANSCRIPTION_ENABLED=true
+  ```
+3. (Optional) Choose a model:
+  ```bash
+  export TRANSCRIPTION_MODEL=base  # tiny|base|small|medium|large
+  ```
+4. Restart the app so the settings take effect.
+
 #### Automatic Transcription
 
-When you upload an audio file via the Audio Library page, transcription starts automatically:
+When you upload an audio file via the Audio Library page and transcription is enabled, it starts automatically:
 
 1. Navigate to the Audio Library page
 2. Upload or record an audio file

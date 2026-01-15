@@ -178,6 +178,16 @@ class Settings(BaseSettings):
         le=23,
     )
 
+    # Transcription settings (disabled by default to speed container builds)
+    transcription_enabled: bool = Field(
+        default=False,
+        description="Enable speech-to-text transcription (requires Whisper + Torch)",
+    )
+    transcription_model: str = Field(
+        default="base",
+        description="Whisper model name (tiny, base, small, medium, large)",
+    )
+
     # Railway startup settings
     railway_startup_wait_seconds: int = Field(
         default=0,

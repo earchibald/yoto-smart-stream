@@ -78,6 +78,12 @@ OAuth authorization flow is required for Yoto device access:
 | `GET /audio-library` | Audio Library page | Required |
 | `GET /admin` | Admin panel | Admin only |
 
+## Transcription (optional)
+
+- Disabled by default to keep container builds small and fast.
+- Enable by installing `openai-whisper`, `torch`, and `torchaudio`, then setting `TRANSCRIPTION_ENABLED=true` (optional `TRANSCRIPTION_MODEL=base|small|medium|large`).
+- When disabled, uploads mark transcripts as `disabled` and background transcription is skipped.
+
 ## Common Tasks
 
 ### Access Service in PR Environment

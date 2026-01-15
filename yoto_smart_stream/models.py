@@ -46,7 +46,7 @@ class AudioFile(Base):
     transcript = Column(Text, nullable=True)  # Speech-to-text transcript
     transcript_status = Column(
         String(20), default="pending", nullable=False
-    )  # pending, processing, completed, error
+    )  # pending, processing, completed, error, cancelled, disabled
     transcript_error = Column(Text, nullable=True)  # Error message if transcription failed
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

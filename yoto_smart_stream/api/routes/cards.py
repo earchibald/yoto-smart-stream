@@ -36,6 +36,7 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
     from pathlib import Path
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
+    from ...config import get_settings
     from ...core.audio_db import update_transcript, get_audio_file_by_filename
     from ...core.transcription import get_transcription_service
     
@@ -45,6 +46,18 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
     db = SessionLocal()
     
     try:
+        settings = get_settings()
+        if not settings.transcription_enabled:
+            logger.info(f"Transcription disabled; skipping background transcription for {filename}")
+            update_transcript(
+                db,
+                filename,
+                None,
+                "disabled",
+                "Transcription disabled in this environment",
+            )
+            return
+
         logger.info(f"Starting background transcription for {filename}")
         
         # Update status to processing
@@ -359,22 +372,32 @@ async def upload_audio(
         
         # Create database record
         from ...core.audio_db import get_or_create_audio_file, update_transcript
-        
+
         audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
-        
-        # Mark transcription as pending and schedule background task
-        update_transcript(db, final_filename, None, "pending", None)
-        
-        # Schedule background transcription (non-blocking)
-        if background_tasks:
-            settings = get_settings()
-            background_tasks.add_task(
-                transcribe_audio_background,
+
+        if settings.transcription_enabled:
+            # Mark transcription as pending and schedule background task
+            update_transcript(db, final_filename, None, "pending", None)
+
+            # Schedule background transcription (non-blocking)
+            if background_tasks:
+                settings = get_settings()
+                background_tasks.add_task(
+                    transcribe_audio_background,
+                    final_filename,
+                    str(output_path),
+                    settings.database_url
+                )
+                logger.info(f"Scheduled background transcription for {final_filename}")
+        else:
+            update_transcript(
+                db,
                 final_filename,
-                str(output_path),
-                settings.database_url
+                None,
+                "disabled",
+                "Transcription disabled in this environment",
             )
-            logger.info(f"Scheduled background transcription for {final_filename}")
+            logger.info(f"Transcription disabled; skipping background transcription for {final_filename}")
         
         return {
             "success": True,
@@ -384,7 +407,7 @@ async def upload_audio(
             "description": description,
             "url": f"/api/audio/{final_filename}",
             "message": f"Successfully uploaded '{final_filename}'",
-            "transcript_status": "pending"
+            "transcript_status": "pending" if settings.transcription_enabled else "disabled"
         }
         
     except Exception as e:
@@ -599,6 +622,24 @@ async def trigger_transcription(filename: str, user: User = Depends(require_auth
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Audio file '{filename}' not found"
+        )
+
+    if not settings.transcription_enabled:
+        from ...core.audio_db import get_or_create_audio_file, update_transcript
+
+        # Ensure record exists even when transcription is disabled
+        file_size = audio_path.stat().st_size
+        get_or_create_audio_file(db, filename, file_size, None)
+        update_transcript(
+            db,
+            filename,
+            None,
+            "disabled",
+            "Transcription disabled in this environment",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Transcription disabled in this environment. Set TRANSCRIPTION_ENABLED=true and install whisper dependencies to enable.",
         )
 
     # Get or create audio file record
