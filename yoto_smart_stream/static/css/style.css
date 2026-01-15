@@ -2897,3 +2897,68 @@ audio::-webkit-media-controls-pause-button {
     color: #718096;
     cursor: not-allowed;
 }
+
+/* Playlist Mode Selection */
+#playlist-mode {
+    padding: 0.5rem;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    background: white;
+}
+
+#mode-description {
+    display: block;
+    font-size: 0.85rem;
+    color: #718096;
+    margin-top: 0.25rem;
+}
+
+/* Upload Progress Section */
+#upload-progress-section {
+    background: #f7fafc;
+    border-left: 3px solid #4299e1;
+    padding: 1rem;
+    border-radius: 4px;
+}
+
+.upload-progress-items {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.upload-progress-item {
+    display: grid;
+    grid-template-columns: 120px 1fr 80px;
+    align-items: center;
+    gap: 1rem;
+}
+
+.upload-progress-item .filename {
+    font-size: 0.9rem;
+    font-weight: 500;
+    word-break: break-word;
+    color: #2d3748;
+}
+
+.progress-bar {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4299e1, #3182ce);
+    transition: width 0.3s ease;
+    border-radius: 3px;
+}
+
+.upload-progress-item .status {
+    font-size: 0.85rem;
+    text-align: right;
+    color: #718096;
+    white-space: nowrap;
+}

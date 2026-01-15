@@ -99,6 +99,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         createPlaylistBtn.addEventListener('click', openPlaylistModal);
     }
     
+    // Setup playlist mode selector
+    const playlistMode = document.getElementById('playlist-mode');
+    if (playlistMode) {
+        playlistMode.addEventListener('change', (e) => {
+            const description = document.getElementById('mode-description');
+            if (e.target.value === 'streaming') {
+                description.textContent = 'Hosted on our server using direct URLs';
+            } else {
+                description.textContent = 'Uploaded to Yoto infrastructure with automatic transcoding';
+            }
+        });
+    }
+    
     const audioSearch = document.getElementById('audio-search');
     if (audioSearch) {
         audioSearch.addEventListener('input', searchAudioFiles);
@@ -1393,14 +1406,40 @@ async function submitPlaylist() {
     submitBtn.textContent = '⏳ Creating...';
     
     try {
+        const mode = document.getElementById('playlist-mode').value;
+        
         const payload = {
             title: title,
             description: description,
             author: 'Yoto Smart Stream',
-            chapters: playlistChapters
+            chapters: playlistChapters,
+            mode: mode
         };
         
-        console.log('Creating playlist with payload:', JSON.stringify(payload, null, 2));
+        console.log(`Creating ${mode} playlist with payload:`, JSON.stringify(payload, null, 2));
+        
+        // Show upload progress section for standard mode
+        if (mode === 'standard') {
+            const progressSection = document.getElementById('upload-progress-section');
+            const progressList = document.getElementById('upload-progress-list');
+            progressSection.style.display = 'block';
+            
+            // Initialize progress items
+            let html = '<div class="upload-progress-items">';
+            for (const chapter of playlistChapters) {
+                html += `
+                    <div class="upload-progress-item" id="progress-${chapter.filename}">
+                        <span class="filename">${chapter.filename}</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 0%"></div>
+                        </div>
+                        <span class="status">⏳ Queued</span>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            progressList.innerHTML = html;
+        }
         
         const response = await fetch(`${API_BASE}/cards/create-playlist-from-audio`, {
             method: 'POST',

@@ -845,6 +845,19 @@ class CreatePlaylistRequest(BaseModel):
     author: str = Field(default="Yoto Smart Stream", description="Playlist author")
     chapters: list[PlaylistChapterItem] = Field(..., description="List of chapters with audio files")
     cover_image_id: Optional[str] = Field(None, description="Optional cover image ID")
+    mode: str = Field(default="streaming", description="Playlist mode: 'streaming' (hosted on server) or 'standard' (uploaded to Yoto)")
+
+
+class AudioUploadResponse(BaseModel):
+    """Response from requesting an upload URL from Yoto."""
+    uploadUrl: str = Field(..., description="URL to upload audio to")
+    uploadId: str = Field(..., description="ID of the upload")
+
+
+class AudioTranscodingResponse(BaseModel):
+    """Response from retrieving transcoding status."""
+    transcodedSha256: str = Field(..., description="SHA256 hash of transcoded audio")
+    transcodingProgress: int = Field(..., description="Transcoding progress percentage")
 
 
 @router.post("/cards/create-playlist-from-audio")
@@ -855,12 +868,15 @@ async def create_playlist_from_audio(
     """
     Create a Yoto MYO card as a playlist from multiple audio files.
 
-    Each audio file becomes a chapter with a single streaming track.
+    Supports two modes:
+    - streaming: Each file becomes a chapter, hosted on our server
+    - standard: All files are uploaded to Yoto and form tracks in a single chapter
 
     Example:
         {
             "title": "Bedtime Stories",
             "description": "A collection of stories",
+            "mode": "streaming",
             "chapters": [
                 {"filename": "story1.mp3", "chapter_title": "The Lost Forest"},
                 {"filename": "story2.mp3", "chapter_title": "Dragon Tales"}
@@ -874,22 +890,35 @@ async def create_playlist_from_audio(
     client = get_yoto_client()
     manager = client.get_manager()
 
-    # Verify all audio files exist and build chapters
-    chapters = []
-    for idx, chapter_item in enumerate(request.chapters, 1):
+    # Verify all audio files exist
+    audio_files = []
+    for chapter_item in request.chapters:
         audio_path = settings.audio_files_dir / chapter_item.filename
         if not audio_path.exists():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Audio file not found: {chapter_item.filename}",
             )
+        audio_files.append((audio_path, chapter_item))
 
-        if not settings.public_url:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="PUBLIC_URL environment variable not set.",
-            )
+    # Route to appropriate creation method
+    if request.mode == "standard":
+        return await _create_standard_playlist(manager, request, audio_files)
+    else:
+        return await _create_streaming_playlist(settings, manager, request, audio_files)
 
+
+async def _create_streaming_playlist(settings, manager, request: CreatePlaylistRequest, audio_files):
+    """Create a streaming playlist (hosted on our server)."""
+    # Verify public URL is set
+    if not settings.public_url:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="PUBLIC_URL environment variable not set.",
+        )
+
+    chapters = []
+    for idx, (audio_path, chapter_item) in enumerate(audio_files, 1):
         streaming_url = f"{settings.public_url}/audio/{chapter_item.filename}"
 
         # Create chapter with streaming track (Yoto streaming format)
@@ -924,33 +953,186 @@ async def create_playlist_from_audio(
     if request.cover_image_id:
         card_data["metadata"]["cover"] = {"imageId": request.cover_image_id}
 
-    try:
-        # Get the access token and verify it's available
-        if not manager.token or not manager.token.access_token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not authenticated with Yoto API. Please log in again.",
-            )
+    return await _submit_playlist_card(manager, card_data, request.title, len(chapters))
 
-        response = requests.post(
-            "https://api.yotoplay.com/content",
-            headers={
-                "Authorization": f"Bearer {manager.token.access_token}",
-                "Content-Type": "application/json",
+
+async def _create_standard_playlist(manager, request: CreatePlaylistRequest, audio_files):
+    """Create a standard playlist using Yoto's upload workflow."""
+    import asyncio
+    
+    # Get the access token and verify it's available
+    if not manager.token or not manager.token.access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not authenticated with Yoto API. Please log in again.",
+        )
+
+    headers = {
+        "Authorization": f"Bearer {manager.token.access_token}",
+        "Content-Type": "application/json",
+    }
+
+    # Upload all files in parallel
+    upload_tasks = []
+    for audio_path, chapter_item in audio_files:
+        task = _upload_audio_file(headers, audio_path, chapter_item)
+        upload_tasks.append(task)
+
+    try:
+        # Wait for all uploads to complete
+        upload_results = await asyncio.gather(*upload_tasks, return_exceptions=True)
+        
+        # Check for errors
+        transcoded_hashes = []
+        for result in upload_results:
+            if isinstance(result, Exception):
+                raise result
+            transcoded_hashes.append(result)
+        
+        # Build single chapter with all tracks
+        chapter = {
+            "key": "01",
+            "title": request.title,
+            "overlayLabel": "1",
+            "tracks": [
+                {
+                    "key": f"{idx:02d}",
+                    "title": audio_files[idx-1][1].chapter_title,
+                    "type": "audio",
+                    "format": "mp3",
+                    "trackUrl": f"yoto:#{transcoded_hashes[idx-1]}",
+                }
+                for idx in range(1, len(transcoded_hashes) + 1)
+            ],
+        }
+
+        # Create the card payload
+        card_data = {
+            "title": request.title,
+            "content": {
+                "chapters": [chapter]
             },
-            json=card_data,
-            timeout=30,
+            "metadata": {
+                "description": request.description or ""
+            },
+        }
+
+        # Add cover image if provided
+        if request.cover_image_id:
+            card_data["metadata"]["cover"] = {"imageId": request.cover_image_id}
+
+        return await _submit_playlist_card(manager, card_data, request.title, len(transcoded_hashes))
+
+    except Exception as e:
+        logger.error(f"Error creating standard playlist: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload audio files: {str(e)}",
+        ) from e
+
+
+async def _upload_audio_file(headers: dict, audio_path, chapter_item) -> str:
+    """Upload a single audio file and return its transcodedSha256."""
+    import asyncio
+    
+    loop = asyncio.get_event_loop()
+    
+    # Request upload URL
+    try:
+        resp = await loop.run_in_executor(
+            None,
+            lambda: requests.post(
+                "https://api.yotoplay.com/uploads/request",
+                headers=headers,
+                json={"filename": chapter_item.filename},
+                timeout=30,
+            )
+        )
+        resp.raise_for_status()
+        upload_info = resp.json()
+        upload_url = upload_info["uploadUrl"]
+        upload_id = upload_info["uploadId"]
+    except Exception as e:
+        logger.error(f"Failed to request upload URL for {chapter_item.filename}: {e}")
+        raise
+
+    # Upload the audio file
+    try:
+        with open(audio_path, "rb") as f:
+            await loop.run_in_executor(
+                None,
+                lambda: requests.put(
+                    upload_url,
+                    data=f.read(),
+                    headers={"Content-Type": "audio/mpeg"},
+                    timeout=60,
+                )
+            )
+        logger.info(f"✓ Uploaded {chapter_item.filename} to Yoto")
+    except Exception as e:
+        logger.error(f"Failed to upload {chapter_item.filename}: {e}")
+        raise
+
+    # Poll for transcoding completion
+    max_attempts = 120  # 10 minutes at 5-second intervals
+    attempt = 0
+    while attempt < max_attempts:
+        try:
+            resp = await loop.run_in_executor(
+                None,
+                lambda: requests.get(
+                    f"https://api.yotoplay.com/uploads/{upload_id}",
+                    headers=headers,
+                    timeout=30,
+                )
+            )
+            resp.raise_for_status()
+            transcoding_info = resp.json()
+            
+            if transcoding_info.get("transcodingProgress") == 100:
+                transcoded_sha = transcoding_info["transcodedSha256"]
+                logger.info(f"✓ Transcoding complete for {chapter_item.filename}: {transcoded_sha[:16]}...")
+                return transcoded_sha
+            
+            logger.debug(f"Transcoding {chapter_item.filename}: {transcoding_info.get('transcodingProgress', 0)}%")
+            await asyncio.sleep(5)
+            attempt += 1
+        except Exception as e:
+            logger.error(f"Failed to check transcoding status for {chapter_item.filename}: {e}")
+            raise
+    
+    raise HTTPException(
+        status_code=status.HTTP_408_REQUEST_TIMEOUT,
+        detail=f"Transcoding timeout for {chapter_item.filename}",
+    )
+
+
+async def _submit_playlist_card(manager, card_data: dict, title: str, track_count: int):
+    """Submit the playlist card to Yoto API."""
+    try:
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: requests.post(
+                "https://api.yotoplay.com/content",
+                headers={
+                    "Authorization": f"Bearer {manager.token.access_token}",
+                    "Content-Type": "application/json",
+                },
+                json=card_data,
+                timeout=30,
+            )
         )
 
         response.raise_for_status()
         card = response.json()
 
-        logger.info(f"✓ Created playlist card: {request.title} with {len(chapters)} chapters")
+        logger.info(f"✓ Created playlist card: {title} with {track_count} tracks")
         return {
             "success": True,
             "card_id": card.get("cardId"),
-            "chapter_count": len(chapters),
-            "message": f"Playlist created successfully with {len(chapters)} chapters!",
+            "track_count": track_count,
+            "message": f"Playlist created successfully with {track_count} tracks!",
         }
 
     except requests.exceptions.HTTPError as e:

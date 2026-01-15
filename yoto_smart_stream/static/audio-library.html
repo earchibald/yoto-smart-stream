@@ -318,6 +318,14 @@
                         <label for="playlist-description">Description (optional):</label>
                         <textarea id="playlist-description" rows="2" placeholder="Add a description..."></textarea>
                     </div>
+                    <div class="form-group">
+                        <label for="playlist-mode">Delivery Mode:</label>
+                        <select id="playlist-mode" required>
+                            <option value="streaming">Streaming (Hosted on our server)</option>
+                            <option value="standard">Standard (Uploaded to Yoto)</option>
+                        </select>
+                        <small id="mode-description">Hosted on our server using direct URLs</small>
+                    </div>
                 </div>
 
                 <!-- Search Section -->
@@ -343,6 +351,12 @@
                     <div id="chapters-list" class="chapters-list">
                         <p class="placeholder">No chapters added yet. Search and add audio files above.</p>
                     </div>
+                </div>
+
+                <!-- Upload Progress Section (hidden by default) -->
+                <div class="form-section" id="upload-progress-section" style="display: none;">
+                    <h4>Upload Progress</h4>
+                    <div id="upload-progress-list"></div>
                 </div>
             </div>
             <div class="modal-footer">
