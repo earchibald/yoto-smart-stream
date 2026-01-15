@@ -1,0 +1,318 @@
+"""
+Yoto Smart Stream AWS CDK Stack
+Architecture 1: Lambda + Fargate Spot + DynamoDB + S3
+"""
+from aws_cdk import (
+    Stack,
+    Duration,
+    CfnOutput,
+    aws_lambda as lambda_,
+    aws_apigatewayv2 as apigw,
+    aws_apigatewayv2_integrations as apigw_integrations,
+    aws_dynamodb as dynamodb,
+    aws_s3 as s3,
+    aws_iam as iam,
+    aws_logs as logs,
+    aws_ecs as ecs,
+    aws_ec2 as ec2,
+    aws_ecr_assets as ecr_assets,
+    aws_cloudfront as cloudfront,
+    aws_cloudfront_origins as origins,
+    RemovalPolicy,
+)
+from constructs import Construct
+
+
+class YotoSmartStreamStack(Stack):
+    """Main stack for Yoto Smart Stream application"""
+
+    def __init__(
+        self,
+        scope: Construct,
+        construct_id: str,
+        environment: str = "dev",
+        yoto_client_id: str = None,
+        enable_mqtt: bool = True,
+        enable_cloudfront: bool = False,
+        **kwargs
+    ) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        self.env_name = environment  # Renamed from self.environment to avoid conflict
+        self.is_production = environment == "prod"
+        
+        # Create resources
+        self.dynamodb_table = self._create_dynamodb_table()
+        self.audio_bucket = self._create_audio_bucket()
+        self.ui_bucket = self._create_ui_bucket()
+        self.lambda_function = self._create_lambda_function(yoto_client_id)
+        self.api_gateway = self._create_api_gateway()
+        
+        if enable_mqtt:
+            self.mqtt_service = self._create_mqtt_handler()
+        
+        if enable_cloudfront:
+            self.cloudfront_dist = self._create_cloudfront_distribution()
+
+    def _create_dynamodb_table(self) -> dynamodb.Table:
+        """Create DynamoDB table for application data"""
+        table = dynamodb.Table(
+            self,
+            "YotoTable",
+            table_name=f"yoto-smart-stream-{self.env_name}",
+            partition_key=dynamodb.Attribute(
+                name="PK", type=dynamodb.AttributeType.STRING
+            ),
+            sort_key=dynamodb.Attribute(
+                name="SK", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery=self.is_production,
+            removal_policy=RemovalPolicy.RETAIN if self.is_production else RemovalPolicy.DESTROY,
+        )
+
+        CfnOutput(self, "DynamoDBTableName", value=table.table_name)
+        return table
+
+    def _create_audio_bucket(self) -> s3.Bucket:
+        """Create S3 bucket for audio files"""
+        bucket = s3.Bucket(
+            self,
+            "AudioBucket",
+            bucket_name=f"yoto-audio-{self.env_name}-{self.account}",
+            versioned=self.is_production,
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+                    allowed_origins=["*"],
+                    allowed_headers=["*"],
+                    max_age=3600,
+                )
+            ],
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    id="DeleteOldVersions",
+                    enabled=True,
+                    noncurrent_version_expiration=Duration.days(30),
+                ),
+            ] if self.is_production else [],
+            removal_policy=RemovalPolicy.RETAIN if self.is_production else RemovalPolicy.DESTROY,
+            auto_delete_objects=not self.is_production,
+        )
+
+        CfnOutput(self, "AudioBucketName", value=bucket.bucket_name)
+        return bucket
+
+    def _create_ui_bucket(self) -> s3.Bucket:
+        """Create S3 bucket for static UI files"""
+        bucket = s3.Bucket(
+            self,
+            "UIBucket",
+            bucket_name=f"yoto-ui-{self.env_name}-{self.account}",
+            website_index_document="index.html",
+            website_error_document="error.html",
+            public_read_access=True,
+            block_public_access=s3.BlockPublicAccess(
+                block_public_acls=False,
+                block_public_policy=False,
+                ignore_public_acls=False,
+                restrict_public_buckets=False,
+            ),
+            removal_policy=RemovalPolicy.RETAIN if self.is_production else RemovalPolicy.DESTROY,
+            auto_delete_objects=not self.is_production,
+        )
+
+        CfnOutput(self, "UIBucketName", value=bucket.bucket_name)
+        CfnOutput(self, "UIBucketWebsiteURL", value=bucket.bucket_website_url)
+        return bucket
+
+    def _create_lambda_function(self, yoto_client_id: str) -> lambda_.Function:
+        """Create Lambda function for API"""
+        # Lambda execution role
+        role = iam.Role(
+            self,
+            "LambdaRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AWSLambdaBasicExecutionRole"
+                ),
+            ],
+        )
+
+        # Grant permissions
+        self.dynamodb_table.grant_read_write_data(role)
+        self.audio_bucket.grant_read_write(role)
+        self.ui_bucket.grant_read(role)
+        
+        # Grant Polly permissions for TTS
+        role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["polly:SynthesizeSpeech"],
+                resources=["*"],
+            )
+        )
+
+        # Create Lambda function
+        function = lambda_.Function(
+            self,
+            "ApiFunction",
+            function_name=f"yoto-api-{self.env_name}",
+            runtime=lambda_.Runtime.PYTHON_3_9,
+            handler="handler.handler",
+            code=lambda_.Code.from_asset("../lambda"),  # Fixed path: relative to cdk directory
+            timeout=Duration.seconds(30),
+            memory_size=1024,
+            role=role,
+            environment={
+                "ENVIRONMENT": self.env_name,
+                "DYNAMODB_TABLE": self.dynamodb_table.table_name,
+                "S3_AUDIO_BUCKET": self.audio_bucket.bucket_name,
+                "S3_UI_BUCKET": self.ui_bucket.bucket_name,
+                "YOTO_CLIENT_ID": yoto_client_id or "",
+                # AWS_REGION is automatically set by Lambda runtime
+            },
+            log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,
+        )
+
+        CfnOutput(self, "LambdaFunctionArn", value=function.function_arn)
+        return function
+
+    def _create_api_gateway(self) -> apigw.HttpApi:
+        """Create API Gateway HTTP API"""
+        api = apigw.HttpApi(
+            self,
+            "HttpApi",
+            api_name=f"yoto-api-{self.env_name}",
+            cors_preflight=apigw.CorsPreflightOptions(
+                allow_origins=["*"],
+                allow_methods=[apigw.CorsHttpMethod.ANY],
+                allow_headers=["*"],
+            ),
+            default_integration=apigw_integrations.HttpLambdaIntegration(
+                "DefaultIntegration",
+                self.lambda_function,
+            ),
+        )
+
+        CfnOutput(self, "ApiUrl", value=api.url, description="API Gateway URL")
+        return api
+
+    def _create_mqtt_handler(self) -> ecs.FargateService:
+        """Create ECS Fargate service for MQTT handler"""
+        # Create VPC
+        vpc = ec2.Vpc(
+            self,
+            "VPC",
+            max_azs=2,
+            nat_gateways=0,  # Use public subnets to save costs
+        )
+
+        # Create ECS cluster
+        cluster = ecs.Cluster(
+            self,
+            "MQTTCluster",
+            cluster_name=f"yoto-mqtt-{self.env_name}",
+            vpc=vpc,
+            enable_fargate_capacity_providers=True,
+        )
+
+        # Task execution role
+        execution_role = iam.Role(
+            self,
+            "MQTTExecutionRole",
+            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AmazonECSTaskExecutionRolePolicy"
+                ),
+            ],
+        )
+
+        # Task role
+        task_role = iam.Role(
+            self,
+            "MQTTTaskRole",
+            assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
+        )
+        self.dynamodb_table.grant_read_write_data(task_role)
+
+        # Create task definition
+        task_definition = ecs.FargateTaskDefinition(
+            self,
+            "MQTTTaskDef",
+            family=f"yoto-mqtt-{self.env_name}",
+            cpu=256,
+            memory_limit_mib=512,
+            execution_role=execution_role,
+            task_role=task_role,
+        )
+
+        # Add container
+        container = task_definition.add_container(
+            "mqtt-handler",
+            image=ecs.ContainerImage.from_asset("../mqtt_handler"),  # Fixed path: relative to cdk directory
+            logging=ecs.LogDriver.aws_logs(
+                stream_prefix="ecs",
+                log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,
+            ),
+            environment={
+                "ENVIRONMENT": self.env_name,
+                "DYNAMODB_TABLE": self.dynamodb_table.table_name,
+                "AWS_REGION": self.region,
+            },
+        )
+
+        # Create security group
+        security_group = ec2.SecurityGroup(
+            self,
+            "MQTTSecurityGroup",
+            vpc=vpc,
+            description="Security group for MQTT handler",
+            allow_all_outbound=True,
+        )
+
+        # Create Fargate service with Spot
+        service = ecs.FargateService(
+            self,
+            "MQTTService",
+            service_name=f"yoto-mqtt-{self.env_name}",
+            cluster=cluster,
+            task_definition=task_definition,
+            desired_count=1,
+            capacity_provider_strategies=[
+                ecs.CapacityProviderStrategy(
+                    capacity_provider="FARGATE_SPOT",
+                    weight=1,
+                )
+            ],
+            security_groups=[security_group],
+            assign_public_ip=True,  # Required for public subnets
+        )
+
+        CfnOutput(self, "MQTTServiceArn", value=service.service_arn)
+        return service
+
+    def _create_cloudfront_distribution(self) -> cloudfront.Distribution:
+        """Create CloudFront distribution for UI"""
+        distribution = cloudfront.Distribution(
+            self,
+            "CloudFrontDistribution",
+            comment=f"Yoto Smart Stream {self.env_name}",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3Origin(self.ui_bucket),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+                cached_methods=cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+            ),
+            default_root_object="index.html",
+            price_class=cloudfront.PriceClass.PRICE_CLASS_100,
+        )
+
+        CfnOutput(
+            self,
+            "CloudFrontDomainName",
+            value=distribution.distribution_domain_name,
+            description="CloudFront Distribution Domain Name",
+        )
+        return distribution
