@@ -1032,72 +1032,87 @@ async def _create_standard_playlist(manager, request: CreatePlaylistRequest, aud
 
 
 async def _upload_audio_file(headers: dict, audio_path, chapter_item) -> str:
-    """Upload a single audio file and return its transcodedSha256."""
+    """Upload a single audio file and return its transcodedSha256.
+    
+    Uses Yoto's /media/transcode/audio/uploadUrl endpoint per:
+    https://yoto.dev/myo/uploading-to-cards/
+    """
     
     loop = asyncio.get_event_loop()
     
-    # Request upload URL
+    # Step 1: Request upload URL (GET request)
     try:
         resp = await loop.run_in_executor(
             None,
-            lambda: requests.post(
-                "https://api.yotoplay.com/uploads/request",
+            lambda: requests.get(
+                "https://api.yotoplay.com/media/transcode/audio/uploadUrl",
                 headers=headers,
-                json={"filename": chapter_item.filename},
                 timeout=30,
             )
         )
         resp.raise_for_status()
-        upload_info = resp.json()
-        upload_url = upload_info["uploadUrl"]
-        upload_id = upload_info["uploadId"]
+        upload_response = resp.json()
+        
+        # Response format: { upload: { uploadUrl: "...", uploadId: "..." } }
+        upload_data = upload_response.get("upload", {})
+        upload_url = upload_data.get("uploadUrl")
+        upload_id = upload_data.get("uploadId")
+        
+        if not upload_url or not upload_id:
+            raise ValueError(f"Invalid upload response: {upload_response}")
+            
+        logger.info(f"Got upload URL for {chapter_item.filename}, uploadId: {upload_id}")
     except Exception as e:
         logger.error(f"Failed to request upload URL for {chapter_item.filename}: {e}")
         raise
 
-    # Upload the audio file
+    # Step 2: Upload the audio file via PUT
     try:
         with open(audio_path, "rb") as f:
-            await loop.run_in_executor(
-                None,
-                lambda: requests.put(
-                    upload_url,
-                    data=f.read(),
-                    headers={"Content-Type": "audio/mpeg"},
-                    timeout=60,
-                )
+            file_data = f.read()
+            
+        await loop.run_in_executor(
+            None,
+            lambda: requests.put(
+                upload_url,
+                data=file_data,
+                headers={"Content-Type": "audio/mpeg"},
+                timeout=60,
             )
-        logger.info(f"✓ Uploaded {chapter_item.filename} to Yoto")
+        )
+        logger.info(f"✓ Uploaded {chapter_item.filename} to Yoto ({len(file_data)} bytes)")
     except Exception as e:
         logger.error(f"Failed to upload {chapter_item.filename}: {e}")
         raise
 
-    # Poll for transcoding completion
-    max_attempts = 120  # 10 minutes at 5-second intervals
+    # Step 3: Poll for transcoding completion
+    max_attempts = 30  # ~15 seconds at 500ms intervals
     attempt = 0
     while attempt < max_attempts:
         try:
             resp = await loop.run_in_executor(
                 None,
                 lambda: requests.get(
-                    f"https://api.yotoplay.com/uploads/{upload_id}",
+                    f"https://api.yotoplay.com/media/upload/{upload_id}/transcoded?loudnorm=false",
                     headers=headers,
                     timeout=30,
                 )
             )
-            resp.raise_for_status()
-            transcoding_info = resp.json()
             
-            if transcoding_info.get("transcodingProgress") == 100:
-                transcoded_sha = transcoding_info["transcodedSha256"]
-                logger.info(f"✓ Transcoding complete for {chapter_item.filename}: {transcoded_sha[:16]}...")
-                return transcoded_sha
+            if resp.status_code == 200:
+                transcoding_response = resp.json()
+                transcode_data = transcoding_response.get("transcode", {})
+                transcoded_sha = transcode_data.get("transcodedSha256")
+                
+                if transcoded_sha:
+                    logger.info(f"✓ Transcoding complete for {chapter_item.filename}: {transcoded_sha[:16]}...")
+                    return transcoded_sha
             
-            logger.debug(f"Transcoding {chapter_item.filename}: {transcoding_info.get('transcodingProgress', 0)}%")
-            await asyncio.sleep(5)
+            logger.debug(f"Transcoding {chapter_item.filename} in progress (attempt {attempt + 1}/{max_attempts})")
+            await asyncio.sleep(0.5)
             attempt += 1
         except Exception as e:
-            logger.error(f"Failed to check transcoding status for {chapter_item.filename}: {e}")
+            logger.debug(f"Transcoding check for {chapter_item.filename}: {e}")
             raise
     
     raise HTTPException(
