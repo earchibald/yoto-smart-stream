@@ -20,6 +20,10 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_cognito as cognito,
+    aws_sns as sns,
+    aws_sns_subscriptions as sns_subscriptions,
+    aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cloudwatch_actions,
     RemovalPolicy,
 )
 from constructs import Construct
@@ -36,12 +40,20 @@ class YotoSmartStreamStack(Stack):
         yoto_client_id: str = None,
         enable_mqtt: bool = True,
         enable_cloudfront: bool = False,
+        billing_alert_email: str = None,
+        billing_alert_threshold: float = 10.0,
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.env_name = environment  # Renamed from self.environment to avoid conflict
         self.is_production = environment == "prod"
+        
+        # Create billing alerts if email provided
+        if billing_alert_email:
+            self.billing_alert_topic = self._create_billing_alerts(
+                billing_alert_email, billing_alert_threshold
+            )
         
         # Create resources
         self.cognito_user_pool = self._create_cognito_user_pool()
@@ -56,6 +68,79 @@ class YotoSmartStreamStack(Stack):
         
         if enable_cloudfront:
             self.cloudfront_dist = self._create_cloudfront_distribution()
+
+    def _create_billing_alerts(
+        self, email: str, threshold: float
+    ) -> sns.Topic:
+        """
+        Create billing alerts with CloudWatch alarm and SNS topic.
+        
+        Args:
+            email: Email address for billing alerts
+            threshold: Dollar amount threshold for alerts
+            
+        Returns:
+            SNS topic for billing alerts
+        """
+        # Create SNS topic for billing alerts
+        topic = sns.Topic(
+            self,
+            "BillingAlertTopic",
+            topic_name=f"yoto-billing-alerts-{self.env_name}",
+            display_name=f"Yoto Smart Stream Billing Alerts ({self.env_name})",
+        )
+        
+        # Subscribe email to topic
+        topic.add_subscription(
+            sns_subscriptions.EmailSubscription(email)
+        )
+        
+        # Create CloudWatch alarm for billing
+        # Note: Billing metrics are only available in us-east-1
+        alarm = cloudwatch.Alarm(
+            self,
+            "BillingAlarm",
+            alarm_name=f"yoto-billing-{self.env_name}-threshold",
+            alarm_description=f"Alert when estimated charges exceed ${threshold} for {self.env_name}",
+            metric=cloudwatch.Metric(
+                namespace="AWS/Billing",
+                metric_name="EstimatedCharges",
+                dimensions_map={
+                    "Currency": "USD",
+                },
+                statistic="Maximum",
+                period=Duration.hours(6),
+            ),
+            threshold=threshold,
+            evaluation_periods=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+        )
+        
+        # Add SNS action to alarm
+        alarm.add_alarm_action(
+            cloudwatch_actions.SnsAction(topic)
+        )
+        
+        CfnOutput(
+            self,
+            "BillingAlertTopicArn",
+            value=topic.topic_arn,
+            description="SNS Topic ARN for billing alerts",
+        )
+        CfnOutput(
+            self,
+            "BillingAlertEmail",
+            value=email,
+            description="Email address receiving billing alerts",
+        )
+        CfnOutput(
+            self,
+            "BillingAlertThreshold",
+            value=str(threshold),
+            description="Billing alert threshold in USD",
+        )
+        
+        return topic
 
     def _create_cognito_user_pool(self) -> cognito.UserPool:
         """Create Cognito User Pool for authentication"""

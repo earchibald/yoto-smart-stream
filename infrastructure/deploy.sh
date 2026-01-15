@@ -1,6 +1,6 @@
 #!/bin/bash
 # Deploy Yoto Smart Stream to AWS using CDK
-# Architecture 1: Lambda + Fargate Spot + DynamoDB + S3
+# Architecture 1: Lambda + Fargate Spot + DynamoDB + S3 + Cognito + Billing Alerts
 
 set -e
 
@@ -18,12 +18,14 @@ print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 # Parse arguments
 ENVIRONMENT="${1:-dev}"
 YOTO_CLIENT_ID="${2:-$YOTO_CLIENT_ID}"
+BILLING_EMAIL="${3:-$BILLING_ALERT_EMAIL}"
 
 if [ -z "$YOTO_CLIENT_ID" ]; then
     print_error "YOTO_CLIENT_ID is required"
-    echo "Usage: $0 <environment> <yoto_client_id>"
+    echo "Usage: $0 <environment> <yoto_client_id> [billing_email]"
     echo "  environment: dev, staging, or prod (default: dev)"
     echo "  yoto_client_id: Your Yoto API client ID (or set YOTO_CLIENT_ID env var)"
+    echo "  billing_email: Email for billing alerts (optional, or set BILLING_ALERT_EMAIL env var)"
     exit 1
 fi
 
@@ -38,6 +40,16 @@ fi
 
 AWS_REGION="${AWS_REGION:-us-east-1}"
 print_info "Using AWS region: $AWS_REGION"
+
+# Billing alert configuration
+if [ -n "$BILLING_EMAIL" ]; then
+    print_info "Billing alerts will be sent to: $BILLING_EMAIL"
+    BILLING_THRESHOLD="${BILLING_ALERT_THRESHOLD:-10.0}"
+    print_info "Billing alert threshold: \$$BILLING_THRESHOLD"
+else
+    print_warn "No billing email provided. Billing alerts will not be configured."
+    print_info "To enable billing alerts, set BILLING_ALERT_EMAIL environment variable or pass as 3rd argument"
+fi
 
 # Navigate to CDK directory
 cd "$(dirname "$0")/cdk"
@@ -77,20 +89,19 @@ cd ../cdk
 
 # Synthesize CloudFormation template
 print_info "Synthesizing CloudFormation template..."
-cdk synth \
-    -c environment="$ENVIRONMENT" \
-    -c yoto_client_id="$YOTO_CLIENT_ID" \
-    -c enable_mqtt="true" \
-    -c enable_cloudfront="false"
+SYNTH_ARGS="-c environment=\"$ENVIRONMENT\" -c yoto_client_id=\"$YOTO_CLIENT_ID\" -c enable_mqtt=\"true\" -c enable_cloudfront=\"false\""
+if [ -n "$BILLING_EMAIL" ]; then
+    SYNTH_ARGS="$SYNTH_ARGS -c billing_alert_email=\"$BILLING_EMAIL\" -c billing_alert_threshold=\"${BILLING_THRESHOLD:-10.0}\""
+fi
+eval "cdk synth $SYNTH_ARGS"
 
 # Deploy stack
 print_info "Deploying stack..."
-cdk deploy \
-    -c environment="$ENVIRONMENT" \
-    -c yoto_client_id="$YOTO_CLIENT_ID" \
-    -c enable_mqtt="true" \
-    -c enable_cloudfront="false" \
-    --require-approval never
+DEPLOY_ARGS="-c environment=\"$ENVIRONMENT\" -c yoto_client_id=\"$YOTO_CLIENT_ID\" -c enable_mqtt=\"true\" -c enable_cloudfront=\"false\" --require-approval never"
+if [ -n "$BILLING_EMAIL" ]; then
+    DEPLOY_ARGS="$DEPLOY_ARGS -c billing_alert_email=\"$BILLING_EMAIL\" -c billing_alert_threshold=\"${BILLING_THRESHOLD:-10.0}\""
+fi
+eval "cdk deploy $DEPLOY_ARGS"
 
 # Get outputs
 print_info "Deployment complete!"
