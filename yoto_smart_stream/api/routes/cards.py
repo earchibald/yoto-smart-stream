@@ -956,6 +956,14 @@ async def create_playlist_from_audio(
     except requests.exceptions.HTTPError as e:
         error_detail = e.response.text
         logger.error(f"Yoto API error creating playlist: {error_detail}")
+        
+        # Check if it's an authorization error from Yoto API
+        if e.response.status_code == 401 or '"code":"unauthorized"' in error_detail:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Your Yoto session has expired. Please log in again on the Dashboard.",
+            ) from e
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create playlist: {error_detail}",

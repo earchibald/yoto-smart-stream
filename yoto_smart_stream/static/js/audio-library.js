@@ -1166,11 +1166,17 @@ function openPlaylistModal() {
     if (modal) {
         modal.style.display = 'block';
         playlistChapters = [];
-        updateChaptersList();
+        // Reset form fields
         document.getElementById('playlist-title').value = '';
         document.getElementById('playlist-description').value = '';
         document.getElementById('audio-search').value = '';
         document.getElementById('search-results').innerHTML = '<p class="placeholder">Type to search audio files...</p>';
+        // Reset chapters display
+        document.getElementById('chapter-count').textContent = '0';
+        document.getElementById('chapters-list').innerHTML = '<p class="placeholder">No chapters added yet. Search and add audio files above.</p>';
+        // Disable submit button
+        const submitBtn = document.getElementById('create-playlist-submit-btn');
+        if (submitBtn) submitBtn.disabled = true;
     }
 }
 
