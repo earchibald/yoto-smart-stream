@@ -1,5 +1,6 @@
 """Card management and audio streaming endpoints."""
 
+import asyncio
 import logging
 import os
 import tempfile
@@ -958,7 +959,6 @@ async def _create_streaming_playlist(settings, manager, request: CreatePlaylistR
 
 async def _create_standard_playlist(manager, request: CreatePlaylistRequest, audio_files):
     """Create a standard playlist using Yoto's upload workflow."""
-    import asyncio
     
     # Get the access token and verify it's available
     if not manager.token or not manager.token.access_token:
@@ -1033,7 +1033,6 @@ async def _create_standard_playlist(manager, request: CreatePlaylistRequest, aud
 
 async def _upload_audio_file(headers: dict, audio_path, chapter_item) -> str:
     """Upload a single audio file and return its transcodedSha256."""
-    import asyncio
     
     loop = asyncio.get_event_loop()
     
