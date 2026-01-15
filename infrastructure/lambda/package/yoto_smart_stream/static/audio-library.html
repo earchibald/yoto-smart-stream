@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Library - Yoto Smart Stream</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <h1>🎵 Yoto Stream</h1>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="/">🏠 Dashboard</a></li>
+            <li><a href="/streams">✨ Smart Streams</a></li>
+            <li><a href="/library">📚 Yoto Library</a></li>
+            <li class="active"><a href="/audio-library">🎙️ Audio Library</a></li>
+            <li><a href="/admin">⚙️ Admin</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p id="app-version">Loading...</p>
+        </div>
+    </nav>
+
+    <main class="content">
+        <header>
+            <h2>Audio Library</h2>
+            <div class="status-indicator" id="status">
+                <span class="dot"></span>
+                <span id="status-text">Checking...</span>
+            </div>
+        </header>
+
+        <section class="section">
+            <h3>Audio Files</h3>
+            <div class="section-actions">
+                <button id="create-playlist-btn" class="btn-secondary">
+                    📋 Create Playlist
+                </button>
+            </div>
+            <div id="audio-list" class="list-container">
+                <p class="loading">Loading audio files...</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Upload Audio File</h3>
+            <div class="upload-container">
+                <form id="upload-form" class="upload-form">
+                    <div class="form-group">
+                        <label for="upload-file" title="Select an audio file to upload (MP3 format)">
+                            Audio File (MP3):
+                        </label>
+                        <input
+                            type="file"
+                            id="upload-file"
+                            name="file"
+                            accept=".mp3,audio/mpeg"
+                            required
+                            title="Select an MP3 audio file to upload"
+                        />
+                        <small>Supported format: MP3 (other formats will be converted)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="upload-filename" title="Filename for the uploaded audio (without extension)">
+                            Filename (without extension):
+                        </label>
+                        <input
+                            type="text"
+                            id="upload-filename"
+                            name="filename"
+                            placeholder="e.g., my-audio"
+                            required
+                            pattern="[a-zA-Z0-9\s_-]+"
+                            title="Only letters, numbers, spaces, hyphens, and underscores allowed"
+                        />
+                        <small>File will be saved as: <strong id="upload-filename-preview">my-audio.mp3</strong></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="upload-description" title="Optional description for the audio file">
+                            Description (optional):
+                        </label>
+                        <textarea
+                            id="upload-description"
+                            name="description"
+                            rows="3"
+                            placeholder="Add a description for this audio file..."
+                        ></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary" id="upload-submit-btn">
+                            <span id="upload-submit-text">📤 Upload Audio</span>
+                            <span id="upload-submit-spinner" style="display: none;">⏳ Uploading...</span>
+                        </button>
+                    </div>
+                </form>
+                <div id="upload-result" style="display: none; margin-top: 20px;">
+                    <div id="upload-success" class="success-message" style="display: none;">
+                        ✓ <span id="upload-success-message"></span>
+                    </div>
+                    <div id="upload-error" class="error-message" style="display: none;">
+                        ✗ <span id="upload-error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Record Audio</h3>
+            <div class="recorder-container">
+                <div class="recorder-controls">
+                    <div class="recorder-status">
+                        <span id="recorder-status" class="recorder-status-text">Ready to record</span>
+                        <span id="recorder-timer" class="recorder-timer">00:00</span>
+                    </div>
+                    <div class="recorder-visualization">
+                        <canvas id="waveform" width="600" height="100"></canvas>
+                    </div>
+                    <div class="recorder-buttons">
+                        <button id="record-btn" class="btn-record" title="Start recording (Ctrl/Cmd + R)">
+                            <span class="btn-icon">🎙️</span>
+                            <span class="btn-text">Record</span>
+                            <span class="btn-shortcut">(Ctrl+R)</span>
+                        </button>
+                        <button id="stop-btn" class="btn-stop" disabled title="Stop recording (Ctrl/Cmd + S)">
+                            <span class="btn-icon">⏹️</span>
+                            <span class="btn-text">Stop</span>
+                            <span class="btn-shortcut">(Ctrl+S)</span>
+                        </button>
+                        <button id="rerecord-btn" class="btn-rerecord" disabled title="Re-record (Ctrl/Cmd + Delete)">
+                            <span class="btn-icon">🔄</span>
+                            <span class="btn-text">Re-record</span>
+                            <span class="btn-shortcut">(Ctrl+Del)</span>
+                        </button>
+                    </div>
+                    <div id="recorder-preview" class="recorder-preview" style="display: none;">
+                        <h4>Preview Recording</h4>
+                        <audio id="preview-audio" controls></audio>
+                        <div class="recorder-metadata">
+                            <div class="form-group">
+                                <label for="recording-filename">Filename (without extension):</label>
+                                <input
+                                    type="text"
+                                    id="recording-filename"
+                                    placeholder="e.g., my-recording"
+                                    pattern="[a-zA-Z0-9\s_-]+"
+                                    title="Only letters, numbers, spaces, hyphens, and underscores allowed"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label for="recording-description">Description (optional):</label>
+                                <textarea
+                                    id="recording-description"
+                                    rows="3"
+                                    placeholder="Add a description for this recording..."
+                                ></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button id="save-btn" class="btn-primary" title="Save recording (Ctrl/Cmd + Enter)">
+                                    <span id="save-text">💾 Save Recording</span>
+                                    <span id="save-spinner" style="display: none;">⏳ Saving...</span>
+                                    <span class="btn-shortcut">(Ctrl+Enter)</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="recorder-result" style="display: none; margin-top: 20px;">
+                        <div id="recorder-success" class="success-message" style="display: none;">
+                            ✓ <span id="recorder-success-message"></span>
+                        </div>
+                        <div id="recorder-error" class="error-message" style="display: none;">
+                            ✗ <span id="recorder-error-message"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Generate Text-to-Speech Audio</h3>
+            <div class="tts-generator-container">
+                <form id="tts-form" class="tts-form">
+                    <div class="form-group">
+                        <label for="tts-filename" title="Filename for the generated audio (without .mp3 extension)">
+                            Filename (without extension):
+                        </label>
+                        <input
+                            type="text"
+                            id="tts-filename"
+                            name="filename"
+                            placeholder="e.g., my-story"
+                            required
+                            pattern="[a-zA-Z0-9\s_-]+"
+                            title="Only letters, numbers, spaces, hyphens, and underscores allowed"
+                        />
+                        <small>File will be saved as: <strong id="filename-preview">my-story.mp3</strong></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="tts-text" title="Text that will be converted to speech">
+                            Text to convert to speech:
+                        </label>
+                        <textarea
+                            id="tts-text"
+                            name="text"
+                            rows="8"
+                            placeholder="Enter the text you want to convert to speech..."
+                            required
+                            minlength="1"
+                        ></textarea>
+                        <small id="text-length">0 characters</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary" id="tts-submit-btn">
+                            <span id="tts-submit-text">🎙️ Generate Audio</span>
+                            <span id="tts-submit-spinner" style="display: none;">⏳ Generating...</span>
+                        </button>
+                    </div>
+                </form>
+                <div id="tts-result" style="display: none; margin-top: 20px;">
+                    <div id="tts-success" class="success-message" style="display: none;">
+                        ✓ <span id="tts-success-message"></span>
+                    </div>
+                    <div id="tts-error" class="error-message" style="display: none;">
+                        ✗ <span id="tts-error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Transcript Modal -->
+    <div id="transcriptModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📝 Audio Transcript</h3>
+                <span class="modal-close" onclick="closeTranscriptModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="transcriptContent">
+                    <p class="loading">Loading transcript...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeTranscriptModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MQTT Analyzer Modal (shared) -->
+    <div id="mqttAnalyzerModal" class="modal">
+        <div class="modal-content mqtt-modal-content">
+            <div class="modal-header">
+                <h3>📊 MQTT Device Analyzer</h3>
+                <span class="modal-close" onclick="closeMQTTAnalyzer()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Device State Section -->
+                <div class="analyzer-section">
+                    <h4>Current Device State</h4>
+                    <div id="deviceStateSummary" class="device-state-box">
+                        <p class="loading">Loading device state...</p>
+                    </div>
+                </div>
+
+                <!-- Recent Events Section -->
+                <div class="analyzer-section">
+                    <h4>Recent MQTT Events (Last 30)</h4>
+                    <div id="recentEventsList" class="events-list">
+                        <p class="loading">Loading events...</p>
+                    </div>
+                </div>
+
+                <!-- Stream Requests Section -->
+                <div class="analyzer-section">
+                    <h4>Recent Stream Requests (Last 5 minutes)</h4>
+                    <div id="streamRequestsList" class="requests-list">
+                        <p class="loading">Loading stream requests...</p>
+                    </div>
+                </div>
+
+                <!-- Track Navigation -->
+                <div class="analyzer-section">
+                    <h4>Track Navigation (via MQTT)</h4>
+                    <div class="button-group">
+                        <button class="btn-secondary" onclick="sendTrackNavigation('previous')">⏮️ Previous Track</button>
+                        <button class="btn-secondary" onclick="sendTrackNavigation('next')">⏭️ Next Track</button>
+                    </div>
+                </div>
+
+                <!-- Auto-Refresh Control -->
+                <div class="analyzer-section">
+                    <label>
+                        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)"> 
+                        Auto-refresh (2 seconds)
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Playlist Builder Modal -->
+    <div id="playlistModal" class="modal">
+        <div class="modal-content playlist-modal-content">
+            <div class="modal-header">
+                <h3>📋 Create Playlist</h3>
+                <span class="modal-close" onclick="closePlaylistModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Playlist Info Section -->
+                <div class="form-section">
+                    <h4>Playlist Information</h4>
+                    <div class="form-group">
+                        <label for="playlist-title">Playlist Title:</label>
+                        <input type="text" id="playlist-title" placeholder="e.g., Bedtime Stories" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="playlist-description">Description (optional):</label>
+                        <textarea id="playlist-description" rows="2" placeholder="Add a description..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="playlist-mode">Delivery Mode:</label>
+                        <select id="playlist-mode" required>
+                            <option value="streaming">Streaming (Hosted on our server)</option>
+                            <option value="standard">Standard (Uploaded to Yoto)</option>
+                        </select>
+                        <small id="mode-description">Hosted on our server using direct URLs</small>
+                    </div>
+                </div>
+
+                <!-- Search Section -->
+                <div class="form-section">
+                    <h4>Add Chapters</h4>
+                    <div class="form-group">
+                        <label for="audio-search">Search Audio Files:</label>
+                        <input 
+                            type="text" 
+                            id="audio-search" 
+                            placeholder="Search by filename or transcript content..."
+                        >
+                        <small>Searches by filename and speech-to-text transcripts</small>
+                    </div>
+                    <div id="search-results" class="search-results">
+                        <p class="placeholder">Type to search audio files...</p>
+                    </div>
+                </div>
+
+                <!-- Chapters Section -->
+                <div class="form-section">
+                    <h4>Chapters (<span id="chapter-count">0</span>)</h4>
+                    <div id="chapters-list" class="chapters-list">
+                        <p class="placeholder">No chapters added yet. Search and add audio files above.</p>
+                    </div>
+                </div>
+
+                <!-- Upload Progress Section (hidden by default) -->
+                <div class="form-section" id="upload-progress-section" style="display: none;">
+                    <h4>Upload Progress</h4>
+                    <div id="upload-progress-list"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePlaylistModal()">Cancel</button>
+                <button class="btn-primary" id="create-playlist-submit-btn" onclick="submitPlaylist()" disabled>
+                    ✓ Create Playlist
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/mqtt-analyzer.js"></script>
+    <script src="/static/js/audio-library.js"></script>    <script>
+        // Hide admin nav for non-admin users
+        async function checkAdminStatus() {
+            try {
+                const response = await fetch('/api/user/session', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (!data.is_admin) {
+                        const adminLink = document.querySelector('a[href="/admin"]');
+                        if (adminLink) {
+                            adminLink.parentElement.style.display = 'none';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+            }
+        }
+        checkAdminStatus();
+    </script></body>
+</html>

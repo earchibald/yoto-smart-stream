@@ -6,6 +6,7 @@ from aws_cdk import (
     Stack,
     Duration,
     CfnOutput,
+    BundlingOptions,
     aws_lambda as lambda_,
     aws_apigatewayv2 as apigw,
     aws_apigatewayv2_integrations as apigw_integrations,
@@ -327,9 +328,9 @@ class YotoSmartStreamStack(Stack):
             self,
             "ApiFunction",
             function_name=f"yoto-api-{self.env_name}",
-            runtime=lambda_.Runtime.PYTHON_3_9,
+            runtime=lambda_.Runtime.PYTHON_3_12,  # Updated to Python 3.12
             handler="handler.handler",
-            code=lambda_.Code.from_asset("../lambda"),  # Fixed path: relative to cdk directory
+            code=lambda_.Code.from_asset("../lambda/package"),  # Use pre-packaged directory
             timeout=Duration.seconds(30),
             memory_size=1024,
             role=role,
@@ -341,6 +342,8 @@ class YotoSmartStreamStack(Stack):
                 "YOTO_CLIENT_ID": yoto_client_id or "",
                 "COGNITO_USER_POOL_ID": self.cognito_user_pool.user_pool_id,
                 "COGNITO_CLIENT_ID": self.cognito_user_pool.user_pool_provider_name,
+                "AUDIO_FILES_DIR": "/tmp/audio_files",  # Lambda writable directory
+                "DATABASE_URL": "sqlite:////tmp/yoto_smart_stream.db",  # Lambda writable location
                 # AWS_REGION is automatically set by Lambda runtime
             },
             log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,

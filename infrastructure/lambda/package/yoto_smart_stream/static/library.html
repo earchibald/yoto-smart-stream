@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoto Library - Yoto Smart Stream</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
+    <style>
+        /* Critical overrides to ensure correct library card rendering even if external CSS is stale */
+        .library-card-image { position: relative; }
+        .library-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain !important;
+            display: block;
+        }
+        .library-card-image .library-card-info-btn {
+            position: absolute !important;
+            top: 8px;
+            right: 8px;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <h1>🎵 Yoto Stream</h1>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="/">🏠 Dashboard</a></li>
+            <li><a href="/streams">✨ Smart Streams</a></li>
+            <li class="active"><a href="/library">📚 Yoto Library</a></li>
+            <li><a href="/audio-library">🎙️ Audio Library</a></li>
+            <li><a href="/admin">⚙️ Admin</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p id="app-version">Loading...</p>
+        </div>
+    </nav>
+
+    <main class="content">
+        <header>
+            <h2>Your Yoto Library</h2>
+            <div class="status-indicator" id="status">
+                <span class="dot"></span>
+                <span id="status-text">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Authentication Message -->
+        <section class="section" id="auth-message" style="display: none;">
+            <div class="auth-container">
+                <div class="auth-icon">🔐</div>
+                <h3>Authentication Required</h3>
+                <p>Please authenticate with your Yoto account from the <a href="/">Dashboard</a> to view your library.</p>
+            </div>
+        </section>
+
+        <!-- Library Stats -->
+        <div class="stats-grid" id="stats-grid" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-icon">🎵</div>
+                <div class="stat-content">
+                    <h3 id="card-count">-</h3>
+                    <p>Cards</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📁</div>
+                <div class="stat-content">
+                    <h3 id="playlist-count">-</h3>
+                    <p>Playlists</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cards Section -->
+        <section class="section" id="cards-section" style="display: none;">
+            <div class="section-header">
+                <div style="display: flex; align-items: center; gap: 1rem; flex-grow: 1;">
+                    <h3>Your Cards</h3>
+                    <input type="text" id="cards-filter" placeholder="🔍 Filter cards..." class="filter-input" style="flex-grow: 1; max-width: 300px;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <button class="refresh-btn" onclick="refreshLibrary()">🔄 Refresh</button>
+                </div>
+            </div>
+            <div id="cards-grid" class="library-grid">
+                <!-- Skeleton loading state -->
+                <div class="skeleton-loader" id="cards-skeleton">
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                </div>
+                <p class="loading" id="cards-loading" style="display: none;">Loading cards...</p>
+            </div>
+        </section>
+
+        <!-- Playlists Section -->
+        <section class="section" id="playlists-section" style="display: none;">
+            <div class="section-header">
+                <div style="display: flex; align-items: center; gap: 1rem; flex-grow: 1;">
+                    <h3>Your Playlists</h3>
+                    <input type="text" id="playlists-filter" placeholder="🔍 Filter playlists..." class="filter-input" style="flex-grow: 1; max-width: 300px;">
+                </div>
+            </div>
+            <div id="playlists-list" class="list-container">
+                <p class="loading">Loading playlists...</p>
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="section" id="actions-section" style="display: none;">
+            <h3>Quick Actions</h3>
+            <div class="actions-grid">
+                <a href="/" class="action-button">🏠 Back to Dashboard</a>
+                <a href="/streams" class="action-button">🎵 View Streams</a>
+                <a href="/docs" target="_blank" class="action-button">📖 API Documentation</a>
+            </div>
+        </section>
+    </main>
+
+    <!-- Content Details Modal -->
+    <div id="content-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-content-title">Content Details</h3>
+                <span class="modal-close" id="modal-close-btn">&times;</span>
+            </div>
+            <div class="modal-body" id="modal-content-body">
+                <p class="loading">Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Raw Data Modal -->
+    <div id="raw-data-modal" class="modal">
+        <div class="modal-content json-viewer-modal">
+            <div class="modal-header">
+                <h3 id="raw-data-title">Raw Card Data</h3>
+                <span class="modal-close" onclick="closeRawDataModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="json-viewer-container">
+                    <pre id="raw-data-body" class="json-content">Loading...</pre>
+                    <button class="btn-primary" id="copy-raw-data-btn">📋 Copy to Clipboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/library.js"></script>
+    <script>
+        // Hide admin nav for non-admin users
+        async function checkAdminStatusNav() {
+            try {
+                const response = await fetch('/api/user/session', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Session data:', data);
+                    if (data.is_admin) {
+                        console.log('User is admin, showing admin nav');
+                    } else {
+                        console.log('User is not admin, hiding admin nav');
+                        const adminLink = document.querySelector('a[href="/admin"]');
+                        if (adminLink) {
+                            adminLink.parentElement.style.display = 'none';
+                        }
+                    }
+                } else {
+                    console.log('Session check failed with status:', response.status);
+                }
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+            }
+        }
+        checkAdminStatusNav();
+    </script>
+</body>
+</html>
