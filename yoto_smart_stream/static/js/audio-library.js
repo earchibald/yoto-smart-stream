@@ -1190,7 +1190,7 @@ let allAudioFiles = [];
 function openPlaylistModal() {
     const modal = document.getElementById('playlistModal');
     if (modal) {
-        modal.style.display = 'block';
+        modal.style.display = 'flex';
         playlistChapters = [];
         // Reset form fields
         document.getElementById('playlist-title').value = '';
