@@ -874,16 +874,6 @@ async def create_playlist_from_audio(
     client = get_yoto_client()
     manager = client.get_manager()
 
-    # Ensure authentication and refresh token if needed
-    try:
-        client.ensure_authenticated()
-    except Exception as e:
-        logger.error(f"Failed to authenticate with Yoto API: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unable to authenticate with Yoto API. Please log in again on the Dashboard.",
-        ) from e
-
     # Verify all audio files exist and build chapters
     chapters = []
     for idx, chapter_item in enumerate(request.chapters, 1):

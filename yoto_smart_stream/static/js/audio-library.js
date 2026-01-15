@@ -1375,6 +1375,8 @@ async function submitPlaylist() {
             chapters: playlistChapters
         };
         
+        console.log('Creating playlist with payload:', JSON.stringify(payload, null, 2));
+        
         const response = await fetch(`${API_BASE}/cards/create-playlist-from-audio`, {
             method: 'POST',
             headers: {
