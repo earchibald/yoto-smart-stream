@@ -10,7 +10,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -321,6 +321,24 @@ def create_app() -> FastAPI:
         if audio_library_path.exists():
             return FileResponse(audio_library_path)
         return {"message": "Audio Library UI not available", "docs": "/docs"}
+
+    @app.get("/audio/{filename}", tags=["Audio"], response_class=FileResponse)
+    async def get_audio_file(filename: str):
+        """Serve raw audio files from the configured audio directory."""
+        safe_name = Path(filename).name  # Prevent path traversal
+        audio_path = settings.audio_files_dir / safe_name
+
+        if not audio_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Audio file not found",
+            )
+
+        return FileResponse(
+            audio_path,
+            media_type="audio/mpeg",
+            filename=safe_name,
+        )
 
     @app.get("/admin", tags=["Web UI"])
     async def admin_ui():
