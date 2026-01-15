@@ -6,7 +6,7 @@ import tempfile
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
 from gtts import gTTS
 from pydantic import BaseModel, Field
@@ -21,6 +21,65 @@ from .user_auth import require_auth
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+# Background task for transcription
+def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
+    """
+    Background task to transcribe audio file.
+    
+    Args:
+        filename: Audio filename
+        audio_path: Full path to audio file
+        db_url: Database URL for creating a new session
+    """
+    from pathlib import Path
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from ...core.audio_db import update_transcript, get_audio_file_by_filename
+    from ...core.transcription import get_transcription_service
+    
+    # Create a new database session for this background task
+    engine = create_engine(db_url, connect_args={"check_same_thread": False} if "sqlite" in db_url else {})
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = SessionLocal()
+    
+    try:
+        logger.info(f"Starting background transcription for {filename}")
+        
+        # Update status to processing
+        update_transcript(db, filename, None, "processing", None)
+        
+        # Check if still processing (could have been cancelled)
+        audio_record = get_audio_file_by_filename(db, filename)
+        if audio_record and audio_record.transcript_status != "processing":
+            logger.info(f"Transcription was cancelled for {filename}")
+            return
+        
+        # Perform transcription
+        transcription_service = get_transcription_service()
+        transcript_text, error_msg = transcription_service.transcribe_audio(Path(audio_path))
+        
+        # Check again before saving (in case cancelled during transcription)
+        audio_record = get_audio_file_by_filename(db, filename)
+        if audio_record and audio_record.transcript_status != "processing":
+            logger.info(f"Transcription was cancelled for {filename} during processing")
+            return
+        
+        if transcript_text:
+            update_transcript(db, filename, transcript_text, "completed", None)
+            logger.info(f"✓ Background transcription completed for {filename}")
+        else:
+            update_transcript(db, filename, None, "error", error_msg)
+            logger.warning(f"Background transcription failed for {filename}: {error_msg}")
+    except Exception as e:
+        logger.error(f"Background transcription error for {filename}: {e}", exc_info=True)
+        # Only update to error if still processing
+        audio_record = get_audio_file_by_filename(db, filename)
+        if audio_record and audio_record.transcript_status == "processing":
+            update_transcript(db, filename, None, "error", str(e))
+    finally:
+        db.close()
 
 
 # Request/Response models
@@ -45,12 +104,12 @@ class GenerateTTSRequest(BaseModel):
 
 # Audio streaming endpoints
 @router.get("/audio/list")
-async def list_audio_files(user: User = Depends(require_auth)):
+async def list_audio_files(user: User = Depends(require_auth), db: Session = Depends(get_db)):
     """
     List available audio files.
 
     Returns:
-        List of audio files in the audio_files directory with duration and size info.
+        List of audio files in the audio_files directory with duration, size, and transcript info.
         Static files (1.mp3 through 10.mp3) are marked with is_static flag.
     """
     settings = get_settings()
@@ -71,6 +130,15 @@ async def list_audio_files(user: User = Depends(require_auth)):
         # Check if this is a static file
         is_static = audio_path.name in static_files
         
+        # Get transcript info from database
+        from ...core.audio_db import get_audio_file_by_filename
+        audio_record = get_audio_file_by_filename(db, audio_path.name)
+        
+        transcript_info = {
+            "status": audio_record.transcript_status if audio_record else "pending",
+            "has_transcript": bool(audio_record and audio_record.transcript),
+        }
+        
         audio_files.append(
             {
                 "filename": audio_path.name,
@@ -78,6 +146,7 @@ async def list_audio_files(user: User = Depends(require_auth)):
                 "duration": duration_seconds,
                 "url": f"/api/audio/{audio_path.name}",
                 "is_static": is_static,
+                "transcript": transcript_info,
             }
         )
 
@@ -85,13 +154,16 @@ async def list_audio_files(user: User = Depends(require_auth)):
 
 
 @router.post("/audio/generate-tts")
-async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(require_auth)):
+async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(require_auth), db: Session = Depends(get_db)):
     """
     Generate text-to-speech audio and save to audio_files directory.
 
     This endpoint creates an MP3 file from the provided text using Google Text-to-Speech.
     The generated file is saved to the audio_files directory and can be used
     in MYO cards or accessed via the audio streaming endpoint.
+    
+    A transcript record is automatically created, and since we have the source text,
+    we can store it directly without needing to run speech-to-text.
 
     Args:
         request: GenerateTTSRequest with filename and text
@@ -159,14 +231,25 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
             )
 
             file_size = output_path.stat().st_size
-            logger.info(f"✓ TTS audio generated: {final_filename} ({file_size} bytes)")
+            duration_seconds = int(len(audio) / 1000)
+            
+            logger.info(f"✓ TTS audio generated: {final_filename} ({file_size} bytes, {duration_seconds}s)")
+            
+            # Create database record with the source text as transcript
+            from ...core.audio_db import get_or_create_audio_file, update_transcript
+            
+            audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
+            # Store the original text as the transcript since we already have it
+            update_transcript(db, final_filename, request.text, "completed", None)
 
             return {
                 "success": True,
                 "filename": final_filename,
                 "size": file_size,
+                "duration": duration_seconds,
                 "url": f"/api/audio/{final_filename}",
-                "message": f"Successfully generated '{final_filename}'"
+                "message": f"Successfully generated '{final_filename}'",
+                "transcript_status": "completed"
             }
 
         finally:
@@ -187,13 +270,17 @@ async def upload_audio(
     file: UploadFile = File(...),
     filename: str = Form(...),
     description: str = Form(default=""),
-    user: User = Depends(require_auth)
+    background_tasks: BackgroundTasks = None,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db)
 ):
     """
     Upload a recorded or imported audio file to the audio library.
     
     This endpoint accepts audio files (MP3, WebM, WAV) and saves them to the audio_files
     directory. If the uploaded file is not MP3, it will be converted to MP3 format.
+    
+    Transcription is triggered as a background task after upload completes.
     
     Args:
         file: Audio file upload
@@ -270,6 +357,25 @@ async def upload_audio(
         
         logger.info(f"✓ Audio uploaded and converted: {final_filename} ({file_size} bytes, {duration_seconds}s)")
         
+        # Create database record
+        from ...core.audio_db import get_or_create_audio_file, update_transcript
+        
+        audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
+        
+        # Mark transcription as pending and schedule background task
+        update_transcript(db, final_filename, None, "pending", None)
+        
+        # Schedule background transcription (non-blocking)
+        if background_tasks:
+            settings = get_settings()
+            background_tasks.add_task(
+                transcribe_audio_background,
+                final_filename,
+                str(output_path),
+                settings.database_url
+            )
+            logger.info(f"Scheduled background transcription for {final_filename}")
+        
         return {
             "success": True,
             "filename": final_filename,
@@ -277,7 +383,8 @@ async def upload_audio(
             "duration": duration_seconds,
             "description": description,
             "url": f"/api/audio/{final_filename}",
-            "message": f"Successfully uploaded '{final_filename}'"
+            "message": f"Successfully uploaded '{final_filename}'",
+            "transcript_status": "pending"
         }
         
     except Exception as e:
@@ -439,3 +546,191 @@ async def create_streaming_card(request: CreateCardRequest, user: User = Depends
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create card: {str(e)}",
         ) from e
+
+
+# Transcription endpoints
+@router.get("/audio/{filename}/transcript")
+async def get_transcript(filename: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """
+    Get the transcript for an audio file.
+
+    Args:
+        filename: Audio filename
+
+    Returns:
+        Dictionary with transcript information
+    """
+    from ...core.audio_db import get_audio_file_by_filename
+
+    audio_record = get_audio_file_by_filename(db, filename)
+
+    if not audio_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No transcript record found for '{filename}'"
+        )
+
+    return {
+        "filename": filename,
+        "transcript": audio_record.transcript,
+        "status": audio_record.transcript_status,
+        "error": audio_record.transcript_error,
+        "transcribed_at": audio_record.transcribed_at.isoformat() if audio_record.transcribed_at else None,
+    }
+
+
+@router.post("/audio/{filename}/transcribe")
+async def trigger_transcription(filename: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """
+    Manually trigger transcription for an audio file.
+
+    This will start a new transcription even if one exists.
+
+    Args:
+        filename: Audio filename
+
+    Returns:
+        Success message with status
+    """
+    settings = get_settings()
+    audio_path = settings.audio_files_dir / filename
+
+    if not audio_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Audio file '{filename}' not found"
+        )
+
+    # Get or create audio file record
+    from ...core.audio_db import get_or_create_audio_file, update_transcript
+    from pydub import AudioSegment
+
+    try:
+        # Get file info
+        file_size = audio_path.stat().st_size
+        try:
+            audio = AudioSegment.from_mp3(str(audio_path))
+            duration_seconds = int(len(audio) / 1000)
+        except Exception:
+            duration_seconds = None
+
+        # Ensure database record exists
+        audio_record = get_or_create_audio_file(db, filename, file_size, duration_seconds)
+
+        # Update status to processing
+        update_transcript(db, filename, None, "processing", None)
+
+        # Perform transcription
+        from ...core.transcription import get_transcription_service
+
+        transcription_service = get_transcription_service()
+        transcript_text, error_msg = transcription_service.transcribe_audio(audio_path)
+
+        if transcript_text:
+            # Success
+            update_transcript(db, filename, transcript_text, "completed", None)
+            return {
+                "success": True,
+                "filename": filename,
+                "status": "completed",
+                "transcript_length": len(transcript_text),
+                "message": "Transcription completed successfully"
+            }
+        else:
+            # Error
+            update_transcript(db, filename, None, "error", error_msg)
+            return {
+                "success": False,
+                "filename": filename,
+                "status": "error",
+                "error": error_msg,
+                "message": "Transcription failed"
+            }
+
+    except Exception as e:
+        logger.error(f"Error during transcription: {e}", exc_info=True)
+        # Update record with error (import already done above)
+        update_transcript(db, filename, None, "error", str(e))
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to transcribe audio: {str(e)}"
+        ) from e
+
+
+@router.delete("/audio/{filename}/transcript")
+async def delete_transcript(filename: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """
+    Delete the transcript for an audio file.
+    
+    This removes the transcript text but keeps the audio file record.
+    The transcript can be regenerated later.
+
+    Args:
+        filename: Audio filename
+
+    Returns:
+        Success message
+    """
+    from ...core.audio_db import get_audio_file_by_filename, update_transcript
+
+    audio_record = get_audio_file_by_filename(db, filename)
+
+    if not audio_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No audio record found for '{filename}'"
+        )
+
+    # Clear the transcript and reset status to pending
+    update_transcript(db, filename, None, "pending", None)
+    
+    logger.info(f"Deleted transcript for {filename}")
+
+    return {
+        "success": True,
+        "filename": filename,
+        "message": "Transcript deleted successfully"
+    }
+
+
+@router.post("/audio/{filename}/transcript/cancel")
+async def cancel_transcription(filename: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """
+    Cancel an in-progress transcription.
+    
+    Note: This only updates the database status. The actual background task
+    may continue to run but its result will be ignored if status is no longer 'processing'.
+
+    Args:
+        filename: Audio filename
+
+    Returns:
+        Success message
+    """
+    from ...core.audio_db import get_audio_file_by_filename, update_transcript
+
+    audio_record = get_audio_file_by_filename(db, filename)
+
+    if not audio_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No audio record found for '{filename}'"
+        )
+
+    if audio_record.transcript_status != "processing":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Transcription is not in progress (current status: {audio_record.transcript_status})"
+        )
+
+    # Update status to cancelled
+    update_transcript(db, filename, None, "cancelled", None)
+    
+    logger.info(f"Cancelled transcription for {filename}")
+
+    return {
+        "success": True,
+        "filename": filename,
+        "message": "Transcription cancelled"
+    }

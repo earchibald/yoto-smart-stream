@@ -162,6 +162,24 @@
         </section>
     </main>
 
+    <!-- Transcript Modal -->
+    <div id="transcriptModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📝 Audio Transcript</h3>
+                <span class="modal-close" onclick="closeTranscriptModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="transcriptContent">
+                    <p class="loading">Loading transcript...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeTranscriptModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MQTT Analyzer Modal (shared) -->
     <div id="mqttAnalyzerModal" class="modal">
         <div class="modal-content mqtt-modal-content">

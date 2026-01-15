@@ -2359,3 +2359,191 @@ audio::-webkit-media-controls-pause-button {
     opacity: 0.8;
     margin-left: 0.5rem;
 }
+
+/* Transcript Modal Styles */
+.transcript-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.transcript-header h4 {
+    margin: 0 0 0.5rem 0;
+    color: #1e293b;
+    font-size: 1.25rem;
+}
+
+.transcript-meta {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
+.transcript-text {
+    background: #f8fafc;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.transcript-text p {
+    margin: 0;
+    line-height: 1.7;
+    color: #334155;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.modal-footer {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+/* Transcript Badge Styles */
+.badge-transcript {
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    display: inline-block;
+    user-select: none;
+    margin-left: 0.5rem;
+}
+
+.badge-transcript:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.badge-no-transcript {
+    background: #e2e8f0;
+    color: #64748b;
+}
+
+.badge-no-transcript:hover {
+    background: #cbd5e0;
+    color: #475569;
+}
+
+.badge-processing {
+    background: #fbbf24;
+    color: #78350f;
+    animation: pulse 2s infinite;
+}
+
+.badge-processing:hover {
+    background: #f59e0b;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.badge-completed {
+    background: #10b981;
+    color: white;
+}
+
+.badge-completed:hover {
+    background: #059669;
+}
+
+.badge-error {
+    background: #ef4444;
+    color: white;
+}
+
+.badge-error:hover {
+    background: #dc2626;
+}
+
+.badge-cancelled {
+    background: #94a3b8;
+    color: white;
+}
+
+.badge-cancelled:hover {
+    background: #64748b;
+}
+
+.badge-static {
+    background: #805ad5;
+    color: white;
+    margin-left: 0.5rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+/* Transcript Options Modal */
+.transcript-options-modal {
+    display: none;
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+}
+
+.transcript-options-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.transcript-options-content h3 {
+    margin: 0 0 1rem 0;
+    color: #1e293b;
+}
+
+.transcript-options-content p {
+    margin: 0 0 1.5rem 0;
+    color: #475569;
+}
+
+.transcript-options-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.transcript-options-buttons button {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}

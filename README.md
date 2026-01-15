@@ -24,6 +24,7 @@ For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 - **Web UI**: Manage your audio library, configure cards, and write interactive scripts
 - **Card Management**: Upload, organize, and configure custom Yoto cards
 - **Multi-format Support**: Automatic audio conversion to Yoto-compatible formats
+- **Speech-to-Text Transcription**: Automatic transcription of audio files using OpenAI Whisper
 - **Automatic Token Refresh**: Background task keeps OAuth tokens valid indefinitely ([details](docs/OAUTH_TOKEN_PERSISTENCE.md))
 
 ## 🏗️ Architecture
@@ -280,6 +281,7 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Dynamic Audio Streaming](docs/DYNAMIC_STREAMING.md)**: Create server-controlled playlists that stream multiple files sequentially (NEW)
 - **[Creating MYO Cards](docs/CREATING_MYO_CARDS.md)**: Traditional approach - upload audio to Yoto's servers
 - **[Icon Management Guide](docs/ICON_MANAGEMENT.md)**: Working with display icons for Yoto Mini
+- **[Speech-to-Text Transcription](#speech-to-text-transcription)**: Automatic transcription of audio files (NEW)
 
 ### API & Implementation
 - **[Yoto API Reference](docs/YOTO_API_REFERENCE.md)**: Complete API specification with endpoints, MQTT topics, and code examples
@@ -566,17 +568,121 @@ This project is not affiliated with, endorsed by, or sponsored by Yoto Play. It'
 - [x] Icon management module (100% complete, 96% test coverage)
 - [x] FastAPI server implementation with lifespan management
 - [x] MQTT event monitoring
-- [x] Comprehensive testing suite (79 tests passing)
+- [x] Comprehensive testing suite (137 tests passing)
 - [x] Code quality tooling (ruff, black, pytest, mypy)
 - [x] Quick start and testing guides
 - [x] Dynamic audio streaming with queue management
 - [x] Text-to-speech integration
+- [x] Speech-to-text transcription (OpenAI Whisper)
 - [ ] Audio management system (basic upload/conversion)
 - [ ] Interactive script engine
 - [ ] Web UI for queue management
 - [ ] Queue persistence (database storage)
 - [ ] Cloud deployment guides
 - [ ] Mobile app (future consideration)
+
+## Speech-to-Text Transcription
+
+Yoto Smart Stream now includes automatic transcription of audio files using OpenAI Whisper, an open-source speech recognition model.
+
+### Features
+
+- **Automatic Transcription**: Audio files are automatically transcribed when uploaded
+- **Manual Transcription**: Trigger transcription on-demand for any audio file
+- **Transcript Storage**: Transcripts are stored in the database and associated with audio files
+- **UI Integration**: View, manage, and retry transcriptions from the Audio Library page
+- **TTS Integration**: Text-to-speech generated audio automatically stores the source text as transcript
+
+### Usage
+
+#### Automatic Transcription
+
+When you upload an audio file via the Audio Library page, transcription starts automatically:
+
+1. Navigate to the Audio Library page
+2. Upload or record an audio file
+3. The system will automatically transcribe the audio in the background
+4. Once complete, a "📝 Transcript" button appears next to the audio file
+
+#### Manual Transcription
+
+To manually trigger transcription for an existing audio file:
+
+1. Navigate to the Audio Library page
+2. Find the audio file you want to transcribe
+3. Click the "📝 Transcribe" button
+4. Wait for the transcription to complete
+5. Click "📝 Transcript" to view the result
+
+#### Viewing Transcripts
+
+1. Click the "📝 Transcript" button next to any audio file with a completed transcription
+2. The transcript will appear in a modal dialog
+3. You can copy the text or close the modal
+
+### API Endpoints
+
+#### Get Transcript
+
+```bash
+GET /api/audio/{filename}/transcript
+```
+
+Returns the transcript for a specific audio file.
+
+**Response:**
+```json
+{
+  "filename": "my-audio.mp3",
+  "transcript": "This is the transcribed text...",
+  "status": "completed",
+  "error": null,
+  "transcribed_at": "2026-01-14T08:00:00Z"
+}
+```
+
+#### Trigger Transcription
+
+```bash
+POST /api/audio/{filename}/transcribe
+```
+
+Manually trigger transcription for an audio file.
+
+**Response:**
+```json
+{
+  "success": true,
+  "filename": "my-audio.mp3",
+  "status": "completed",
+  "transcript_length": 1234,
+  "message": "Transcription completed successfully"
+}
+```
+
+### Configuration
+
+The transcription service uses the OpenAI Whisper "base" model by default, which provides a good balance between speed and accuracy. You can configure this in the transcription service if needed.
+
+**Model Options:**
+- `tiny` - Fastest, lowest accuracy
+- `base` - Good balance (default)
+- `small` - Better accuracy, slower
+- `medium` - High accuracy, much slower
+- `large` - Best accuracy, very slow
+
+### Technical Details
+
+- **Model**: OpenAI Whisper (base)
+- **Dependencies**: `openai-whisper`, `torch`, `torchaudio`
+- **Storage**: SQLite database with transcript text, status, and metadata
+- **Processing**: Currently synchronous (TODO: move to background queue for production)
+
+### Limitations
+
+- Transcription currently runs synchronously and may cause request timeouts for very long audio files
+- For production deployments, consider implementing a background task queue (Celery, RQ, or FastAPI BackgroundTasks)
+- Whisper models require significant CPU/GPU resources for faster transcription
 
 ---
 

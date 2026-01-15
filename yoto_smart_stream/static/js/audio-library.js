@@ -115,30 +115,149 @@ async function loadAudioFiles() {
             return;
         }
         
-        container.innerHTML = files.map(file => `
-            <div class="list-item">
-                <div class="list-item-header">
-                    <span class="list-item-title">
-                        🎵 ${escapeHtml(file.filename)}
-                        ${file.is_static ? '<span class="badge" style="background: #805ad5; color: white; margin-left: 0.5rem;">Static</span>' : ''}
-                    </span>
+        container.innerHTML = files.map(file => {
+            const transcriptBadge = getTranscriptBadge(file);
+            
+            return `
+                <div class="list-item">
+                    <div class="list-item-header">
+                        <span class="list-item-title">
+                            🎵 ${escapeHtml(file.filename)}
+                            ${file.is_static ? '<span class="badge badge-static">Static</span>' : ''}
+                            ${transcriptBadge}
+                        </span>
+                    </div>
+                    <div class="list-item-details">
+                        <span>Duration: ${file.duration}s | Size: ${file.size} bytes (${formatFileSize(file.size)})</span>
+                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                            <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
+                                📋
+                            </button>
+                        </div>
+                        <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
+                            <source src="${escapeHtml(file.url)}" type="audio/mpeg">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
                 </div>
-                <div class="list-item-details">
-                    <span>Duration: ${file.duration}s | Size: ${file.size} bytes (${formatFileSize(file.size)})</span>
-                    <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
-                        📋
-                    </button>
-                    <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
-                        <source src="${escapeHtml(file.url)}" type="audio/mpeg">
-                        Your browser does not support the audio element.
-                    </audio>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+        
+        // Start auto-refresh if any files are processing
+        checkAndStartAutoRefresh();
         
     } catch (error) {
         console.error('Error loading audio files:', error);
         container.innerHTML = '<p class="error-message">Failed to load audio files.</p>';
+    }
+}
+
+// Get transcript badge HTML based on transcript state
+function getTranscriptBadge(file) {
+    if (!file.transcript || file.transcript.status === 'pending') {
+        return `<span class="badge badge-transcript badge-no-transcript" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'pending', event)" 
+                      title="Click to start transcription">
+                    No Transcript
+                </span>`;
+    }
+    
+    if (file.transcript.has_transcript && file.transcript.status === 'completed') {
+        return `<span class="badge badge-transcript badge-completed" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'completed', event)" 
+                      title="Click to view or delete transcript">
+                    ✓ Transcript
+                </span>`;
+    }
+    
+    if (file.transcript.status === 'processing') {
+        return `<span class="badge badge-transcript badge-processing" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'processing', event)" 
+                      title="Click to cancel transcription">
+                    ⏳ Generating...
+                </span>`;
+    }
+    
+    if (file.transcript.status === 'error') {
+        return `<span class="badge badge-transcript badge-error" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'error', event)" 
+                      title="Click to retry transcription">
+                    ⚠️ Error
+                </span>`;
+    }
+    
+    if (file.transcript.status === 'cancelled') {
+        return `<span class="badge badge-transcript badge-cancelled" 
+                      onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'cancelled', event)" 
+                      title="Click to start transcription">
+                    Cancelled
+                </span>`;
+    }
+    
+    // Default: no transcript
+    return `<span class="badge badge-transcript badge-no-transcript" 
+                  onclick="handleTranscriptBadgeClick('${escapeHtml(file.filename)}', 'pending', event)" 
+                  title="Click to start transcription">
+                No Transcript
+            </span>`;
+}
+
+// Handle transcript badge clicks
+async function handleTranscriptBadgeClick(filename, status, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (status === 'completed') {
+        // Show options: View or Delete
+        showTranscriptOptions(filename);
+    } else if (status === 'processing') {
+        // Cancel transcription
+        await cancelTranscription(filename);
+    } else if (status === 'pending' || status === 'cancelled' || status === 'error') {
+        // Start transcription
+        await startTranscription(filename, event);
+    }
+}
+
+// Show transcript options (view or delete)
+function showTranscriptOptions(filename) {
+    const modal = document.createElement('div');
+    modal.className = 'transcript-options-modal';
+    modal.innerHTML = `
+        <div class="transcript-options-content">
+            <h3>Transcript Options</h3>
+            <p>What would you like to do with the transcript for <strong>${escapeHtml(filename)}</strong>?</p>
+            <div class="transcript-options-buttons">
+                <button class="btn-primary" onclick="viewTranscriptAndCloseOptions('${escapeHtml(filename)}')">
+                    📝 View Transcript
+                </button>
+                <button class="btn-danger" onclick="deleteTranscriptConfirm('${escapeHtml(filename)}')">
+                    🗑️ Delete Transcript
+                </button>
+                <button class="btn-secondary" onclick="closeTranscriptOptions()">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    modal.onclick = function(e) {
+        if (e.target === modal) {
+            closeTranscriptOptions();
+        }
+    };
+    document.body.appendChild(modal);
+    modal.style.display = 'flex';
+}
+
+function viewTranscriptAndCloseOptions(filename) {
+    closeTranscriptOptions();
+    viewTranscript(filename);
+}
+
+function closeTranscriptOptions() {
+    const modal = document.querySelector('.transcript-options-modal');
+    if (modal) {
+        modal.remove();
     }
 }
 
@@ -681,4 +800,186 @@ function hideRecorderResult() {
     if (result) result.style.display = 'none';
     if (successDiv) successDiv.style.display = 'none';
     if (errorDiv) errorDiv.style.display = 'none';
+}
+
+// Transcript functions
+
+async function viewTranscript(filename, event) {
+    if (event) event.preventDefault();
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcript`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch transcript');
+        }
+        
+        const data = await response.json();
+        
+        // Show modal with transcript
+        const modal = document.getElementById('transcriptModal');
+        const content = document.getElementById('transcriptContent');
+        
+        if (data.transcript) {
+            content.innerHTML = `
+                <div class="transcript-header">
+                    <h4>${escapeHtml(filename)}</h4>
+                    <p class="transcript-meta">Transcribed: ${data.transcribed_at ? new Date(data.transcribed_at).toLocaleString() : 'N/A'}</p>
+                </div>
+                <div class="transcript-text">
+                    <p>${escapeHtml(data.transcript)}</p>
+                </div>
+            `;
+        } else if (data.status === 'error') {
+            content.innerHTML = `
+                <div class="error-message">
+                    <p>Transcription failed: ${escapeHtml(data.error || 'Unknown error')}</p>
+                    <button class="btn-primary" onclick="retryTranscription('${escapeHtml(filename)}', event)">
+                        Retry Transcription
+                    </button>
+                </div>
+            `;
+        } else {
+            content.innerHTML = `
+                <div class="loading">
+                    <p>Transcript is being processed...</p>
+                    <button class="btn-secondary" onclick="closeTranscriptModal()">Close</button>
+                </div>
+            `;
+        }
+        
+        modal.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error fetching transcript:', error);
+        alert('Failed to load transcript. Please try again.');
+    }
+}
+
+function closeTranscriptModal() {
+    const modal = document.getElementById('transcriptModal');
+    modal.style.display = 'none';
+}
+
+async function startTranscription(filename, event) {
+    if (event) event.preventDefault();
+    
+    if (!confirm(`Start transcription for ${filename}? This may take a few moments.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcribe`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to start transcription');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`Transcription completed successfully! Length: ${data.transcript_length} characters`);
+        } else {
+            alert(`Transcription failed: ${data.error || 'Unknown error'}`);
+        }
+        
+        // Reload the audio files list to update button states
+        await loadAudioFiles();
+        
+    } catch (error) {
+        console.error('Error starting transcription:', error);
+        alert('Failed to start transcription. Please try again.');
+    }
+}
+
+async function retryTranscription(filename, event) {
+    return startTranscription(filename, event);
+}
+
+// Cancel transcription
+async function cancelTranscription(filename) {
+    if (!confirm(`Cancel transcription for ${filename}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcript/cancel`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Failed to cancel transcription');
+        }
+        
+        // Reload the audio files list to update badge
+        await loadAudioFiles();
+        
+    } catch (error) {
+        console.error('Error cancelling transcription:', error);
+        alert(`Failed to cancel transcription: ${error.message}`);
+    }
+}
+
+// Delete transcript
+async function deleteTranscriptConfirm(filename) {
+    closeTranscriptOptions();
+    
+    if (!confirm(`Delete transcript for ${filename}? The audio file will remain, but you'll need to re-transcribe it.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcript`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Failed to delete transcript');
+        }
+        
+        const data = await response.json();
+        alert(data.message || 'Transcript deleted successfully');
+        
+        // Reload the audio files list to update badge
+        await loadAudioFiles();
+        
+    } catch (error) {
+        console.error('Error deleting transcript:', error);
+        alert(`Failed to delete transcript: ${error.message}`);
+    }
+}
+
+// Auto-refresh functionality for processing transcripts
+let autoRefreshInterval = null;
+
+function checkAndStartAutoRefresh() {
+    // Check if any files are processing
+    const container = document.getElementById('audio-list');
+    if (!container) return;
+    
+    const hasProcessing = container.innerHTML.includes('badge-processing');
+    
+    if (hasProcessing && !autoRefreshInterval) {
+        // Start auto-refresh every 3 seconds
+        autoRefreshInterval = setInterval(() => {
+            loadAudioFiles();
+        }, 3000);
+        console.log('Auto-refresh started for processing transcripts');
+    } else if (!hasProcessing && autoRefreshInterval) {
+        // Stop auto-refresh
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        console.log('Auto-refresh stopped - no processing transcripts');
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const transcriptModal = document.getElementById('transcriptModal');
+    if (event.target === transcriptModal) {
+        closeTranscriptModal();
+    }
 }
