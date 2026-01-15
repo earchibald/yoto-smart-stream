@@ -350,6 +350,7 @@ async def upload_audio(
     
     This endpoint accepts audio files (MP3, WebM, WAV) and saves them to the audio_files
     directory. If the uploaded file is not MP3, it will be converted to MP3 format.
+    Files are also uploaded to S3 if configured.
     
     Transcription is triggered as a background task after upload completes.
     
@@ -394,6 +395,7 @@ async def upload_audio(
     logger.info(f"Uploading audio file: {final_filename} (original: {file.filename})")
     
     temp_path = None
+    s3_url = None
     try:
         # Save uploaded file to temporary location
         # Get safe file extension, default to empty string if filename is None
@@ -426,6 +428,23 @@ async def upload_audio(
         file_size = output_path.stat().st_size
         duration_seconds = int(len(audio) / 1000)
         
+        # Upload to S3 if bucket is configured
+        s3_bucket = os.environ.get("S3_AUDIO_BUCKET")
+        if s3_bucket:
+            try:
+                import boto3
+                s3_client = boto3.client('s3')
+                s3_client.upload_file(
+                    str(output_path),
+                    s3_bucket,
+                    final_filename,
+                    ExtraArgs={'ContentType': 'audio/mpeg'}
+                )
+                s3_url = f"https://{s3_bucket}.s3.amazonaws.com/{final_filename}"
+                logger.info(f"✓ Uploaded to S3: {s3_url}")
+            except Exception as s3_error:
+                logger.warning(f"Could not upload to S3: {s3_error}")
+        
         logger.info(f"✓ Audio uploaded and converted: {final_filename} ({file_size} bytes, {duration_seconds}s)")
         
         # Create database record
@@ -457,7 +476,7 @@ async def upload_audio(
             )
             logger.info(f"Transcription disabled; skipping background transcription for {final_filename}")
         
-        return {
+        response_data = {
             "success": True,
             "filename": final_filename,
             "size": file_size,
@@ -467,6 +486,11 @@ async def upload_audio(
             "message": f"Successfully uploaded '{final_filename}'",
             "transcript_status": "pending" if settings.transcription_enabled else "disabled"
         }
+        
+        if s3_url:
+            response_data["s3_url"] = s3_url
+        
+        return response_data
         
     except Exception as e:
         logger.error(f"Failed to upload audio: {e}", exc_info=True)
