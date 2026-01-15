@@ -15,6 +15,7 @@ I have successfully implemented a complete AWS deployment infrastructure using t
    - Following AWS best practices
 
 2. **AWS Resources Defined:**
+   - **Cognito User Pool**: Managed authentication service with password policies and MFA support
    - **DynamoDB Table**: Serverless database with single-table design (PK/SK)
    - **S3 Buckets**: 
      - Audio bucket with CORS for Yoto device streaming

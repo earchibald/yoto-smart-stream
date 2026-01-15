@@ -1,6 +1,7 @@
 """Admin endpoints for user management and system administration."""
 
 import logging
+import os
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,6 +9,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from ...auth import get_password_hash
+from ...auth_cognito import get_cognito_auth
 from ...database import get_db
 from ...models import User
 from .user_auth import get_current_user
@@ -15,6 +17,9 @@ from .user_auth import get_current_user
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Check if running on AWS (Cognito enabled)
+USE_COGNITO = os.getenv("COGNITO_USER_POOL_ID") is not None
 
 
 # Request/Response models
@@ -130,6 +135,7 @@ async def create_user(
     """
     Create a new user (admin only).
     
+    Creates user in both Cognito (if enabled) and local database.
     Non-admin users are created with access to the library and devices
     using the server's Yoto OAuth credentials (single-tenant mode).
     
@@ -141,9 +147,29 @@ async def create_user(
     Returns:
         Created user information
     """
-    logger.info(f"Admin {admin.username} creating new user: {user_data.username}")
+    logger.info(f"Admin {admin.username} creating new user: {user_data.username} (Cognito: {USE_COGNITO})")
     
-    # Check if username already exists
+    # Create in Cognito if enabled
+    if USE_COGNITO:
+        cognito = get_cognito_auth()
+        if cognito.is_enabled():
+            email = user_data.email or f"{user_data.username}@example.com"
+            success = cognito.create_user(
+                username=user_data.username,
+                email=email,
+                password=user_data.password,
+                temporary_password=False
+            )
+            
+            if not success:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create user in Cognito"
+                )
+            
+            logger.info(f"✓ User created in Cognito: {user_data.username}")
+    
+    # Check if username already exists in local database
     existing_user = db.query(User).filter(User.username == user_data.username).first()
     if existing_user:
         raise HTTPException(

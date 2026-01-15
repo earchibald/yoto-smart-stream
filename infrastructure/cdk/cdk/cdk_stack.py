@@ -1,6 +1,6 @@
 """
 Yoto Smart Stream AWS CDK Stack
-Architecture 1: Lambda + Fargate Spot + DynamoDB + S3
+Architecture 1: Lambda + Fargate Spot + DynamoDB + S3 + Cognito
 """
 from aws_cdk import (
     Stack,
@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_lambda as lambda_,
     aws_apigatewayv2 as apigw,
     aws_apigatewayv2_integrations as apigw_integrations,
+    aws_apigatewayv2_authorizers as apigw_authorizers,
     aws_dynamodb as dynamodb,
     aws_s3 as s3,
     aws_iam as iam,
@@ -18,6 +19,7 @@ from aws_cdk import (
     aws_ecr_assets as ecr_assets,
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
+    aws_cognito as cognito,
     RemovalPolicy,
 )
 from constructs import Construct
@@ -42,6 +44,7 @@ class YotoSmartStreamStack(Stack):
         self.is_production = environment == "prod"
         
         # Create resources
+        self.cognito_user_pool = self._create_cognito_user_pool()
         self.dynamodb_table = self._create_dynamodb_table()
         self.audio_bucket = self._create_audio_bucket()
         self.ui_bucket = self._create_ui_bucket()
@@ -53,6 +56,73 @@ class YotoSmartStreamStack(Stack):
         
         if enable_cloudfront:
             self.cloudfront_dist = self._create_cloudfront_distribution()
+
+    def _create_cognito_user_pool(self) -> cognito.UserPool:
+        """Create Cognito User Pool for authentication"""
+        user_pool = cognito.UserPool(
+            self,
+            "UserPool",
+            user_pool_name=f"yoto-users-{self.env_name}",
+            self_sign_up_enabled=False,  # Only admin can create users
+            sign_in_aliases=cognito.SignInAliases(
+                username=True,
+                email=True,
+            ),
+            auto_verify=cognito.AutoVerifiedAttrs(email=True),
+            standard_attributes=cognito.StandardAttributes(
+                email=cognito.StandardAttribute(required=True, mutable=True),
+            ),
+            password_policy=cognito.PasswordPolicy(
+                min_length=8,
+                require_lowercase=True,
+                require_uppercase=True,
+                require_digits=True,
+                require_symbols=False,
+            ),
+            account_recovery=cognito.AccountRecovery.EMAIL_ONLY,
+            removal_policy=RemovalPolicy.RETAIN if self.is_production else RemovalPolicy.DESTROY,
+        )
+
+        # Create app client for the web application
+        user_pool_client = user_pool.add_client(
+            "WebAppClient",
+            user_pool_client_name=f"yoto-webapp-{self.env_name}",
+            auth_flows=cognito.AuthFlow(
+                user_password=True,
+                user_srp=True,
+            ),
+            o_auth=cognito.OAuthSettings(
+                flows=cognito.OAuthFlows(
+                    authorization_code_grant=False,
+                    implicit_code_grant=True,
+                ),
+                scopes=[
+                    cognito.OAuthScope.EMAIL,
+                    cognito.OAuthScope.OPENID,
+                    cognito.OAuthScope.PROFILE,
+                ],
+            ),
+            prevent_user_existence_errors=True,
+        )
+
+        # Create a domain for hosted UI (optional)
+        user_pool.add_domain(
+            "CognitoDomain",
+            cognito_domain=cognito.CognitoDomainOptions(
+                domain_prefix=f"yoto-smart-stream-{self.env_name}",
+            ),
+        )
+
+        CfnOutput(self, "UserPoolId", value=user_pool.user_pool_id)
+        CfnOutput(self, "UserPoolClientId", value=user_pool_client.user_pool_client_id)
+        CfnOutput(
+            self,
+            "CognitoLoginUrl",
+            value=f"https://yoto-smart-stream-{self.env_name}.auth.{self.region}.amazoncognito.com/login",
+            description="Cognito Hosted UI Login URL",
+        )
+
+        return user_pool
 
     def _create_dynamodb_table(self) -> dynamodb.Table:
         """Create DynamoDB table for application data"""
@@ -152,6 +222,20 @@ class YotoSmartStreamStack(Stack):
                 resources=["*"],
             )
         )
+        
+        # Grant Cognito permissions
+        role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "cognito-idp:AdminInitiateAuth",
+                    "cognito-idp:AdminCreateUser",
+                    "cognito-idp:AdminSetUserPassword",
+                    "cognito-idp:AdminGetUser",
+                    "cognito-idp:ListUsers",
+                ],
+                resources=[self.cognito_user_pool.user_pool_arn],
+            )
+        )
 
         # Create Lambda function
         function = lambda_.Function(
@@ -170,6 +254,8 @@ class YotoSmartStreamStack(Stack):
                 "S3_AUDIO_BUCKET": self.audio_bucket.bucket_name,
                 "S3_UI_BUCKET": self.ui_bucket.bucket_name,
                 "YOTO_CLIENT_ID": yoto_client_id or "",
+                "COGNITO_USER_POOL_ID": self.cognito_user_pool.user_pool_id,
+                "COGNITO_CLIENT_ID": self.cognito_user_pool.user_pool_provider_name,
                 # AWS_REGION is automatically set by Lambda runtime
             },
             log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,

@@ -1,6 +1,7 @@
 """User authentication endpoints for login/logout."""
 
 import logging
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
@@ -8,12 +9,16 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ...auth import create_access_token, decode_access_token, verify_password
+from ...auth_cognito import get_cognito_auth
 from ...database import get_db
 from ...models import User
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# Check if running on AWS (Cognito enabled)
+USE_COGNITO = os.getenv("COGNITO_USER_POOL_ID") is not None
 
 
 # Request/Response models
@@ -103,6 +108,7 @@ async def login(
     User login endpoint.
     
     Validates credentials and creates a session cookie.
+    Supports both Cognito (AWS) and local SQLite authentication.
     
     Args:
         login_data: Username and password
@@ -112,7 +118,38 @@ async def login(
     Returns:
         Login response with success status
     """
-    logger.info(f"Login attempt for username: {login_data.username}")
+    logger.info(f"Login attempt for username: {login_data.username} (Cognito: {USE_COGNITO})")
+    
+    # Try Cognito authentication if enabled
+    if USE_COGNITO:
+        cognito = get_cognito_auth()
+        if cognito.is_enabled():
+            cognito_result = cognito.authenticate(login_data.username, login_data.password)
+            
+            if cognito_result:
+                # Create our own JWT token for the session
+                access_token = create_access_token(data={"sub": login_data.username})
+                
+                # Set cookie with token
+                response.set_cookie(
+                    key="session",
+                    value=access_token,
+                    httponly=True,
+                    max_age=30 * 24 * 60 * 60,  # 30 days
+                    samesite="lax",
+                    secure=False  # Set to True in production with HTTPS
+                )
+                
+                logger.info(f"Successful Cognito login for user: {login_data.username}")
+                
+                return LoginResponse(
+                    success=True,
+                    message="Login successful",
+                    username=login_data.username
+                )
+    
+    # Fall back to local database authentication
+    logger.debug("Using local database authentication")
     
     # Query user from database
     user = db.query(User).filter(User.username == login_data.username).first()
@@ -156,7 +193,7 @@ async def login(
         secure=False  # Set to True in production with HTTPS
     )
     
-    logger.info(f"Successful login for user: {user.username}")
+    logger.info(f"Successful local login for user: {user.username}")
     
     return LoginResponse(
         success=True,
