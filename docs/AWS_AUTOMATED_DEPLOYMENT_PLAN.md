@@ -114,20 +114,22 @@
 - API Gateway: `yoto-api-pr-{number}`
 - DynamoDB Table: `yoto-smart-stream-pr-{number}`
 - S3 Buckets: `yoto-audio-pr-{number}`, `yoto-ui-pr-{number}`
-- ECS Service: `yoto-mqtt-pr-{number}` (OPTIONAL - see cost note)
+- ECS Service: `yoto-mqtt-pr-{number}`
+- CloudFront Distribution: `dXXXpr{number}.cloudfront.net`
 
 **Characteristics:**
 - Auto-created on PR open
 - Auto-deleted on PR close/merge
+- Full environment (same as develop)
 - Minimal monitoring
 - No backups
 - Single-AZ for Fargate
-- Cost: $0-8/month per PR (prorated by hours active)
+- Cost: $6-8/month per PR (prorated by hours active)
 
-**Cost Optimization for PRs:**
-- **Option 1:** Skip MQTT handler (save $3/month) - Use for simple changes
-- **Option 2:** Include MQTT handler - Use for MQTT-related changes
-- **Auto-cleanup:** Environments deleted within 1 hour of PR closure
+**Note:**
+- PR environments are full-featured for comprehensive testing
+- Include MQTT handler and CloudFront to match production
+- Auto-cleanup within 1 hour of PR closure prevents runaway costs
 
 ---
 
@@ -591,11 +593,11 @@ Create `infrastructure/parameters/pr-template.json`:
   },
   {
     "ParameterKey": "EnableMQTT",
-    "ParameterValue": "false"
+    "ParameterValue": "true"
   },
   {
     "ParameterKey": "EnableCloudFront",
-    "ParameterValue": "false"
+    "ParameterValue": "true"
   }
 ]
 ```
@@ -952,7 +954,23 @@ jobs:
           cd package
           zip -r ../lambda-deployment.zip .
       
-      - name: Deploy with SAM (without MQTT to save costs)
+      - name: Build and push MQTT Docker image
+        run: |
+          # Login to ECR
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+          
+          # Build and push
+          PR_NUM=${{ steps.pr.outputs.number }}
+          cd infrastructure/fargate
+          docker build -t yoto-mqtt:pr-${PR_NUM} .
+          docker tag yoto-mqtt:pr-${PR_NUM} \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/yoto-mqtt:pr-${PR_NUM}
+          docker push \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/yoto-mqtt:pr-${PR_NUM}
+      
+      - name: Deploy with SAM (full environment)
         id: deploy
         run: |
           PR_NUM=${{ steps.pr.outputs.number }}
@@ -963,8 +981,8 @@ jobs:
             --parameter-overrides \
               Environment=pr-${PR_NUM} \
               YotoClientId=${{ secrets.YOTO_CLIENT_ID }} \
-              EnableMQTT=false \
-              EnableCloudFront=false \
+              EnableMQTT=true \
+              EnableCloudFront=true \
             --capabilities CAPABILITY_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
@@ -997,25 +1015,33 @@ jobs:
             
             const body = `## 🚀 PR Environment Deployed
             
-            Your changes have been deployed to an ephemeral AWS environment:
+            Your changes have been deployed to a full AWS environment:
             
             **API URL:** ${apiUrl}
             **Environment:** pr-${prNumber}
+            **Type:** Full environment (Lambda + Fargate + DynamoDB + S3 + CloudFront)
             
             ### Test Your Changes
             \`\`\`bash
             curl ${apiUrl}/api/health
             \`\`\`
             
+            ### Features
+            - ✅ Full API (Lambda + API Gateway)
+            - ✅ MQTT handler (Fargate Spot)
+            - ✅ Database (DynamoDB)
+            - ✅ Storage (S3 + CloudFront)
+            - ✅ Matches production environment
+            
             ### Cost Info
-            - This environment costs ~$0.10/day
-            - MQTT handler is disabled to save costs
+            - This environment costs ~$6-8/month (prorated by hours)
+            - Full stack for comprehensive testing
             - Environment will be auto-deleted when PR is closed
             
             ### Notes
             - Cold starts expected (2-5 seconds on first request)
             - Subsequent requests fast (<100ms)
-            - No CloudFront CDN (dev mode only)
+            - MQTT events fully functional
             `;
             
             github.rest.issues.createComment({
@@ -1346,26 +1372,39 @@ sam deploy --stack-name yoto-smart-stream-prod ...
 
 ### Monthly Cost per Environment
 
-| Environment | Lambda | Fargate | DynamoDB | S3 | Total |
-|-------------|--------|---------|----------|----|----|
+| Environment | Lambda | Fargate | DynamoDB | S3 + CloudFront | Total |
+|-------------|--------|---------|----------|-----------------|-------|
 | **Production** | $0 | $3 | $1 | $1.50 | **$5.50** |
 | **Develop** | $0 | $3 | $0.50 | $0.50 | **$4** |
-| **PR (each)** | $0 | $0 | $0.10 | $0.10 | **$0.20/day** |
+| **PR (each)** | $0 | $3 | $0.50 | $1 | **$4.50/month** (prorated) |
 
-### Cost Optimization for PRs
+**Note:** PR environments cost ~$6-8/month if left running continuously, but are prorated by hours active. Examples:
+- PR open for 1 day: ~$0.20
+- PR open for 3 days: ~$0.60
+- PR open for 7 days: ~$1.40
+- PR open for 30 days: ~$6.00
 
-**Strategy 1: Disable MQTT by default**
-- Saves $3/month per PR
-- Enable only for MQTT-related PRs
-- Set `EnableMQTT=false` in PR deployment
+### Cost Optimization Strategies
 
-**Strategy 2: Auto-cleanup after 7 days**
-- Add lifecycle rule to S3 buckets
-- Delete stacks automatically if PR not merged
+**Strategy 1: Auto-cleanup on PR close**
+- Environments automatically deleted within 1 hour of PR closure
+- Prevents forgotten PRs from accumulating costs
+- Implemented via GitHub Actions workflow
 
-**Strategy 3: Shared develop database**
-- PRs use develop DynamoDB table (save $0.10/day)
-- Risk: Data contamination between PRs
+**Strategy 2: Stale PR detection**
+- Monitor PRs open for >7 days
+- Consider manual cleanup for abandoned PRs
+- Add GitHub Action to comment on stale PRs
+
+**Strategy 3: Budget alerts**
+- Set CloudWatch billing alarms
+- Alert at $50/month threshold (covers ~8 concurrent PR environments)
+- Allows proactive management
+
+**Cost Impact:**
+- 3 PRs for 2 days each: 6 PR-days × $0.20 = $1.20
+- vs. cost-reduced approach: $0.60 (but missing MQTT/CloudFront features)
+- **Trade-off:** Full testing capability vs. slightly higher PR costs
 
 ### Budget Alerts
 
@@ -1432,17 +1471,19 @@ aws cloudwatch put-dashboard --dashboard-name yoto-prod --dashboard-body file://
      ↓ PR                  ↓ PR                 ↓ Push
      ↓                     ↓                    ↓
   Test + Deploy        Test + Deploy      Test + Deploy
-  (Ephemeral)          (Always-On)        (Always-On)
-  $0.20/day            $4/month           $5.50/month
+  (Full Env)           (Always-On)        (Always-On)
+  ~$0.20/day           $4/month           $5.50/month
+  (prorated)
 ```
 
 ### Key Benefits
 
 1. **Automated:** All deployments via GitHub Actions
 2. **Isolated:** Each environment completely separate
-3. **Cost-Effective:** PR environments only $0.20/day
+3. **Full-Featured:** PR environments match production (MQTT + CloudFront)
 4. **Safe:** Automatic rollback on failures
 5. **Scalable:** Easy to add more environments
+6. **Cost-Controlled:** Auto-cleanup prevents runaway costs
 
 ### Next Steps
 
