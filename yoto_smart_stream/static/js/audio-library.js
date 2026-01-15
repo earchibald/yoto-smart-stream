@@ -1158,6 +1158,19 @@ function showUploadError(message) {
 
 // Playlist functionality
 let playlistChapters = [];
+
+// Debounce helper function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 let allAudioFiles = [];
 
 // Open playlist creation modal
@@ -1224,7 +1237,8 @@ async function searchAudioFiles() {
             throw new Error(data.detail || 'Search failed');
         }
         
-        if (data.results.length === 0) {
+        // Debounce search to avoid excessive API calls (300ms delay)
+        audioSearch.addEventListener('input', debounce(searchAudioFiles, 300));
             resultsDiv.innerHTML = '<p class="placeholder">No files found matching your search.</p>';
             return;
         }
@@ -1273,7 +1287,18 @@ function addChapterFromSearch(filename, defaultTitle) {
     
     playlistChapters.push(chapter);
     updateChaptersList();
-    searchAudioFiles(); // Refresh search results to show "Added" state
+    
+        // Update just the specific button state without re-searching
+        const buttons = document.querySelectorAll('.search-result-item button[onclick*="' + filename.replace(/'/g, "\\'") + '"]');
+        buttons.forEach(btn => {
+            btn.textContent = '✓ Added';
+            btn.classList.remove('btn-add');
+            btn.classList.add('btn-disabled');
+            btn.disabled = true;
+            // Also add 'added' class to parent item
+            const item = btn.closest('.search-result-item');
+            if (item) item.classList.add('added');
+        });
     
     // Enable create button if we have chapters
     const submitBtn = document.getElementById('create-playlist-submit-btn');
