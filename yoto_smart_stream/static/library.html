@@ -87,7 +87,16 @@
                 </div>
             </div>
             <div id="cards-grid" class="library-grid">
-                <p class="loading">Loading cards...</p>
+                <!-- Skeleton loading state -->
+                <div class="skeleton-loader" id="cards-skeleton">
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                </div>
+                <p class="loading" id="cards-loading" style="display: none;">Loading cards...</p>
             </div>
         </section>
 

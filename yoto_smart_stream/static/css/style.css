@@ -13,6 +13,98 @@ body {
     min-height: 100vh;
 }
 
+/* Skeleton Loading Animation */
+.skeleton-loader {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    padding: 1rem 0;
+    width: 100%;
+}
+
+.skeleton-item {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-load 1.5s infinite;
+    border-radius: 8px;
+    aspect-ratio: 1;
+    height: 150px;
+}
+
+@keyframes skeleton-load {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Error Boundary / Alert Styles */
+.error-boundary {
+    background-color: #fff3cd;
+    border-left: 4px solid #ff9800;
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1rem 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.error-boundary.error {
+    background-color: #f8d7da;
+    border-left-color: #dc3545;
+}
+
+.error-boundary.success {
+    background-color: #d4edda;
+    border-left-color: #28a745;
+}
+
+.error-boundary.warning {
+    background-color: #fff3cd;
+    border-left-color: #ff9800;
+}
+
+.error-boundary .icon {
+    font-size: 1.25rem;
+    min-width: 1.5rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.error-boundary .content {
+    flex: 1;
+}
+
+.error-boundary .content strong {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.error-boundary .content p {
+    margin: 0.25rem 0;
+    font-size: 0.875rem;
+}
+
+.error-boundary .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    color: inherit;
+    opacity: 0.7;
+    min-width: 2rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.error-boundary .close-btn:hover {
+    opacity: 1;
+}
+
 /* Stream Scripter Styles */
 .file-selector-grid {
     display: grid;

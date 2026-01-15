@@ -220,13 +220,34 @@ async function loadLibrary() {
         statusTextEl.textContent = 'Error Loading Library';
         
         const cardsGrid = document.getElementById('cards-grid');
-        cardsGrid.innerHTML = '<p class="error-message">Failed to load library. Please try again.</p>';
+        const skeleton = document.getElementById('cards-skeleton');
+        
+        // Hide skeleton and show error message
+        if (skeleton) {
+            skeleton.style.display = 'none';
+        }
+        
+        cardsGrid.innerHTML = `
+            <div class="error-boundary error">
+                <div class="icon">⚠️</div>
+                <div class="content">
+                    <strong>Failed to load library</strong>
+                    <p>${error.message || 'An unexpected error occurred'}</p>
+                </div>
+            </div>
+        `;
     }
 }
 
 // Display cards in grid
 function displayCards(cards) {
     const cardsGrid = document.getElementById('cards-grid');
+    const skeleton = document.getElementById('cards-skeleton');
+    
+    // Hide skeleton loader once data is ready
+    if (skeleton) {
+        skeleton.style.display = 'none';
+    }
     
     if (!cards || cards.length === 0) {
         cardsGrid.innerHTML = '<p class="loading">No cards found in your library.</p>';

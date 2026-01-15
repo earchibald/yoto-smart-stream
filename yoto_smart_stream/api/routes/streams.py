@@ -1001,7 +1001,17 @@ async def detect_smart_stream(device_id: str, user: User = Depends(require_auth)
         
     except Exception as e:
         logger.error(f"Error detecting smart stream for device {device_id}: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to detect smart stream: {str(e)}"
-        )
+        # Return graceful fallback instead of 500 error to prevent UI breakage
+        logger.warning(f"Returning fallback response for device {device_id}")
+        return {
+            "is_playing_smart_stream": False,
+            "stream_name": None,
+            "current_track_index": None,
+            "current_track_name": None,
+            "total_tracks": None,
+            "streaming_url": None,
+            "device_id": device_id,
+            "playback_status": None,
+            "playback_position": None,
+            "error": "Failed to detect stream"
+        }
