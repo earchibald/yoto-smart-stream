@@ -1250,8 +1250,7 @@ async function searchAudioFiles() {
             throw new Error(data.detail || 'Search failed');
         }
         
-        // Debounce search to avoid excessive API calls (300ms delay)
-        audioSearch.addEventListener('input', debounce(searchAudioFiles, 300));
+        if (!data.results || data.results.length === 0) {
             resultsDiv.innerHTML = '<p class="placeholder">No files found matching your search.</p>';
             return;
         }
