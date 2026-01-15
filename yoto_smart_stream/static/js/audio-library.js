@@ -71,6 +71,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Setup audio recorder
     setupRecorder();
+    
+    // Setup upload form
+    const uploadForm = document.getElementById('upload-form');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', handleUploadSubmit);
+    }
+    
+    // Setup upload filename preview
+    const uploadFilenameInput = document.getElementById('upload-filename');
+    if (uploadFilenameInput) {
+        uploadFilenameInput.addEventListener('input', updateUploadFilenamePreview);
+    }
+    
+    // Setup file input change handler
+    const uploadFileInput = document.getElementById('upload-file');
+    if (uploadFileInput) {
+        uploadFileInput.addEventListener('change', handleFileSelect);
+    }
+    
+    // Initial upload preview update
+    updateUploadFilenamePreview();
 });
 
 // Load system status
@@ -982,4 +1003,144 @@ window.onclick = function(event) {
     if (event.target === transcriptModal) {
         closeTranscriptModal();
     }
+}
+
+// ============================================================================
+// Audio Upload Functions
+// ============================================================================
+
+// Handle file selection
+function handleFileSelect(event) {
+    const fileInput = event.target;
+    const file = fileInput.files[0];
+    
+    if (file) {
+        // Auto-populate filename from selected file (without extension)
+        const filenameInput = document.getElementById('upload-filename');
+        if (filenameInput && !filenameInput.value) {
+            const baseName = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+            // Sanitize filename
+            const sanitized = baseName.replace(/[^a-zA-Z0-9\s_-]/g, '-');
+            filenameInput.value = sanitized;
+            updateUploadFilenamePreview();
+        }
+    }
+}
+
+// Update upload filename preview
+function updateUploadFilenamePreview() {
+    const filenameInput = document.getElementById('upload-filename');
+    const preview = document.getElementById('upload-filename-preview');
+    
+    if (filenameInput && preview) {
+        const filename = filenameInput.value.trim() || 'my-audio';
+        // Remove .mp3 extension if user added it
+        const cleanFilename = filename.replace(/\.mp3$/i, '');
+        preview.textContent = `${cleanFilename}.mp3`;
+    }
+}
+
+// Handle upload form submission
+async function handleUploadSubmit(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const submitBtn = document.getElementById('upload-submit-btn');
+    const submitText = document.getElementById('upload-submit-text');
+    const submitSpinner = document.getElementById('upload-submit-spinner');
+    const result = document.getElementById('upload-result');
+    const successDiv = document.getElementById('upload-success');
+    const errorDiv = document.getElementById('upload-error');
+    const successMessage = document.getElementById('upload-success-message');
+    const errorMessage = document.getElementById('upload-error-message');
+    
+    // Get form data
+    const fileInput = document.getElementById('upload-file');
+    const filenameInput = document.getElementById('upload-filename');
+    const descriptionInput = document.getElementById('upload-description');
+    
+    const file = fileInput.files[0];
+    const filename = filenameInput.value.trim();
+    const description = descriptionInput.value.trim();
+    
+    if (!file) {
+        showUploadError('Please select a file to upload');
+        return;
+    }
+    
+    if (!filename) {
+        showUploadError('Please enter a filename');
+        return;
+    }
+    
+    // Validate file type (MP3)
+    const validTypes = ['audio/mpeg', 'audio/mp3'];
+    if (!validTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.mp3')) {
+        if (!confirm('This file may not be in MP3 format. The server will attempt to convert it. Continue?')) {
+            return;
+        }
+    }
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitText.style.display = 'none';
+    submitSpinner.style.display = 'inline';
+    result.style.display = 'none';
+    successDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+    
+    try {
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('filename', filename);
+        formData.append('description', description);
+        
+        const response = await fetch(`${API_BASE}/audio/upload`, {
+            method: 'POST',
+            body: formData,
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to upload audio file');
+        }
+        
+        // Show success message
+        successMessage.textContent = data.message || `Successfully uploaded ${data.filename}`;
+        successDiv.style.display = 'block';
+        result.style.display = 'block';
+        
+        // Reset form
+        form.reset();
+        updateUploadFilenamePreview();
+        
+        // Refresh audio files list to show new file
+        setTimeout(() => {
+            loadAudioFiles();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error uploading audio:', error);
+        errorMessage.textContent = error.message;
+        errorDiv.style.display = 'block';
+        result.style.display = 'block';
+    } finally {
+        // Reset button state
+        submitBtn.disabled = false;
+        submitText.style.display = 'inline';
+        submitSpinner.style.display = 'none';
+    }
+}
+
+// Helper function to show upload error
+function showUploadError(message) {
+    const result = document.getElementById('upload-result');
+    const errorDiv = document.getElementById('upload-error');
+    const errorMessage = document.getElementById('upload-error-message');
+    
+    errorMessage.textContent = message;
+    errorDiv.style.display = 'block';
+    result.style.display = 'block';
 }

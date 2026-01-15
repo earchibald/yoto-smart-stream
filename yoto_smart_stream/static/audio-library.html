@@ -40,6 +40,68 @@
         </section>
 
         <section class="section">
+            <h3>Upload Audio File</h3>
+            <div class="upload-container">
+                <form id="upload-form" class="upload-form">
+                    <div class="form-group">
+                        <label for="upload-file" title="Select an audio file to upload (MP3 format)">
+                            Audio File (MP3):
+                        </label>
+                        <input
+                            type="file"
+                            id="upload-file"
+                            name="file"
+                            accept=".mp3,audio/mpeg"
+                            required
+                            title="Select an MP3 audio file to upload"
+                        />
+                        <small>Supported format: MP3 (other formats will be converted)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="upload-filename" title="Filename for the uploaded audio (without extension)">
+                            Filename (without extension):
+                        </label>
+                        <input
+                            type="text"
+                            id="upload-filename"
+                            name="filename"
+                            placeholder="e.g., my-audio"
+                            required
+                            pattern="[a-zA-Z0-9\s_-]+"
+                            title="Only letters, numbers, spaces, hyphens, and underscores allowed"
+                        />
+                        <small>File will be saved as: <strong id="upload-filename-preview">my-audio.mp3</strong></small>
+                    </div>
+                    <div class="form-group">
+                        <label for="upload-description" title="Optional description for the audio file">
+                            Description (optional):
+                        </label>
+                        <textarea
+                            id="upload-description"
+                            name="description"
+                            rows="3"
+                            placeholder="Add a description for this audio file..."
+                        ></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary" id="upload-submit-btn">
+                            <span id="upload-submit-text">📤 Upload Audio</span>
+                            <span id="upload-submit-spinner" style="display: none;">⏳ Uploading...</span>
+                        </button>
+                    </div>
+                </form>
+                <div id="upload-result" style="display: none; margin-top: 20px;">
+                    <div id="upload-success" class="success-message" style="display: none;">
+                        ✓ <span id="upload-success-message"></span>
+                    </div>
+                    <div id="upload-error" class="error-message" style="display: none;">
+                        ✗ <span id="upload-error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
             <h3>Record Audio</h3>
             <div class="recorder-container">
                 <div class="recorder-controls">
