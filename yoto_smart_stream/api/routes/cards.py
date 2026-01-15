@@ -422,6 +422,60 @@ async def upload_audio(
             os.remove(temp_path)
 
 
+@router.get("/audio/search")
+async def search_audio_files(q: str = "", user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """
+    Search audio files by name and metadata (fuzzy search).
+    
+    Returns matching audio files with their metadata.
+    """
+    from pathlib import Path
+    from ...core.audio_db import get_audio_file_by_filename
+
+    settings = get_settings()
+    audio_files = []
+    query = q.lower().strip()
+
+    # Collect all audio files
+    for audio_path in settings.audio_files_dir.glob("*.mp3"):
+        try:
+            # Get duration using pydub
+            audio = AudioSegment.from_mp3(str(audio_path))
+            duration_seconds = int(len(audio) / 1000)
+        except Exception as e:
+            logger.warning(f"Could not read duration for {audio_path.name}: {e}")
+            duration_seconds = 0
+
+        # Get transcript/metadata from database
+        audio_record = get_audio_file_by_filename(db, audio_path.name)
+        transcript = audio_record.transcript if audio_record else None
+
+        audio_files.append({
+            "filename": audio_path.name,
+            "size": audio_path.stat().st_size,
+            "duration": duration_seconds,
+            "transcript": transcript,
+        })
+
+    # Simple fuzzy search: match by filename or transcript
+    if query:
+        filtered_files = []
+        for f in audio_files:
+            # Search in filename
+            if query in f["filename"].lower():
+                filtered_files.append(f)
+            # Search in transcript
+            elif f["transcript"] and query in f["transcript"].lower():
+                filtered_files.append(f)
+        audio_files = filtered_files
+
+    return {
+        "query": q,
+        "results": audio_files,
+        "count": len(audio_files),
+    }
+
+
 @router.get("/audio/{filename}")
 async def stream_audio(filename: str):
     """
@@ -902,57 +956,3 @@ async def create_playlist_from_audio(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create playlist: {str(e)}",
         ) from e
-
-
-@router.get("/audio/search")
-async def search_audio_files(q: str = "", user: User = Depends(require_auth), db: Session = Depends(get_db)):
-    """
-    Search audio files by name and metadata (fuzzy search).
-    
-    Returns matching audio files with their metadata.
-    """
-    from pathlib import Path
-    from ...core.audio_db import get_audio_file_by_filename
-
-    settings = get_settings()
-    audio_files = []
-    query = q.lower().strip()
-
-    # Collect all audio files
-    for audio_path in settings.audio_files_dir.glob("*.mp3"):
-        try:
-            # Get duration using pydub
-            audio = AudioSegment.from_mp3(str(audio_path))
-            duration_seconds = int(len(audio) / 1000)
-        except Exception as e:
-            logger.warning(f"Could not read duration for {audio_path.name}: {e}")
-            duration_seconds = 0
-
-        # Get transcript/metadata from database
-        audio_record = get_audio_file_by_filename(db, audio_path.name)
-        transcript = audio_record.transcript if audio_record else None
-
-        audio_files.append({
-            "filename": audio_path.name,
-            "size": audio_path.stat().st_size,
-            "duration": duration_seconds,
-            "transcript": transcript,
-        })
-
-    # Simple fuzzy search: match by filename or transcript
-    if query:
-        filtered_files = []
-        for f in audio_files:
-            # Search in filename
-            if query in f["filename"].lower():
-                filtered_files.append(f)
-            # Search in transcript
-            elif f["transcript"] and query in f["transcript"].lower():
-                filtered_files.append(f)
-        audio_files = filtered_files
-
-    return {
-        "query": q,
-        "results": audio_files,
-        "count": len(audio_files),
-    }
