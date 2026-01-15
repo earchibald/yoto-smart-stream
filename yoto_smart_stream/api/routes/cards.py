@@ -1086,7 +1086,9 @@ async def _upload_audio_file(headers: dict, audio_path, chapter_item) -> str:
         raise
 
     # Step 3: Poll for transcoding completion
-    max_attempts = 30  # ~15 seconds at 500ms intervals
+    # Large files can take several minutes to transcode
+    # Allow up to 5 minutes: 60 attempts at 5 second intervals
+    max_attempts = 60
     attempt = 0
     while attempt < max_attempts:
         try:
@@ -1109,7 +1111,7 @@ async def _upload_audio_file(headers: dict, audio_path, chapter_item) -> str:
                     return transcoded_sha
             
             logger.debug(f"Transcoding {chapter_item.filename} in progress (attempt {attempt + 1}/{max_attempts})")
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(5)
             attempt += 1
         except Exception as e:
             logger.debug(f"Transcoding check for {chapter_item.filename}: {e}")
