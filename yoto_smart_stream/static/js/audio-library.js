@@ -1386,6 +1386,14 @@ async function submitPlaylist() {
         const data = await response.json();
         
         if (!response.ok) {
+            // Handle authentication errors specially
+            if (response.status === 401) {
+                const goToDashboard = confirm(`${data.detail || 'Your Yoto session has expired.'}\n\nWould you like to go to the Dashboard to log in?`);
+                if (goToDashboard) {
+                    window.location.href = '/';
+                    return;
+                }
+            }
             throw new Error(data.detail || 'Failed to create playlist');
         }
         
