@@ -775,3 +775,184 @@ async def cancel_transcription(filename: str, user: User = Depends(require_auth)
         "filename": filename,
         "message": "Transcription cancelled"
     }
+
+
+# Playlist creation endpoints
+class PlaylistChapterItem(BaseModel):
+    """Item in a playlist being built."""
+    filename: str = Field(..., description="Audio filename")
+    chapter_title: str = Field(..., description="Custom title for this chapter")
+
+
+class CreatePlaylistRequest(BaseModel):
+    """Request model for creating a playlist from multiple audio files."""
+    title: str = Field(..., description="Playlist title")
+    description: str = Field(default="", description="Playlist description")
+    author: str = Field(default="Yoto Smart Stream", description="Playlist author")
+    chapters: list[PlaylistChapterItem] = Field(..., description="List of chapters with audio files")
+    cover_image_id: Optional[str] = Field(None, description="Optional cover image ID")
+
+
+@router.post("/cards/create-playlist-from-audio")
+async def create_playlist_from_audio(
+    request: CreatePlaylistRequest, 
+    user: User = Depends(require_auth)
+):
+    """
+    Create a Yoto MYO card as a playlist from multiple audio files.
+
+    Each audio file becomes a chapter with a single streaming track.
+
+    Example:
+        {
+            "title": "Bedtime Stories",
+            "description": "A collection of stories",
+            "chapters": [
+                {"filename": "story1.mp3", "chapter_title": "The Lost Forest"},
+                {"filename": "story2.mp3", "chapter_title": "Dragon Tales"}
+            ]
+        }
+
+    Returns:
+        Created card information including card ID
+    """
+    settings = get_settings()
+    client = get_yoto_client()
+    manager = client.get_manager()
+
+    # Verify all audio files exist and build chapters
+    chapters = []
+    for idx, chapter_item in enumerate(request.chapters, 1):
+        audio_path = settings.audio_files_dir / chapter_item.filename
+        if not audio_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Audio file not found: {chapter_item.filename}",
+            )
+
+        if not settings.public_url:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="PUBLIC_URL environment variable not set.",
+            )
+
+        streaming_url = f"{settings.public_url}/audio/{chapter_item.filename}"
+
+        # Create chapter with streaming track
+        chapter = {
+            "key": f"{idx:02d}",
+            "title": chapter_item.chapter_title,
+            "tracks": [
+                {
+                    "key": "01",
+                    "title": chapter_item.chapter_title,
+                    "format": "mp3",
+                    "channels": "mono",
+                    "url": streaming_url,
+                    "type": "stream",  # Mark as stream type
+                }
+            ],
+        }
+        chapters.append(chapter)
+
+    # Create the card
+    card_data = {
+        "title": request.title,
+        "description": request.description,
+        "author": request.author,
+        "metadata": {},
+        "content": {
+            "chapters": chapters
+        },
+    }
+
+    # Add cover image if provided
+    if request.cover_image_id:
+        card_data["metadata"]["cover"] = {"imageId": request.cover_image_id}
+
+    try:
+        response = requests.post(
+            "https://api.yotoplay.com/card",
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            json=card_data,
+            timeout=30,
+        )
+
+        response.raise_for_status()
+        card = response.json()
+
+        logger.info(f"✓ Created playlist card: {request.title} with {len(chapters)} chapters")
+        return {
+            "success": True,
+            "card_id": card.get("cardId"),
+            "chapter_count": len(chapters),
+            "message": f"Playlist created successfully with {len(chapters)} chapters!",
+        }
+
+    except requests.exceptions.HTTPError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create playlist: {e.response.text}",
+        ) from e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create playlist: {str(e)}",
+        ) from e
+
+
+@router.get("/audio/search")
+async def search_audio_files(q: str = "", user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    """
+    Search audio files by name and metadata (fuzzy search).
+    
+    Returns matching audio files with their metadata.
+    """
+    from pathlib import Path
+    from ...core.audio_db import get_audio_file_by_filename
+
+    settings = get_settings()
+    audio_files = []
+    query = q.lower().strip()
+
+    # Collect all audio files
+    for audio_path in settings.audio_files_dir.glob("*.mp3"):
+        try:
+            # Get duration using pydub
+            audio = AudioSegment.from_mp3(str(audio_path))
+            duration_seconds = int(len(audio) / 1000)
+        except Exception as e:
+            logger.warning(f"Could not read duration for {audio_path.name}: {e}")
+            duration_seconds = 0
+
+        # Get transcript/metadata from database
+        audio_record = get_audio_file_by_filename(db, audio_path.name)
+        transcript = audio_record.transcript if audio_record else None
+
+        audio_files.append({
+            "filename": audio_path.name,
+            "size": audio_path.stat().st_size,
+            "duration": duration_seconds,
+            "transcript": transcript,
+        })
+
+    # Simple fuzzy search: match by filename or transcript
+    if query:
+        filtered_files = []
+        for f in audio_files:
+            # Search in filename
+            if query in f["filename"].lower():
+                filtered_files.append(f)
+            # Search in transcript
+            elif f["transcript"] and query in f["transcript"].lower():
+                filtered_files.append(f)
+        audio_files = filtered_files
+
+    return {
+        "query": q,
+        "results": audio_files,
+        "count": len(audio_files),
+    }

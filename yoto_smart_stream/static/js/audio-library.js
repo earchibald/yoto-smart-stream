@@ -92,6 +92,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Initial upload preview update
     updateUploadFilenamePreview();
+    
+    // Setup playlist modal
+    const createPlaylistBtn = document.getElementById('create-playlist-btn');
+    if (createPlaylistBtn) {
+        createPlaylistBtn.addEventListener('click', openPlaylistModal);
+    }
+    
+    const audioSearch = document.getElementById('audio-search');
+    if (audioSearch) {
+        audioSearch.addEventListener('input', searchAudioFiles);
+    }
 });
 
 // Load system status
@@ -1143,4 +1154,254 @@ function showUploadError(message) {
     errorMessage.textContent = message;
     errorDiv.style.display = 'block';
     result.style.display = 'block';
+}
+
+// Playlist functionality
+let playlistChapters = [];
+let allAudioFiles = [];
+
+// Open playlist creation modal
+function openPlaylistModal() {
+    const modal = document.getElementById('playlistModal');
+    if (modal) {
+        modal.style.display = 'block';
+        playlistChapters = [];
+        updateChaptersList();
+        document.getElementById('playlist-title').value = '';
+        document.getElementById('playlist-description').value = '';
+        document.getElementById('audio-search').value = '';
+        document.getElementById('search-results').innerHTML = '<p class="placeholder">Type to search audio files...</p>';
+    }
+}
+
+// Close playlist modal
+function closePlaylistModal() {
+    const modal = document.getElementById('playlistModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', (event) => {
+    const playlistModal = document.getElementById('playlistModal');
+    if (event.target === playlistModal) {
+        closePlaylistModal();
+    }
+});
+
+// Search audio files with fuzzy matching
+async function searchAudioFiles() {
+    const query = document.getElementById('audio-search').value.trim();
+    const resultsDiv = document.getElementById('search-results');
+    
+    if (!query) {
+        resultsDiv.innerHTML = '<p class="placeholder">Type to search audio files...</p>';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/search?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Search failed');
+        }
+        
+        if (data.results.length === 0) {
+            resultsDiv.innerHTML = '<p class="placeholder">No files found matching your search.</p>';
+            return;
+        }
+        
+        let html = '<div class="search-results-list">';
+        for (const file of data.results) {
+            const isAdded = playlistChapters.some(ch => ch.filename === file.filename);
+            const duration = formatDuration(file.duration);
+            const title = file.filename.replace('.mp3', '');
+            
+            html += `
+                <div class="search-result-item ${isAdded ? 'added' : ''}">
+                    <div class="result-info">
+                        <div class="result-filename">${title}</div>
+                        <div class="result-meta">
+                            <span class="result-duration">⏱️ ${duration}</span>
+                            <span class="result-size">📦 ${formatFileSize(file.size)}</span>
+                        </div>
+                        ${file.transcript ? `<div class="result-transcript"><strong>Transcript:</strong> ${file.transcript.substring(0, 100)}...</div>` : ''}
+                    </div>
+                    <button 
+                        class="btn-small ${isAdded ? 'btn-disabled' : 'btn-add'}" 
+                        onclick="addChapterFromSearch('${file.filename.replace(/'/g, "\\'")}', '${title.replace(/'/g, "\\'")}')"
+                        ${isAdded ? 'disabled' : ''}
+                    >
+                        ${isAdded ? '✓ Added' : '+ Add'}
+                    </button>
+                </div>
+            `;
+        }
+        html += '</div>';
+        resultsDiv.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Search error:', error);
+        resultsDiv.innerHTML = `<p class="error">Search error: ${error.message}</p>`;
+    }
+}
+
+// Add chapter from search result
+function addChapterFromSearch(filename, defaultTitle) {
+    const chapter = {
+        filename: filename,
+        chapter_title: defaultTitle
+    };
+    
+    playlistChapters.push(chapter);
+    updateChaptersList();
+    searchAudioFiles(); // Refresh search results to show "Added" state
+    
+    // Enable create button if we have chapters
+    const submitBtn = document.getElementById('create-playlist-submit-btn');
+    if (submitBtn && playlistChapters.length > 0) {
+        submitBtn.disabled = false;
+    }
+}
+
+// Update chapters list display
+function updateChaptersList() {
+    const list = document.getElementById('chapters-list');
+    const count = document.getElementById('chapter-count');
+    
+    count.textContent = playlistChapters.length;
+    
+    if (playlistChapters.length === 0) {
+        list.innerHTML = '<p class="placeholder">No chapters added yet. Search and add audio files above.</p>';
+        return;
+    }
+    
+    let html = '<div class="chapters-items">';
+    for (let i = 0; i < playlistChapters.length; i++) {
+        const chapter = playlistChapters[i];
+        html += `
+            <div class="chapter-item">
+                <div class="chapter-number">
+                    <span class="chapter-index">${i + 1}</span>
+                </div>
+                <div class="chapter-details">
+                    <div class="chapter-filename">${chapter.filename}</div>
+                    <div class="chapter-title-input">
+                        <label>Chapter Title:</label>
+                        <input 
+                            type="text" 
+                            class="chapter-title-edit"
+                            value="${chapter.chapter_title}"
+                            onchange="updateChapterTitle(${i}, this.value)"
+                            placeholder="Chapter title..."
+                        >
+                    </div>
+                </div>
+                <div class="chapter-actions">
+                    <button class="btn-remove" onclick="removeChapter(${i})" title="Remove this chapter">
+                        🗑️ Remove
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+    html += '</div>';
+    list.innerHTML = html;
+}
+
+// Update chapter title
+function updateChapterTitle(index, newTitle) {
+    if (playlistChapters[index]) {
+        playlistChapters[index].chapter_title = newTitle;
+    }
+}
+
+// Remove chapter
+function removeChapter(index) {
+    playlistChapters.splice(index, 1);
+    updateChaptersList();
+    searchAudioFiles(); // Refresh search results
+    
+    // Disable create button if no chapters
+    const submitBtn = document.getElementById('create-playlist-submit-btn');
+    if (submitBtn && playlistChapters.length === 0) {
+        submitBtn.disabled = true;
+    }
+}
+
+// Submit playlist creation
+async function submitPlaylist() {
+    const title = document.getElementById('playlist-title').value.trim();
+    const description = document.getElementById('playlist-description').value.trim();
+    
+    if (!title) {
+        alert('Please enter a playlist title');
+        return;
+    }
+    
+    if (playlistChapters.length === 0) {
+        alert('Please add at least one chapter');
+        return;
+    }
+    
+    const submitBtn = document.getElementById('create-playlist-submit-btn');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Creating...';
+    
+    try {
+        const payload = {
+            title: title,
+            description: description,
+            author: 'Yoto Smart Stream',
+            chapters: playlistChapters
+        };
+        
+        const response = await fetch(`${API_BASE}/cards/create-playlist-from-audio`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to create playlist');
+        }
+        
+        alert(`✓ ${data.message}\nCard ID: ${data.card_id}`);
+        closePlaylistModal();
+        
+    } catch (error) {
+        console.error('Error creating playlist:', error);
+        alert(`Error: ${error.message}`);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+}
+
+// Helper function to format duration
+function formatDuration(seconds) {
+    if (!seconds) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Helper function to format file size
+function formatFileSize(bytes) {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB'];
+    let size = bytes;
+    let unitIndex = 0;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
 }

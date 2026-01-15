@@ -34,6 +34,11 @@
 
         <section class="section">
             <h3>Audio Files</h3>
+            <div class="section-actions">
+                <button id="create-playlist-btn" class="btn-secondary" title="Create a playlist from multiple audio files">
+                    📋 Create Playlist
+                </button>
+            </div>
             <div id="audio-list" class="list-container">
                 <p class="loading">Loading audio files...</p>
             </div>
@@ -290,6 +295,61 @@
                         Auto-refresh (2 seconds)
                     </label>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Playlist Builder Modal -->
+    <div id="playlistModal" class="modal">
+        <div class="modal-content playlist-modal-content">
+            <div class="modal-header">
+                <h3>📋 Create Playlist</h3>
+                <span class="modal-close" onclick="closePlaylistModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Playlist Info Section -->
+                <div class="form-section">
+                    <h4>Playlist Information</h4>
+                    <div class="form-group">
+                        <label for="playlist-title">Playlist Title:</label>
+                        <input type="text" id="playlist-title" placeholder="e.g., Bedtime Stories" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="playlist-description">Description (optional):</label>
+                        <textarea id="playlist-description" rows="2" placeholder="Add a description..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Search Section -->
+                <div class="form-section">
+                    <h4>Add Chapters</h4>
+                    <div class="form-group">
+                        <label for="audio-search">Search Audio Files:</label>
+                        <input 
+                            type="text" 
+                            id="audio-search" 
+                            placeholder="Search by filename or transcript content..."
+                        >
+                        <small>Searches by filename and speech-to-text transcripts</small>
+                    </div>
+                    <div id="search-results" class="search-results">
+                        <p class="placeholder">Type to search audio files...</p>
+                    </div>
+                </div>
+
+                <!-- Chapters Section -->
+                <div class="form-section">
+                    <h4>Chapters (<span id="chapter-count">0</span>)</h4>
+                    <div id="chapters-list" class="chapters-list">
+                        <p class="placeholder">No chapters added yet. Search and add audio files above.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closePlaylistModal()">Cancel</button>
+                <button class="btn-primary" id="create-playlist-submit-btn" onclick="submitPlaylist()" disabled>
+                    ✓ Create Playlist
+                </button>
             </div>
         </div>
     </div>
