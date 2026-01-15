@@ -264,21 +264,21 @@ class YotoSmartStreamStack(Stack):
             self,
             "UIBucket",
             bucket_name=f"yoto-ui-{self.env_name}-{self.account}",
-            website_index_document="index.html",
-            website_error_document="error.html",
-            public_read_access=True,
-            block_public_access=s3.BlockPublicAccess(
-                block_public_acls=False,
-                block_public_policy=False,
-                ignore_public_acls=False,
-                restrict_public_buckets=False,
-            ),
+            # Removed public_read_access and website hosting to comply with Block Public Access
+            # UI files will be served through Lambda/API Gateway or CloudFront
+            cors=[
+                s3.CorsRule(
+                    allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.HEAD],
+                    allowed_origins=["*"],
+                    allowed_headers=["*"],
+                    max_age=3600,
+                )
+            ],
             removal_policy=RemovalPolicy.RETAIN if self.is_production else RemovalPolicy.DESTROY,
             auto_delete_objects=not self.is_production,
         )
 
         CfnOutput(self, "UIBucketName", value=bucket.bucket_name)
-        CfnOutput(self, "UIBucketWebsiteURL", value=bucket.bucket_website_url)
         return bucket
 
     def _create_lambda_function(self, yoto_client_id: str) -> lambda_.Function:
