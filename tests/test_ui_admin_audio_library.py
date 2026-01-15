@@ -98,6 +98,20 @@ def test_audio_library_page(page: Page):
     expect(page.locator("h3").filter(has_text="Audio Files")).to_be_visible()
     expect(page.locator("#audio-list")).to_be_visible()
     
+    # Check Upload Audio File section
+    expect(page.locator("h3").filter(has_text="Upload Audio File")).to_be_visible()
+    expect(page.locator("#upload-form")).to_be_visible()
+    
+    # Check upload form elements
+    expect(page.locator("#upload-file")).to_be_visible()
+    expect(page.locator("#upload-filename")).to_be_visible()
+    expect(page.locator("#upload-description")).to_be_visible()
+    expect(page.locator("#upload-submit-btn")).to_be_visible()
+    
+    # Test upload filename preview updates
+    page.fill("#upload-filename", "test-upload")
+    expect(page.locator("#upload-filename-preview")).to_contain_text("test-upload.mp3")
+    
     # Check TTS Generator section
     expect(page.locator("h3").filter(has_text="Generate Text-to-Speech Audio")).to_be_visible()
     expect(page.locator("#tts-form")).to_be_visible()
@@ -116,7 +130,27 @@ def test_audio_library_page(page: Page):
     expect(page.locator("#text-length")).to_contain_text("11 characters")
 
 
+def test_audio_upload_form_validation(page: Page):
+    """Test audio upload form validation."""
+    login(page)
+    page.goto(f"{BASE_URL}/audio-library")
+    
+    # Try to submit empty form
+    page.click("#upload-submit-btn")
+    
+    # HTML5 validation should prevent submission
+    expect(page.locator("#upload-form")).to_be_visible()
+    
+    # Fill in filename but not file
+    page.fill("#upload-filename", "testfile")
+    page.click("#upload-submit-btn")
+    
+    # Should still be on the form (file required)
+    expect(page.locator("#upload-form")).to_be_visible()
+
+
 def test_admin_page_access(page: Page):
+    """Test Admin page access for admin user."""
     """Test Admin page access for admin user."""
     login(page)
     page.goto(f"{BASE_URL}/admin")
