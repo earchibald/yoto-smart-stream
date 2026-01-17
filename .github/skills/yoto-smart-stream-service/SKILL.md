@@ -111,7 +111,7 @@ OAuth authorization flow is required for Yoto device access:
 - Wraps yoto_api.YotoManager with enhanced features
 - Automatic token refresh and persistence
 - MQTT event callback integration
-- Token storage in AWS Secrets Manager (Lambda) or local file (development)
+- Token storage in AWS Secrets Manager (Lambda) with Lambda Extension caching or local file (development)
 
 **MQTT Event Store** (`yoto_smart_stream/api/mqtt_event_store.py`):
 - Tracks real-time device events from MQTT
@@ -498,6 +498,42 @@ uvicorn yoto_smart_stream.api.app:app --reload --port 8080
 
 **Problem:** Access token expired
 - **Solution:** Service automatically refreshes. If failing, check Secrets Manager permissions (AWS) or file permissions (local)
+
+## OAuth Token Storage & Caching (Lambda)
+
+### AWS Secrets Manager with Lambda Extension
+
+In Lambda environments, OAuth tokens are stored in **AWS Secrets Manager** with automatic in-memory caching via the **AWS Parameters and Secrets Lambda Extension** for high performance across invocations.
+
+**Architecture:**
+- **Secret Name**: `{ENVIRONMENT}/{YOTO_SECRET_PREFIX}/oauth-tokens` (e.g., `yoto-smart-stream-dev/oauth-tokens`)
+- **Storage**: JSON format with `access_token`, `refresh_token`, `expires_at` fields
+- **Extension Layer**: AWS-managed Lambda Extension (ARN: `arn:aws:lambda:{region}:976759262368:layer:AWS-Parameters-and-Secrets-Lambda-Extension:12`)
+- **HTTP Endpoint**: `localhost:2773/secretsmanager/get?secretId={secret_name}` (configurable port)
+- **Cache TTL**: 1000ms (configurable via `SECRETS_EXTENSION_HTTP_POLL` env var)
+- **Fallback**: Direct boto3 access if extension unavailable (local dev, non-Lambda)
+
+**Token Loading Sequence:**
+1. Check if running in Lambda environment (`AWS_LAMBDA_FUNCTION_NAME` set)
+2. If Lambda: Try extension HTTP endpoint first (cached, fast)
+3. If extension unavailable: Fall back to boto3 Secrets Manager client
+4. If both fail: Return `None` (triggering OAuth flow)
+
+**Implementation** (`yoto_smart_stream/storage/secrets_manager.py`):
+- `_get_secret_from_extension()`: Uses `urllib.request` to call extension endpoint with AWS session token header
+- `_get_secret_from_boto3()`: Direct boto3 client for fallback/save operations
+- `load_yoto_tokens()`: Prefers extension for reads, uses boto3 for writes
+- `save_yoto_tokens()`: Uses boto3 `put_secret_value()` or `create_secret()`
+- No manual cache management: Extension handles all caching and TTL
+
+**Benefits:**
+- ✅ Automatic caching across Lambda invocations (1000ms TTL)
+- ✅ Eliminates token state desynchronization (multiple Lambda instances)
+- ✅ Reduced Secrets Manager API calls (cost savings)
+- ✅ No manual cache invalidation needed
+- ✅ Transparent fallback for local development
+
+**Verification:** Check CloudWatch logs for "Loaded secret from Lambda Extension" (INFO) when using extension, "Loaded secret from boto3" (INFO) when using fallback.
 
 ### MQTT Connection Issues
 
