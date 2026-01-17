@@ -96,11 +96,15 @@ class StreamManager:
         self._storage_dir = storage_dir
         
         # Ensure storage directory exists
-        self._storage_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"StreamManager initialized with storage at {self._storage_dir}")
-        
-        # Load existing queues from disk
-        self._load_queues_from_disk()
+        try:
+            self._storage_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"StreamManager initialized with storage at {self._storage_dir}")
+            # Load existing queues from disk
+            self._load_queues_from_disk()
+        except (OSError, PermissionError) as e:
+            logger.warning(f"Failed to create/access storage directory {self._storage_dir}: {e}. "
+                          "Continuing without persistent storage.")
+            # Continue with in-memory storage only
     
     def _get_queue_file_path(self, queue_name: str) -> Path:
         """Get the file path for a queue's persistent storage."""

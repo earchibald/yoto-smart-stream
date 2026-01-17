@@ -424,8 +424,6 @@ async def list_players(user: User = Depends(require_auth)):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated with Yoto API. Please connect your Yoto account."
             )
-<<<<<<< Updated upstream
-=======
         except Exception as e:
             # Catch AuthenticationError and other auth-related exceptions
             error_str = str(e).lower()
@@ -437,7 +435,6 @@ async def list_players(user: User = Depends(require_auth)):
                 )
             # Re-raise other exceptions to be caught by the outer except
             raise
->>>>>>> Stashed changes
 
         # Update library to get card metadata
         try:
