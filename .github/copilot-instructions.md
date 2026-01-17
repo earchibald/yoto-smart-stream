@@ -9,6 +9,13 @@
 - ALWAYS deploy fixes to AWS before testing.
 - NEVER deploy to Railway. Railway is retired.
 
+## Shell initialization
+- ALWAYS source the python virtual environment before running any commands:
+```bash
+source cdk_venv/bin/activate
+```
+- ONLY source the python virtual environment ONCE per session.
+
 ## Standard Workflow
 1. Understand the issue or feature request.
 2. Check for existing skills in `.github/skills/` that relate to the task.
@@ -24,10 +31,12 @@
      - PATCH for backward-compatible bug fixes
 8. Commit changes with a descriptive message.
 9. Push changes to the appropriate branch.
-10. Deploy to AWS using the established deployment process.
-11. Test thoroughly in the AWS environment.
-12. If there are errors, return to step 1.
-13. Once the task is successfully completed, proceed to the "Locally-Maintained Skills" section.
+10. Deploy to AWS using the established deployment process and the `cdk` commands below.
+    a. If `cdk` is not installed, install it via `npm install -g aws-cdk`.
+11. Test thoroughly in the AWS environment. Ensure that we are seeing the current deployed version from step 7 in the web UI footer.
+12. If there are errors, return to step 1. Otherwise, proceed to step 13.
+13. Once tests pass, report with a one-line summary of the fix or feature added and the deployed endpoint details (if applicable).
+14. Once the task is successfully completed, proceed to the "Locally-Maintained Skills" section.
 
 ## Deployment Configuration
 
@@ -93,9 +102,16 @@ This workspace contains locally-maintained custom skills in `.github/skills/`:
 1. **aws-service-management** - Multi-environment AWS deployment management
 2. **yoto-api-development** - Yoto Play API integration, audio streaming, and MQTT handling
 
-### Skill Maintenance Directive
+### Skill and copilot-instructions.md Maintenance Directive
 
-**IMPORTANT**: When you discover, verify, or implement new information related to these skills during development or issue resolution, you MUST update the relevant skill documentation to keep it current and accurate.
+**IMPORTANT**: When you discover, verify, or implement new information related to these skills or the top-level copilot-instructions.md during development or issue resolution, you MUST update the relevant file or skill documentation to keep it current and accurate.
+
+** When to Update copilot-instructions.md:**
+- When there are changes to the standard workflow, deployment process, or project conventions
+- When new environment variables or credentials are introduced
+- When there are updates to design principles or coding standards
+- When new tools or frameworks are adopted in the project
+- When existing instructions are found to be unclear or incomplete
 
 **When to Update Skills:**
 

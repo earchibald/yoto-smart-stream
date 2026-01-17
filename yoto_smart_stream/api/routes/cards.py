@@ -120,9 +120,9 @@ class GenerateTTSRequest(BaseModel):
 # Audio streaming endpoints
 @router.get("/audio/list")
 async def list_audio_files(
+    response: Response,
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
-    response: Response,
 ):
     """
     List available audio files.
@@ -516,10 +516,10 @@ async def upload_audio(
 
 @router.get("/audio/search")
 async def search_audio_files(
+    response: Response,
     q: str = "",
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
-    response: Response,
 ):
     """
     Search audio files by name and metadata (fuzzy search).
