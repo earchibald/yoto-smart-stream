@@ -155,6 +155,65 @@ Content-Type: application/json
 User-Agent: Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4
 ```
 
+### Token Persistence
+
+**Critical**: OAuth tokens MUST be stored persistently to avoid requiring re-authentication after deployments or server restarts.
+
+#### AWS Lambda / Serverless Environments
+
+For serverless environments (AWS Lambda, etc.), ephemeral storage like `/tmp` or in-memory databases (SQLite) will lose tokens on:
+- Cold starts
+- Redeployments
+- Container recycling
+
+**Solution: Use AWS Secrets Manager**
+
+```python
+from yoto_smart_stream.utils.token_storage import TokenStorage
+
+# Save tokens after successful OAuth
+token_storage = TokenStorage()
+token_storage.save_token(
+    user_id=user.username,
+    refresh_token=refresh_token,
+    access_token=access_token,
+    expires_at=expires_at
+)
+
+# Load tokens on startup/authentication
+token_data = token_storage.get_token(user.username)
+if token_data:
+    refresh_token = token_data["refresh_token"]
+```
+
+**Infrastructure Requirements**:
+- Lambda IAM role needs Secrets Manager permissions:
+  - `secretsmanager:GetSecretValue`
+  - `secretsmanager:CreateSecret`
+  - `secretsmanager:UpdateSecret`
+  - `secretsmanager:DeleteSecret`
+- Environment variable: `YOTO_SECRET_PREFIX` (e.g., `yoto-smart-stream-dev`)
+- Secrets stored as: `{prefix}/yoto-token/{user_id}`
+
+**Token Data Structure**:
+```json
+{
+  "refresh_token": "...",
+  "access_token": "...",
+  "expires_at": "ISO-8601 datetime",
+  "updated_at": "ISO-8601 datetime"
+}
+```
+
+#### Local Development
+
+For local development, file-based storage is sufficient:
+```python
+# Automatically handled by yoto_refresh_token_file config
+token_file = settings.yoto_refresh_token_file
+token_file.write_text(refresh_token)
+```
+
 ---
 
 ## REST API Endpoints
