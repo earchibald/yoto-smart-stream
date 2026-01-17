@@ -3,11 +3,16 @@ Stream queue management for dynamic audio streaming.
 
 This module manages queues of audio files that can be streamed sequentially
 to clients, appearing as a single continuous MP3 stream.
+
+Storage Backend:
+- Lambda/AWS: Uses in-memory storage with optional DynamoDB persistence
+- Local Development: Uses local filesystem at ./streams
 """
 
 import asyncio
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -78,40 +83,68 @@ class StreamQueue:
 
 class StreamManager:
     """
-    Manages multiple stream queues with persistent storage.
+    Manages multiple stream queues with environment-aware storage.
     
-    This class provides a centralized manager for multiple named stream queues,
-    allowing the server to maintain different playlists for different purposes.
-    Queues are persisted to disk in JSON format for survival across restarts.
+    Storage backends:
+    - Lambda/AWS: In-memory storage (ephemeral, but safe)
+    - Local Development: Local filesystem at ./streams
+    
+    Note: Stream queue configuration is typically ephemeral in Lambda deployments
+    since streams are created dynamically. For persistent stream configurations,
+    consider using DynamoDB tables managed separately.
     """
     
-    def __init__(self, storage_dir: Path = Path("/data/streams")):
-        """Initialize the stream manager with persistent storage.
+    def __init__(self, storage_dir: Optional[Path] = None):
+        """Initialize the stream manager with environment-aware storage.
         
         Args:
-            storage_dir: Directory where queue data will be persisted (default: /data/streams)
+            storage_dir: Optional override for storage directory. If not provided,
+                        auto-detects: /tmp on Lambda, ./streams in development
         """
         self._queues: dict[str, StreamQueue] = {}
         self._lock = asyncio.Lock()
-        self._storage_dir = storage_dir
+        self._is_lambda = os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None
         
-        # Ensure storage directory exists
+        # Determine storage directory
+        if storage_dir:
+            self._storage_dir = storage_dir
+        elif self._is_lambda:
+            # On Lambda, use in-memory storage (ephemeral)
+            # Could optionally use /tmp for temporary files, but streams are usually ephemeral
+            self._storage_dir = Path("/tmp/streams")
+            logger.info("StreamManager running on Lambda - using ephemeral storage at /tmp/streams")
+        else:
+            # Local development: use current directory
+            self._storage_dir = Path("./streams")
+            logger.info("StreamManager in local development - using ./streams directory")
+        
+        # Try to initialize persistent storage if directory is writable
+        self._storage_enabled = self._init_storage()
+    
+    def _init_storage(self) -> bool:
+        """Initialize storage directory if possible. Returns True if successful."""
         try:
             self._storage_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"StreamManager initialized with storage at {self._storage_dir}")
+            logger.info(f"StreamManager storage initialized at {self._storage_dir}")
             # Load existing queues from disk
             self._load_queues_from_disk()
+            return True
         except (OSError, PermissionError) as e:
-            logger.warning(f"Failed to create/access storage directory {self._storage_dir}: {e}. "
-                          "Continuing without persistent storage.")
-            # Continue with in-memory storage only
+            logger.warning(
+                f"Failed to create/access storage directory {self._storage_dir}: {e}. "
+                f"Continuing with in-memory storage only."
+            )
+            return False
     
     def _get_queue_file_path(self, queue_name: str) -> Path:
         """Get the file path for a queue's persistent storage."""
         return self._storage_dir / f"{queue_name}.json"
     
     def _save_queue_to_disk(self, queue: StreamQueue) -> None:
-        """Save a queue to disk as JSON."""
+        """Save a queue to disk if storage is enabled."""
+        if not self._storage_enabled:
+            return
+        
         try:
             queue_file = self._get_queue_file_path(queue.name)
             data = {
@@ -148,7 +181,10 @@ class StreamManager:
             logger.error(f"Failed to load queues from disk: {e}")
     
     def _delete_queue_from_disk(self, queue_name: str) -> None:
-        """Delete a queue's file from disk."""
+        """Delete a queue's file from disk if storage is enabled."""
+        if not self._storage_enabled:
+            return
+        
         try:
             queue_file = self._get_queue_file_path(queue_name)
             if queue_file.exists():
