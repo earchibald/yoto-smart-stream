@@ -89,3 +89,6 @@ user_data/
 recordings/
 .playwright-mcp/
 .yoto_refresh_token
+
+# Agent temporary files
+.agent-tmp/
