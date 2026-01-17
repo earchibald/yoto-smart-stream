@@ -18,25 +18,25 @@ source cdk_venv/bin/activate
 
 ## Standard Workflow
 1. Understand the issue or feature request.
-2. Check for existing skills in `.github/skills/` that relate to the task.
-3. If a relevant skill exists, follow its guidance closely.
-4. If no relevant skill exists, follow the general project guidelines below.
-5. Implement the solution following best practices.
-6. Write agent-focused tests to verify the solution using the guidelines provided.
-7. Update the version shown in the web UI footer if applicable.
-  a. Use semver format: MAJOR.MINOR.PATCH
-  b. Increment:
+1. Check for existing skills in `.github/skills/` that relate to the task.
+1. If a relevant skill exists, follow its guidance closely.
+1. If no relevant skill exists, follow the general project guidelines below.
+1. Implement the solution following best practices.
+1. Write agent-focused tests to verify the solution using the guidelines provided.
+1. Update the version shown in the web UI footer if applicable.
+  1. Use semver format: MAJOR.MINOR.PATCH
+  1. Increment:
      - MAJOR for incompatible API changes
      - MINOR for backward-compatible functionality
      - PATCH for backward-compatible bug fixes
-8. Commit changes with a descriptive message.
-9. Push changes to the appropriate branch.
-10. Deploy to AWS using the established deployment process and the `cdk` commands below.
+1. Perform a **targeted** commit with a descriptive message.
+1. Push changes to the appropriate branch.
+1. Deploy to AWS using the established deployment process and the `cdk` commands below.
     a. If `cdk` is not installed, install it via `npm install -g aws-cdk`.
-11. Test thoroughly in the AWS environment. Ensure that we are seeing the current deployed version from step 7 in the web UI footer.
-12. If there are errors, return to step 1. Otherwise, proceed to step 13.
-13. Once tests pass, report with a one-line summary of the fix or feature added and the deployed endpoint details (if applicable).
-14. Once the task is successfully completed, proceed to the "Locally-Maintained Skills" section.
+1. Test thoroughly in the AWS environment. Ensure that we are seeing the current deployed version from step 7 in the web UI footer.
+1. If there are errors, return to step 1. Otherwise, proceed to step 13.
+1. Once tests pass, report with a one-line summary of the fix or feature added and the deployed endpoint details (if applicable).
+1. Once the task is successfully completed, proceed to the "Locally-Maintained Skills" section.
 
 ## Deployment Configuration
 

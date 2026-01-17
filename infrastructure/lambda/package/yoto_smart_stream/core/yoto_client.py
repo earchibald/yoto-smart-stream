@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Optional
 
@@ -44,13 +45,47 @@ class YotoClient:
         """Check if client is authenticated."""
         return self._authenticated and self.manager is not None
 
-    def _save_refresh_token(self) -> None:
+    def save_refresh_token(self, user_id: Optional[str] = None) -> None:
         """
-        Save the current refresh token to file.
+        Save refresh token to Secrets Manager (if on AWS) or file (for local dev).
 
         This should be called after any operation that may update the refresh token,
         including authentication and token refresh operations.
+        
+        Args:
+            user_id: User identifier for Secrets Manager storage (defaults to "default")
         """
+        if self.manager and self.manager.token and self.manager.token.refresh_token:
+            # Check if running on AWS Lambda (use Secrets Manager)
+            if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+                try:
+                    from ..utils.token_storage import TokenStorage
+                    token_storage = TokenStorage()
+                    
+                    access_token = self.manager.token.access_token if self.manager.token.access_token else None
+                    expires_at = None
+                    if hasattr(self.manager.token, 'expires_at') and self.manager.token.expires_at:
+                        expires_at = self.manager.token.expires_at if isinstance(self.manager.token.expires_at, datetime) else None
+                    
+                    token_storage.save_token(
+                        user_id=user_id or "default",
+                        refresh_token=self.manager.token.refresh_token,
+                        access_token=access_token,
+                        expires_at=expires_at
+                    )
+                    logger.info("Refresh token saved to Secrets Manager")
+                except Exception as e:
+                    logger.error(f"Failed to save token to Secrets Manager: {e}")
+                    # Fall back to file storage
+                    self._save_token_to_file()
+            else:
+                # Local development: use file storage
+                self._save_token_to_file()
+        else:
+            logger.warning("No refresh token available to save")
+    
+    def _save_token_to_file(self) -> None:
+        """Save refresh token to file (for local development)."""
         if self.manager and self.manager.token and self.manager.token.refresh_token:
             token_file = self.settings.yoto_refresh_token_file
             # Ensure parent directory exists
@@ -60,24 +95,43 @@ class YotoClient:
         else:
             logger.warning("No refresh token available to save")
 
-    def authenticate(self) -> None:
+    def authenticate(self, user_id: Optional[str] = None) -> None:
         """
-        Authenticate with Yoto API using stored refresh token.
+        Authenticate with Yoto API using stored refresh token from Secrets Manager or file.
+
+        Args:
+            user_id: User identifier for Secrets Manager lookup (defaults to "default")
 
         Raises:
-            FileNotFoundError: If refresh token file doesn't exist
+            FileNotFoundError: If refresh token not found in Secrets Manager or file
             Exception: If authentication fails
         """
         self.initialize()
 
-        token_file = self.settings.yoto_refresh_token_file
-        if not token_file.exists():
-            raise FileNotFoundError(
-                f"Refresh token file not found: {token_file}. "
-                "Run authentication first with examples/simple_client.py"
-            )
-
-        refresh_token = token_file.read_text().strip()
+        refresh_token = None
+        
+        # Check if running on AWS Lambda (use Secrets Manager)
+        if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+            try:
+                from ..utils.token_storage import TokenStorage
+                token_storage = TokenStorage()
+                token_data = token_storage.get_token(user_id or "default")
+                if token_data:
+                    refresh_token = token_data.get("refresh_token")
+                    logger.info("Loaded refresh token from Secrets Manager")
+            except Exception as e:
+                logger.warning(f"Failed to load token from Secrets Manager: {e}")
+        
+        # Fall back to file if not found in Secrets Manager or not on Lambda
+        if not refresh_token:
+            token_file = self.settings.yoto_refresh_token_file
+            if not token_file.exists():
+                raise FileNotFoundError(
+                    f"Refresh token not found in Secrets Manager or file: {token_file}. "
+                    "Run authentication first."
+                )
+            refresh_token = token_file.read_text().strip()
+            logger.info("Loaded refresh token from file")
         self.manager.set_refresh_token(refresh_token)
 
         try:

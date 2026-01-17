@@ -2,6 +2,7 @@
 
 import logging
 from typing import Optional
+from datetime import datetime
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -11,6 +12,7 @@ from ...config import get_settings
 from ...core import YotoClient
 from ...database import get_db
 from ...models import User
+from ...utils.token_storage import TokenStorage
 from ..dependencies import get_yoto_client, set_yoto_client
 
 logger = logging.getLogger(__name__)
@@ -224,26 +226,46 @@ async def poll_auth_status(
             # Authentication succeeded
             client.set_authenticated(True)
 
-            # Save refresh token to file (for backward compatibility)
+            # Save refresh token using Secrets Manager
             if client.manager.token and client.manager.token.refresh_token:
-                token_file = settings.yoto_refresh_token_file
-                # Ensure parent directory exists (e.g., /data on Railway)
-                token_file.parent.mkdir(parents=True, exist_ok=True)
-                token_file.write_text(client.manager.token.refresh_token)
-                logger.info(f"Refresh token saved to {token_file}")
-                
-                # Save tokens to database for the current user
-                if current_user:
-                    try:
-                        current_user.yoto_access_token = client.manager.token.access_token
-                        current_user.yoto_refresh_token = client.manager.token.refresh_token
-                        if hasattr(client.manager.token, 'expires_at'):
-                            current_user.yoto_token_expires_at = client.manager.token.expires_at
-                        db.commit()
-                        logger.info(f"Yoto tokens saved to database for user: {current_user.username}")
-                    except Exception as e:
-                        logger.error(f"Failed to save tokens to database: {e}")
-                        db.rollback()
+                try:
+                    # Get user identifier for secret storage
+                    user_id = current_user.username if current_user else "default"
+                    
+                    # Initialize token storage
+                    token_storage = TokenStorage()
+                    
+                    # Extract token data
+                    access_token = client.manager.token.access_token if client.manager.token.access_token else None
+                    expires_at = None
+                    if hasattr(client.manager.token, 'expires_at') and client.manager.token.expires_at:
+                        expires_at = client.manager.token.expires_at if isinstance(client.manager.token.expires_at, datetime) else None
+                    
+                    # Save to Secrets Manager
+                    token_storage.save_token(
+                        user_id=user_id,
+                        refresh_token=client.manager.token.refresh_token,
+                        access_token=access_token,
+                        expires_at=expires_at
+                    )
+                    logger.info(f"Yoto OAuth tokens saved to Secrets Manager for user: {user_id}")
+                    
+                    # Also save to database for backward compatibility
+                    if current_user:
+                        try:
+                            current_user.yoto_access_token = client.manager.token.access_token
+                            current_user.yoto_refresh_token = client.manager.token.refresh_token
+                            if expires_at:
+                                current_user.yoto_token_expires_at = expires_at
+                            db.commit()
+                            logger.info(f"Yoto tokens also saved to database for user: {current_user.username}")
+                        except Exception as e:
+                            logger.error(f"Failed to save tokens to database: {e}")
+                            db.rollback()
+                            
+                except Exception as e:
+                    logger.error(f"Failed to save tokens to Secrets Manager: {e}")
+                    # Don't fail the authentication, just log the error
             else:
                 logger.error("No refresh token available after authentication!")
 

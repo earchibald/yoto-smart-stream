@@ -331,6 +331,19 @@ class YotoSmartStreamStack(Stack):
                 resources=[self.cognito_user_pool.user_pool_arn],
             )
         )
+        
+        # Grant Secrets Manager permissions for Yoto OAuth tokens
+        role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "secretsmanager:GetSecretValue",
+                    "secretsmanager:CreateSecret",
+                    "secretsmanager:UpdateSecret",
+                    "secretsmanager:DeleteSecret",
+                ],
+                resources=[f"arn:aws:secretsmanager:{self.region}:{self.account}:secret:yoto-smart-stream-{self.env_name}/yoto-token/*"],
+            )
+        )
 
         # Create Lambda function
         function = lambda_.Function(
@@ -349,6 +362,7 @@ class YotoSmartStreamStack(Stack):
                 "S3_AUDIO_BUCKET": self.audio_bucket.bucket_name,
                 "S3_UI_BUCKET": self.ui_bucket.bucket_name,
                 "YOTO_CLIENT_ID": yoto_client_id or "",
+                "YOTO_SECRET_PREFIX": f"yoto-smart-stream-{self.env_name}",
                 "COGNITO_USER_POOL_ID": self.cognito_user_pool.user_pool_id,
                 "COGNITO_CLIENT_ID": self.cognito_user_pool_client.user_pool_client_id,  # Fixed: use client ID not provider name
                 "AUDIO_FILES_DIR": "/tmp/audio_files",  # Lambda writable directory
