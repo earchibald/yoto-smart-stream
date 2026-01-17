@@ -7,18 +7,18 @@ import tempfile
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks, Response
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse
+from gtts import gTTS
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
-from ..dependencies import get_yoto_client, get_authenticated_yoto_client
+from ..dependencies import get_yoto_client
 from ...database import get_db
 from ...models import User
 from .user_auth import require_auth
-from ...core.polly_tts import get_polly_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -114,16 +114,11 @@ class GenerateTTSRequest(BaseModel):
 
     filename: str = Field(..., description="Output filename (without extension)")
     text: str = Field(..., description="Text to convert to speech", min_length=1)
-    voice_id: Optional[str] = Field("Joanna", description="AWS Polly voice ID (default: Joanna)")
 
 
 # Audio streaming endpoints
 @router.get("/audio/list")
-async def list_audio_files(
-    response: Response,
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
+async def list_audio_files(user: User = Depends(require_auth), db: Session = Depends(get_db)):
     """
     List available audio files.
 
@@ -168,10 +163,6 @@ async def list_audio_files(
                 "transcript": transcript_info,
             }
         )
-
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
 
     return {"files": audio_files, "count": len(audio_files)}
 
@@ -229,68 +220,11 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
     logger.info(f"Generating TTS audio for: {final_filename}")
 
     try:
-        # Try AWS Polly first
-        polly_service = get_polly_service()
-        success, s3_url, error_msg = polly_service.synthesize_speech(
-            text=request.text,
-            output_path=output_path,
-            voice_id=request.voice_id,
-        )
-
-        if success:
-            # Get file information
-            file_size = output_path.stat().st_size
-            
-            # Calculate duration using pydub
-            try:
-                audio = AudioSegment.from_mp3(str(output_path))
-                duration_seconds = int(len(audio) / 1000)
-            except Exception as e:
-                logger.warning(f"Could not calculate duration: {e}")
-                duration_seconds = 0
-            
-            logger.info(f"✓ TTS audio generated with Polly: {final_filename} ({file_size} bytes, {duration_seconds}s)")
-            
-            # Create database record with the source text as transcript
-            from ...core.audio_db import get_or_create_audio_file, update_transcript
-            
-            audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
-            # Store the original text as the transcript since we already have it
-            update_transcript(db, final_filename, request.text, "completed", None)
-
-            response_data = {
-                "success": True,
-                "filename": final_filename,
-                "size": file_size,
-                "duration": duration_seconds,
-                "url": f"/api/audio/{final_filename}",
-                "message": f"Successfully generated '{final_filename}' using AWS Polly",
-                "transcript_status": "completed",
-                "engine": "polly"
-            }
-            
-            if s3_url:
-                response_data["s3_url"] = s3_url
-            
-            return response_data
-        
-        # Fallback to gTTS if Polly fails
-        logger.warning(f"Polly failed ({error_msg}), falling back to gTTS")
-        
         # Create a temporary file for the initial TTS output
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
             temp_path = temp_file.name
 
         try:
-            # Try importing gTTS
-            try:
-                from gtts import gTTS
-            except ImportError:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="TTS service unavailable. AWS Polly failed and gTTS not installed."
-                )
-            
             # Generate speech using gTTS
             tts = gTTS(text=request.text, lang="en", slow=False)
             tts.save(temp_path)
@@ -313,7 +247,7 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
             file_size = output_path.stat().st_size
             duration_seconds = int(len(audio) / 1000)
             
-            logger.info(f"✓ TTS audio generated with gTTS: {final_filename} ({file_size} bytes, {duration_seconds}s)")
+            logger.info(f"✓ TTS audio generated: {final_filename} ({file_size} bytes, {duration_seconds}s)")
             
             # Create database record with the source text as transcript
             from ...core.audio_db import get_or_create_audio_file, update_transcript
@@ -328,9 +262,8 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
                 "size": file_size,
                 "duration": duration_seconds,
                 "url": f"/api/audio/{final_filename}",
-                "message": f"Successfully generated '{final_filename}' using gTTS",
-                "transcript_status": "completed",
-                "engine": "gtts"
+                "message": f"Successfully generated '{final_filename}'",
+                "transcript_status": "completed"
             }
 
         finally:
@@ -360,7 +293,6 @@ async def upload_audio(
     
     This endpoint accepts audio files (MP3, WebM, WAV) and saves them to the audio_files
     directory. If the uploaded file is not MP3, it will be converted to MP3 format.
-    Files are also uploaded to S3 if configured.
     
     Transcription is triggered as a background task after upload completes.
     
@@ -405,7 +337,6 @@ async def upload_audio(
     logger.info(f"Uploading audio file: {final_filename} (original: {file.filename})")
     
     temp_path = None
-    s3_url = None
     try:
         # Save uploaded file to temporary location
         # Get safe file extension, default to empty string if filename is None
@@ -438,23 +369,6 @@ async def upload_audio(
         file_size = output_path.stat().st_size
         duration_seconds = int(len(audio) / 1000)
         
-        # Upload to S3 if bucket is configured
-        s3_bucket = os.environ.get("S3_AUDIO_BUCKET")
-        if s3_bucket:
-            try:
-                import boto3
-                s3_client = boto3.client('s3')
-                s3_client.upload_file(
-                    str(output_path),
-                    s3_bucket,
-                    final_filename,
-                    ExtraArgs={'ContentType': 'audio/mpeg'}
-                )
-                s3_url = f"https://{s3_bucket}.s3.amazonaws.com/{final_filename}"
-                logger.info(f"✓ Uploaded to S3: {s3_url}")
-            except Exception as s3_error:
-                logger.warning(f"Could not upload to S3: {s3_error}")
-        
         logger.info(f"✓ Audio uploaded and converted: {final_filename} ({file_size} bytes, {duration_seconds}s)")
         
         # Create database record
@@ -486,7 +400,7 @@ async def upload_audio(
             )
             logger.info(f"Transcription disabled; skipping background transcription for {final_filename}")
         
-        response_data = {
+        return {
             "success": True,
             "filename": final_filename,
             "size": file_size,
@@ -496,11 +410,6 @@ async def upload_audio(
             "message": f"Successfully uploaded '{final_filename}'",
             "transcript_status": "pending" if settings.transcription_enabled else "disabled"
         }
-        
-        if s3_url:
-            response_data["s3_url"] = s3_url
-        
-        return response_data
         
     except Exception as e:
         logger.error(f"Failed to upload audio: {e}", exc_info=True)
@@ -515,12 +424,7 @@ async def upload_audio(
 
 
 @router.get("/audio/search")
-async def search_audio_files(
-    response: Response,
-    q: str = "",
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db),
-):
+async def search_audio_files(q: str = "", user: User = Depends(require_auth), db: Session = Depends(get_db)):
     """
     Search audio files by name and metadata (fuzzy search).
     
@@ -565,10 +469,6 @@ async def search_audio_files(
             elif f["transcript"] and query in f["transcript"].lower():
                 filtered_files.append(f)
         audio_files = filtered_files
-
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
 
     return {
         "query": q,
@@ -642,7 +542,7 @@ async def create_streaming_card(request: CreateCardRequest, user: User = Depends
         Created card information including card ID
     """
     settings = get_settings()
-    client = get_authenticated_yoto_client()
+    client = get_yoto_client()
     manager = client.get_manager()
 
     # Verify audio file exists
@@ -988,7 +888,7 @@ async def create_playlist_from_audio(
         Created card information including card ID
     """
     settings = get_settings()
-    client = get_authenticated_yoto_client()
+    client = get_yoto_client()
     manager = client.get_manager()
 
     # Verify all audio files exist

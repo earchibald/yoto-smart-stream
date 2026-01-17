@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...models import User
-from ..dependencies import get_yoto_client, get_authenticated_yoto_client
+from ..dependencies import get_yoto_client
 from .user_auth import require_auth
 
 logger = logging.getLogger(__name__)
@@ -406,28 +406,17 @@ async def list_players(user: User = Depends(require_auth)):
     - Battery level (if available)
     """
     try:
-        client = get_authenticated_yoto_client()
+        client = get_yoto_client()
+    except RuntimeError as e:
+        logger.error(f"Failed to get Yoto client: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Yoto client not initialized. Please authenticate first: {str(e)}",
+        ) from e
 
+    try:
         # Refresh player status
-        try:
-            client.update_player_status()
-        except FileNotFoundError as e:
-            logger.info(f"Players requested without Yoto auth: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated with Yoto API. Please connect your Yoto account."
-            )
-        except Exception as e:
-            # Catch AuthenticationError and other auth-related exceptions
-            error_str = str(e).lower()
-            if "authentication" in error_str or "refresh token" in error_str or "unauthorized" in error_str:
-                logger.info(f"Players requested with invalid/expired auth: {e}")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Not authenticated with Yoto API. Please connect your Yoto account."
-                )
-            # Re-raise other exceptions to be caught by the outer except
-            raise
+        client.update_player_status()
 
         # Update library to get card metadata
         try:
@@ -435,14 +424,7 @@ async def list_players(user: User = Depends(require_auth)):
         except Exception as e:
             logger.warning(f"Failed to update library: {e}")
 
-        try:
-            manager = client.get_manager()
-        except RuntimeError as e:
-            logger.info(f"Players requested without Yoto auth (manager): {e}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated with Yoto API. Please connect your Yoto account."
-            )
+        manager = client.get_manager()
 
         if not manager.players:
             return []
@@ -454,8 +436,6 @@ async def list_players(user: User = Depends(require_auth)):
 
         return players
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to fetch players: {type(e).__name__}: {e}")
         raise HTTPException(

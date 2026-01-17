@@ -16,7 +16,7 @@ from ...models import User
 from .user_auth import require_auth
 from ..mqtt_event_store import get_mqtt_event_store
 from ..stream_manager import get_stream_manager, StreamQueue
-from ..dependencies import get_yoto_client, get_authenticated_yoto_client
+from ..dependencies import get_yoto_client
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -317,7 +317,7 @@ async def create_playlist_from_stream(
         Created playlist information including playlist ID
     """
     settings = get_settings()
-    client = get_authenticated_yoto_client()
+    client = get_yoto_client()
     stream_manager = get_stream_manager()
     
     # Verify the stream exists
@@ -438,7 +438,7 @@ async def delete_playlist(
     Returns:
         Success message
     """
-    client = get_authenticated_yoto_client()
+    client = get_yoto_client()
     
     try:
         # Ensure we're authenticated
@@ -512,45 +512,57 @@ async def search_playlists_by_name(
     Returns:
         List of matching playlists with IDs and metadata
     """
-    client = get_authenticated_yoto_client()
+    client = get_yoto_client()
     
     try:
-        # Ensure we're authenticated
+        # Ensure we're authenticated and get library
         manager = client.get_manager()
         manager.check_and_refresh_token()
         
-        # Get all content/playlists from user's library
-        # The Yoto API v2 provides a content endpoint to list user content
-        response = requests.get(
-            "https://api.yotoplay.com/content",
-            headers={
-                "Authorization": f"Bearer {manager.token.access_token}",
-                "Content-Type": "application/json",
-            },
-            timeout=30,
-        )
+        # Update library from Yoto API
+        client.update_library()
         
-        response.raise_for_status()
-        data = response.json()
+        # Get library data - library is a dict with card IDs as keys
+        library_dict = manager.library
         
-        # Extract playlists from response
-        all_playlists = data.get("items", []) if isinstance(data, dict) else data if isinstance(data, list) else []
+        if not library_dict:
+            return {
+                "playlists": [],
+                "count": 0,
+                "query": playlist_name,
+            }
+        
+        def _safe_attr(obj, *names):
+            for name in names:
+                if hasattr(obj, name):
+                    value = getattr(obj, name)
+                    if value:
+                        return value
+            return None
+        
+        # Extract playlists/cards from the library
+        all_items = []
+        for card_id, card in library_dict.items():
+            card_identifier = _safe_attr(card, 'cardId', 'id') or card_id
+            title = _safe_attr(card, 'title', 'name') or "Untitled"
+            
+            item = {
+                "id": card_identifier,
+                "title": title,
+                "description": _safe_attr(card, 'description') or "",
+                "type": _safe_attr(card, 'type') or "unknown",
+                "created_at": _safe_attr(card, 'created', 'createdAt') or "",
+            }
+            all_items.append(item)
         
         # Filter by name (case-insensitive, partial match)
         search_term = playlist_name.lower()
         matching_playlists = [
-            {
-                "id": p.get("id") or p.get("cardId") or p.get("contentId"),
-                "title": p.get("title", "Untitled"),
-                "description": p.get("metadata", {}).get("description", ""),
-                "type": p.get("type", "unknown"),
-                "created_at": p.get("created_at", p.get("createdAt", "")),
-            }
-            for p in all_playlists
-            if search_term in p.get("title", "").lower()
+            item for item in all_items
+            if search_term in item["title"].lower()
         ]
         
-        logger.info(f"Found {len(matching_playlists)} playlists matching '{playlist_name}'")
+        logger.info(f"Found {len(matching_playlists)} items matching '{playlist_name}' out of {len(all_items)} total items")
         
         return {
             "playlists": matching_playlists,
@@ -558,14 +570,8 @@ async def search_playlists_by_name(
             "query": playlist_name,
         }
         
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"Failed to search playlists: {e.response.text}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to search playlists: {e.response.text}",
-        ) from e
     except Exception as e:
-        logger.error(f"Failed to search playlists: {e}")
+        logger.error(f"Failed to search playlists: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to search playlists: {str(e)}",
@@ -594,7 +600,7 @@ async def delete_multiple_playlists(
     Returns:
         Results for each deletion attempt
     """
-    client = get_authenticated_yoto_client()
+    client = get_yoto_client()
     results = {
         "success": [],
         "failed": [],
