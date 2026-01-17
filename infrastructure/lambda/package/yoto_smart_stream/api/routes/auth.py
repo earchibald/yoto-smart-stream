@@ -1,6 +1,8 @@
 """Authentication endpoints for Yoto account login."""
 
+import json
 import logging
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
@@ -220,6 +222,25 @@ async def poll_auth_status(
 
         # Save refresh token to file (for backward compatibility)
         if client.manager.token and client.manager.token.refresh_token:
+            # Save to AWS Secrets Manager on Lambda
+            if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+                try:
+                    import boto3
+                    sm_client = boto3.client("secretsmanager", region_name="us-east-1")
+                    secret_data = {
+                        "refresh_token": client.manager.token.refresh_token,
+                        "access_token": client.manager.token.access_token or "",
+                        "expires_at": str(client.manager.token.expires_at) if hasattr(client.manager.token, 'expires_at') else ""
+                    }
+                    sm_client.put_secret_value(
+                        SecretId="yoto-oauth-token",
+                        SecretString=json.dumps(secret_data)
+                    )
+                    logger.info("Yoto OAuth tokens saved to AWS Secrets Manager")
+                except Exception as e:
+                    logger.error(f"Failed to save tokens to Secrets Manager: {e}")
+            
+            # Also save to file for local development
             token_file = settings.yoto_refresh_token_file
             # Ensure parent directory exists (e.g., /data on Railway)
             token_file.parent.mkdir(parents=True, exist_ok=True)

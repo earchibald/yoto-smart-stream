@@ -169,6 +169,7 @@ async function checkAuthStatus() {
 
 // Start authentication flow
 async function startAuth() {
+    console.log('🔐 [OAuth] Connect Yoto Account button clicked - starting OAuth flow');
     const loginButton = document.getElementById('login-button');
     const authWaiting = document.getElementById('auth-waiting');
     const authActions = document.getElementById('auth-actions');
@@ -178,6 +179,7 @@ async function startAuth() {
     loginButton.textContent = 'Starting...';
     
     try {
+        console.log('📡 [OAuth] Calling /auth/start to get device code');
         const response = await fetch(`${API_BASE}/auth/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
@@ -191,6 +193,12 @@ async function startAuth() {
         const data = await response.json();
         deviceCode = data.device_code;
         
+        console.log('✓ [OAuth] Device code received:', {
+            user_code: data.user_code,
+            device_code: data.device_code,
+            verification_uri: data.verification_uri
+        });
+        
         // Update UI with auth details
         document.getElementById('auth-url').href = data.verification_uri_complete || data.verification_uri;
         document.getElementById('auth-url').textContent = data.verification_uri;
@@ -201,11 +209,13 @@ async function startAuth() {
         authActions.style.display = 'none';
         authMessage.textContent = 'Complete the authorization in your browser, then we\'ll automatically connect.';
         
+        console.log('⏳ [OAuth] Waiting for user authorization. User code:', data.user_code);
+        
         // Start polling for completion
         startAuthPolling();
         
     } catch (error) {
-        console.error('Error starting auth:', error);
+        console.error('❌ [OAuth] Error starting auth:', error);
         alert('Failed to start authentication: ' + error.message);
         loginButton.disabled = false;
         loginButton.textContent = '🔑 Connect Yoto Account';
@@ -218,6 +228,8 @@ function startAuthPolling() {
     if (authPollInterval) {
         clearInterval(authPollInterval);
     }
+    
+    console.log('🔄 [OAuth] Starting polling for OAuth authorization (every 3 seconds)');
     
     // Poll every 3 seconds
     authPollInterval = setInterval(async () => {
@@ -234,6 +246,9 @@ function startAuthPolling() {
             
             if (data.status === 'success') {
                 // Authentication successful!
+                console.log('🎉 [OAuth] OAuth Authentication Success! User authorized the application');
+                console.log('✓ [OAuth] Tokens received and stored. Page reloading in 2 seconds...');
+                
                 clearInterval(authPollInterval);
                 authPollInterval = null;
                 
@@ -248,11 +263,13 @@ function startAuthPolling() {
                 
                 // Reload the page after a short delay
                 setTimeout(() => {
+                    console.log('🔄 [OAuth] Reloading page to load authenticated dashboard');
                     window.location.reload();
                 }, 2000);
                 
             } else if (data.status === 'expired') {
                 // Token expired
+                console.warn('⏰ [OAuth] Authentication expired - user took too long to authorize');
                 clearInterval(authPollInterval);
                 authPollInterval = null;
                 alert('Authentication expired. Please try again.');
@@ -262,7 +279,7 @@ function startAuthPolling() {
             // Otherwise keep polling (status === 'pending')
             
         } catch (error) {
-            console.error('Error polling auth:', error);
+            console.debug('[OAuth] Polling...', error.message);
             // Continue polling even on errors
         }
     }, 3000);
