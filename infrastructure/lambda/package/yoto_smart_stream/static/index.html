@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoto Smart Stream - Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <h1>🎵 Yoto Stream</h1>
+        </div>
+        <ul class="nav-menu">
+            <li class="active"><a href="/">🏠 Dashboard</a></li>
+            <li><a href="/streams">✨ Smart Streams</a></li>
+            <li><a href="/library">📚 Yoto Library</a></li>
+            <li><a href="/audio-library">🎙️ Audio Library</a></li>
+            <li><a href="/admin">⚙️ Admin</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p id="app-version">Loading...</p>
+        </div>
+    </nav>
+
+    <main class="content">
+        <header>
+            <h2>Dashboard</h2>
+            <div class="status-indicator" id="status">
+                <span class="dot"></span>
+                <span id="status-text">Checking...</span>
+            </div>
+        </header>
+
+        <!-- Authentication Section -->
+        <section class="section" id="auth-section" style="display: none;">
+            <div class="auth-container">
+                <div class="auth-icon">🔐</div>
+                <h3>Connect Your Yoto Account</h3>
+                <p id="auth-message">To access your Yoto players, please authenticate with your Yoto account.</p>
+                
+                <div id="auth-waiting" style="display: none;">
+                    <div class="auth-code-display">
+                        <p><strong>1. Go to:</strong></p>
+                        <a id="auth-url" href="#" target="_blank" class="auth-link"></a>
+                        <p><strong>2. Enter this code:</strong></p>
+                        <div class="user-code" id="user-code">XXXX-XXXX</div>
+                    </div>
+                    <div class="auth-status">
+                        <div class="spinner"></div>
+                        <p>Waiting for authorization...</p>
+                    </div>
+                </div>
+                
+                <div id="auth-actions">
+                    <button id="login-button" class="action-button primary" onclick="startAuth()">
+                        🔑 Connect Yoto Account
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📱</div>
+                <div class="stat-content">
+                    <h3 id="player-count">-</h3>
+                    <p>Connected Players</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔌</div>
+                <div class="stat-content">
+                    <h3 id="mqtt-status">-</h3>
+                    <p>MQTT Status</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🌍</div>
+                <div class="stat-content">
+                    <h3 id="environment">-</h3>
+                    <p>Environment</p>
+                </div>
+            </div>
+        </div>
+
+        <section class="section">
+            <h3>Connected Players</h3>
+            <div id="players-list" class="list-container">
+                <p class="loading">Loading players...</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Quick Actions</h3>
+            <div class="actions-grid">
+                <button id="logout-button" class="action-button" onclick="userLogout()" style="display: none;" title="Sign out of your account">🚪 Logout</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Player Detail Modal -->
+    <div id="playerModal" class="modal">
+        <div class="modal-content player-modal-content">
+            <div class="modal-header">
+                <h3 id="modalPlayerName">Player Details</h3>
+                <div class="modal-header-actions">
+                    <button id="modalInfoButton" class="info-button" onclick="toggleTechnicalInfo()" title="Show API Details">
+                        <span class="info-icon">ℹ️</span>
+                    </button>
+                    <span class="modal-close" onclick="closePlayerModal()">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="modalPlayerLoading" class="loading">Loading player details...</div>
+                <div id="modalPlayerContent" style="display: none;">
+                    <!-- Status Overview -->
+                    <div class="player-detail-section">
+                        <h4>Status Overview</h4>
+                        <div class="player-detail-grid">
+                            <div class="player-detail-item">
+                                <span class="detail-label">Status</span>
+                                <span id="modalPlayerStatus" class="detail-value badge">Offline</span>
+                            </div>
+                            <div class="player-detail-item">
+                                <span class="detail-label">Playback</span>
+                                <span id="modalPlayerPlayback" class="detail-value">⏸️ Paused</span>
+                            </div>
+                            <div class="player-detail-item">
+                                <span class="detail-label">Volume</span>
+                                <span id="modalPlayerVolume" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-item">
+                                <span class="detail-label">Battery</span>
+                                <span id="modalPlayerBattery" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Device Information -->
+                    <div class="player-detail-section">
+                        <h4>Device Information</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Player ID</span>
+                                <span id="modalPlayerId" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Device Type</span>
+                                <span id="modalPlayerDeviceType" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Firmware Version</span>
+                                <span id="modalPlayerFirmware" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Power Source</span>
+                                <span id="modalPlayerPowerSource" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Network & Environment -->
+                    <div class="player-detail-section">
+                        <h4>Network & Environment</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">WiFi Strength</span>
+                                <span id="modalPlayerWifi" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Temperature</span>
+                                <span id="modalPlayerTemperature" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Ambient Light</span>
+                                <span id="modalPlayerAmbientLight" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Day Mode</span>
+                                <span id="modalPlayerDayMode" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Nightlight</span>
+                                <span id="modalPlayerNightlight" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Last Updated</span>
+                                <span id="modalPlayerLastUpdated" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Audio Connections -->
+                    <div class="player-detail-section">
+                        <h4>Audio Connections</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Bluetooth Audio</span>
+                                <span id="modalPlayerBluetoothAudio" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Audio Device</span>
+                                <span id="modalPlayerAudioDevice" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sleep Timer -->
+                    <div class="player-detail-section" id="modalSleepTimerSection" style="display: none;">
+                        <h4>Sleep Timer</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Time Remaining</span>
+                                <span id="modalPlayerSleepTimer" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Playback Information -->
+                    <div class="player-detail-section" id="modalPlaybackSection" style="display: none;">
+                        <h4>Current Playback</h4>
+                        <div class="player-detail-list">
+                            <div class="player-detail-row">
+                                <span class="detail-label">Active Card</span>
+                                <span id="modalPlayerActiveCard" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row" id="modalCardTitleRow" style="display: none;">
+                                <span class="detail-label">Card Title</span>
+                                <span id="modalCardTitle" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row" id="modalCardAuthorRow" style="display: none;">
+                                <span class="detail-label">Card Author</span>
+                                <span id="modalCardAuthor" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Chapter</span>
+                                <span id="modalPlayerChapter" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Track</span>
+                                <span id="modalPlayerTrack" class="detail-value">-</span>
+                            </div>
+                            <div class="player-detail-row">
+                                <span class="detail-label">Position</span>
+                                <span id="modalPlayerPosition" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Technical Information (API Details) -->
+                    <div class="player-detail-section technical-info-section" id="modalTechnicalInfo" style="display: none;">
+                        <h4>Technical Information</h4>
+                        <div id="technicalInfoContent" class="technical-info-content">
+                            <!-- API call info will be dynamically inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library Browser Modal -->
+    <div id="libraryModal" class="modal">
+        <div class="modal-content library-modal-content">
+            <div class="modal-header">
+                <h3>Select from Library</h3>
+                <span class="modal-close" onclick="closeLibraryBrowser()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="libraryFilter" placeholder="🔍 Filter library..." class="filter-input" style="width: 100%; margin-bottom: 1rem; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                <div id="libraryLoading" class="loading">Loading library...</div>
+                <div id="libraryContent" class="library-grid" style="display: none;">
+                    <!-- Library cards will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chapter Browser Modal -->
+    <div id="chapterModal" class="modal">
+        <div class="modal-content chapter-modal-content">
+            <div class="modal-header">
+                <h3 id="chapterModalTitle">Select Chapter</h3>
+                <span class="modal-close" onclick="closeChapterBrowser()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="chapterLoading" class="loading">Loading chapters...</div>
+                <div id="chapterContent" class="chapter-list" style="display: none;">
+                    <!-- Chapters will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON Viewer Modal -->
+    <div id="jsonViewerModal" class="modal">
+        <div class="modal-content json-viewer-modal">
+            <div class="modal-header">
+                <h3>📋 JSON Details</h3>
+                <span class="modal-close" onclick="closeJsonViewer()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="json-viewer-container">
+                    <pre id="jsonViewerContent" class="json-content"></pre>
+                    <button class="btn-primary" id="copyJsonBtn" onclick="copyJsonContent()">📋 Copy to Clipboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MQTT Analyzer Modal -->
+    <div id="mqttAnalyzerModal" class="modal">
+        <div class="modal-content mqtt-modal-content">
+            <div class="modal-header">
+                <h3>📊 MQTT Device Analyzer</h3>
+                <span class="modal-close" onclick="closeMQTTAnalyzer()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Device State Section -->
+                <div class="analyzer-section">
+                    <h4>Current Device State</h4>
+                    <div id="deviceStateSummary" class="device-state-box">
+                        <p class="loading">Loading device state...</p>
+                    </div>
+                </div>
+
+                <!-- Recent Events Section -->
+                <div class="analyzer-section">
+                    <h4>Recent MQTT Events (Last 30)</h4>
+                    <div id="recentEventsList" class="events-list">
+                        <p class="loading">Loading events...</p>
+                    </div>
+                </div>
+
+                <!-- Stream Requests Section -->
+                <div class="analyzer-section">
+                    <h4>Recent Stream Requests (Last 5 minutes)</h4>
+                    <div id="streamRequestsList" class="requests-list">
+                        <p class="loading">Loading stream requests...</p>
+                    </div>
+                </div>
+
+                <!-- Track Navigation -->
+                <div class="analyzer-section">
+                    <h4>Track Navigation (via MQTT)</h4>
+                    <div class="button-group">
+                        <button class="btn-secondary" onclick="sendTrackNavigation('previous')">⏮️ Previous Track</button>
+                        <button class="btn-secondary" onclick="sendTrackNavigation('next')">⏭️ Next Track</button>
+                    </div>
+                </div>
+
+                <!-- Auto-Refresh Control -->
+                <div class="analyzer-section">
+                    <label>
+                        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)"> 
+                        Auto-refresh (2 seconds)
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/mqtt-analyzer.js"></script>
+    <script>
+        // Hide admin nav for non-admin users
+        async function checkAdminStatusNav() {
+            try {
+                const response = await fetch('/api/user/session', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (!data.is_admin) {
+                        const adminLink = document.querySelector('a[href="/admin"]');
+                        if (adminLink) {
+                            adminLink.parentElement.style.display = 'none';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+            }
+        }
+        checkAdminStatusNav();
+    </script>
+</body>
+</html>

@@ -52,7 +52,10 @@
   "remoteEnv": {
     "RAILWAY_API_TOKEN": "${localEnv:RAILWAY_API_TOKEN}",
     "RAILWAY_TOKEN": "${localEnv:RAILWAY_TOKEN}",
-    "YOTO_CLIENT_ID": "${localEnv:YOTO_CLIENT_ID}"
+    "YOTO_CLIENT_ID": "${localEnv:YOTO_CLIENT_ID}",
+    "AWS_ACCESS_KEY_ID": "${localEnv:AWS_ACCESS_KEY_ID}",
+    "AWS_SECRET_ACCESS_KEY": "${localEnv:AWS_SECRET_ACCESS_KEY}",
+    "AWS_REGION": "${localEnv:AWS_REGION}"
   },
   
   "forwardPorts": [8000, 8080, 5000],

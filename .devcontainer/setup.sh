@@ -18,6 +18,19 @@ else
     echo "✓ Railway CLI already installed: $(railway --version)"
 fi
 
+# Install AWS CDK for AWS deployments
+if ! command -v cdk &> /dev/null; then
+    echo "📦 Installing AWS CDK..."
+    npm install -g aws-cdk
+    if command -v cdk &> /dev/null; then
+        echo "✅ AWS CDK installed successfully: $(cdk --version)"
+    else
+        echo "⚠️  AWS CDK installation may have failed"
+    fi
+else
+    echo "✓ AWS CDK already installed: $(cdk --version)"
+fi
+
 # Install package with dev dependencies from pyproject.toml
 if [ -f "pyproject.toml" ]; then
     echo "📦 Installing package with [dev] dependencies..."
@@ -88,5 +101,24 @@ else
   echo "     4. Restart Codespace to load the secret"
   echo "  OR"
   echo "     Set locally: export YOTO_CLIENT_ID='your_client_id_here'"
+fi
+echo ""
+if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then
+  echo "  ✅ AWS credentials are set and available"
+  echo "     Region: ${AWS_REGION:-not set, will use default}"
+  echo "     You can now deploy to AWS with CDK"
+else
+  echo "  ℹ️  AWS credentials not set. To enable AWS CDK deployments:"
+  echo "     1. Get credentials from AWS IAM Console"
+  echo "     2. Add to Codespaces secrets:"
+  echo "        - AWS_ACCESS_KEY_ID"
+  echo "        - AWS_SECRET_ACCESS_KEY"
+  echo "        - AWS_REGION (e.g., us-east-1)"
+  echo "     3. Restart Codespace to load the secrets"
+  echo "  OR"
+  echo "     Set locally:"
+  echo "     export AWS_ACCESS_KEY_ID='your_key'"
+  echo "     export AWS_SECRET_ACCESS_KEY='your_secret'"
+  echo "     export AWS_REGION='us-east-1'"
 fi
 echo ""

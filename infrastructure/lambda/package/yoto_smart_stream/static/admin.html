@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Yoto Smart Stream</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <h1>🎵 Yoto Stream</h1>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="/">🏠 Dashboard</a></li>
+            <li><a href="/streams">✨ Smart Streams</a></li>
+            <li><a href="/library">📚 Yoto Library</a></li>
+            <li><a href="/audio-library">🎙️ Audio Library</a></li>
+            <li class="active"><a href="/admin">⚙️ Admin</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p id="app-version">Loading...</p>
+        </div>
+    </nav>
+
+    <main class="content">
+        <header>
+            <h2>Admin</h2>
+            <div class="status-indicator" id="status">
+                <span class="dot"></span>
+                <span id="status-text">Checking...</span>
+            </div>
+        </header>
+
+        <!-- Access Denied Message (shown if not admin) -->
+        <section class="section" id="access-denied" style="display: none;">
+            <div class="error-message">
+                <h3>⛔ Access Denied</h3>
+                <p>You do not have admin privileges to access this page.</p>
+                <a href="/" class="action-button">Return to Dashboard</a>
+            </div>
+        </section>
+
+        <!-- Admin Content (shown if admin) -->
+        <div id="admin-content" style="display: none;">
+            <section class="section">
+                <h3>System Administration</h3>
+                <div class="actions-grid">
+                    <button class="action-button" onclick="refreshData(event)" title="Refresh all player and audio data from Yoto API">
+                        🔄 Refresh Data
+                    </button>
+                    <button class="action-button" onclick="openMQTTAnalyzer()" title="View MQTT device events and analytics">
+                        📊 MQTT Analyzer
+                    </button>
+                </div>
+            </section>
+
+            <section class="section">
+                <h3>User Management</h3>
+                <p class="section-description">
+                    Manage user accounts. New users will have access to your Yoto library and devices 
+                    using your OAuth credentials (single-tenant mode), but will not have admin access.
+                </p>
+                
+                <!-- User List -->
+                <div id="users-list" class="list-container">
+                    <p class="loading">Loading users...</p>
+                </div>
+
+                <!-- Create User Form -->
+                <div class="form-container" style="margin-top: 1.5rem;">
+                    <h4>Create New User</h4>
+                    <form id="create-user-form" class="create-user-form">
+                        <div class="form-group">
+                            <label for="username" title="Username for login (letters, numbers, hyphens, and underscores only)">
+                                Username:
+                            </label>
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                placeholder="e.g., john_doe"
+                                required
+                                autocomplete="username"
+                                pattern="[a-zA-Z0-9_-]+"
+                                minlength="3"
+                                maxlength="50"
+                                title="3-50 characters: letters, numbers, hyphens, and underscores only"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="password" title="Password for the new user (minimum 4 characters)">
+                                Password:
+                            </label>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                placeholder="Minimum 4 characters"
+                                required
+                                autocomplete="new-password"
+                                minlength="4"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label for="email" title="Optional email address for the user">
+                                Email (optional):
+                            </label>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                placeholder="e.g., john@example.com"
+                                autocomplete="email"
+                            />
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary" id="create-user-btn">
+                                <span id="create-user-text">👤 Create User</span>
+                                <span id="create-user-spinner" style="display: none;">⏳ Creating...</span>
+                            </button>
+                        </div>
+                    </form>
+                    <div id="create-user-result" style="display: none; margin-top: 20px;">
+                        <div id="create-user-success" class="success-message" style="display: none;">
+                            ✓ <span id="create-user-success-message"></span>
+                        </div>
+                        <div id="create-user-error" class="error-message" style="display: none;">
+                            ✗ <span id="create-user-error-message"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Edit User Modal -->
+    <div id="edit-user-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ Edit User</h3>
+                <span class="modal-close" onclick="closeEditUserModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="edit-user-form" class="edit-user-form" onsubmit="handleEditUser(event)">
+                    <div class="form-group">
+                        <label>Username:</label>
+                        <p id="edit-username" style="font-weight: bold; margin-top: 0.5rem;"></p>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-email" title="Email address for the user">
+                            Email:
+                        </label>
+                        <input
+                            type="email"
+                            id="edit-email"
+                            name="email"
+                            placeholder="e.g., user@example.com"
+                            autocomplete="email"
+                        />
+                        <small>Leave unchanged or update the email address</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-password" title="New password (leave blank to keep current password)">
+                            New Password:
+                        </label>
+                        <input
+                            type="password"
+                            id="edit-password"
+                            name="password"
+                            placeholder="Leave blank to keep current password"
+                            autocomplete="new-password"
+                            minlength="4"
+                        />
+                        <small>Passwords are stored as one-way hashes and cannot be retrieved. Leave blank to keep the current password.</small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="closeEditUserModal()">Cancel</button>
+                        <button type="submit" class="btn-primary" id="edit-user-btn">
+                            <span id="edit-user-text">💾 Save Changes</span>
+                            <span id="edit-user-spinner" style="display: none;">⏳ Saving...</span>
+                        </button>
+                    </div>
+                </form>
+                <div id="edit-user-result" style="display: none; margin-top: 20px;">
+                    <div id="edit-user-success" class="success-message" style="display: none;">
+                        ✓ <span id="edit-user-success-message"></span>
+                    </div>
+                    <div id="edit-user-error" class="error-message" style="display: none;">
+                        ✗ <span id="edit-user-error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MQTT Analyzer Modal (shared) -->
+    <div id="mqttAnalyzerModal" class="modal">
+        <div class="modal-content mqtt-modal-content">
+            <div class="modal-header">
+                <h3>📊 MQTT Device Analyzer</h3>
+                <span class="modal-close" onclick="closeMQTTAnalyzer()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Device State Section -->
+                <div class="analyzer-section">
+                    <h4>Current Device State</h4>
+                    <div id="deviceStateSummary" class="device-state-box">
+                        <p class="loading">Loading device state...</p>
+                    </div>
+                </div>
+
+                <!-- Recent Events Section -->
+                <div class="analyzer-section">
+                    <h4>Recent MQTT Events (Last 30)</h4>
+                    <div id="recentEventsList" class="events-list">
+                        <p class="loading">Loading events...</p>
+                    </div>
+                </div>
+
+                <!-- Stream Requests Section -->
+                <div class="analyzer-section">
+                    <h4>Recent Stream Requests (Last 5 minutes)</h4>
+                    <div id="streamRequestsList" class="requests-list">
+                        <p class="loading">Loading stream requests...</p>
+                    </div>
+                </div>
+
+                <!-- Track Navigation -->
+                <div class="analyzer-section">
+                    <h4>Track Navigation (via MQTT)</h4>
+                    <div class="button-group">
+                        <button class="btn-secondary" onclick="sendTrackNavigation('previous')">⏮️ Previous Track</button>
+                        <button class="btn-secondary" onclick="sendTrackNavigation('next')">⏭️ Next Track</button>
+                    </div>
+                </div>
+
+                <!-- Auto-Refresh Control -->
+                <div class="analyzer-section">
+                    <label>
+                        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)"> 
+                        Auto-refresh (2 seconds)
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/mqtt-analyzer.js"></script>
+    <script src="/static/js/admin.js"></script>
+</body>
+</html>

@@ -31,6 +31,23 @@ setup:
       fi
       echo ""
       
+      # Step 1b: Install AWS CDK if not already installed
+      if ! command -v cdk > /dev/null 2>&1; then
+        echo "📦 Installing AWS CDK..."
+        if npm install -g aws-cdk; then
+          echo "✅ AWS CDK installed successfully: $(cdk --version)"
+        else
+          npm_exit_code=$?
+          echo "❌ ERROR: Failed to install AWS CDK (npm exit code: $npm_exit_code)"
+          echo "AWS CDK will not be available in this workspace."
+          echo "You can manually install it later with: npm install -g aws-cdk"
+          # Continue even if CDK install fails
+        fi
+      else
+        echo "✅ AWS CDK already installed: $(cdk --version)"
+      fi
+      echo ""
+      
       # Step 2: Check Railway authentication
       echo "🔐 Checking Railway authentication..."
       if railway whoami > /dev/null 2>&1; then
@@ -123,6 +140,12 @@ network:
     - "backboard.railway.app"    # Railway GraphQL API (legacy/docs)
     - "backboard.railway.com"    # Railway GraphQL API (current CLI endpoint)
     
+    # AWS platform URLs
+    - "*.execute-api.*.amazonaws.com"  # API Gateway endpoints
+    - "*.cloudfront.net"               # CloudFront CDN
+    - "*.s3.amazonaws.com"             # S3 buckets
+    - "s3.amazonaws.com"               # S3 service
+    
     # Yoto API URLs (for testing and development)
     - "api.yoto.io"              # Yoto REST API
     - "mqtt.yoto.io"             # Yoto MQTT broker
@@ -133,9 +156,14 @@ network:
     - Railway deployment URLs (*.up.railway.app) for testing and validation
     - Railway platform APIs for deployment management
     - Yoto APIs for development and testing
+    - AWS API Gateway endpoints (*.execute-api.amazonaws.com) for AWS deployments
     
     Railway URL patterns used in this project:
     - Production: https://yoto-smart-stream-production.up.railway.app
     - Staging: https://yoto-smart-stream-staging.up.railway.app
     - Development: https://yoto-smart-stream-development.up.railway.app
     - PR Environments: https://yoto-smart-stream-pr-{number}.up.railway.app
+    
+    AWS URL patterns:
+    - API Gateway: https://*.execute-api.{region}.amazonaws.com
+    - CloudFront: https://*.cloudfront.net

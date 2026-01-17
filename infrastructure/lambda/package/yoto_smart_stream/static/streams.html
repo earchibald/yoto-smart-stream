@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Streams - Yoto Smart Stream</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="logo">
+            <h1>🎵 Yoto Stream</h1>
+        </div>
+        <ul class="nav-menu">
+            <li><a href="/">🏠 Dashboard</a></li>
+            <li class="active"><a href="/streams">✨ Smart Streams</a></li>
+            <li><a href="/library">📚 Yoto Library</a></li>
+            <li><a href="/audio-library">🎙️ Audio Library</a></li>
+            <li><a href="/admin">⚙️ Admin</a></li>
+        </ul>
+        <div class="sidebar-footer">
+            <p id="app-version">Loading...</p>
+        </div>
+    </nav>
+
+    <main class="content">
+        <header>
+            <h2>Smart Streams</h2>
+            <div style="display: flex; gap: 0.5rem;">
+                <button class="action-button" onclick="openDeletePlaylistModal()">🗑️ Delete Yoto Playlist</button>
+                <button class="refresh-btn" onclick="loadAudioFiles()">🔄 Refresh</button>
+            </div>
+        </header>
+
+        <section class="section">
+            <div class="stream-info">
+                <p>Available audio streams from this server. These URLs can be used in Yoto MYO cards.</p>
+                <p class="public-url" id="public-url">Server URL: <span id="url-display">Loading...</span></p>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Available Audio Files</h3>
+            <div id="audio-streams" class="streams-grid">
+                <p class="loading">Loading audio files...</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <h3>Managed Streams</h3>
+                    <p class="info-text">Server-controlled playlists that stream multiple files sequentially.</p>
+                </div>
+                <button class="btn-primary" onclick="openStreamScripter()">🎬 Stream Scripter</button>
+            </div>
+            <div id="managed-streams" class="streams-grid">
+                <p class="loading">Loading managed streams...</p>
+            </div>
+        </section>
+
+        <section class="section">
+            <h3>Create Streaming Card</h3>
+            <form id="create-card-form" class="card-form">
+                <div class="form-group">
+                    <label for="card-title">Card Title</label>
+                    <input type="text" id="card-title" required placeholder="My Story">
+                </div>
+                <div class="form-group">
+                    <label for="card-description">Description</label>
+                    <input type="text" id="card-description" placeholder="A wonderful tale">
+                </div>
+                <div class="form-group">
+                    <label for="audio-file">Audio File</label>
+                    <select id="audio-file" required>
+                        <option value="">Select an audio file...</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Create Card</button>
+                </div>
+            </form>
+            <div id="card-result" class="result-message" style="display: none;"></div>
+        </section>
+    </main>
+
+    <!-- Audio Player Modal -->
+    <div id="audio-player-modal" class="modal" style="display: none;">
+        <div class="modal-content audio-player">
+            <div class="player-header">
+                <h3 id="player-title">Audio Preview</h3>
+                <button class="close-btn" onclick="closeAudioPlayer()">✕</button>
+            </div>
+            <div class="player-body">
+                <audio id="audio-element" controls style="width: 100%;">
+                    <source id="audio-source" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+                <p id="player-url" class="player-url"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stream Scripter Modal -->
+    <div id="stream-scripter-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>🎬 Stream Scripter</h3>
+                <button class="close-btn" onclick="closeStreamScripter()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="queue-selector">Queue</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select id="queue-selector" style="flex: 1;">
+                            <option value="">-- Select Queue --</option>
+                        </select>
+                        <button class="btn-secondary" onclick="startNewQueue()">New Queue</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="queue-name">Queue Name</label>
+                    <input type="text" id="queue-name" placeholder="my-awesome-queue" pattern="[a-zA-Z0-9\-]+" required>
+                    <small style="color: #666;">Only alphanumeric characters and hyphens allowed</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Available Files</label>
+                    <div id="file-selector" class="file-selector-grid">
+                        <p class="loading">Loading files...</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Current Queue (<span id="queue-count">0</span> files)</label>
+                    <div id="queue-list" class="queue-list">
+                        <p style="color: #999; text-align: center; padding: 2rem;">No files added yet. Select files above to add them.</p>
+                    </div>
+                </div>
+
+                <div id="scripter-result" class="result-message" style="display: none;"></div>
+
+                <div class="form-actions">
+                    <button class="btn-primary" onclick="saveQueue()">Save Queue</button>
+                    <button id="delete-queue-btn" class="btn-danger" onclick="confirmDeleteQueue()" style="display: none;">Delete Queue</button>
+                    <button class="btn-secondary" onclick="clearQueueSelection()">Clear Selection</button>
+                    <button class="btn-secondary" onclick="closeStreamScripter()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Playlist Modal -->
+    <div id="create-playlist-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>📋 Create Playlist</h3>
+                <button class="close-btn" onclick="closePlaylistModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="playlist-stream-selector">Select Stream</label>
+                    <select id="playlist-stream-selector" required>
+                        <option value="">-- Select a stream --</option>
+                    </select>
+                    <small style="color: #666;">Choose a managed stream to link to the playlist</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="playlist-name">Playlist Name</label>
+                    <input type="text" id="playlist-name" required placeholder="My Custom Playlist">
+                    <small style="color: #666;">This will be the name shown in your Yoto library</small>
+                </div>
+
+                <div id="playlist-result" class="result-message" style="display: none;"></div>
+
+                <div class="form-actions">
+                    <button class="btn-primary" onclick="createPlaylist()">Create Playlist</button>
+                    <button class="btn-secondary" onclick="closePlaylistModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Yoto Playlist Modal -->
+    <div id="delete-playlist-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3>🗑️ Delete Yoto Playlist</h3>
+                <button class="close-btn" onclick="closeDeletePlaylistModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="info-text" style="margin-bottom: 1rem;">Search for playlists by name and delete them from your Yoto library. If multiple playlists match, you can select which ones to delete.</p>
+
+                <div class="form-group">
+                    <label for="delete-playlist-search">Search Playlist Name</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="delete-playlist-search" placeholder="Enter playlist name to search..." style="flex: 1;">
+                        <button class="btn-primary" onclick="searchPlaylistsForDelete()">🔍 Search</button>
+                    </div>
+                </div>
+
+                <div id="delete-playlist-search-results" style="display: none; margin-top: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <h4 style="margin: 0;">Search Results (<span id="delete-playlist-count">0</span>)</h4>
+                        <button class="btn-small" onclick="toggleSelectAllDelete()" id="select-all-delete-btn" style="display: none;">Select All</button>
+                    </div>
+                    <div id="delete-playlist-list" class="playlist-selection-list">
+                        <!-- Results will be populated here -->
+                    </div>
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd;">
+                        <p><strong id="delete-selected-count">0</strong> playlist(s) selected</p>
+                        <div class="form-actions">
+                            <button class="btn-danger" onclick="deleteSelectedPlaylists()" id="delete-confirm-btn" disabled style="opacity: 0.5; cursor: not-allowed;">🗑️ Delete Selected</button>
+                            <button class="btn-secondary" onclick="closeDeletePlaylistModal()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="delete-playlist-result" class="result-message" style="display: none;"></div>
+
+                <div id="delete-playlist-loading" class="loading" style="display: none;">Searching for playlists...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/streams.js"></script>
+    <script>
+        // Hide admin nav for non-admin users
+        async function checkAdminStatusNav() {
+            try {
+                const response = await fetch('/api/user/session', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (!data.is_admin) {
+                        const adminLink = document.querySelector('a[href="/admin"]');
+                        if (adminLink) {
+                            adminLink.parentElement.style.display = 'none';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+            }
+        }
+        checkAdminStatusNav();
+    </script>
+</body>
+</html>
