@@ -74,10 +74,14 @@ class Settings(BaseSettings):
         Get token file path based on environment.
 
         Uses /data directory for Railway deployments (persistent volume),
+        uses /tmp for Lambda (ephemeral but writable),
         falls back to local path for development.
         """
         # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
         railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
+        
+        # Check if running on Lambda (has AWS_LAMBDA_FUNCTION_NAME set)
+        lambda_env = os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
 
         if railway_env:
             # On Railway, use persistent volume at /data
@@ -93,6 +97,11 @@ class Settings(BaseSettings):
                     f"Could not create {data_dir} during validation (expected in tests): {e}"
                 )
             return data_dir / ".yoto_refresh_token"
+        elif lambda_env:
+            # On Lambda, use /tmp (ephemeral but writable)
+            # Note: This means tokens will be lost on cold starts
+            tmp_dir = Path("/tmp")
+            return tmp_dir / ".yoto_refresh_token"
 
         # Local development - use current directory or provided value
         if isinstance(v, (str, Path)):
