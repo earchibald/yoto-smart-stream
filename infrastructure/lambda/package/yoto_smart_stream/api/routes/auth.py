@@ -212,79 +212,88 @@ async def poll_auth_status(
         )
 
     try:
-        # Reconstruct auth_result with the device_code from the poll request
-        # This is necessary because in a stateless/serverless environment,
-        # the manager instance may not preserve state between requests
-        client.manager.auth_result = {
-            "device_code": poll_request.device_code,
-            "interval": 5,  # Default interval
-            "expires_in": 300  # Default expiration (5 minutes)
-        }
+        # Use single-attempt polling (non-blocking, suitable for Lambda/serverless)
+        # The frontend will poll this endpoint repeatedly until success
+        poll_status = client.poll_device_code_single_attempt(poll_request.device_code)
         
-        # Try to complete the device code flow
-        client.manager.device_code_flow_complete()
+        if poll_status == "success":
+            # Authentication succeeded
+            client.set_authenticated(True)
 
-        # If we get here, authentication succeeded
-        client.set_authenticated(True)
+            # Save refresh token to file (for backward compatibility)
+            if client.manager.token and client.manager.token.refresh_token:
+                token_file = settings.yoto_refresh_token_file
+                # Ensure parent directory exists (e.g., /data on Railway)
+                token_file.parent.mkdir(parents=True, exist_ok=True)
+                token_file.write_text(client.manager.token.refresh_token)
+                logger.info(f"Refresh token saved to {token_file}")
+                
+                # Save tokens to database for the current user
+                if current_user:
+                    try:
+                        current_user.yoto_access_token = client.manager.token.access_token
+                        current_user.yoto_refresh_token = client.manager.token.refresh_token
+                        if hasattr(client.manager.token, 'expires_at'):
+                            current_user.yoto_token_expires_at = client.manager.token.expires_at
+                        db.commit()
+                        logger.info(f"Yoto tokens saved to database for user: {current_user.username}")
+                    except Exception as e:
+                        logger.error(f"Failed to save tokens to database: {e}")
+                        db.rollback()
+            else:
+                logger.error("No refresh token available after authentication!")
 
-        # Save refresh token to file (for backward compatibility)
-        if client.manager.token and client.manager.token.refresh_token:
-            token_file = settings.yoto_refresh_token_file
-            # Ensure parent directory exists (e.g., /data on Railway)
-            token_file.parent.mkdir(parents=True, exist_ok=True)
-            token_file.write_text(client.manager.token.refresh_token)
-            logger.info(f"Refresh token saved to {token_file}")
-            
-            # Save tokens to database for the current user
-            if current_user:
-                try:
-                    current_user.yoto_access_token = client.manager.token.access_token
-                    current_user.yoto_refresh_token = client.manager.token.refresh_token
-                    if hasattr(client.manager.token, 'expires_at'):
-                        current_user.yoto_token_expires_at = client.manager.token.expires_at
-                    db.commit()
-                    logger.info(f"Yoto tokens saved to database for user: {current_user.username}")
-                except Exception as e:
-                    logger.error(f"Failed to save tokens to database: {e}")
-                    db.rollback()
-        else:
-            logger.error("No refresh token available after authentication!")
+            # Update player status
+            try:
+                client.update_player_status()
+            except Exception as e:
+                logger.warning(f"Failed to update player status: {e}")
 
-        # Update player status
-        try:
-            client.update_player_status()
-        except Exception as e:
-            logger.warning(f"Failed to update player status: {e}")
+            logger.info("Authentication successful!")
 
-        logger.info("Authentication successful!")
-
-        return AuthPollResponse(
-            status="success",
-            message="Successfully authenticated with Yoto API",
-            authenticated=True
-        )
-
-    except Exception as e:
-        error_msg = str(e).lower()
-
-        # Check for common error types
-        if "authorization_pending" in error_msg or "pending" in error_msg:
+            return AuthPollResponse(
+                status="success",
+                message="Successfully authenticated with Yoto API",
+                authenticated=True
+            )
+        
+        elif poll_status == "pending":
             return AuthPollResponse(
                 status="pending",
                 message="Waiting for user to authorize...",
                 authenticated=False
             )
-        elif "expired_token" in error_msg or "token expired" in error_msg or "code expired" in error_msg:
+        
+        elif poll_status == "expired":
+            return AuthPollResponse(
+                status="expired",
+                message="Authentication expired. Please start again.",
+                authenticated=False
+            )
+        
+        else:
+            # Unknown status
+            return AuthPollResponse(
+                status="error",
+                message=f"Unknown status: {poll_status}",
+                authenticated=False
+            )
+
+    except Exception as e:
+        error_msg = str(e).lower()
+        logger.error(f"Auth poll error: {e}", exc_info=True)
+        
+        # Try to provide helpful error messages
+        if "expired" in error_msg or "token expired" in error_msg:
             return AuthPollResponse(
                 status="expired",
                 message="Authentication expired. Please start again.",
                 authenticated=False
             )
         else:
-            logger.warning(f"Auth poll error: {e}")
             return AuthPollResponse(
-                status="pending",
-                message="Waiting for authorization...",
+                status="error",
+                message=f"Authentication error: {str(e)}",
                 authenticated=False
             )
 

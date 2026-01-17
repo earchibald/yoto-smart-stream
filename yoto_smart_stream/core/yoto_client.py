@@ -189,6 +189,88 @@ class YotoClient:
             except Exception as e:
                 logger.warning(f"Error disconnecting from MQTT: {e}")
 
+    def poll_device_code_single_attempt(self, device_code: str) -> Optional[str]:
+        """
+        Make a single attempt to poll for OAuth token completion.
+        
+        This is a non-blocking version suitable for serverless environments
+        where the frontend polls repeatedly instead of the backend blocking.
+        
+        Args:
+            device_code: The device code from device_code_flow_start
+            
+        Returns:
+            Status string: "success", "pending", "expired", or "error"
+            
+        Raises:
+            Exception: On unexpected errors
+        """
+        import requests
+        import datetime
+        
+        if not self.manager or not self.manager.api:
+            raise RuntimeError("Manager not initialized")
+            
+        # Make a single token request
+        token_data = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            "device_code": device_code,
+            "client_id": self.manager.client_id,
+            "audience": self.manager.api.BASE_URL,
+        }
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        
+        try:
+            response = requests.post(self.manager.api.TOKEN_URL, data=token_data, headers=headers)
+            response_body = response.json()
+            
+            # Successful authentication
+            if response.ok:
+                logger.info("OAuth device code authentication successful!")
+                
+                # Create token object
+                from yoto_api import Token
+                import pytz
+                
+                valid_until = datetime.datetime.now(pytz.utc) + datetime.timedelta(
+                    seconds=response_body["expires_in"]
+                )
+                
+                self.manager.token = Token(
+                    access_token=response_body["access_token"],
+                    refresh_token=response_body["refresh_token"],
+                    token_type=response_body.get("token_type", "Bearer"),
+                    scope=response_body.get("scope", "openid profile offline_access"),
+                    valid_until=valid_until,
+                )
+                
+                # Update players with the new token
+                self.manager.api.update_players(self.manager.token, self.manager.players)
+                
+                return "success"
+                
+            # Handle OAuth2 errors
+            if response.status_code == 403:
+                error = response_body.get("error")
+                if error == "authorization_pending":
+                    logger.debug("Authorization pending, user hasn't completed authorization yet")
+                    return "pending"
+                elif error == "expired_token":
+                    logger.warning("Device code has expired")
+                    return "expired"
+                else:
+                    error_desc = response_body.get("error_description", response_body.get("error", "Unknown error"))
+                    logger.error(f"OAuth error: {error_desc}")
+                    raise Exception(error_desc)
+            
+            # Unexpected status code
+            logger.error(f"Unexpected response: {response.status_code} {response.text}")
+            raise Exception(f"Token request failed: {response.status_code}")
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error polling for token: {e}")
+            raise
+    
     def get_manager(self) -> YotoManager:
         """
         Get the underlying YotoManager instance.
