@@ -7,7 +7,7 @@ import tempfile
 from typing import Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
@@ -119,7 +119,11 @@ class GenerateTTSRequest(BaseModel):
 
 # Audio streaming endpoints
 @router.get("/audio/list")
-async def list_audio_files(user: User = Depends(require_auth), db: Session = Depends(get_db)):
+async def list_audio_files(
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+    response: Response,
+):
     """
     List available audio files.
 
@@ -164,6 +168,10 @@ async def list_audio_files(user: User = Depends(require_auth), db: Session = Dep
                 "transcript": transcript_info,
             }
         )
+
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
 
     return {"files": audio_files, "count": len(audio_files)}
 
@@ -507,7 +515,12 @@ async def upload_audio(
 
 
 @router.get("/audio/search")
-async def search_audio_files(q: str = "", user: User = Depends(require_auth), db: Session = Depends(get_db)):
+async def search_audio_files(
+    q: str = "",
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+    response: Response,
+):
     """
     Search audio files by name and metadata (fuzzy search).
     
@@ -552,6 +565,10 @@ async def search_audio_files(q: str = "", user: User = Depends(require_auth), db
             elif f["transcript"] and query in f["transcript"].lower():
                 filtered_files.append(f)
         audio_files = filtered_files
+
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
 
     return {
         "query": q,

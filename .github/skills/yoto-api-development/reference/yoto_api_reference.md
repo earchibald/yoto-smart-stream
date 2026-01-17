@@ -50,6 +50,28 @@ Refresh and cache control:
 
 - `GET /api/library?fresh=1` forces a hard refresh and prunes stale MYO-backed cards whose `contentId` no longer exists in `/content/mine`. Use this after bulk deletions to avoid cached titles lingering.
 
+### Audio Library Endpoints - Cache Control
+
+The `/api/audio/list` and `/api/audio/search` endpoints set explicit no-cache headers to prevent stale data from being returned on browser reloads:
+
+**Response Headers:**
+- `Cache-Control: no-store, no-cache, must-revalidate`
+- `Pragma: no-cache`
+- `Expires: 0`
+
+**Why:** Browser HTTP caches can serve stale responses on page reload, causing the Audio Library UI to display outdated file lists. The no-cache headers force the browser to revalidate with the server on every request, ensuring fresh data is always displayed even on a normal (non-hard) page reload.
+
+**Client-Side Implementation:**
+Fetch calls in the Audio Library UI explicitly include cache-busting headers:
+```javascript
+fetch(`${API_BASE}/audio/list`, {
+  cache: 'no-store',
+  headers: {
+    'Cache-Control': 'no-cache'
+  }
+});
+```
+
 The automation script [scripts/delete_llm_test_cards.py](scripts/delete_llm_test_cards.py) consumes these endpoints to delete matched items without calling Yoto APIs directly.
 
 ## Authentication

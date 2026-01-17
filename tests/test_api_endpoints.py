@@ -162,6 +162,36 @@ class TestAPIEndpointOrganization:
         response = client.get("/api/audio/list")
         assert response.status_code in [200, 404, 500]
 
+    def test_audio_list_has_no_cache_headers(self, client):
+        """Audio list should disable caching to avoid stale data."""
+        login_response = client.post(
+            "/api/user/login",
+            json={"username": "admin", "password": "yoto"},
+        )
+        assert login_response.status_code == 200
+
+        response = client.get("/api/audio/list")
+        assert response.status_code in [200, 404]
+
+        cache_control = response.headers.get("cache-control", "")
+        assert "no-store" in cache_control
+        assert "no-cache" in cache_control
+
+    def test_audio_search_has_no_cache_headers(self, client):
+        """Audio search should also disable caching."""
+        login_response = client.post(
+            "/api/user/login",
+            json={"username": "admin", "password": "yoto"},
+        )
+        assert login_response.status_code == 200
+
+        response = client.get("/api/audio/search?q=test")
+        assert response.status_code in [200, 404]
+
+        cache_control = response.headers.get("cache-control", "")
+        assert "no-store" in cache_control
+        assert "no-cache" in cache_control
+
 
 class TestAudioStreamingEndpoints:
     """Test audio streaming endpoints remain accessible without /api prefix."""

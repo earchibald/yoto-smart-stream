@@ -155,7 +155,12 @@ async function loadAudioFiles() {
     const container = document.getElementById('audio-list');
     
     try {
-        const response = await fetch(`${API_BASE}/audio/list`);
+        const response = await fetch(`${API_BASE}/audio/list`, {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
         if (!response.ok) throw new Error('Failed to fetch audio files');
         
         const data = await response.json();
@@ -1314,7 +1319,12 @@ async function searchAudioFiles() {
     }
     
     try {
-        const response = await fetch(`${API_BASE}/audio/search?q=${encodeURIComponent(query)}`);
+        const response = await fetch(`${API_BASE}/audio/search?q=${encodeURIComponent(query)}`, {
+            cache: 'no-store',
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
         const data = await response.json();
         
         if (!response.ok) {
