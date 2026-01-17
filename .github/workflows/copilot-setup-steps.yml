@@ -1,168 +1,200 @@
-# GitHub Copilot Agent Environment Setup
-# This file configures the environment for GitHub Copilot coding agents
-# Based on .devcontainer/devcontainer.json and setup.sh requirements
+name: Copilot Setup Steps
 
-steps:
-  # Step 1: Install Node.js LTS (required for Railway CLI and AWS CDK)
-  - uses: actions/setup-node@v4
-    with:
-      node-version: 'lts/*'
-      
-  # Step 2: Install Python 3.11 (matching devcontainer)
-  - uses: actions/setup-python@v5
-    with:
-      python-version: '3.11'
-      
-  # Step 3: Install GitHub CLI
-  - run: |
-      if ! command -v gh &> /dev/null; then
-        echo "📦 Installing GitHub CLI..."
-        curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-        sudo apt update
-        sudo apt install gh -y
-        echo "✅ GitHub CLI installed: $(gh --version)"
-      else
-        echo "✅ GitHub CLI already installed: $(gh --version)"
-      fi
-    shell: bash
-    
-  # Step 4: Upgrade pip
-  - run: python -m pip install --upgrade pip setuptools wheel
-    shell: bash
-    
-  # Step 5: Install Railway CLI for deployments
-  - run: |
-      if ! command -v railway &> /dev/null; then
-        echo "📦 Installing Railway CLI..."
-        npm install -g @railway/cli
-        if command -v railway &> /dev/null; then
-          echo "✅ Railway CLI installed successfully: $(railway --version)"
-        else
-          echo "⚠️  Railway CLI installation may have failed"
-          exit 1
-        fi
-      else
-        echo "✅ Railway CLI already installed: $(railway --version)"
-      fi
-    shell: bash
-    
-  # Step 6: Install AWS CDK for AWS deployments
-  - run: |
-      if ! command -v cdk &> /dev/null; then
-        echo "📦 Installing AWS CDK..."
-        npm install -g aws-cdk
-        if command -v cdk &> /dev/null; then
-          echo "✅ AWS CDK installed successfully: $(cdk --version)"
-        else
-          echo "⚠️  AWS CDK installation may have failed"
-          exit 1
-        fi
-      else
-        echo "✅ AWS CDK already installed: $(cdk --version)"
-      fi
-    shell: bash
-    
-  # Step 7: Install Python package with development dependencies
-  - run: |
-      if [ -f "pyproject.toml" ]; then
-        echo "📦 Installing package with [dev] dependencies from pyproject.toml..."
-        pip install -e .[dev]
-      elif [ -f "requirements.txt" ]; then
-        echo "📦 Installing dependencies from requirements.txt..."
-        pip install -r requirements.txt
-        
-        if [ -f "requirements-dev.txt" ]; then
-          echo "📦 Installing development dependencies..."
-          pip install -r requirements-dev.txt
-        fi
-      else
-        echo "⚠️  No pyproject.toml or requirements.txt found"
-        exit 1
-      fi
-      echo "✅ Python dependencies installed"
-    shell: bash
-    
-  # Step 8: Install pre-commit hooks if configuration exists
-  - run: |
-      if [ -f ".pre-commit-config.yaml" ]; then
-        echo "🔧 Setting up pre-commit hooks..."
-        pip install pre-commit
-        pre-commit install
-        echo "✅ Pre-commit hooks installed"
-      else
-        echo "ℹ️  No .pre-commit-config.yaml found, skipping pre-commit setup"
-      fi
-    shell: bash
-    
-  # Step 9: Verify Railway authentication (if RAILWAY_API_TOKEN or RAILWAY_TOKEN available)
-  - run: |
-      if [ -n "$RAILWAY_API_TOKEN" ] || [ -n "$RAILWAY_TOKEN" ]; then
-        echo "🔐 Verifying Railway authentication..."
-        if railway whoami > /dev/null 2>&1; then
-          echo "✅ Authenticated to Railway as: $(railway whoami)"
-        else
-          echo "⚠️  Railway authentication failed - credentials may be invalid"
-        fi
-      else
-        echo "ℹ️  RAILWAY_API_TOKEN/RAILWAY_TOKEN not set"
-        echo "   Railway MCP tools will have limited functionality"
-      fi
-    shell: bash
-    continue-on-error: true
-    
-  # Step 10: Verify AWS credentials (if AWS_ACCESS_KEY_ID available)
-  - run: |
-      if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then
-        echo "🔐 Verifying AWS credentials..."
-        echo "✅ AWS credentials are configured"
-        echo "   Region: ${AWS_REGION:-not set, will use default}"
-      else
-        echo "ℹ️  AWS credentials not set"
-        echo "   AWS CDK deployments will not be available"
-      fi
-    shell: bash
-    continue-on-error: true
-    
-  # Step 11: Display setup summary
-  - run: |
-      echo ""
-      echo "=================================================="
-      echo "✅ GitHub Copilot Agent Environment Ready"
-      echo "=================================================="
-      echo ""
-      echo "📦 Installed Tools:"
-      echo "  • Python: $(python --version)"
-      echo "  • pip: $(pip --version | head -1)"
-      echo "  • Node.js: $(node --version)"
-      echo "  • npm: $(npm --version)"
-      echo "  • Railway CLI: $(railway --version 2>/dev/null || echo 'not installed')"
-      echo "  • AWS CDK: $(cdk --version 2>/dev/null || echo 'not installed')"
-      echo "  • GitHub CLI: $(gh --version | head -1 2>/dev/null || echo 'not installed')"
-      echo ""
-      echo "🔑 Available Secrets:"
-      if [ -n "$RAILWAY_API_TOKEN" ] || [ -n "$RAILWAY_TOKEN" ]; then
-        echo "  ✅ Railway authentication configured"
-      else
-        echo "  ⚠️  Railway authentication NOT configured"
-      fi
-      if [ -n "$YOTO_CLIENT_ID" ]; then
-        echo "  ✅ YOTO_CLIENT_ID configured"
-      else
-        echo "  ⚠️  YOTO_CLIENT_ID NOT configured (required for Yoto API)"
-      fi
-      if [ -n "$AWS_ACCESS_KEY_ID" ]; then
-        echo "  ✅ AWS credentials configured"
-      else
-        echo "  ⚠️  AWS credentials NOT configured"
-      fi
-      echo ""
-      echo "📚 Quick Commands:"
-      echo "  • Run tests: pytest"
-      echo "  • Lint code: ruff check ."
-      echo "  • Format code: black ."
-      echo "  • Railway deploy: railway up"
-      echo "  • AWS CDK deploy: cd infrastructure/cdk && cdk deploy"
-      echo ""
-      echo "=================================================="
-    shell: bash
+# Automatically run the setup steps when changed for validation, and allow
+# manual runs via the Actions tab. Copilot will also run this job before sessions.
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be named exactly `copilot-setup-steps`
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # Step 1: Install Node.js LTS (required for Railway CLI and AWS CDK)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      # Step 2: Install Python 3.11 (matching devcontainer)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # Step 3: Install GitHub CLI
+      - name: Install GitHub CLI
+        shell: bash
+        run: |
+          if ! command -v gh &> /dev/null; then
+            echo "📦 Installing GitHub CLI..."
+            sudo apt-get update
+            sudo apt-get install -y git curl apt-transport-https
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y gh
+            echo "✅ GitHub CLI installed: $(gh --version)"
+          else
+            echo "✅ GitHub CLI already installed: $(gh --version)"
+          fi
+
+      # Step 4: Upgrade pip
+      - name: Upgrade pip
+        shell: bash
+        run: python -m pip install --upgrade pip setuptools wheel
+
+      # Step 5: Install Railway CLI for deployments
+      - name: Install Railway CLI
+        shell: bash
+        run: |
+          if ! command -v railway &> /dev/null; then
+            echo "📦 Installing Railway CLI..."
+            npm install -g @railway/cli
+            if command -v railway &> /dev/null; then
+              echo "✅ Railway CLI installed successfully: $(railway --version)"
+            else
+              echo "⚠️  Railway CLI installation may have failed"
+              exit 1
+            fi
+          else
+            echo "✅ Railway CLI already installed: $(railway --version)"
+          fi
+
+      # Step 6: Install AWS CDK for AWS deployments
+      - name: Install AWS CDK
+        shell: bash
+        run: |
+          if ! command -v cdk &> /dev/null; then
+            echo "📦 Installing AWS CDK..."
+            npm install -g aws-cdk
+            if command -v cdk &> /dev/null; then
+              echo "✅ AWS CDK installed successfully: $(cdk --version)"
+            else
+              echo "⚠️  AWS CDK installation may have failed"
+              exit 1
+            fi
+          else
+            echo "✅ AWS CDK already installed: $(cdk --version)"
+          fi
+
+      # Step 7: Install Python package with development dependencies
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          if [ -f "pyproject.toml" ]; then
+            echo "📦 Installing package with [dev] dependencies from pyproject.toml..."
+            pip install -e .[dev]
+          elif [ -f "requirements.txt" ]; then
+            echo "📦 Installing dependencies from requirements.txt..."
+            pip install -r requirements.txt
+            if [ -f "requirements-dev.txt" ]; then
+              echo "📦 Installing development dependencies..."
+              pip install -r requirements-dev.txt
+            fi
+          else
+            echo "⚠️  No pyproject.toml or requirements.txt found"
+            exit 1
+          fi
+          echo "✅ Python dependencies installed"
+
+      # Step 8: Install pre-commit hooks if configuration exists
+      - name: Setup pre-commit
+        shell: bash
+        run: |
+          if [ -f ".pre-commit-config.yaml" ]; then
+            echo "🔧 Setting up pre-commit hooks..."
+            pip install pre-commit
+            pre-commit install
+            echo "✅ Pre-commit hooks installed"
+          else
+            echo "ℹ️  No .pre-commit-config.yaml found, skipping pre-commit setup"
+          fi
+
+      # Step 9: Verify Railway authentication (if tokens available)
+      - name: Verify Railway auth
+        shell: bash
+        continue-on-error: true
+        run: |
+          if [ -n "$RAILWAY_API_TOKEN" ] || [ -n "$RAILWAY_TOKEN" ]; then
+            echo "🔐 Verifying Railway authentication..."
+            if railway whoami > /dev/null 2>&1; then
+              echo "✅ Authenticated to Railway as: $(railway whoami)"
+            else
+              echo "⚠️  Railway authentication failed - credentials may be invalid"
+            fi
+          else
+            echo "ℹ️  RAILWAY_API_TOKEN/RAILWAY_TOKEN not set"
+            echo "   Railway MCP tools will have limited functionality"
+          fi
+
+      # Step 10: Verify AWS credentials (if available)
+      - name: Verify AWS credentials
+        shell: bash
+        continue-on-error: true
+        run: |
+          if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "🔐 Verifying AWS credentials..."
+            echo "✅ AWS credentials are configured"
+            echo "   Region: ${AWS_REGION:-not set, will use default}"
+          else
+            echo "ℹ️  AWS credentials not set"
+            echo "   AWS CDK deployments will not be available"
+          fi
+
+      # Step 11: Display setup summary
+      - name: Setup summary
+        shell: bash
+        run: |
+          echo ""
+          echo "=================================================="
+          echo "✅ GitHub Copilot Agent Environment Ready"
+          echo "=================================================="
+          echo ""
+          echo "📦 Installed Tools:"
+          echo "  • Python: $(python --version)"
+          echo "  • pip: $(pip --version | head -1)"
+          echo "  • Node.js: $(node --version)"
+          echo "  • npm: $(npm --version)"
+          echo "  • Railway CLI: $(railway --version 2>/dev/null || echo 'not installed')"
+          echo "  • AWS CDK: $(cdk --version 2>/dev/null || echo 'not installed')"
+          echo "  • GitHub CLI: $(gh --version | head -1 2>/dev/null || echo 'not installed')"
+          echo ""
+          echo "🔑 Available Secrets:"
+          if [ -n "$RAILWAY_API_TOKEN" ] || [ -n "$RAILWAY_TOKEN" ]; then
+            echo "  ✅ Railway authentication configured"
+          else
+            echo "  ⚠️  Railway authentication NOT configured"
+          fi
+          if [ -n "$YOTO_CLIENT_ID" ]; then
+            echo "  ✅ YOTO_CLIENT_ID configured"
+          else
+            echo "  ⚠️  YOTO_CLIENT_ID NOT configured (required for Yoto API)"
+          fi
+          if [ -n "$AWS_ACCESS_KEY_ID" ]; then
+            echo "  ✅ AWS credentials configured"
+          else
+            echo "  ⚠️  AWS credentials NOT configured"
+          fi
+          echo ""
+          echo "📚 Quick Commands:"
+          echo "  • Run tests: pytest"
+          echo "  • Lint code: ruff check ."
+          echo "  • Format code: black ."
+          echo "  • Railway deploy: railway up"
+          echo "  • AWS CDK deploy: cd infrastructure/cdk && cdk deploy"
+          echo ""
+          echo "=================================================="
