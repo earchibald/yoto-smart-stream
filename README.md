@@ -336,13 +336,9 @@ git push origin develop
 
 
 **Status**: 
-- ✅ Production (main branch) - Auto-deployed with `RAILWAY_TOKEN_PROD`
 
 **Resources**:
 - **[GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md)** - Configure deployment secrets
-- **[PR Environments Guide](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)** - Automatic PR deployments
-- **[Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)** - Complete setup and deployment instructions
-- **[Quick Reference](docs/RAILWAY_QUICK_REF.md)** - Common deployment commands
 
 ### Health Check
 
