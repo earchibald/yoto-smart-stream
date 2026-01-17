@@ -44,7 +44,6 @@ Yoto is an audio player system for children that uses physical cards to control 
 - [❓ Planning Questions](./reference/planning_questions.md) - Strategic decisions and considerations for building Yoto applications
 - [🎨 Icon Management](./reference/icon_management.md) - Display icon management for Yoto Mini, including public icon repository access and custom icon uploads
 - [📝 Implementation Summary](./reference/implementation_summary.md) - Summary of recent implementation work including device capabilities and icon management features
-- [✅ Testing Guide](./reference/testing_guide.md) - Comprehensive automated functional testing approach with test-and-fix loop, patterns, and guardrails
 
 ## Scope & Audience
 
