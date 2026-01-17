@@ -512,6 +512,12 @@ uvicorn yoto_smart_stream.api.app:app --reload --port 8080
 
 ---
 
+### Railway legacy notes (archived)
+- `RAILWAY_ENVIRONMENT_NAME` (legacy): Railway populated this env var and it took priority over `ENVIRONMENT`. Examples: `production`, `staging`, `pr-123`. When migrating, map Railway environment names to your AWS environment naming convention.
+- Persistent storage: Railway used a persistent volume mounted at `/data`; refresh tokens were stored at `/data/.yoto_refresh_token` and audio files at `/data/audio_files`. On AWS, prefer S3 for audio and AWS Secrets Manager for refresh tokens.
+- Startup timing: Railway deployments sometimes required a short startup wait for shared variables; the application exposes `railway_startup_wait_seconds` to delay initialization. Ensure environment variables are available before starting services on any platform.
+- PR preview pattern (legacy): `https://yoto-smart-stream-pr-{number}.up.railway.app`.
+
 **For AWS deployment management specifics, see** [aws-service-management skill](../aws-service-management/SKILL.md)
 
 **For Playwright OAuth automation, see** [reference/playwright_oauth_automation.md](./reference/playwright_oauth_automation.md)

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to verify Railway deployment setup
 
-This script checks that all necessary files for Railway deployment exist
 and are configured correctly.
 """
 
@@ -12,19 +10,15 @@ from pathlib import Path
 
 
 def test_railway_cli_installed():
-    """Check if Railway CLI is installed"""
     import subprocess
     try:
         result = subprocess.run(
-            ["which", "railway"],
             capture_output=True,
             text=True,
             check=False
         )
         if result.returncode == 0:
-            print("✅ Railway CLI is installed")
             version_result = subprocess.run(
-                ["railway", "--version"],
                 capture_output=True,
                 text=True,
                 check=False
@@ -32,21 +26,14 @@ def test_railway_cli_installed():
             print(version_result.stdout.strip())
             return True
         else:
-            print("❌ Railway CLI is NOT installed")
-            print("   Run: npm i -g @railway/cli")
             return False
     except Exception as e:
-        print(f"❌ Error checking Railway CLI: {e}")
         return False
 
 
 def test_railway_toml_exists():
-    """Check if railway.toml exists"""
-    if Path("railway.toml").exists():
-        print("✅ railway.toml exists")
         return True
     else:
-        print("❌ railway.toml does NOT exist")
         return False
 
 
@@ -69,7 +56,6 @@ def test_deploy_script_exists():
 
 def test_github_workflow_exists():
     """Check if GitHub Actions workflow exists"""
-    workflow_path = Path(".github/workflows/railway-deploy.yml")
     if workflow_path.exists():
         print(f"✅ GitHub Actions workflow exists at {workflow_path}")
         return True
@@ -106,15 +92,12 @@ def test_health_endpoint():
 
 
 def test_env_example_updated():
-    """Check if .env.example has Railway variables"""
     env_path = Path(".env.example")
     if env_path.exists():
         content = env_path.read_text()
         if "RAILWAY_TOKEN" in content and "PUBLIC_URL" in content:
-            print("✅ .env.example includes Railway variables")
             return True
         else:
-            print("⚠️  .env.example missing Railway variables")
             return False
     else:
         print("❌ .env.example does NOT exist")
@@ -124,7 +107,6 @@ def test_env_example_updated():
 def main():
     """Run all tests"""
     print("=" * 60)
-    print("Railway Deployment Setup Verification")
     print("=" * 60)
     print()
     
@@ -154,10 +136,7 @@ def main():
     print(f"Passed: {passed}/{total}")
     
     if passed == total:
-        print("\n✅ All checks passed! Railway deployment is ready.")
         print("\nNext steps:")
-        print("  1. Authenticate: railway login")
-        print("  2. Link project: railway link")
         print("  3. Test deploy: ./scripts/deploy.sh staging --dry-run")
         print("  4. Deploy: ./scripts/deploy.sh staging")
         return 0
