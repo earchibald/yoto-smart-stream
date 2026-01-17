@@ -51,8 +51,6 @@ bytes for that mipmap level.
 Note: All data is stored in little-Endian (Intel) byte order.
 """
 
-from __future__ import annotations
-
 import struct
 from enum import IntEnum
 from io import BytesIO
@@ -71,14 +69,15 @@ class FtexImageFile(ImageFile.ImageFile):
     format = "FTEX"
     format_description = "Texture File Format (IW2:EOC)"
 
-    def _open(self) -> None:
-        assert self.fp is not None
+    def _open(self):
         if not _accept(self.fp.read(4)):
             msg = "not an FTEX file"
             raise SyntaxError(msg)
         struct.unpack("<i", self.fp.read(4))  # version
         self._size = struct.unpack("<2i", self.fp.read(8))
         mipmap_count, format_count = struct.unpack("<2i", self.fp.read(8))
+
+        self.mode = "RGB"
 
         # Only support single-format files.
         # I don't know of any multi-format file.
@@ -91,11 +90,10 @@ class FtexImageFile(ImageFile.ImageFile):
         data = self.fp.read(mipmap_size)
 
         if format == Format.DXT1:
-            self._mode = "RGBA"
-            self.tile = [ImageFile._Tile("bcn", (0, 0) + self.size, 0, (1,))]
+            self.mode = "RGBA"
+            self.tile = [("bcn", (0, 0) + self.size, 0, 1)]
         elif format == Format.UNCOMPRESSED:
-            self._mode = "RGB"
-            self.tile = [ImageFile._Tile("raw", (0, 0) + self.size, 0, "RGB")]
+            self.tile = [("raw", (0, 0) + self.size, 0, ("RGB", 0, 1))]
         else:
             msg = f"Invalid texture compression format: {repr(format)}"
             raise ValueError(msg)
@@ -103,12 +101,12 @@ class FtexImageFile(ImageFile.ImageFile):
         self.fp.close()
         self.fp = BytesIO(data)
 
-    def load_seek(self, pos: int) -> None:
+    def load_seek(self, pos):
         pass
 
 
-def _accept(prefix: bytes) -> bool:
-    return prefix.startswith(MAGIC)
+def _accept(prefix):
+    return prefix[:4] == MAGIC
 
 
 Image.register_open(FtexImageFile.format, FtexImageFile, _accept)

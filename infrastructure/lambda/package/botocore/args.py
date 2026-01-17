@@ -16,7 +16,6 @@ This module (and all function/classes within this module) should be
 considered internal, and *not* a public API.
 
 """
-
 import copy
 import logging
 import socket
@@ -29,12 +28,8 @@ from botocore.endpoint import EndpointCreator
 from botocore.regions import EndpointResolverBuiltins as EPRBuiltins
 from botocore.regions import EndpointRulesetResolver
 from botocore.signers import RequestSigner
-from botocore.useragent import UserAgentString, register_feature_id
-from botocore.utils import (
-    PRIORITY_ORDERED_SUPPORTED_PROTOCOLS,  # noqa: F401
-    ensure_boolean,
-    is_s3_accelerate_url,
-)
+from botocore.useragent import UserAgentString
+from botocore.utils import ensure_boolean, is_s3_accelerate_url
 
 logger = logging.getLogger(__name__)
 
@@ -64,22 +59,6 @@ LEGACY_GLOBAL_STS_REGIONS = [
 # Maximum allowed length of the ``user_agent_appid`` config field. Longer
 # values result in a warning-level log message.
 USERAGENT_APPID_MAXLEN = 50
-
-VALID_REQUEST_CHECKSUM_CALCULATION_CONFIG = (
-    "when_supported",
-    "when_required",
-)
-VALID_RESPONSE_CHECKSUM_VALIDATION_CONFIG = (
-    "when_supported",
-    "when_required",
-)
-
-
-VALID_ACCOUNT_ID_ENDPOINT_MODE_CONFIG = (
-    'preferred',
-    'disabled',
-    'required',
-)
 
 
 class ClientArgsCreator:
@@ -139,7 +118,6 @@ class ClientArgsCreator:
         configured_endpoint_url = final_args['configured_endpoint_url']
         signing_region = endpoint_config['signing_region']
         endpoint_region_name = endpoint_config['region_name']
-        account_id_endpoint_mode = config_kwargs['account_id_endpoint_mode']
 
         event_emitter = copy.copy(self._event_emitter)
         signer = RequestSigner(
@@ -170,22 +148,8 @@ class ClientArgsCreator:
             proxies_config=new_config.proxies_config,
         )
 
-        # Emit event to allow service-specific or customer customization of serializer kwargs
-        event_name = f'creating-serializer.{service_name}'
-        serializer_kwargs = {
-            'timestamp_precision': botocore.serialize.TIMESTAMP_PRECISION_DEFAULT
-        }
-        event_emitter.emit(
-            event_name,
-            protocol_name=protocol,
-            service_model=service_model,
-            serializer_kwargs=serializer_kwargs,
-        )
-
         serializer = botocore.serialize.create_serializer(
-            protocol,
-            parameter_validation,
-            timestamp_precision=serializer_kwargs['timestamp_precision'],
+            protocol, parameter_validation
         )
         response_parser = botocore.parsers.create_parser(protocol)
 
@@ -201,8 +165,6 @@ class ClientArgsCreator:
             is_secure,
             endpoint_bridge,
             event_emitter,
-            credentials,
-            account_id_endpoint_mode,
         )
 
         # Copy the session's user agent factory and adds client configuration.
@@ -238,7 +200,7 @@ class ClientArgsCreator:
         scoped_config,
     ):
         service_name = service_model.endpoint_prefix
-        protocol = service_model.resolved_protocol
+        protocol = service_model.metadata['protocol']
         parameter_validation = True
         if client_config and not client_config.parameter_validation:
             parameter_validation = False
@@ -253,8 +215,6 @@ class ClientArgsCreator:
             client_config=client_config,
             endpoint_url=endpoint_url,
         )
-        if configured_endpoint_url is not None:
-            register_feature_id('ENDPOINT_OVERRIDE')
 
         endpoint_config = self._compute_endpoint_config(
             service_name=service_name,
@@ -307,30 +267,11 @@ class ClientArgsCreator:
                     client_config.disable_request_compression
                 ),
                 client_context_params=client_config.client_context_params,
-                sigv4a_signing_region_set=(
-                    client_config.sigv4a_signing_region_set
-                ),
-                request_checksum_calculation=(
-                    client_config.request_checksum_calculation
-                ),
-                response_checksum_validation=(
-                    client_config.response_checksum_validation
-                ),
-                account_id_endpoint_mode=client_config.account_id_endpoint_mode,
-                auth_scheme_preference=client_config.auth_scheme_preference,
             )
         self._compute_retry_config(config_kwargs)
         self._compute_connect_timeout(config_kwargs)
         self._compute_user_agent_appid_config(config_kwargs)
         self._compute_request_compression_config(config_kwargs)
-        self._compute_sigv4a_signing_region_set_config(config_kwargs)
-        self._compute_checksum_config(config_kwargs)
-        self._compute_account_id_endpoint_mode_config(config_kwargs)
-        self._compute_inject_host_prefix(client_config, config_kwargs)
-        self._compute_auth_scheme_preference_config(
-            client_config, config_kwargs
-        )
-        self._compute_signature_version_config(client_config, config_kwargs)
         s3_config = self.compute_s3_config(client_config)
 
         is_s3_service = self._is_s3_service(service_name)
@@ -352,25 +293,6 @@ class ClientArgsCreator:
                 scoped_config, client_config
             ),
         }
-
-    def _compute_inject_host_prefix(self, client_config, config_kwargs):
-        # In the cases that a Config object was not provided, or the private value
-        # remained UNSET, we should resolve the value from the config store.
-        if (
-            client_config is None
-            or client_config._inject_host_prefix == 'UNSET'
-        ):
-            configured_disable_host_prefix_injection = (
-                self._config_store.get_config_variable(
-                    'disable_host_prefix_injection'
-                )
-            )
-            if configured_disable_host_prefix_injection is not None:
-                config_kwargs[
-                    'inject_host_prefix'
-                ] = not configured_disable_host_prefix_injection
-            else:
-                config_kwargs['inject_host_prefix'] = True
 
     def _compute_configured_endpoint_url(self, client_config, endpoint_url):
         if endpoint_url is not None:
@@ -526,7 +448,7 @@ class ClientArgsCreator:
             'sts_regional_endpoints'
         )
         if not sts_regional_endpoints_config:
-            sts_regional_endpoints_config = 'regional'
+            sts_regional_endpoints_config = 'legacy'
         if (
             sts_regional_endpoints_config
             not in VALID_REGIONAL_ENDPOINTS_CONFIG
@@ -538,7 +460,7 @@ class ClientArgsCreator:
 
     def _set_global_sts_endpoint(self, endpoint_config, is_secure):
         scheme = 'https' if is_secure else 'http'
-        endpoint_config['endpoint_url'] = f'{scheme}://sts.amazonaws.com'
+        endpoint_config['endpoint_url'] = '%s://sts.amazonaws.com' % scheme
         endpoint_config['signing_region'] = 'us-east-1'
 
     def _resolve_endpoint(
@@ -556,15 +478,13 @@ class ClientArgsCreator:
     def _compute_socket_options(self, scoped_config, client_config=None):
         # This disables Nagle's algorithm and is the default socket options
         # in urllib3.
-
         socket_options = [(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)]
         client_keepalive = client_config and client_config.tcp_keepalive
-        if client_keepalive is None:
-            client_keepalive = self._config_store.get_config_variable(
-                'tcp_keepalive'
-            )
-
-        if client_keepalive:
+        scoped_keepalive = scoped_config and self._ensure_boolean(
+            scoped_config.get("tcp_keepalive", False)
+        )
+        # Enables TCP Keepalive if specified in client config object or shared config file.
+        if client_keepalive or scoped_keepalive:
             socket_options.append((socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1))
         return socket_options
 
@@ -656,24 +576,25 @@ class ClientArgsCreator:
     def _validate_min_compression_size(self, min_size):
         min_allowed_min_size = 1
         max_allowed_min_size = 1048576
-        error_msg_base = (
-            f'Invalid value "{min_size}" for '
-            'request_min_compression_size_bytes.'
-        )
-        try:
-            min_size = int(min_size)
-        except (ValueError, TypeError):
-            msg = (
-                f'{error_msg_base} Value must be an integer. '
-                f'Received {type(min_size)} instead.'
+        if min_size is not None:
+            error_msg_base = (
+                f'Invalid value "{min_size}" for '
+                'request_min_compression_size_bytes.'
             )
-            raise botocore.exceptions.InvalidConfigError(error_msg=msg)
-        if not min_allowed_min_size <= min_size <= max_allowed_min_size:
-            msg = (
-                f'{error_msg_base} Value must be between '
-                f'{min_allowed_min_size} and {max_allowed_min_size}.'
-            )
-            raise botocore.exceptions.InvalidConfigError(error_msg=msg)
+            try:
+                min_size = int(min_size)
+            except (ValueError, TypeError):
+                msg = (
+                    f'{error_msg_base} Value must be an integer. '
+                    f'Received {type(min_size)} instead.'
+                )
+                raise botocore.exceptions.InvalidConfigError(error_msg=msg)
+            if not min_allowed_min_size <= min_size <= max_allowed_min_size:
+                msg = (
+                    f'{error_msg_base} Value must be between '
+                    f'{min_allowed_min_size} and {max_allowed_min_size}.'
+                )
+                raise botocore.exceptions.InvalidConfigError(error_msg=msg)
 
         return min_size
 
@@ -696,8 +617,6 @@ class ClientArgsCreator:
         is_secure,
         endpoint_bridge,
         event_emitter,
-        credentials,
-        account_id_endpoint_mode,
     ):
         if endpoints_ruleset_data is None:
             return None
@@ -722,8 +641,6 @@ class ClientArgsCreator:
             endpoint_bridge=endpoint_bridge,
             client_endpoint_url=endpoint_url,
             legacy_endpoint_url=endpoint.host,
-            credentials=credentials,
-            account_id_endpoint_mode=account_id_endpoint_mode,
         )
         # Client context params for s3 conflict with the available settings
         # in the `s3` parameter on the `Config` object. If the same parameter
@@ -759,8 +676,6 @@ class ClientArgsCreator:
         endpoint_bridge,
         client_endpoint_url,
         legacy_endpoint_url,
-        credentials,
-        account_id_endpoint_mode,
     ):
         # EndpointRulesetResolver rulesets may accept an "SDK::Endpoint" as
         # input. If the endpoint_url argument of create_client() is set, it
@@ -835,12 +750,6 @@ class ClientArgsCreator:
                 's3_disable_multiregion_access_points', False
             ),
             EPRBuiltins.SDK_ENDPOINT: given_endpoint,
-            EPRBuiltins.ACCOUNT_ID: credentials.get_deferred_property(
-                'account_id'
-            )
-            if credentials
-            else None,
-            EPRBuiltins.ACCOUNT_ID_ENDPOINT_MODE: account_id_endpoint_mode,
         }
 
     def _compute_user_agent_appid_config(self, config_kwargs):
@@ -855,146 +764,6 @@ class ClientArgsCreator:
         ):
             logger.warning(
                 'The configured value for user_agent_appid exceeds the '
-                'maximum length of %d characters.',
-                USERAGENT_APPID_MAXLEN,
+                f'maximum length of {USERAGENT_APPID_MAXLEN} characters.'
             )
         config_kwargs['user_agent_appid'] = user_agent_appid
-
-    def _compute_sigv4a_signing_region_set_config(self, config_kwargs):
-        sigv4a_signing_region_set = config_kwargs.get(
-            'sigv4a_signing_region_set'
-        )
-        if sigv4a_signing_region_set is None:
-            sigv4a_signing_region_set = self._config_store.get_config_variable(
-                'sigv4a_signing_region_set'
-            )
-        config_kwargs['sigv4a_signing_region_set'] = sigv4a_signing_region_set
-
-    def _compute_checksum_config(self, config_kwargs):
-        self._handle_checksum_config(
-            config_kwargs,
-            config_key="request_checksum_calculation",
-            valid_options=VALID_REQUEST_CHECKSUM_CALCULATION_CONFIG,
-        )
-        self._handle_checksum_config(
-            config_kwargs,
-            config_key="response_checksum_validation",
-            valid_options=VALID_RESPONSE_CHECKSUM_VALIDATION_CONFIG,
-        )
-
-    def _handle_checksum_config(
-        self,
-        config_kwargs,
-        config_key,
-        valid_options,
-    ):
-        value = config_kwargs.get(config_key)
-        if value is None:
-            value = self._config_store.get_config_variable(config_key)
-
-        if isinstance(value, str):
-            value = value.lower()
-
-        if value not in valid_options:
-            raise botocore.exceptions.InvalidChecksumConfigError(
-                config_key=config_key,
-                config_value=value,
-                valid_options=valid_options,
-            )
-        self._register_checksum_config_feature_ids(value, config_key)
-        config_kwargs[config_key] = value
-
-    def _register_checksum_config_feature_ids(self, value, config_key):
-        checksum_config_feature_id = None
-        if config_key == "request_checksum_calculation":
-            checksum_config_feature_id = (
-                f"FLEXIBLE_CHECKSUMS_REQ_{value.upper()}"
-            )
-        elif config_key == "response_checksum_validation":
-            checksum_config_feature_id = (
-                f"FLEXIBLE_CHECKSUMS_RES_{value.upper()}"
-            )
-        if checksum_config_feature_id is not None:
-            register_feature_id(checksum_config_feature_id)
-
-    def _compute_account_id_endpoint_mode_config(self, config_kwargs):
-        config_key = 'account_id_endpoint_mode'
-
-        # Disable account id based endpoint routing for unsigned requests
-        # since there are no credentials to resolve.
-        signature_version = config_kwargs.get('signature_version')
-        if signature_version is botocore.UNSIGNED:
-            config_kwargs[config_key] = 'disabled'
-            return
-
-        account_id_endpoint_mode = config_kwargs.get(config_key)
-        if account_id_endpoint_mode is None:
-            account_id_endpoint_mode = self._config_store.get_config_variable(
-                config_key
-            )
-
-        if isinstance(account_id_endpoint_mode, str):
-            account_id_endpoint_mode = account_id_endpoint_mode.lower()
-
-        if (
-            account_id_endpoint_mode
-            not in VALID_ACCOUNT_ID_ENDPOINT_MODE_CONFIG
-        ):
-            raise botocore.exceptions.InvalidConfigError(
-                error_msg=f"The configured value '{account_id_endpoint_mode}' for '{config_key}' is "
-                f"invalid. Valid values are: {VALID_ACCOUNT_ID_ENDPOINT_MODE_CONFIG}."
-            )
-
-        config_kwargs[config_key] = account_id_endpoint_mode
-
-    def _compute_auth_scheme_preference_config(
-        self, client_config, config_kwargs
-    ):
-        config_key = 'auth_scheme_preference'
-        set_in_config_object = False
-
-        if client_config and client_config.auth_scheme_preference:
-            value = client_config.auth_scheme_preference
-            set_in_config_object = True
-        else:
-            value = self._config_store.get_config_variable(config_key)
-
-        if value is None:
-            config_kwargs[config_key] = None
-            return
-
-        if not isinstance(value, str):
-            raise botocore.exceptions.InvalidConfigError(
-                error_msg=(
-                    f"{config_key} must be a comma-delimited string. "
-                    f"Received {type(value)} instead: {value}."
-                )
-            )
-
-        value = ','.join(
-            item.replace(' ', '').replace('\t', '')
-            for item in value.split(',')
-            if item.strip()
-        )
-
-        if set_in_config_object:
-            value = ClientConfigString(value)
-
-        config_kwargs[config_key] = value
-
-    def _compute_signature_version_config(self, client_config, config_kwargs):
-        if client_config and client_config.signature_version:
-            value = client_config.signature_version
-            if isinstance(value, str):
-                config_kwargs['signature_version'] = ClientConfigString(value)
-
-
-class ConfigObjectWrapper:
-    """Base class to mark values set via in-code Config object."""
-
-    pass
-
-
-class ClientConfigString(str, ConfigObjectWrapper):
-    def __new__(cls, value=None):
-        return super().__new__(cls, value)

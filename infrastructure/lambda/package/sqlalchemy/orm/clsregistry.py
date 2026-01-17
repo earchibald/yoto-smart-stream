@@ -1,5 +1,5 @@
-# orm/clsregistry.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# ext/declarative/clsregistry.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -72,7 +72,7 @@ def add_class(
         # class already exists.
         existing = decl_class_registry[classname]
         if not isinstance(existing, _MultipleClassMarker):
-            decl_class_registry[classname] = _MultipleClassMarker(
+            existing = decl_class_registry[classname] = _MultipleClassMarker(
                 [cls, cast("Type[Any]", existing)]
             )
     else:
@@ -83,9 +83,9 @@ def add_class(
             _ModuleMarker, decl_class_registry["_sa_module_registry"]
         )
     except KeyError:
-        decl_class_registry["_sa_module_registry"] = root_module = (
-            _ModuleMarker("_sa_module_registry", None)
-        )
+        decl_class_registry[
+            "_sa_module_registry"
+        ] = root_module = _ModuleMarker("_sa_module_registry", None)
 
     tokens = cls.__module__.split(".")
 
@@ -239,10 +239,10 @@ class _MultipleClassMarker(ClsRegistryToken):
     def add_item(self, item: Type[Any]) -> None:
         # protect against class registration race condition against
         # asynchronous garbage collection calling _remove_item,
-        # [ticket:3208] and [ticket:10782]
+        # [ticket:3208]
         modules = {
             cls.__module__
-            for cls in [ref() for ref in list(self.contents)]
+            for cls in [ref() for ref in self.contents]
             if cls is not None
         }
         if item.__module__ in modules:
@@ -287,9 +287,8 @@ class _ModuleMarker(ClsRegistryToken):
 
     def _remove_item(self, name: str) -> None:
         self.contents.pop(name, None)
-        if not self.contents:
-            if self.parent is not None:
-                self.parent._remove_item(self.name)
+        if not self.contents and self.parent is not None:
+            self.parent._remove_item(self.name)
             _registries.discard(self)
 
     def resolve_attr(self, key: str) -> Union[_ModNS, Type[Any]]:
@@ -317,7 +316,7 @@ class _ModuleMarker(ClsRegistryToken):
                 else:
                     raise
         else:
-            self.contents[name] = _MultipleClassMarker(
+            existing = self.contents[name] = _MultipleClassMarker(
                 [cls], on_remove=lambda: self._remove_item(name)
             )
 
@@ -543,16 +542,18 @@ class _class_resolver:
 _fallback_dict: Mapping[str, Any] = None  # type: ignore
 
 
-def _resolver(cls: Type[Any], prop: RelationshipProperty[Any]) -> Tuple[
+def _resolver(
+    cls: Type[Any], prop: RelationshipProperty[Any]
+) -> Tuple[
     Callable[[str], Callable[[], Union[Type[Any], Table, _ModNS]]],
     Callable[[str, bool], _class_resolver],
 ]:
+
     global _fallback_dict
 
     if _fallback_dict is None:
         import sqlalchemy
-        from . import foreign
-        from . import remote
+        from sqlalchemy.orm import foreign, remote
 
         _fallback_dict = util.immutabledict(sqlalchemy.__dict__).union(
             {"foreign": foreign, "remote": remote}

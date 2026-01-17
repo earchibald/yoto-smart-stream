@@ -1,5 +1,5 @@
-# pool/events.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# sqlalchemy/pool/events.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -35,12 +35,10 @@ class PoolEvents(event.Events[Pool]):
 
         from sqlalchemy import event
 
-
         def my_on_checkout(dbapi_conn, connection_rec, connection_proxy):
             "handle an on checkout event"
 
-
-        event.listen(Pool, "checkout", my_on_checkout)
+        event.listen(Pool, 'checkout', my_on_checkout)
 
     In addition to accepting the :class:`_pool.Pool` class and
     :class:`_pool.Pool` instances, :class:`_events.PoolEvents` also accepts
@@ -51,7 +49,7 @@ class PoolEvents(event.Events[Pool]):
         engine = create_engine("postgresql+psycopg2://scott:tiger@localhost/test")
 
         # will associate with engine.pool
-        event.listen(engine, "checkout", my_on_checkout)
+        event.listen(engine, 'checkout', my_on_checkout)
 
     """  # noqa: E501
 
@@ -84,7 +82,7 @@ class PoolEvents(event.Events[Pool]):
             return None
 
     @classmethod
-    def _listen(
+    def _listen(  # type: ignore[override]   # would rather keep **kw
         cls,
         event_key: event._EventKey[Pool],
         **kw: Any,
@@ -175,7 +173,7 @@ class PoolEvents(event.Events[Pool]):
 
     def checkin(
         self,
-        dbapi_connection: Optional[DBAPIConnection],
+        dbapi_connection: DBAPIConnection,
         connection_record: ConnectionPoolEntry,
     ) -> None:
         """Called when a connection returns to the pool.
@@ -280,6 +278,9 @@ class PoolEvents(event.Events[Pool]):
         :param exception: the exception object corresponding to the reason
          for this invalidation, if any.  May be ``None``.
 
+        .. versionadded:: 0.9.2 Added support for connection invalidation
+           listening.
+
         .. seealso::
 
             :ref:`pool_connection_invalidation`
@@ -302,6 +303,8 @@ class PoolEvents(event.Events[Pool]):
         this connection will force a reconnect after the current connection
         is checked in.   It does not actively close the dbapi_connection
         at the point at which it is called.
+
+        .. versionadded:: 1.0.3
 
         :param dbapi_connection: a DBAPI connection.
          The :attr:`.ConnectionPoolEntry.dbapi_connection` attribute.
@@ -331,6 +334,8 @@ class PoolEvents(event.Events[Pool]):
         associated with the pool. To intercept close events for detached
         connections use :meth:`.close_detached`.
 
+        .. versionadded:: 1.1
+
         :param dbapi_connection: a DBAPI connection.
          The :attr:`.ConnectionPoolEntry.dbapi_connection` attribute.
 
@@ -349,6 +354,8 @@ class PoolEvents(event.Events[Pool]):
         This event is emitted after the detach occurs.  The connection
         is no longer associated with the given connection record.
 
+        .. versionadded:: 1.1
+
         :param dbapi_connection: a DBAPI connection.
          The :attr:`.ConnectionPoolEntry.dbapi_connection` attribute.
 
@@ -365,6 +372,8 @@ class PoolEvents(event.Events[Pool]):
         The close of a connection can fail; typically this is because
         the connection is already closed.  If the close operation fails,
         the connection is discarded.
+
+        .. versionadded:: 1.1
 
         :param dbapi_connection: a DBAPI connection.
          The :attr:`.ConnectionPoolEntry.dbapi_connection` attribute.

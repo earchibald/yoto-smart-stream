@@ -1,5 +1,5 @@
 # ext/serializer.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -28,17 +28,13 @@ when it is deserialized.
 Usage is nearly the same as that of the standard Python pickle module::
 
     from sqlalchemy.ext.serializer import loads, dumps
-
     metadata = MetaData(bind=some_engine)
     Session = scoped_session(sessionmaker())
 
     # ... define mappers
 
-    query = (
-        Session.query(MyClass)
-        .filter(MyClass.somedata == "foo")
-        .order_by(MyClass.sortkey)
-    )
+    query = Session.query(MyClass).
+        filter(MyClass.somedata=='foo').order_by(MyClass.sortkey)
 
     # pickle the query
     serialized = dumps(query)
@@ -46,7 +42,7 @@ Usage is nearly the same as that of the standard Python pickle module::
     # unpickle.  Pass in metadata + scoped_session
     query2 = loads(serialized, metadata, Session)
 
-    print(query2.all())
+    print query2.all()
 
 Similar restrictions as when using raw pickle apply; mapped classes must be
 themselves be pickleable, meaning they are importable from a module-level
@@ -86,9 +82,10 @@ from ..util import b64encode
 __all__ = ["Serializer", "Deserializer", "dumps", "loads"]
 
 
-class Serializer(pickle.Pickler):
+def Serializer(*args, **kw):
+    pickler = pickle.Pickler(*args, **kw)
 
-    def persistent_id(self, obj):
+    def persistent_id(obj):
         # print "serializing:", repr(obj)
         if isinstance(obj, Mapper) and not obj.non_primary:
             id_ = "mapper:" + b64encode(pickle.dumps(obj.class_))
@@ -116,6 +113,9 @@ class Serializer(pickle.Pickler):
             return None
         return id_
 
+    pickler.persistent_id = persistent_id
+    return pickler
+
 
 our_ids = re.compile(
     r"(mapperprop|mapper|mapper_selectable|table|column|"
@@ -123,23 +123,20 @@ our_ids = re.compile(
 )
 
 
-class Deserializer(pickle.Unpickler):
+def Deserializer(file, metadata=None, scoped_session=None, engine=None):
+    unpickler = pickle.Unpickler(file)
 
-    def __init__(self, file, metadata=None, scoped_session=None, engine=None):
-        super().__init__(file)
-        self.metadata = metadata
-        self.scoped_session = scoped_session
-        self.engine = engine
-
-    def get_engine(self):
-        if self.engine:
-            return self.engine
-        elif self.scoped_session and self.scoped_session().bind:
-            return self.scoped_session().bind
+    def get_engine():
+        if engine:
+            return engine
+        elif scoped_session and scoped_session().bind:
+            return scoped_session().bind
+        elif metadata and metadata.bind:
+            return metadata.bind
         else:
             return None
 
-    def persistent_load(self, id_):
+    def persistent_load(id_):
         m = our_ids.match(str(id_))
         if not m:
             return None
@@ -160,16 +157,19 @@ class Deserializer(pickle.Unpickler):
                 cls = pickle.loads(b64decode(mapper))
                 return class_mapper(cls).attrs[keyname]
             elif type_ == "table":
-                return self.metadata.tables[args]
+                return metadata.tables[args]
             elif type_ == "column":
                 table, colname = args.split(":")
-                return self.metadata.tables[table].c[colname]
+                return metadata.tables[table].c[colname]
             elif type_ == "session":
-                return self.scoped_session()
+                return scoped_session()
             elif type_ == "engine":
-                return self.get_engine()
+                return get_engine()
             else:
                 raise Exception("Unknown token: %s" % type_)
+
+    unpickler.persistent_load = persistent_load
+    return unpickler
 
 
 def dumps(obj, protocol=pickle.HIGHEST_PROTOCOL):

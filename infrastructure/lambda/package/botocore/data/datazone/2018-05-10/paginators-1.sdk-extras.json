@@ -9,8 +9,7 @@
       },
       "SearchListings": {
         "non_aggregate_keys": [
-          "totalMatchCount",
-          "aggregates"
+          "totalMatchCount"
         ]
       },
       "SearchTypes": {

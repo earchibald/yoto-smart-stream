@@ -16,40 +16,24 @@
 # This module provides constants and clear-text names for various
 # well-known TIFF tags.
 ##
-from __future__ import annotations
 
-from typing import NamedTuple
-
-
-class _TagInfo(NamedTuple):
-    value: int | None
-    name: str
-    type: int | None
-    length: int | None
-    enum: dict[str, int]
+from collections import namedtuple
 
 
-class TagInfo(_TagInfo):
-    __slots__: list[str] = []
+class TagInfo(namedtuple("_TagInfo", "value name type length enum")):
+    __slots__ = []
 
-    def __new__(
-        cls,
-        value: int | None = None,
-        name: str = "unknown",
-        type: int | None = None,
-        length: int | None = None,
-        enum: dict[str, int] | None = None,
-    ) -> TagInfo:
+    def __new__(cls, value=None, name="unknown", type=None, length=None, enum=None):
         return super().__new__(cls, value, name, type, length, enum or {})
 
-    def cvt_enum(self, value: str) -> int | str:
+    def cvt_enum(self, value):
         # Using get will call hash(value), which can be expensive
         # for some types (e.g. Fraction). Since self.enum is rarely
         # used, it's usually better to test it first.
         return self.enum.get(value, value) if self.enum else value
 
 
-def lookup(tag: int, group: int | None = None) -> TagInfo:
+def lookup(tag, group=None):
     """
     :param tag: Integer tag number
     :param group: Which :py:data:`~PIL.TiffTags.TAGS_V2_GROUPS` to look in
@@ -72,7 +56,7 @@ def lookup(tag: int, group: int | None = None) -> TagInfo:
 ##
 # Map tag numbers to tag info.
 #
-#  id: (Name, Type, Length[, enum_values])
+#  id: (Name, Type, Length, enum_values)
 #
 # The length here differs from the length in the tiff spec.  For
 # numbers, the tiff spec is for the number of fields returned. We
@@ -96,7 +80,7 @@ DOUBLE = 12
 IFD = 13
 LONG8 = 16
 
-_tags_v2: dict[int, tuple[str, int, int] | tuple[str, int, int, dict[str, int]]] = {
+TAGS_V2 = {
     254: ("NewSubfileType", LONG, 1),
     255: ("SubfileType", SHORT, 1),
     256: ("ImageWidth", LONG, 1),
@@ -203,11 +187,6 @@ _tags_v2: dict[int, tuple[str, int, int] | tuple[str, int, int, dict[str, int]]]
     531: ("YCbCrPositioning", SHORT, 1),
     532: ("ReferenceBlackWhite", RATIONAL, 6),
     700: ("XMP", BYTE, 0),
-    # Four private SGI tags
-    32995: ("Matteing", SHORT, 1),
-    32996: ("DataType", SHORT, 0),
-    32997: ("ImageDepth", LONG, 1),
-    32998: ("TileDepth", LONG, 1),
     33432: ("Copyright", ASCII, 1),
     33723: ("IptcNaaInfo", UNDEFINED, 1),
     34377: ("PhotoshopInfo", BYTE, 0),
@@ -245,7 +224,7 @@ _tags_v2: dict[int, tuple[str, int, int] | tuple[str, int, int, dict[str, int]]]
     50838: ("ImageJMetaDataByteCounts", LONG, 0),  # Can be more than one
     50839: ("ImageJMetaData", UNDEFINED, 1),  # see Issue #2006
 }
-_tags_v2_groups = {
+TAGS_V2_GROUPS = {
     # ExifIFD
     34665: {
         36864: ("ExifVersion", UNDEFINED, 1),
@@ -293,7 +272,7 @@ _tags_v2_groups = {
 
 # Legacy Tags structure
 # these tags aren't included above, but were in the previous versions
-TAGS: dict[int | tuple[int, int], str] = {
+TAGS = {
     347: "JPEGTables",
     700: "XMP",
     # Additional Exif Info
@@ -437,12 +416,9 @@ TAGS: dict[int | tuple[int, int], str] = {
     50784: "Alias Layer Metadata",
 }
 
-TAGS_V2: dict[int, TagInfo] = {}
-TAGS_V2_GROUPS: dict[int, dict[int, TagInfo]] = {}
 
-
-def _populate() -> None:
-    for k, v in _tags_v2.items():
+def _populate():
+    for k, v in TAGS_V2.items():
         # Populate legacy structure.
         TAGS[k] = v[0]
         if len(v) == 4:
@@ -451,15 +427,32 @@ def _populate() -> None:
 
         TAGS_V2[k] = TagInfo(k, *v)
 
-    for group, tags in _tags_v2_groups.items():
-        TAGS_V2_GROUPS[group] = {k: TagInfo(k, *v) for k, v in tags.items()}
+    for group, tags in TAGS_V2_GROUPS.items():
+        for k, v in tags.items():
+            tags[k] = TagInfo(k, *v)
 
 
 _populate()
 ##
 # Map type numbers to type names -- defined in ImageFileDirectory.
 
-TYPES: dict[int, str] = {}
+TYPES = {}
+
+# was:
+# TYPES = {
+#     1: "byte",
+#     2: "ascii",
+#     3: "short",
+#     4: "long",
+#     5: "rational",
+#     6: "signed byte",
+#     7: "undefined",
+#     8: "signed short",
+#     9: "signed long",
+#     10: "signed rational",
+#     11: "float",
+#     12: "double",
+# }
 
 #
 # These tags are handled by default in libtiff, without
@@ -558,6 +551,7 @@ LIBTIFF_CORE = {
 LIBTIFF_CORE.remove(255)  # We don't have support for subfiletypes
 LIBTIFF_CORE.remove(322)  # We don't have support for writing tiled images with libtiff
 LIBTIFF_CORE.remove(323)  # Tiled images
+LIBTIFF_CORE.remove(333)  # Ink Names either
 
 # Note to advanced users: There may be combinations of these
 # parameters and values that when added properly, will work and

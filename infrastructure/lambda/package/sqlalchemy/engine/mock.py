@@ -1,5 +1,5 @@
 # engine/mock.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -27,9 +27,10 @@ if typing.TYPE_CHECKING:
     from .interfaces import Dialect
     from .url import URL
     from ..sql.base import Executable
-    from ..sql.ddl import InvokeDDLBase
+    from ..sql.ddl import SchemaDropper
+    from ..sql.ddl import SchemaGenerator
     from ..sql.schema import HasSchemaAttr
-    from ..sql.visitors import Visitable
+    from ..sql.schema import SchemaItem
 
 
 class MockConnection:
@@ -52,14 +53,12 @@ class MockConnection:
 
     def _run_ddl_visitor(
         self,
-        visitorcallable: Type[InvokeDDLBase],
-        element: Visitable,
+        visitorcallable: Type[Union[SchemaGenerator, SchemaDropper]],
+        element: SchemaItem,
         **kwargs: Any,
     ) -> None:
         kwargs["checkfirst"] = False
-        visitorcallable(
-            dialect=self.dialect, connection=self, **kwargs
-        ).traverse_single(element)
+        visitorcallable(self.dialect, self, **kwargs).traverse_single(element)
 
     def execute(
         self,
@@ -70,9 +69,7 @@ class MockConnection:
         return self._execute_impl(obj, parameters)
 
 
-def create_mock_engine(
-    url: Union[str, URL], executor: Any, **kw: Any
-) -> MockConnection:
+def create_mock_engine(url: URL, executor: Any, **kw: Any) -> MockConnection:
     """Create a "mock" engine used for echoing DDL.
 
     This is a utility function used for debugging or storing the output of DDL
@@ -91,12 +88,10 @@ def create_mock_engine(
 
         from sqlalchemy import create_mock_engine
 
-
         def dump(sql, *multiparams, **params):
             print(sql.compile(dialect=engine.dialect))
 
-
-        engine = create_mock_engine("postgresql+psycopg2://", dump)
+        engine = create_mock_engine('postgresql+psycopg2://', dump)
         metadata.create_all(engine, checkfirst=False)
 
     :param url: A string URL which typically needs to contain only the
@@ -129,6 +124,6 @@ def create_mock_engine(
             dialect_args[k] = kw.pop(k)
 
     # create dialect
-    dialect = dialect_cls(**dialect_args)
+    dialect = dialect_cls(**dialect_args)  # type: ignore
 
     return MockConnection(dialect, executor)

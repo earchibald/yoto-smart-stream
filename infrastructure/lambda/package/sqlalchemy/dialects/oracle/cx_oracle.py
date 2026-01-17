@@ -1,5 +1,4 @@
-# dialects/oracle/cx_oracle.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -7,17 +6,12 @@
 # mypy: ignore-errors
 
 
-r""".. dialect:: oracle+cx_oracle
+r"""
+.. dialect:: oracle+cx_oracle
     :name: cx-Oracle
     :dbapi: cx_oracle
     :connectstring: oracle+cx_oracle://user:pass@hostname:port[/dbname][?service_name=<service>[&key=value&key=value...]]
     :url: https://oracle.github.io/python-cx_Oracle/
-
-Description
------------
-
-cx_Oracle was the original driver for Oracle Database. It was superseded by
-python-oracledb which should be used instead.
 
 DSN vs. Hostname connections
 -----------------------------
@@ -28,41 +22,27 @@ dialect translates from a series of different URL forms.
 Hostname Connections with Easy Connect Syntax
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Given a hostname, port and service name of the target database, for example
-from Oracle Database's Easy Connect syntax then connect in SQLAlchemy using the
-``service_name`` query string parameter::
+Given a hostname, port and service name of the target Oracle Database, for
+example from Oracle's `Easy Connect syntax
+<https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html#easy-connect-syntax-for-connection-strings>`_,
+then connect in SQLAlchemy using the ``service_name`` query string parameter::
 
-    engine = create_engine(
-        "oracle+cx_oracle://scott:tiger@hostname:port?service_name=myservice&encoding=UTF-8&nencoding=UTF-8"
-    )
+    engine = create_engine("oracle+cx_oracle://scott:tiger@hostname:port/?service_name=myservice&encoding=UTF-8&nencoding=UTF-8")
 
-Note that the default driver value for encoding and nencoding was changed to
-“UTF-8” in cx_Oracle 8.0 so these parameters can be omitted when using that
-version, or later.
+The `full Easy Connect syntax
+<https://www.oracle.com/pls/topic/lookup?ctx=dblatest&id=GUID-B0437826-43C1-49EC-A94D-B650B6A4A6EE>`_
+is not supported.  Instead, use a ``tnsnames.ora`` file and connect using a
+DSN.
 
-To use a full Easy Connect string, pass it as the ``dsn`` key value in a
-:paramref:`_sa.create_engine.connect_args` dictionary::
+Connections with tnsnames.ora or Oracle Cloud
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    import cx_Oracle
-
-    e = create_engine(
-        "oracle+cx_oracle://@",
-        connect_args={
-            "user": "scott",
-            "password": "tiger",
-            "dsn": "hostname:port/myservice?transport_connect_timeout=30&expire_time=60",
-        },
-    )
-
-Connections with tnsnames.ora or to Oracle Autonomous Database
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Alternatively, if no port, database name, or service name is provided, the
-dialect will use an Oracle Database DSN "connection string".  This takes the
-"hostname" portion of the URL as the data source name.  For example, if the
-``tnsnames.ora`` file contains a TNS Alias of ``myalias`` as below:
-
-.. sourcecode:: text
+Alternatively, if no port, database name, or ``service_name`` is provided, the
+dialect will use an Oracle DSN "connection string".  This takes the "hostname"
+portion of the URL as the data source name.  For example, if the
+``tnsnames.ora`` file contains a `Net Service Name
+<https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html#net-service-names-for-connection-strings>`_
+of ``myalias`` as below::
 
     myalias =
       (DESCRIPTION =
@@ -77,22 +57,19 @@ The cx_Oracle dialect connects to this database service when ``myalias`` is the
 hostname portion of the URL, without specifying a port, database name or
 ``service_name``::
 
-    engine = create_engine("oracle+cx_oracle://scott:tiger@myalias")
+    engine = create_engine("oracle+cx_oracle://scott:tiger@myalias/?encoding=UTF-8&nencoding=UTF-8")
 
-Users of Oracle Autonomous Database should use this syntax. If the database is
-configured for mutural TLS ("mTLS"), then you must also configure the cloud
+Users of Oracle Cloud should use this syntax and also configure the cloud
 wallet as shown in cx_Oracle documentation `Connecting to Autononmous Databases
-<https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html#autonomousdb>`_.
+<https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html#connecting-to-autononmous-databases>`_.
 
 SID Connections
 ^^^^^^^^^^^^^^^
 
-To use Oracle Database's obsolete System Identifier connection syntax, the SID
-can be passed in a "database name" portion of the URL::
+To use Oracle's obsolete SID connection syntax, the SID can be passed in a
+"database name" portion of the URL as below::
 
-    engine = create_engine(
-        "oracle+cx_oracle://scott:tiger@hostname:port/dbname"
-    )
+    engine = create_engine("oracle+cx_oracle://scott:tiger@hostname:1521/dbname?encoding=UTF-8&nencoding=UTF-8")
 
 Above, the DSN passed to cx_Oracle is created by ``cx_Oracle.makedsn()`` as
 follows::
@@ -101,23 +78,17 @@ follows::
     >>> cx_Oracle.makedsn("hostname", 1521, sid="dbname")
     '(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=hostname)(PORT=1521))(CONNECT_DATA=(SID=dbname)))'
 
-Note that although the SQLAlchemy syntax ``hostname:port/dbname`` looks like
-Oracle's Easy Connect syntax it is different. It uses a SID in place of the
-service name required by Easy Connect.  The Easy Connect syntax does not
-support SIDs.
-
 Passing cx_Oracle connect arguments
 -----------------------------------
 
-Additional connection arguments can usually be passed via the URL query string;
-particular symbols like ``SYSDBA`` are intercepted and converted to the correct
-symbol::
+Additional connection arguments can usually be passed via the URL
+query string; particular symbols like ``cx_Oracle.SYSDBA`` are intercepted
+and converted to the correct symbol::
 
     e = create_engine(
-        "oracle+cx_oracle://user:pass@dsn?encoding=UTF-8&nencoding=UTF-8&mode=SYSDBA&events=true"
-    )
+        "oracle+cx_oracle://user:pass@dsn?encoding=UTF-8&nencoding=UTF-8&mode=SYSDBA&events=true")
 
-.. versionchanged:: 1.3 the cx_Oracle dialect now accepts all argument names
+.. versionchanged:: 1.3 the cx_oracle dialect now accepts all argument names
    within the URL string itself, to be passed to the cx_Oracle DBAPI.   As
    was the case earlier but not correctly documented, the
    :paramref:`_sa.create_engine.connect_args` parameter also accepts all
@@ -128,20 +99,19 @@ string, use the :paramref:`_sa.create_engine.connect_args` dictionary.
 Any cx_Oracle parameter value and/or constant may be passed, such as::
 
     import cx_Oracle
-
     e = create_engine(
         "oracle+cx_oracle://user:pass@dsn",
         connect_args={
             "encoding": "UTF-8",
             "nencoding": "UTF-8",
             "mode": cx_Oracle.SYSDBA,
-            "events": True,
-        },
+            "events": True
+        }
     )
 
-Note that the default driver value for ``encoding`` and ``nencoding`` was
-changed to "UTF-8" in cx_Oracle 8.0 so these parameters can be omitted when
-using that version, or later.
+Note that the default value for ``encoding`` and ``nencoding`` was changed to
+"UTF-8" in cx_Oracle 8.0 so these parameters can be omitted when using that
+version, or later.
 
 Options consumed by the SQLAlchemy cx_Oracle dialect outside of the driver
 --------------------------------------------------------------------------
@@ -151,19 +121,14 @@ itself.  These options are always passed directly to :func:`_sa.create_engine`
 , such as::
 
     e = create_engine(
-        "oracle+cx_oracle://user:pass@dsn", coerce_to_decimal=False
-    )
+        "oracle+cx_oracle://user:pass@dsn", coerce_to_decimal=False)
 
 The parameters accepted by the cx_oracle dialect are as follows:
 
-* ``arraysize`` - set the cx_oracle.arraysize value on cursors; defaults
-  to ``None``, indicating that the driver default should be used (typically
-  the value is 100).  This setting controls how many rows are buffered when
-  fetching rows, and can have a significant effect on performance when
-  modified.
-
-  .. versionchanged:: 2.0.26 - changed the default value from 50 to None,
-    to use the default value of the driver itself.
+* ``arraysize`` - set the cx_oracle.arraysize value on cursors, defaulted
+  to 50.  This setting is significant with cx_Oracle as the contents of LOB
+  objects are only readable within a "live" row (e.g. within a batch of
+  50 rows).
 
 * ``auto_convert_lobs`` - defaults to True; See :ref:`cx_oracle_lob`.
 
@@ -176,16 +141,10 @@ The parameters accepted by the cx_oracle dialect are as follows:
 Using cx_Oracle SessionPool
 ---------------------------
 
-The cx_Oracle driver provides its own connection pool implementation that may
-be used in place of SQLAlchemy's pooling functionality. The driver pool
-supports Oracle Database features such dead connection detection, connection
-draining for planned database downtime, support for Oracle Application
-Continuity and Transparent Application Continuity, and gives support for
-Database Resident Connection Pooling (DRCP).
-
-Using the driver pool can be achieved by using the
-:paramref:`_sa.create_engine.creator` parameter to provide a function that
-returns a new connection, along with setting
+The cx_Oracle library provides its own connection pool implementation that may
+be used in place of SQLAlchemy's pooling functionality.  This can be achieved
+by using the :paramref:`_sa.create_engine.creator` parameter to provide a
+function that returns a new connection, along with setting
 :paramref:`_sa.create_engine.pool_class` to ``NullPool`` to disable
 SQLAlchemy's pooling::
 
@@ -194,41 +153,32 @@ SQLAlchemy's pooling::
     from sqlalchemy.pool import NullPool
 
     pool = cx_Oracle.SessionPool(
-        user="scott",
-        password="tiger",
-        dsn="orclpdb",
-        min=1,
-        max=4,
-        increment=1,
-        threaded=True,
-        encoding="UTF-8",
-        nencoding="UTF-8",
+        user="scott", password="tiger", dsn="orclpdb",
+        min=2, max=5, increment=1, threaded=True,
+	encoding="UTF-8", nencoding="UTF-8"
     )
 
-    engine = create_engine(
-        "oracle+cx_oracle://", creator=pool.acquire, poolclass=NullPool
-    )
+    engine = create_engine("oracle+cx_oracle://", creator=pool.acquire, poolclass=NullPool)
 
 The above engine may then be used normally where cx_Oracle's pool handles
 connection pooling::
 
     with engine.connect() as conn:
-        print(conn.scalar("select 1 from dual"))
+        print(conn.scalar("select 1 FROM dual"))
+
 
 As well as providing a scalable solution for multi-user applications, the
 cx_Oracle session pool supports some Oracle features such as DRCP and
 `Application Continuity
 <https://cx-oracle.readthedocs.io/en/latest/user_guide/ha.html#application-continuity-ac>`_.
 
-Note that the pool creation parameters ``threaded``, ``encoding`` and
-``nencoding`` were deprecated in later cx_Oracle releases.
-
 Using Oracle Database Resident Connection Pooling (DRCP)
 --------------------------------------------------------
 
-When using Oracle Database's DRCP, the best practice is to pass a connection
-class and "purity" when acquiring a connection from the SessionPool.  Refer to
-the `cx_Oracle DRCP documentation
+When using Oracle's `DRCP
+<https://www.oracle.com/pls/topic/lookup?ctx=dblatest&id=GUID-015CA8C1-2386-4626-855D-CC546DDC1086>`_,
+the best practice is to pass a connection class and "purity" when acquiring a
+connection from the SessionPool.  Refer to the `cx_Oracle DRCP documentation
 <https://cx-oracle.readthedocs.io/en/latest/user_guide/connection_handling.html#database-resident-connection-pooling-drcp>`_.
 
 This can be achieved by wrapping ``pool.acquire()``::
@@ -238,33 +188,21 @@ This can be achieved by wrapping ``pool.acquire()``::
     from sqlalchemy.pool import NullPool
 
     pool = cx_Oracle.SessionPool(
-        user="scott",
-        password="tiger",
-        dsn="orclpdb",
-        min=2,
-        max=5,
-        increment=1,
-        threaded=True,
-        encoding="UTF-8",
-        nencoding="UTF-8",
+        user="scott", password="tiger", dsn="orclpdb",
+        min=2, max=5, increment=1, threaded=True,
+	encoding="UTF-8", nencoding="UTF-8"
     )
-
 
     def creator():
-        return pool.acquire(
-            cclass="MYCLASS", purity=cx_Oracle.ATTR_PURITY_SELF
-        )
+        return pool.acquire(cclass="MYCLASS", purity=cx_Oracle.ATTR_PURITY_SELF)
 
-
-    engine = create_engine(
-        "oracle+cx_oracle://", creator=creator, poolclass=NullPool
-    )
+    engine = create_engine("oracle+cx_oracle://", creator=creator, poolclass=NullPool)
 
 The above engine may then be used normally where cx_Oracle handles session
 pooling and Oracle Database additionally uses DRCP::
 
     with engine.connect() as conn:
-        print(conn.scalar("select 1 from dual"))
+        print(conn.scalar("select 1 FROM dual"))
 
 .. _cx_oracle_unicode:
 
@@ -272,28 +210,24 @@ Unicode
 -------
 
 As is the case for all DBAPIs under Python 3, all strings are inherently
-Unicode strings. In all cases however, the driver requires an explicit
+Unicode strings.   In all cases however, the driver requires an explicit
 encoding configuration.
 
 Ensuring the Correct Client Encoding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The long accepted standard for establishing client encoding for nearly all
-Oracle Database related software is via the `NLS_LANG
-<https://www.oracle.com/database/technologies/faq-nls-lang.html>`_ environment
-variable.  Older versions of cx_Oracle use this environment variable as the
-source of its encoding configuration.  The format of this variable is
-Territory_Country.CharacterSet; a typical value would be
-``AMERICAN_AMERICA.AL32UTF8``.  cx_Oracle version 8 and later use the character
-set "UTF-8" by default, and ignore the character set component of NLS_LANG.
+Oracle related software is via the `NLS_LANG <https://www.oracle.com/database/technologies/faq-nls-lang.html>`_
+environment variable.   cx_Oracle like most other Oracle drivers will use
+this environment variable as the source of its encoding configuration.  The
+format of this variable is idiosyncratic; a typical value would be
+``AMERICAN_AMERICA.AL32UTF8``.
 
-The cx_Oracle driver also supported a programmatic alternative which is to pass
-the ``encoding`` and ``nencoding`` parameters directly to its ``.connect()``
-function.  These can be present in the URL as follows::
+The cx_Oracle driver also supports a programmatic alternative which is to
+pass the ``encoding`` and ``nencoding`` parameters directly to its
+``.connect()`` function.  These can be present in the URL as follows::
 
-    engine = create_engine(
-        "oracle+cx_oracle://scott:tiger@tnsalias?encoding=UTF-8&nencoding=UTF-8"
-    )
+    engine = create_engine("oracle+cx_oracle://scott:tiger@orclpdb/?encoding=UTF-8&nencoding=UTF-8")
 
 For the meaning of the ``encoding`` and ``nencoding`` parameters, please
 consult
@@ -308,24 +242,25 @@ consult
 Unicode-specific Column datatypes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Core expression language handles unicode data by use of the
-:class:`.Unicode` and :class:`.UnicodeText` datatypes.  These types correspond
-to the VARCHAR2 and CLOB Oracle Database datatypes by default.  When using
-these datatypes with Unicode data, it is expected that the database is
-configured with a Unicode-aware character set, as well as that the ``NLS_LANG``
-environment variable is set appropriately (this applies to older versions of
-cx_Oracle), so that the VARCHAR2 and CLOB datatypes can accommodate the data.
+The Core expression language handles unicode data by use of the :class:`.Unicode`
+and :class:`.UnicodeText`
+datatypes.  These types correspond to the  VARCHAR2 and CLOB Oracle datatypes by
+default.   When using these datatypes with Unicode data, it is expected that
+the Oracle database is configured with a Unicode-aware character set, as well
+as that the ``NLS_LANG`` environment variable is set appropriately, so that
+the VARCHAR2 and CLOB datatypes can accommodate the data.
 
-In the case that Oracle Database is not configured with a Unicode character
+In the case that the Oracle database is not configured with a Unicode character
 set, the two options are to use the :class:`_types.NCHAR` and
 :class:`_oracle.NCLOB` datatypes explicitly, or to pass the flag
-``use_nchar_for_unicode=True`` to :func:`_sa.create_engine`, which will cause
-the SQLAlchemy dialect to use NCHAR/NCLOB for the :class:`.Unicode` /
+``use_nchar_for_unicode=True`` to :func:`_sa.create_engine`,
+which will cause the
+SQLAlchemy dialect to use NCHAR/NCLOB for the :class:`.Unicode` /
 :class:`.UnicodeText` datatypes instead of VARCHAR/CLOB.
 
-.. versionchanged:: 1.3 The :class:`.Unicode` and :class:`.UnicodeText`
-   datatypes now correspond to the ``VARCHAR2`` and ``CLOB`` Oracle Database
-   datatypes unless the ``use_nchar_for_unicode=True`` is passed to the dialect
+.. versionchanged:: 1.3  The :class:`.Unicode` and :class:`.UnicodeText`
+   datatypes now correspond to the ``VARCHAR2`` and ``CLOB`` Oracle datatypes
+   unless the ``use_nchar_for_unicode=True`` is passed to the dialect
    when :func:`_sa.create_engine` is called.
 
 
@@ -334,7 +269,7 @@ the SQLAlchemy dialect to use NCHAR/NCLOB for the :class:`.Unicode` /
 Encoding Errors
 ^^^^^^^^^^^^^^^
 
-For the unusual case that data in Oracle Database is present with a broken
+For the unusual case that data in the Oracle database is present with a broken
 encoding, the dialect accepts a parameter ``encoding_errors`` which will be
 passed to Unicode decoding functions in order to affect how decoding errors are
 handled.  The value is ultimately consumed by the Python `decode
@@ -352,13 +287,13 @@ Fine grained control over cx_Oracle data binding performance with setinputsizes
 -------------------------------------------------------------------------------
 
 The cx_Oracle DBAPI has a deep and fundamental reliance upon the usage of the
-DBAPI ``setinputsizes()`` call.  The purpose of this call is to establish the
+DBAPI ``setinputsizes()`` call.   The purpose of this call is to establish the
 datatypes that are bound to a SQL statement for Python values being passed as
 parameters.  While virtually no other DBAPI assigns any use to the
 ``setinputsizes()`` call, the cx_Oracle DBAPI relies upon it heavily in its
-interactions with the Oracle Database client interface, and in some scenarios
-it is not possible for SQLAlchemy to know exactly how data should be bound, as
-some settings can cause profoundly different performance characteristics, while
+interactions with the Oracle client interface, and in some scenarios it is  not
+possible for SQLAlchemy to know exactly how data should be bound, as some
+settings can cause profoundly different performance characteristics, while
 altering the type coercion behavior at the same time.
 
 Users of the cx_Oracle dialect are **strongly encouraged** to read through
@@ -387,16 +322,13 @@ objects which have a ``.key`` and a ``.type`` attribute::
 
     engine = create_engine("oracle+cx_oracle://scott:tiger@host/xe")
 
-
     @event.listens_for(engine, "do_setinputsizes")
     def _log_setinputsizes(inputsizes, cursor, statement, parameters, context):
         for bindparam, dbapitype in inputsizes.items():
-            log.info(
-                "Bound parameter name: %s  SQLAlchemy type: %r DBAPI object: %s",
-                bindparam.key,
-                bindparam.type,
-                dbapitype,
-            )
+                log.info(
+                    "Bound parameter name: %s  SQLAlchemy type: %r  "
+                    "DBAPI object: %s",
+                    bindparam.key, bindparam.type, dbapitype)
 
 Example 2 - remove all bindings to CLOB
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -410,27 +342,11 @@ series.   This setting can be modified as follows::
 
     engine = create_engine("oracle+cx_oracle://scott:tiger@host/xe")
 
-
     @event.listens_for(engine, "do_setinputsizes")
     def _remove_clob(inputsizes, cursor, statement, parameters, context):
         for bindparam, dbapitype in list(inputsizes.items()):
             if dbapitype is CLOB:
                 del inputsizes[bindparam]
-
-.. _cx_oracle_lob:
-
-LOB Datatypes
---------------
-
-LOB datatypes refer to the "large object" datatypes such as CLOB, NCLOB and
-BLOB. Modern versions of cx_Oracle is optimized for these datatypes to be
-delivered as a single buffer. As such, SQLAlchemy makes use of these newer type
-handlers by default.
-
-To disable the use of newer type handlers and deliver LOB objects as classic
-buffered objects with a ``read()`` method, the parameter
-``auto_convert_lobs=False`` may be passed to :func:`_sa.create_engine`,
-which takes place only engine-wide.
 
 .. _cx_oracle_returning:
 
@@ -440,12 +356,29 @@ RETURNING Support
 The cx_Oracle dialect implements RETURNING using OUT parameters.
 The dialect supports RETURNING fully.
 
-Two Phase Transactions Not Supported
-------------------------------------
+.. _cx_oracle_lob:
 
-Two phase transactions are **not supported** under cx_Oracle due to poor driver
-support. The newer :ref:`oracledb` dialect however **does** support two phase
-transactions.
+LOB Datatypes
+--------------
+
+LOB datatypes refer to the "large object" datatypes such as CLOB, NCLOB and
+BLOB. Modern versions of cx_Oracle and oracledb are optimized for these
+datatypes to be delivered as a single buffer. As such, SQLAlchemy makes use of
+these newer type handlers by default.
+
+To disable the use of newer type handlers and deliver LOB objects as classic
+buffered objects with a ``read()`` method, the parameter
+``auto_convert_lobs=False`` may be passed to :func:`_sa.create_engine`,
+which takes place only engine-wide.
+
+Two Phase Transactions Not Supported
+-------------------------------------
+
+Two phase transactions are **not supported** under cx_Oracle due to poor
+driver support.   As of cx_Oracle 6.0b1, the interface for
+two phase transactions has been changed to be more of a direct pass-through
+to the underlying OCI layer with less automation.  The additional logic
+to support this system is not implemented in SQLAlchemy.
 
 .. _cx_oracle_numeric:
 
@@ -456,21 +389,20 @@ SQLAlchemy's numeric types can handle receiving and returning values as Python
 ``Decimal`` objects or float objects.  When a :class:`.Numeric` object, or a
 subclass such as :class:`.Float`, :class:`_oracle.DOUBLE_PRECISION` etc. is in
 use, the :paramref:`.Numeric.asdecimal` flag determines if values should be
-coerced to ``Decimal`` upon return, or returned as float objects.  To make
-matters more complicated under Oracle Database, the ``NUMBER`` type can also
-represent integer values if the "scale" is zero, so the Oracle
-Database-specific :class:`_oracle.NUMBER` type takes this into account as well.
+coerced to ``Decimal`` upon return, or returned as float objects.   To make
+matters more complicated under Oracle, Oracle's ``NUMBER`` type can also
+represent integer values if the "scale" is zero, so the Oracle-specific
+:class:`_oracle.NUMBER` type takes this into account as well.
 
 The cx_Oracle dialect makes extensive use of connection- and cursor-level
 "outputtypehandler" callables in order to coerce numeric values as requested.
 These callables are specific to the specific flavor of :class:`.Numeric` in
-use, as well as if no SQLAlchemy typing objects are present.  There are
-observed scenarios where Oracle Database may send incomplete or ambiguous
-information about the numeric types being returned, such as a query where the
-numeric types are buried under multiple levels of subquery.  The type handlers
-do their best to make the right decision in all cases, deferring to the
-underlying cx_Oracle DBAPI for all those cases where the driver can make the
-best decision.
+use, as well as if no SQLAlchemy typing objects are present.   There are
+observed scenarios where Oracle may sends incomplete or ambiguous information
+about the numeric types being returned, such as a query where the numeric types
+are buried under multiple levels of subquery.  The type handlers do their best
+to make the right decision in all cases, deferring to the underlying cx_Oracle
+DBAPI for all those cases where the driver can make the best decision.
 
 When no typing objects are present, as when executing plain SQL strings, a
 default "outputtypehandler" is present which will generally return numeric
@@ -609,11 +541,6 @@ class _OracleNumeric(sqltypes.Numeric):
             )
 
         return handler
-
-
-class _OracleUUID(sqltypes.Uuid):
-    def get_dbapi_type(self, dbapi):
-        return dbapi.STRING
 
 
 class _OracleBinaryFloat(_OracleNumeric):
@@ -804,6 +731,7 @@ class OracleCompiler_cx_oracle(OracleCompiler):
         # Oracle parameters and use the custom escaping here
         escaped_from = kw.get("escaped_from", None)
         if not escaped_from:
+
             if self._bind_translate_re.search(name):
                 # not quite the translate use case as we want to
                 # also get a quick boolean if we even found
@@ -831,6 +759,7 @@ class OracleExecutionContext_cx_oracle(OracleExecutionContext):
         # check for has_out_parameters or RETURNING, create cx_Oracle.var
         # objects if so
         if self.compiled.has_out_parameters or self.compiled._oracle_returning:
+
             out_parameters = self.out_parameters
             assert out_parameters is not None
 
@@ -882,34 +811,23 @@ class OracleExecutionContext_cx_oracle(OracleExecutionContext):
 
                             out_parameters[name] = self.cursor.var(
                                 dbtype,
-                                # this is fine also in oracledb_async since
-                                # the driver will await the read coroutine
                                 outconverter=lambda value: value.read(),
                                 arraysize=len_params,
                             )
-                        elif (
-                            isinstance(type_impl, _OracleNumeric)
-                            and type_impl.asdecimal
-                        ):
-                            out_parameters[name] = self.cursor.var(
-                                decimal.Decimal,
-                                arraysize=len_params,
-                            )
-
                         else:
                             out_parameters[name] = self.cursor.var(
                                 dbtype, arraysize=len_params
                             )
 
                     for param in self.parameters:
-                        param[quoted_bind_names.get(name, name)] = (
-                            out_parameters[name]
-                        )
+                        param[
+                            quoted_bind_names.get(name, name)
+                        ] = out_parameters[name]
 
     def _generate_cursor_outputtype_handler(self):
         output_handlers = {}
 
-        for keyname, name, objects, type_ in self.compiled._result_columns:
+        for (keyname, name, objects, type_) in self.compiled._result_columns:
             handler = type_._cached_custom_processor(
                 self.dialect,
                 "cx_oracle_outputtypehandler",
@@ -960,8 +878,29 @@ class OracleExecutionContext_cx_oracle(OracleExecutionContext):
             and is_sql_compiler(self.compiled)
             and self.compiled._oracle_returning
         ):
-            initial_buffer = self.fetchall_for_returning(
-                self.cursor, _internal=True
+            # create a fake cursor result from the out parameters. unlike
+            # get_out_parameter_values(), the result-row handlers here will be
+            # applied at the Result level
+
+            numcols = len(self.out_parameters)
+
+            # [stmt_result for stmt_result in outparam.values] == each
+            # statement in executemany
+            # [val for val in stmt_result] == each row for a particular
+            # statement
+            initial_buffer = list(
+                zip(
+                    *[
+                        [
+                            val
+                            for stmt_result in self.out_parameters[
+                                f"ret_{j}"
+                            ].values
+                            for val in stmt_result
+                        ]
+                        for j in range(numcols)
+                    ]
+                )
             )
 
             fetch_strategy = _cursor.FullyBufferedCursorFetchStrategy(
@@ -981,43 +920,6 @@ class OracleExecutionContext_cx_oracle(OracleExecutionContext):
             c.arraysize = self.dialect.arraysize
 
         return c
-
-    def fetchall_for_returning(self, cursor, *, _internal=False):
-        compiled = self.compiled
-        if (
-            not _internal
-            and compiled is None
-            or not is_sql_compiler(compiled)
-            or not compiled._oracle_returning
-        ):
-            raise NotImplementedError(
-                "execution context was not prepared for Oracle RETURNING"
-            )
-
-        # create a fake cursor result from the out parameters. unlike
-        # get_out_parameter_values(), the result-row handlers here will be
-        # applied at the Result level
-
-        numcols = len(self.out_parameters)
-
-        # [stmt_result for stmt_result in outparam.values] == each
-        # statement in executemany
-        # [val for val in stmt_result] == each row for a particular
-        # statement
-        return list(
-            zip(
-                *[
-                    [
-                        val
-                        for stmt_result in self.out_parameters[
-                            f"ret_{j}"
-                        ].values
-                        for val in (stmt_result or ())
-                    ]
-                    for j in range(numcols)
-                ]
-            )
-        )
 
     def get_out_parameter_values(self, out_param_names):
         # this method should not be called when the compiler has
@@ -1040,7 +942,6 @@ class OracleDialect_cx_oracle(OracleDialect):
     supports_sane_multi_rowcount = True
 
     insert_executemany_returning = True
-    insert_executemany_returning_sort_by_parameter_order = True
     update_executemany_returning = True
     delete_executemany_returning = True
 
@@ -1048,8 +949,8 @@ class OracleDialect_cx_oracle(OracleDialect):
 
     driver = "cx_oracle"
 
-    colspecs = util.update_copy(
-        OracleDialect.colspecs,
+    colspecs = OracleDialect.colspecs
+    colspecs.update(
         {
             sqltypes.TIMESTAMP: _CXOracleTIMESTAMP,
             sqltypes.Numeric: _OracleNumeric,
@@ -1073,10 +974,9 @@ class OracleDialect_cx_oracle(OracleDialect):
             oracle.RAW: _OracleRaw,
             sqltypes.Unicode: _OracleUnicodeStringCHAR,
             sqltypes.NVARCHAR: _OracleUnicodeStringNCHAR,
-            sqltypes.Uuid: _OracleUUID,
             oracle.NCLOB: _OracleUnicodeTextNCLOB,
             oracle.ROWID: _OracleRowid,
-        },
+        }
     )
 
     execute_sequence_format = list
@@ -1100,11 +1000,12 @@ class OracleDialect_cx_oracle(OracleDialect):
         self,
         auto_convert_lobs=True,
         coerce_to_decimal=True,
-        arraysize=None,
+        arraysize=50,
         encoding_errors=None,
         threaded=None,
         **kwargs,
     ):
+
         OracleDialect.__init__(self, **kwargs)
         self.arraysize = arraysize
         self.encoding_errors = encoding_errors
@@ -1158,9 +1059,9 @@ class OracleDialect_cx_oracle(OracleDialect):
                     int(x) for x in m.group(1, 2, 3) if x is not None
                 )
         self.cx_oracle_ver = version
-        if self.cx_oracle_ver < (8,) and self.cx_oracle_ver > (0, 0, 0):
+        if self.cx_oracle_ver < (7,) and self.cx_oracle_ver > (0, 0, 0):
             raise exc.InvalidRequestError(
-                "cx_Oracle version 8 and above are supported"
+                "cx_Oracle version 7 and above are supported"
             )
 
     @classmethod
@@ -1234,9 +1135,6 @@ class OracleDialect_cx_oracle(OracleDialect):
             with dbapi_connection.cursor() as cursor:
                 cursor.execute(f"ALTER SESSION SET ISOLATION_LEVEL={level}")
 
-    def detect_autocommit_setting(self, dbapi_conn) -> bool:
-        return bool(dbapi_conn.autocommit)
-
     def _detect_decimal_char(self, connection):
         # we have the option to change this setting upon connect,
         # or just look at what it is upon connect and convert.
@@ -1309,6 +1207,7 @@ class OracleDialect_cx_oracle(OracleDialect):
         def output_type_handler(
             cursor, name, default_type, size, precision, scale
         ):
+
             if (
                 default_type == cx_Oracle.NUMBER
                 and default_type is not cx_Oracle.NATIVE_FLOAT
@@ -1356,13 +1255,8 @@ class OracleDialect_cx_oracle(OracleDialect):
                 cx_Oracle.CLOB,
                 cx_Oracle.NCLOB,
             ):
-                typ = (
-                    cx_Oracle.DB_TYPE_VARCHAR
-                    if default_type is cx_Oracle.CLOB
-                    else cx_Oracle.DB_TYPE_NVARCHAR
-                )
                 return cursor.var(
-                    typ,
+                    cx_Oracle.DB_TYPE_NVARCHAR,
                     _CX_ORACLE_MAGIC_LOB_SIZE,
                     cursor.arraysize,
                     **dialect._cursor_var_unicode_kwargs,
@@ -1380,6 +1274,7 @@ class OracleDialect_cx_oracle(OracleDialect):
         return output_type_handler
 
     def on_connect(self):
+
         output_type_handler = self._generate_connection_outputtype_handler()
 
         def on_connect(conn):
@@ -1493,6 +1388,13 @@ class OracleDialect_cx_oracle(OracleDialect):
         return False
 
     def create_xid(self):
+        """create a two-phase transaction ID.
+
+        this id will be passed to do_begin_twophase(), do_rollback_twophase(),
+        do_commit_twophase().  its format is unspecified.
+
+        """
+
         id_ = random.randint(0, 2**128)
         return (0x1234, "%032x" % id_, "%032x" % 9)
 
@@ -1518,6 +1420,7 @@ class OracleDialect_cx_oracle(OracleDialect):
     def do_commit_twophase(
         self, connection, xid, is_prepared=True, recover=False
     ):
+
         if not is_prepared:
             self.do_commit(connection.connection)
         else:

@@ -5,7 +5,7 @@ import os
 from jose.backends.base import Key
 from jose.constants import ALGORITHMS
 from jose.exceptions import JWKError
-from jose.utils import base64url_decode, base64url_encode, is_pem_format, is_ssh_key
+from jose.utils import base64url_decode, base64url_encode
 
 
 def get_random_bytes(num_bytes):
@@ -36,7 +36,14 @@ class HMACKey(Key):
         if isinstance(key, str):
             key = key.encode("utf-8")
 
-        if is_pem_format(key) or is_ssh_key(key):
+        invalid_strings = [
+            b"-----BEGIN PUBLIC KEY-----",
+            b"-----BEGIN RSA PUBLIC KEY-----",
+            b"-----BEGIN CERTIFICATE-----",
+            b"ssh-rsa",
+        ]
+
+        if any(string_value in key for string_value in invalid_strings):
             raise JWKError(
                 "The specified key is an asymmetric key or x509 certificate and"
                 " should not be used as an HMAC secret."

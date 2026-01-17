@@ -1,14 +1,10 @@
-from __future__ import annotations
-
 import io
 import math
 import sys
+import typing
 import warnings
-from collections.abc import Callable, MutableMapping
-from typing import Any
 
 import anyio
-from anyio.abc import ObjectReceiveStream, ObjectSendStream
 
 from starlette.types import Receive, Scope, Send
 
@@ -19,20 +15,14 @@ warnings.warn(
 )
 
 
-def build_environ(scope: Scope, body: bytes) -> dict[str, Any]:
+def build_environ(scope: Scope, body: bytes) -> dict:
     """
     Builds a scope and request body into a WSGI environ object.
     """
-
-    script_name = scope.get("root_path", "").encode("utf8").decode("latin1")
-    path_info = scope["path"].encode("utf8").decode("latin1")
-    if path_info.startswith(script_name):
-        path_info = path_info[len(script_name) :]
-
     environ = {
         "REQUEST_METHOD": scope["method"],
-        "SCRIPT_NAME": script_name,
-        "PATH_INFO": path_info,
+        "SCRIPT_NAME": scope.get("root_path", "").encode("utf8").decode("latin1"),
+        "PATH_INFO": scope["path"].encode("utf8").decode("latin1"),
         "QUERY_STRING": scope["query_string"].decode("ascii"),
         "SERVER_PROTOCOL": f"HTTP/{scope['http_version']}",
         "wsgi.version": (1, 0),
@@ -72,7 +62,7 @@ def build_environ(scope: Scope, body: bytes) -> dict[str, Any]:
 
 
 class WSGIMiddleware:
-    def __init__(self, app: Callable[..., Any]) -> None:
+    def __init__(self, app: typing.Callable) -> None:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -82,17 +72,16 @@ class WSGIMiddleware:
 
 
 class WSGIResponder:
-    stream_send: ObjectSendStream[MutableMapping[str, Any]]
-    stream_receive: ObjectReceiveStream[MutableMapping[str, Any]]
-
-    def __init__(self, app: Callable[..., Any], scope: Scope) -> None:
+    def __init__(self, app: typing.Callable, scope: Scope) -> None:
         self.app = app
         self.scope = scope
         self.status = None
         self.response_headers = None
-        self.stream_send, self.stream_receive = anyio.create_memory_object_stream(math.inf)
+        self.stream_send, self.stream_receive = anyio.create_memory_object_stream(
+            math.inf
+        )
         self.response_started = False
-        self.exc_info: Any = None
+        self.exc_info: typing.Any = None
 
     async def __call__(self, receive: Receive, send: Send) -> None:
         body = b""
@@ -118,11 +107,11 @@ class WSGIResponder:
     def start_response(
         self,
         status: str,
-        response_headers: list[tuple[str, str]],
-        exc_info: Any = None,
+        response_headers: typing.List[typing.Tuple[str, str]],
+        exc_info: typing.Any = None,
     ) -> None:
         self.exc_info = exc_info
-        if not self.response_started:  # pragma: no branch
+        if not self.response_started:
             self.response_started = True
             status_code_string, _ = status.split(" ", 1)
             status_code = int(status_code_string)
@@ -139,15 +128,13 @@ class WSGIResponder:
                 },
             )
 
-    def wsgi(
-        self,
-        environ: dict[str, Any],
-        start_response: Callable[..., Any],
-    ) -> None:
+    def wsgi(self, environ: dict, start_response: typing.Callable) -> None:
         for chunk in self.app(environ, start_response):
             anyio.from_thread.run(
                 self.stream_send.send,
                 {"type": "http.response.body", "body": chunk, "more_body": True},
             )
 
-        anyio.from_thread.run(self.stream_send.send, {"type": "http.response.body", "body": b""})
+        anyio.from_thread.run(
+            self.stream_send.send, {"type": "http.response.body", "body": b""}
+        )

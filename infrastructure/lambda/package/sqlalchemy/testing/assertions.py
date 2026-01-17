@@ -1,5 +1,5 @@
 # testing/assertions.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -47,7 +47,7 @@ def expect_warnings(*messages, **kw):
     Note that the test suite sets SAWarning warnings to raise exceptions.
 
     """  # noqa
-    return _expect_warnings_sqla_only(sa_exc.SAWarning, messages, **kw)
+    return _expect_warnings(sa_exc.SAWarning, messages, **kw)
 
 
 @contextlib.contextmanager
@@ -84,15 +84,11 @@ def emits_warning(*messages):
 
 
 def expect_deprecated(*messages, **kw):
-    return _expect_warnings_sqla_only(
-        sa_exc.SADeprecationWarning, messages, **kw
-    )
+    return _expect_warnings(sa_exc.SADeprecationWarning, messages, **kw)
 
 
 def expect_deprecated_20(*messages, **kw):
-    return _expect_warnings_sqla_only(
-        sa_exc.Base20DeprecationWarning, messages, **kw
-    )
+    return _expect_warnings(sa_exc.Base20DeprecationWarning, messages, **kw)
 
 
 def emits_warning_on(db, *messages):
@@ -144,29 +140,6 @@ _SEEN = None
 _EXC_CLS = None
 
 
-def _expect_warnings_sqla_only(
-    exc_cls,
-    messages,
-    regex=True,
-    search_msg=False,
-    assert_=True,
-):
-    """SQLAlchemy internal use only _expect_warnings().
-
-    Alembic is using _expect_warnings() directly, and should be updated
-    to use this new interface.
-
-    """
-    return _expect_warnings(
-        exc_cls,
-        messages,
-        regex=regex,
-        search_msg=search_msg,
-        assert_=assert_,
-        raise_on_any_unexpected=True,
-    )
-
-
 @contextlib.contextmanager
 def _expect_warnings(
     exc_cls,
@@ -177,6 +150,7 @@ def _expect_warnings(
     raise_on_any_unexpected=False,
     squelch_other_warnings=False,
 ):
+
     global _FILTERS, _SEEN, _EXC_CLS
 
     if regex or search_msg:
@@ -201,15 +175,13 @@ def _expect_warnings(
         if raise_on_any_unexpected:
 
             def real_warn(msg, *arg, **kw):
-                if isinstance(msg, sa_exc.SATestSuiteWarning):
-                    warnings.warn(msg, *arg, **kw)
-                else:
-                    raise AssertionError("Got unexpected warning: %r" % msg)
+                raise AssertionError("Got unexpected warning: %r" % msg)
 
         else:
             real_warn = warnings.warn
 
         def our_warn(msg, *arg, **kw):
+
             if isinstance(msg, _EXC_CLS):
                 exception = type(msg)
                 msg = str(msg)
@@ -277,8 +249,8 @@ def int_within_variance(expected, received, variance):
     )
 
 
-def eq_regex(a, b, msg=None, flags=0):
-    assert re.match(b, a, flags), msg or "%r !~ %r" % (a, b)
+def eq_regex(a, b, msg=None):
+    assert re.match(b, a), msg or "%r !~ %r" % (a, b)
 
 
 def eq_(a, b, msg=None):
@@ -407,7 +379,7 @@ def assert_warns(except_cls, callable_, *args, **kwargs):
 
 
     """
-    with _expect_warnings_sqla_only(except_cls, [".*"]):
+    with _expect_warnings(except_cls, [".*"], squelch_other_warnings=True):
         return callable_(*args, **kwargs)
 
 
@@ -422,11 +394,12 @@ def assert_warns_message(except_cls, msg, callable_, *args, **kwargs):
     rather than regex.match().
 
     """
-    with _expect_warnings_sqla_only(
+    with _expect_warnings(
         except_cls,
         [msg],
         search_msg=True,
         regex=False,
+        squelch_other_warnings=True,
     ):
         return callable_(*args, **kwargs)
 
@@ -440,6 +413,7 @@ def assert_raises_message_context_ok(
 def _assert_raises(
     except_cls, callable_, args, kwargs, msg=None, check_context=False
 ):
+
     with _expect_raises(except_cls, msg, check_context) as ec:
         callable_(*args, **kwargs)
     return ec.error
@@ -516,7 +490,6 @@ class AssertsCompiledSQL:
         use_default_dialect=False,
         allow_dialect_select=False,
         supports_default_values=True,
-        supports_native_boolean=False,
         supports_default_metavalue=True,
         literal_binds=False,
         render_postcompile=False,
@@ -525,13 +498,11 @@ class AssertsCompiledSQL:
         default_schema_name=None,
         from_linting=False,
         check_param_order=True,
-        use_literal_execute_for_simple_int=False,
     ):
         if use_default_dialect:
             dialect = default.DefaultDialect()
             dialect.supports_default_values = supports_default_values
             dialect.supports_default_metavalue = supports_default_metavalue
-            dialect.supports_native_boolean = supports_native_boolean
         elif allow_dialect_select:
             dialect = None
         else:
@@ -569,9 +540,6 @@ class AssertsCompiledSQL:
 
         if render_postcompile:
             compile_kwargs["render_postcompile"] = True
-
-        if use_literal_execute_for_simple_int:
-            compile_kwargs["use_literal_execute_for_simple_int"] = True
 
         if for_executemany:
             kw["for_executemany"] = True
@@ -920,6 +888,7 @@ class AssertsExecutionResults:
         return result
 
     def assert_sql(self, db, callable_, rules):
+
         newrules = []
         for rule in rules:
             if isinstance(rule, dict):

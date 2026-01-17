@@ -19,7 +19,6 @@
 #
 # See the README file for information on usage and redistribution.
 #
-from __future__ import annotations
 
 import io
 import os
@@ -27,10 +26,10 @@ import re
 import subprocess
 import sys
 import tempfile
-from typing import IO
 
 from . import Image, ImageFile
 from ._binary import i32le as i32
+from ._deprecate import deprecate
 
 # --------------------------------------------------------------------
 
@@ -38,59 +37,48 @@ from ._binary import i32le as i32
 split = re.compile(r"^%%([^:]*):[ \t]*(.*)[ \t]*$")
 field = re.compile(r"^%[%!\w]([^:]*)[ \t]*$")
 
-gs_binary: str | bool | None = None
 gs_windows_binary = None
+if sys.platform.startswith("win"):
+    import shutil
+
+    for binary in ("gswin32c", "gswin64c", "gs"):
+        if shutil.which(binary) is not None:
+            gs_windows_binary = binary
+            break
+    else:
+        gs_windows_binary = False
 
 
-def has_ghostscript() -> bool:
-    global gs_binary, gs_windows_binary
-    if gs_binary is None:
-        if sys.platform.startswith("win"):
-            if gs_windows_binary is None:
-                import shutil
-
-                for binary in ("gswin32c", "gswin64c", "gs"):
-                    if shutil.which(binary) is not None:
-                        gs_windows_binary = binary
-                        break
-                else:
-                    gs_windows_binary = False
-            gs_binary = gs_windows_binary
-        else:
-            try:
-                subprocess.check_call(["gs", "--version"], stdout=subprocess.DEVNULL)
-                gs_binary = "gs"
-            except OSError:
-                gs_binary = False
-    return gs_binary is not False
+def has_ghostscript():
+    if gs_windows_binary:
+        return True
+    if not sys.platform.startswith("win"):
+        try:
+            subprocess.check_call(["gs", "--version"], stdout=subprocess.DEVNULL)
+            return True
+        except OSError:
+            # No Ghostscript
+            pass
+    return False
 
 
-def Ghostscript(
-    tile: list[ImageFile._Tile],
-    size: tuple[int, int],
-    fp: IO[bytes],
-    scale: int = 1,
-    transparency: bool = False,
-) -> Image.core.ImagingCore:
+def Ghostscript(tile, size, fp, scale=1, transparency=False):
     """Render an image using Ghostscript"""
-    global gs_binary
-    if not has_ghostscript():
-        msg = "Unable to locate Ghostscript on paths"
-        raise OSError(msg)
-    assert isinstance(gs_binary, str)
 
     # Unpack decoder tile
-    args = tile[0].args
-    assert isinstance(args, tuple)
-    length, bbox = args
+    decoder, tile, offset, data = tile[0]
+    length, bbox = data
 
     # Hack to support hi-res rendering
     scale = int(scale) or 1
-    width = size[0] * scale
-    height = size[1] * scale
+    # orig_size = size
+    # orig_bbox = bbox
+    size = (size[0] * scale, size[1] * scale)
     # resolution is dependent on bbox and size
-    res_x = 72.0 * width / (bbox[2] - bbox[0])
-    res_y = 72.0 * height / (bbox[3] - bbox[1])
+    res = (
+        72.0 * size[0] / (bbox[2] - bbox[0]),
+        72.0 * size[1] / (bbox[3] - bbox[1]),
+    )
 
     out_fd, outfile = tempfile.mkstemp()
     os.close(out_fd)
@@ -121,20 +109,14 @@ def Ghostscript(
                 lengthfile -= len(s)
                 f.write(s)
 
-    if transparency:
-        # "RGBA"
-        device = "pngalpha"
-    else:
-        # "pnmraw" automatically chooses between
-        # PBM ("1"), PGM ("L"), and PPM ("RGB").
-        device = "pnmraw"
+    device = "pngalpha" if transparency else "ppmraw"
 
     # Build Ghostscript command
     command = [
-        gs_binary,
+        "gs",
         "-q",  # quiet mode
-        f"-g{width:d}x{height:d}",  # set output geometry (pixels)
-        f"-r{res_x:f}x{res_y:f}",  # set input DPI (dots per inch)
+        "-g%dx%d" % size,  # set output geometry (pixels)
+        "-r%fx%f" % res,  # set input DPI (dots per inch)
         "-dBATCH",  # exit after processing
         "-dNOPAUSE",  # don't pause between pages
         "-dSAFER",  # safe mode
@@ -150,6 +132,19 @@ def Ghostscript(
         "showpage",
     ]
 
+    if gs_windows_binary is not None:
+        if not gs_windows_binary:
+            try:
+                os.unlink(outfile)
+                if infile_temp:
+                    os.unlink(infile_temp)
+            except OSError:
+                pass
+
+            msg = "Unable to locate Ghostscript on paths"
+            raise OSError(msg)
+        command[0] = gs_windows_binary
+
     # push data through Ghostscript
     try:
         startupinfo = None
@@ -157,9 +152,8 @@ def Ghostscript(
             startupinfo = subprocess.STARTUPINFO()
             startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         subprocess.check_call(command, startupinfo=startupinfo)
-        with Image.open(outfile) as out_im:
-            out_im.load()
-            return out_im.im.copy()
+        out_im = Image.open(outfile)
+        out_im.load()
     finally:
         try:
             os.unlink(outfile)
@@ -168,11 +162,50 @@ def Ghostscript(
         except OSError:
             pass
 
+    im = out_im.im.copy()
+    out_im.close()
+    return im
 
-def _accept(prefix: bytes) -> bool:
-    return prefix.startswith(b"%!PS") or (
-        len(prefix) >= 4 and i32(prefix) == 0xC6D3D0C5
-    )
+
+class PSFile:
+    """
+    Wrapper for bytesio object that treats either CR or LF as end of line.
+    This class is no longer used internally, but kept for backwards compatibility.
+    """
+
+    def __init__(self, fp):
+        deprecate(
+            "PSFile",
+            11,
+            action="If you need the functionality of this class "
+            "you will need to implement it yourself.",
+        )
+        self.fp = fp
+        self.char = None
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        self.char = None
+        self.fp.seek(offset, whence)
+
+    def readline(self):
+        s = [self.char or b""]
+        self.char = None
+
+        c = self.fp.read(1)
+        while (c not in b"\r\n") and len(c):
+            s.append(c)
+            c = self.fp.read(1)
+
+        self.char = self.fp.read(1)
+        # line endings can be 1 or 2 of \r \n, in either order
+        if self.char in b"\r\n":
+            self.char = None
+
+        return b"".join(s).decode("latin-1")
+
+
+def _accept(prefix):
+    return prefix[:4] == b"%!PS" or (len(prefix) >= 4 and i32(prefix) == 0xC6D3D0C5)
 
 
 ##
@@ -188,33 +221,21 @@ class EpsImageFile(ImageFile.ImageFile):
 
     mode_map = {1: "L", 2: "LAB", 3: "RGB", 4: "CMYK"}
 
-    def _open(self) -> None:
-        assert self.fp is not None
+    def _open(self):
         (length, offset) = self._find_offset(self.fp)
 
         # go to offset - start of "%!PS"
         self.fp.seek(offset)
 
-        self._mode = "RGB"
-
-        # When reading header comments, the first comment is used.
-        # When reading trailer comments, the last comment is used.
-        bounding_box: list[int] | None = None
-        imagedata_size: tuple[int, int] | None = None
+        self.mode = "RGB"
+        self._size = None
 
         byte_arr = bytearray(255)
         bytes_mv = memoryview(byte_arr)
         bytes_read = 0
-        reading_header_comments = True
-        reading_trailer_comments = False
-        trailer_reached = False
+        reading_comments = True
 
-        def check_required_header_comments() -> None:
-            """
-            The EPS specification requires that some headers exist.
-            This should be checked when the header comments formally end,
-            when image data starts, or when the file ends, whichever comes first.
-            """
+        def check_required_header_comments():
             if "PS-Adobe" not in self.info:
                 msg = 'EPS header missing "%!PS-Adobe" comment'
                 raise SyntaxError(msg)
@@ -222,39 +243,11 @@ class EpsImageFile(ImageFile.ImageFile):
                 msg = 'EPS header missing "%%BoundingBox" comment'
                 raise SyntaxError(msg)
 
-        def read_comment(s: str) -> bool:
-            nonlocal bounding_box, reading_trailer_comments
-            try:
-                m = split.match(s)
-            except re.error as e:
-                msg = "not an EPS file"
-                raise SyntaxError(msg) from e
-
-            if not m:
-                return False
-
-            k, v = m.group(1, 2)
-            self.info[k] = v
-            if k == "BoundingBox":
-                if v == "(atend)":
-                    reading_trailer_comments = True
-                elif not bounding_box or (trailer_reached and reading_trailer_comments):
-                    try:
-                        # Note: The DSC spec says that BoundingBox
-                        # fields should be integers, but some drivers
-                        # put floating point values there anyway.
-                        bounding_box = [int(float(i)) for i in v.split()]
-                    except Exception:
-                        pass
-            return True
-
         while True:
             byte = self.fp.read(1)
             if byte == b"":
                 # if we didn't read a byte we must be at the end of the file
                 if bytes_read == 0:
-                    if reading_header_comments:
-                        check_required_header_comments()
                     break
             elif byte in b"\r\n":
                 # if we read a line ending character, ignore it and parse what
@@ -272,9 +265,9 @@ class EpsImageFile(ImageFile.ImageFile):
                         msg = "not an EPS file"
                         raise SyntaxError(msg)
                     else:
-                        if reading_header_comments:
+                        if reading_comments:
                             check_required_header_comments()
-                            reading_header_comments = False
+                            reading_comments = False
                         # reset bytes_read so we can keep reading
                         # data until the end of the line
                         bytes_read = 0
@@ -282,7 +275,7 @@ class EpsImageFile(ImageFile.ImageFile):
                 bytes_read += 1
                 continue
 
-            if reading_header_comments:
+            if reading_comments:
                 # Load EPS header
 
                 # if this line doesn't start with a "%",
@@ -290,15 +283,37 @@ class EpsImageFile(ImageFile.ImageFile):
                 # then we've reached the end of the header/comments
                 if byte_arr[0] != ord("%") or bytes_mv[:13] == b"%%EndComments":
                     check_required_header_comments()
-                    reading_header_comments = False
+                    reading_comments = False
                     continue
 
                 s = str(bytes_mv[:bytes_read], "latin-1")
-                if not read_comment(s):
+
+                try:
+                    m = split.match(s)
+                except re.error as e:
+                    msg = "not an EPS file"
+                    raise SyntaxError(msg) from e
+
+                if m:
+                    k, v = m.group(1, 2)
+                    self.info[k] = v
+                    if k == "BoundingBox":
+                        try:
+                            # Note: The DSC spec says that BoundingBox
+                            # fields should be integers, but some drivers
+                            # put floating point values there anyway.
+                            box = [int(float(i)) for i in v.split()]
+                            self._size = box[2] - box[0], box[3] - box[1]
+                            self.tile = [
+                                ("eps", (0, 0) + self.size, offset, (length, box))
+                            ]
+                        except Exception:
+                            pass
+                else:
                     m = field.match(s)
                     if m:
                         k = m.group(1)
-                        if k.startswith("PS-Adobe"):
+                        if k[:8] == "PS-Adobe":
                             self.info["PS-Adobe"] = k[9:]
                         else:
                             self.info[k] = ""
@@ -313,12 +328,6 @@ class EpsImageFile(ImageFile.ImageFile):
                 # Check for an "ImageData" descriptor
                 # https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577413_pgfId-1035096
 
-                # If we've already read an "ImageData" descriptor,
-                # don't read another one.
-                if imagedata_size:
-                    bytes_read = 0
-                    continue
-
                 # Values:
                 # columns
                 # rows
@@ -330,53 +339,32 @@ class EpsImageFile(ImageFile.ImageFile):
                 # data start identifier (the image data follows after a single line
                 #   consisting only of this quoted value)
                 image_data_values = byte_arr[11:bytes_read].split(None, 7)
-                columns, rows, bit_depth, mode_id = (
+                columns, rows, bit_depth, mode_id = [
                     int(value) for value in image_data_values[:4]
-                )
+                ]
 
                 if bit_depth == 1:
-                    self._mode = "1"
+                    self.mode = "1"
                 elif bit_depth == 8:
                     try:
-                        self._mode = self.mode_map[mode_id]
+                        self.mode = self.mode_map[mode_id]
                     except ValueError:
                         break
                 else:
                     break
 
-                # Parse the columns and rows after checking the bit depth and mode
-                # in case the bit depth and/or mode are invalid.
-                imagedata_size = columns, rows
-            elif bytes_mv[:5] == b"%%EOF":
-                break
-            elif trailer_reached and reading_trailer_comments:
-                # Load EPS trailer
-                s = str(bytes_mv[:bytes_read], "latin-1")
-                read_comment(s)
-            elif bytes_mv[:9] == b"%%Trailer":
-                trailer_reached = True
-            elif bytes_mv[:14] == b"%%BeginBinary:":
-                bytecount = int(byte_arr[14:bytes_read])
-                self.fp.seek(bytecount, os.SEEK_CUR)
+                self._size = columns, rows
+                return
+
             bytes_read = 0
 
-        # A "BoundingBox" is always required,
-        # even if an "ImageData" descriptor size exists.
-        if not bounding_box:
+        check_required_header_comments()
+
+        if not self._size:
             msg = "cannot determine EPS bounding box"
             raise OSError(msg)
 
-        # An "ImageData" size takes precedence over the "BoundingBox".
-        self._size = imagedata_size or (
-            bounding_box[2] - bounding_box[0],
-            bounding_box[3] - bounding_box[1],
-        )
-
-        self.tile = [
-            ImageFile._Tile("eps", (0, 0) + self.size, offset, (length, bounding_box))
-        ]
-
-    def _find_offset(self, fp: IO[bytes]) -> tuple[int, int]:
+    def _find_offset(self, fp):
         s = fp.read(4)
 
         if s == b"%!PS":
@@ -399,19 +387,16 @@ class EpsImageFile(ImageFile.ImageFile):
 
         return length, offset
 
-    def load(
-        self, scale: int = 1, transparency: bool = False
-    ) -> Image.core.PixelAccess | None:
+    def load(self, scale=1, transparency=False):
         # Load EPS via Ghostscript
         if self.tile:
-            assert self.fp is not None
             self.im = Ghostscript(self.tile, self.size, self.fp, scale, transparency)
-            self._mode = self.im.mode
+            self.mode = self.im.mode
             self._size = self.im.size
             self.tile = []
         return Image.Image.load(self)
 
-    def load_seek(self, pos: int) -> None:
+    def load_seek(self, *args, **kwargs):
         # we can't incrementally load, so force ImageFile.parser to
         # use our custom load method by defining this method.
         pass
@@ -420,7 +405,7 @@ class EpsImageFile(ImageFile.ImageFile):
 # --------------------------------------------------------------------
 
 
-def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes, eps: int = 1) -> None:
+def _save(im, fp, filename, eps=1):
     """EPS Writer for the Python Imaging Library."""
 
     # make sure image data is available
@@ -461,7 +446,7 @@ def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes, eps: int = 1) -
     if hasattr(fp, "flush"):
         fp.flush()
 
-    ImageFile._save(im, fp, [ImageFile._Tile("eps", (0, 0) + im.size)])
+    ImageFile._save(im, fp, [("eps", (0, 0) + im.size, 0, None)])
 
     fp.write(b"\n%%%%EndBinary\n")
     fp.write(b"grestore end\n")

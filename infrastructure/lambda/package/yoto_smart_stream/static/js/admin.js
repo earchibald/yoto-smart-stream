@@ -298,6 +298,48 @@ async function refreshData(event) {
     }
 }
 
+// Disconnect Yoto OAuth (clear persisted tokens and notify UI)
+async function disconnectYotoOAuth(event) {
+    try {
+        const button = event ? event.target : document.querySelector("button[onclick*='disconnectYotoOAuth']");
+        if (button) {
+            button.disabled = true;
+            button.textContent = '🔒 Disconnecting...';
+        }
+
+        const response = await fetch(`${API_BASE}/auth/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to disconnect Yoto OAuth');
+        }
+
+        // Success: notify and reload to reflect unauthenticated state across pages
+        if (button) {
+            button.textContent = '✓ Disconnected';
+        }
+
+        // Give a brief success indication, then redirect to dashboard
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 1500);
+    } catch (error) {
+        console.error('Error disconnecting OAuth:', error);
+        const button = event ? event.target : document.querySelector("button[onclick*='disconnectYotoOAuth']");
+        if (button) {
+            button.textContent = '✗ Disconnect Failed';
+            setTimeout(() => {
+                button.disabled = false;
+                button.textContent = '🔒 Disconnect Yoto OAuth';
+            }, 2000);
+        }
+        alert('Failed to disconnect: ' + error.message);
+    }
+}
+
 // Utility functions
 function escapeHtml(text) {
     const div = document.createElement('div');

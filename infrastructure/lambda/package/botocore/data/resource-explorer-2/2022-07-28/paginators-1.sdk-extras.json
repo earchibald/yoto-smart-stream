@@ -7,11 +7,6 @@
           "ViewArn",
           "Count"
         ]
-      },
-      "ListResources": {
-        "non_aggregate_keys": [
-          "ViewArn"
-        ]
       }
     }
   }

@@ -13,7 +13,7 @@
 #
 # See the README file for information on usage and redistribution.
 #
-from __future__ import annotations
+
 
 from . import Image, ImageFile
 
@@ -27,14 +27,12 @@ class PcdImageFile(ImageFile.ImageFile):
     format = "PCD"
     format_description = "Kodak PhotoCD"
 
-    def _open(self) -> None:
+    def _open(self):
         # rough
-        assert self.fp is not None
-
         self.fp.seek(2048)
-        s = self.fp.read(1539)
+        s = self.fp.read(2048)
 
-        if not s.startswith(b"PCD_"):
+        if s[:4] != b"PCD_":
             msg = "not a PCD file"
             raise SyntaxError(msg)
 
@@ -43,21 +41,17 @@ class PcdImageFile(ImageFile.ImageFile):
         if orientation == 1:
             self.tile_post_rotate = 90
         elif orientation == 3:
-            self.tile_post_rotate = 270
+            self.tile_post_rotate = -90
 
-        self._mode = "RGB"
-        self._size = (512, 768) if orientation in (1, 3) else (768, 512)
-        self.tile = [ImageFile._Tile("pcd", (0, 0, 768, 512), 96 * 2048)]
+        self.mode = "RGB"
+        self._size = 768, 512  # FIXME: not correct for rotated images!
+        self.tile = [("pcd", (0, 0) + self.size, 96 * 2048, None)]
 
-    def load_prepare(self) -> None:
-        if self._im is None and self.tile_post_rotate:
-            self.im = Image.core.new(self.mode, (768, 512))
-        ImageFile.ImageFile.load_prepare(self)
-
-    def load_end(self) -> None:
+    def load_end(self):
         if self.tile_post_rotate:
             # Handle rotated PCDs
-            self.im = self.rotate(self.tile_post_rotate, expand=True).im
+            self.im = self.im.rotate(self.tile_post_rotate)
+            self._size = self.im.size
 
 
 #

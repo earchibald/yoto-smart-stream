@@ -1,5 +1,5 @@
 # orm/state.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -78,7 +78,8 @@ if not TYPE_CHECKING:
 
 
 class _InstanceDictProto(Protocol):
-    def __call__(self) -> Optional[IdentityMap]: ...
+    def __call__(self) -> Optional[IdentityMap]:
+        ...
 
 
 class _InstallLoaderCallableProto(Protocol[_O]):
@@ -93,12 +94,13 @@ class _InstallLoaderCallableProto(Protocol[_O]):
 
     def __call__(
         self, state: InstanceState[_O], dict_: _InstanceDict, row: Row[Any]
-    ) -> None: ...
+    ) -> None:
+        ...
 
 
 @inspection._self_inspects
 class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
-    """Tracks state information at the instance level.
+    """tracks state information at the instance level.
 
     The :class:`.InstanceState` is a key object used by the
     SQLAlchemy ORM in order to track the state of an object;
@@ -148,14 +150,7 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
     committed_state: Dict[str, Any]
 
     modified: bool = False
-    """When ``True`` the object was modified."""
     expired: bool = False
-    """When ``True`` the object is :term:`expired`.
-
-    .. seealso::
-
-        :ref:`session_expire`
-    """
     _deleted: bool = False
     _load_pending: bool = False
     _orphaned_outside_of_session: bool = False
@@ -176,12 +171,11 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
 
     expired_attributes: Set[str]
     """The set of keys which are 'expired' to be loaded by
-    the manager's deferred scalar loader, assuming no pending
-    changes.
+       the manager's deferred scalar loader, assuming no pending
+       changes.
 
-    See also the ``unmodified`` collection which is intersected
-    against this set when a refresh operation occurs.
-    """
+       see also the ``unmodified`` collection which is intersected
+       against this set when a refresh operation occurs."""
 
     callables: Dict[str, Callable[[InstanceState[_O], PassiveFlag], Any]]
     """A namespace where a per-state loader callable can be associated.
@@ -236,6 +230,7 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
     def pending(self) -> bool:
         """Return ``True`` if the object is :term:`pending`.
 
+
         .. seealso::
 
             :ref:`session_object_states`
@@ -283,6 +278,9 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
         or via transaction commit and enters the "detached" state,
         this flag will continue to report True.
 
+        .. versionadded:: 1.1 - added a local method form of
+           :func:`.orm.util.was_deleted`.
+
         .. seealso::
 
             :attr:`.InstanceState.deleted` - refers to the "deleted" state
@@ -301,6 +299,12 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
         An object that is in the persistent state is guaranteed to
         be within the :attr:`.Session.identity_map` of its parent
         :class:`.Session`.
+
+        .. versionchanged:: 1.1 The :attr:`.InstanceState.persistent`
+           accessor no longer returns True for an object that was
+           "deleted" within a flush; use the :attr:`.InstanceState.deleted`
+           accessor to detect this state.   This allows the "persistent"
+           state to guarantee membership in the identity map.
 
         .. seealso::
 
@@ -511,31 +515,6 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
         # used by the test suite, apparently
         self._detach()
 
-    def _force_dereference(self) -> None:
-        """Force this InstanceState to act as though its weakref has
-        been GC'ed.
-
-        this is used for test code that has to test reactions to objects
-        being GC'ed.  We can't reliably force GCs to happen under all
-        CI circumstances.
-
-        """
-
-        # if _strong_obj is set, then our object would not be getting
-        # GC'ed (at least within the scope of what we use this for in tests).
-        # so make sure this is not set
-        assert self._strong_obj is None
-
-        obj = self.obj()
-        if obj is None:
-            # object was GC'ed and we're done!  woop
-            return
-
-        del obj
-
-        self._cleanup(self.obj)
-        self.obj = lambda: None  # type: ignore
-
     def _cleanup(self, ref: weakref.ref[_O]) -> None:
         """Weakref callback cleanup.
 
@@ -608,7 +587,7 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
         return self._pending_mutations[key]
 
     def __getstate__(self) -> Dict[str, Any]:
-        state_dict: Dict[str, Any] = {
+        state_dict = {
             "instance": self.obj(),
             "class_": self.class_,
             "committed_state": self.committed_state,
@@ -647,8 +626,8 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
             self.class_ = state_dict["class_"]
 
         self.committed_state = state_dict.get("committed_state", {})
-        self._pending_mutations = state_dict.get("_pending_mutations", {})
-        self.parents = state_dict.get("parents", {})
+        self._pending_mutations = state_dict.get("_pending_mutations", {})  # type: ignore  # noqa E501
+        self.parents = state_dict.get("parents", {})  # type: ignore
         self.modified = state_dict.get("modified", False)
         self.expired = state_dict.get("expired", False)
         if "info" in state_dict:
@@ -854,8 +833,8 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
     def unloaded(self) -> Set[str]:
         """Return the set of keys which do not have a loaded value.
 
-        This includes expired attributes and any other attribute that was never
-        populated or modified.
+        This includes expired attributes and any other attribute that
+        was never populated or modified.
 
         """
         return (
@@ -865,16 +844,11 @@ class InstanceState(interfaces.InspectionAttrInfo, Generic[_O]):
         )
 
     @property
-    @util.deprecated(
-        "2.0",
-        "The :attr:`.InstanceState.unloaded_expirable` attribute is "
-        "deprecated.  Please use :attr:`.InstanceState.unloaded`.",
-    )
     def unloaded_expirable(self) -> Set[str]:
-        """Synonymous with :attr:`.InstanceState.unloaded`.
+        """Return the set of keys which do not have a loaded value.
 
-        This attribute was added as an implementation-specific detail at some
-        point and should be considered to be private.
+        This includes expired attributes and any other attribute that
+        was never populated or modified.
 
         """
         return self.unloaded
@@ -1130,6 +1104,8 @@ class AttributeState:
 
             :func:`.attributes.get_history` - underlying function
 
+        .. versionadded:: 0.9.0
+
         """
         return self.state.get_history(self.key, PASSIVE_OFF ^ INIT_OK)
 
@@ -1151,9 +1127,6 @@ class PendingCollection:
     def __init__(self) -> None:
         self.deleted_items = util.IdentitySet()
         self.added_items = util.OrderedIdentitySet()
-
-    def merge_with_history(self, history: History) -> History:
-        return history._merge(self.added_items, self.deleted_items)
 
     def append(self, value: Any) -> None:
         if value in self.deleted_items:

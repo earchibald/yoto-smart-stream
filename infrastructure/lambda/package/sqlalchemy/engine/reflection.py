@@ -1,5 +1,5 @@
 # engine/reflection.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -55,7 +55,6 @@ from .. import util
 from ..sql import operators
 from ..sql import schema as sa_schema
 from ..sql.cache_key import _ad_hoc_cache_key_from_args
-from ..sql.elements import quoted_name
 from ..sql.elements import TextClause
 from ..sql.type_api import TypeEngine
 from ..sql.visitors import InternalTraversal
@@ -90,16 +89,8 @@ def cache(
     exclude = {"info_cache", "unreflectable"}
     key = (
         fn.__name__,
-        tuple(
-            (str(a), a.quote) if isinstance(a, quoted_name) else a
-            for a in args
-            if isinstance(a, str)
-        ),
-        tuple(
-            (k, (str(v), v.quote) if isinstance(v, quoted_name) else v)
-            for k, v in kw.items()
-            if k not in exclude
-        ),
+        tuple(a for a in args if isinstance(a, str)),
+        tuple((k, v) for k, v in kw.items() if k not in exclude),
     )
     ret: _R = info_cache.get(key)
     if ret is None:
@@ -193,8 +184,7 @@ class Inspector(inspection.Inspectable["Inspector"]):
     or a :class:`_engine.Connection`::
 
         from sqlalchemy import inspect, create_engine
-
-        engine = create_engine("...")
+        engine = create_engine('...')
         insp = inspect(engine)
 
     Where above, the :class:`~sqlalchemy.engine.interfaces.Dialect` associated
@@ -239,8 +229,9 @@ class Inspector(inspection.Inspectable["Inspector"]):
     def _construct(
         cls, init: Callable[..., Any], bind: Union[Engine, Connection]
     ) -> Inspector:
+
         if hasattr(bind.dialect, "inspector"):
-            cls = bind.dialect.inspector
+            cls = bind.dialect.inspector  # type: ignore[attr-defined]
 
         self = cls.__new__(cls)
         init(self, bind)
@@ -250,7 +241,7 @@ class Inspector(inspection.Inspectable["Inspector"]):
         if hasattr(bind, "exec_driver_sql"):
             self._init_connection(bind)  # type: ignore[arg-type]
         else:
-            self._init_engine(bind)
+            self._init_engine(bind)  # type: ignore[arg-type]
 
     def _init_engine(self, engine: Engine) -> None:
         self.bind = self.engine = engine
@@ -522,6 +513,8 @@ class Inspector(inspection.Inspectable["Inspector"]):
         foreign key constraint names that would require a separate CREATE
         step after-the-fact, based on dependencies between tables.
 
+        .. versionadded:: 1.0.-
+
         :param schema: schema name to query, if not the default schema.
         :param \**kw: Additional keyword argument to pass to the dialect
          specific implementation. See the documentation of the dialect
@@ -631,11 +624,13 @@ class Inspector(inspection.Inspectable["Inspector"]):
         r"""Return a list of temporary table names for the current bind.
 
         This method is unsupported by most dialects; currently
-        only Oracle Database, PostgreSQL and SQLite implements it.
+        only Oracle, PostgreSQL and SQLite implements it.
 
         :param \**kw: Additional keyword argument to pass to the dialect
          specific implementation. See the documentation of the dialect
          in use for more information.
+
+        .. versionadded:: 1.0.0
 
         """
 
@@ -654,6 +649,8 @@ class Inspector(inspection.Inspectable["Inspector"]):
          specific implementation. See the documentation of the dialect
          in use for more information.
 
+        .. versionadded:: 1.0.0
+
         """
         with self._operation_context() as conn:
             return self.dialect.get_temp_view_names(
@@ -667,7 +664,7 @@ class Inspector(inspection.Inspectable["Inspector"]):
         given name was created.
 
         This currently includes some options that apply to MySQL and Oracle
-        Database tables.
+        tables.
 
         :param table_name: string name of the table.  For special quoting,
          use :class:`.quoted_name`.
@@ -1409,6 +1406,8 @@ class Inspector(inspection.Inspectable["Inspector"]):
         :return: a list of dictionaries, each representing the
          definition of a check constraints.
 
+        .. versionadded:: 1.1.0
+
         .. seealso:: :meth:`Inspector.get_multi_check_constraints`
         """
 
@@ -1493,9 +1492,9 @@ class Inspector(inspection.Inspectable["Inspector"]):
             from sqlalchemy import create_engine, MetaData, Table
             from sqlalchemy import inspect
 
-            engine = create_engine("...")
+            engine = create_engine('...')
             meta = MetaData()
-            user_table = Table("user", meta)
+            user_table = Table('user', meta)
             insp = inspect(engine)
             insp.reflect_table(user_table, None)
 
@@ -1634,10 +1633,13 @@ class Inspector(inspection.Inspectable["Inspector"]):
         exclude_columns: Collection[str],
         cols_by_orig_name: Dict[str, sa_schema.Column[Any]],
     ) -> None:
+
         orig_name = col_d["name"]
 
         table.metadata.dispatch.column_reflect(self, table, col_d)
-        table.dispatch.column_reflect(self, table, col_d)
+        table.dispatch.column_reflect(  # type: ignore[attr-defined]
+            self, table, col_d
+        )
 
         # fetch name again as column_reflect is allowed to
         # change it
@@ -1714,12 +1716,9 @@ class Inspector(inspection.Inspectable["Inspector"]):
                 if pk in cols_by_orig_name and pk not in exclude_columns
             ]
 
-            # update pk constraint name, comment and dialect_kwargs
+            # update pk constraint name and comment
             table.primary_key.name = pk_cons.get("name")
             table.primary_key.comment = pk_cons.get("comment", None)
-            dialect_options = pk_cons.get("dialect_options")
-            if dialect_options:
-                table.primary_key.dialect_kwargs.update(dialect_options)
 
             # tell the PKConstraint to re-initialize
             # its column collection
@@ -1856,7 +1855,7 @@ class Inspector(inspection.Inspectable["Inspector"]):
                     if not expressions:
                         util.warn(
                             f"Skipping {flavor} {name!r} because key "
-                            f"{index + 1} reflected as None but no "
+                            f"{index+1} reflected as None but no "
                             "'expressions' were returned"
                         )
                         break
@@ -1904,7 +1903,6 @@ class Inspector(inspection.Inspectable["Inspector"]):
             columns = const_d["column_names"]
             comment = const_d.get("comment")
             duplicates = const_d.get("duplicates_index")
-            dialect_options = const_d.get("dialect_options", {})
             if include_columns and not set(columns).issubset(include_columns):
                 continue
             if duplicates:
@@ -1928,10 +1926,7 @@ class Inspector(inspection.Inspectable["Inspector"]):
                     constrained_cols.append(constrained_col)
             table.append_constraint(
                 sa_schema.UniqueConstraint(
-                    *constrained_cols,
-                    name=conname,
-                    comment=comment,
-                    **dialect_options,
+                    *constrained_cols, name=conname, comment=comment
                 )
             )
 
@@ -2049,7 +2044,7 @@ class ReflectionDefaults:
 
     @classmethod
     def pk_constraint(cls) -> ReflectedPrimaryKeyConstraint:
-        return {
+        return {  # type: ignore  # pep-655 not supported
             "name": None,
             "constrained_columns": [],
         }

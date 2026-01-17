@@ -1,5 +1,5 @@
 # orm/__init__.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -32,7 +32,6 @@ from ._orm_constructors import deferred as deferred
 from ._orm_constructors import dynamic_loader as dynamic_loader
 from ._orm_constructors import join as join
 from ._orm_constructors import mapped_column as mapped_column
-from ._orm_constructors import orm_insert_sentinel as orm_insert_sentinel
 from ._orm_constructors import outerjoin as outerjoin
 from ._orm_constructors import query_expression as query_expression
 from ._orm_constructors import relationship as relationship
@@ -63,7 +62,6 @@ from .decl_api import DeclarativeBaseNoMeta as DeclarativeBaseNoMeta
 from .decl_api import DeclarativeMeta as DeclarativeMeta
 from .decl_api import declared_attr as declared_attr
 from .decl_api import has_inherited_table as has_inherited_table
-from .decl_api import mapped_as_dataclass as mapped_as_dataclass
 from .decl_api import MappedAsDataclass as MappedAsDataclass
 from .decl_api import registry as registry
 from .decl_api import synonym_for as synonym_for
@@ -122,7 +120,6 @@ from .relationships import foreign as foreign
 from .relationships import Relationship as Relationship
 from .relationships import RelationshipProperty as RelationshipProperty
 from .relationships import remote as remote
-from .scoping import QueryPropertyDescriptor as QueryPropertyDescriptor
 from .scoping import scoped_session as scoped_session
 from .session import close_all_sessions as close_all_sessions
 from .session import make_transient as make_transient
@@ -164,6 +161,7 @@ from .. import util as _sa_util
 
 
 def __go(lcls: Any) -> None:
+
     _sa_util.preloaded.import_prefix("sqlalchemy.orm")
     _sa_util.preloaded.import_prefix("sqlalchemy.ext")
 

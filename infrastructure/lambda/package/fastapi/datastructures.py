@@ -1,16 +1,22 @@
-from collections.abc import Mapping
 from typing import (
-    Annotated,
     Any,
     BinaryIO,
     Callable,
+    Dict,
+    Iterable,
     Optional,
+    Type,
     TypeVar,
     cast,
 )
 
-from annotated_doc import Doc
-from pydantic import GetJsonSchemaHandler
+from fastapi._compat import (
+    PYDANTIC_V2,
+    CoreSchema,
+    GetJsonSchemaHandler,
+    JsonSchemaValue,
+    with_info_plain_validator_function,
+)
 from starlette.datastructures import URL as URL  # noqa: F401
 from starlette.datastructures import Address as Address  # noqa: F401
 from starlette.datastructures import FormData as FormData  # noqa: F401
@@ -18,6 +24,7 @@ from starlette.datastructures import Headers as Headers  # noqa: F401
 from starlette.datastructures import QueryParams as QueryParams  # noqa: F401
 from starlette.datastructures import State as State  # noqa: F401
 from starlette.datastructures import UploadFile as StarletteUploadFile
+from typing_extensions import Annotated, Doc  # type: ignore [attr-defined]
 
 
 class UploadFile(StarletteUploadFile):
@@ -132,23 +139,37 @@ class UploadFile(StarletteUploadFile):
         return await super().close()
 
     @classmethod
+    def __get_validators__(cls: Type["UploadFile"]) -> Iterable[Callable[..., Any]]:
+        yield cls.validate
+
+    @classmethod
+    def validate(cls: Type["UploadFile"], v: Any) -> Any:
+        if not isinstance(v, StarletteUploadFile):
+            raise ValueError(f"Expected UploadFile, received: {type(v)}")
+        return v
+
+    @classmethod
     def _validate(cls, __input_value: Any, _: Any) -> "UploadFile":
         if not isinstance(__input_value, StarletteUploadFile):
             raise ValueError(f"Expected UploadFile, received: {type(__input_value)}")
         return cast(UploadFile, __input_value)
 
+    if not PYDANTIC_V2:
+
+        @classmethod
+        def __modify_schema__(cls, field_schema: Dict[str, Any]) -> None:
+            field_schema.update({"type": "string", "format": "binary"})
+
     @classmethod
     def __get_pydantic_json_schema__(
-        cls, core_schema: Mapping[str, Any], handler: GetJsonSchemaHandler
-    ) -> dict[str, Any]:
+        cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
         return {"type": "string", "format": "binary"}
 
     @classmethod
     def __get_pydantic_core_schema__(
-        cls, source: type[Any], handler: Callable[[Any], Mapping[str, Any]]
-    ) -> Mapping[str, Any]:
-        from ._compat.v2 import with_info_plain_validator_function
-
+        cls, source: Type[Any], handler: Callable[[Any], CoreSchema]
+    ) -> CoreSchema:
         return with_info_plain_validator_function(cls._validate)
 
 

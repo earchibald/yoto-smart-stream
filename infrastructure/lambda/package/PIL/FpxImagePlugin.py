@@ -14,8 +14,6 @@
 #
 # See the README file for information on usage and redistribution.
 #
-from __future__ import annotations
-
 import olefile
 
 from . import Image, ImageFile
@@ -41,8 +39,8 @@ MODES = {
 # --------------------------------------------------------------------
 
 
-def _accept(prefix: bytes) -> bool:
-    return prefix.startswith(olefile.MAGIC)
+def _accept(prefix):
+    return prefix[:8] == olefile.MAGIC
 
 
 ##
@@ -53,26 +51,24 @@ class FpxImageFile(ImageFile.ImageFile):
     format = "FPX"
     format_description = "FlashPix"
 
-    def _open(self) -> None:
+    def _open(self):
         #
         # read the OLE directory and see if this is a likely
         # to be a FlashPix file
 
-        assert self.fp is not None
         try:
             self.ole = olefile.OleFileIO(self.fp)
         except OSError as e:
             msg = "not an FPX file; invalid OLE file"
             raise SyntaxError(msg) from e
 
-        root = self.ole.root
-        if not root or root.clsid != "56616700-C154-11CE-8553-00AA00A1F95B":
+        if self.ole.root.clsid != "56616700-C154-11CE-8553-00AA00A1F95B":
             msg = "not an FPX file; bad root CLSID"
             raise SyntaxError(msg)
 
         self._open_index(1)
 
-    def _open_index(self, index: int = 1) -> None:
+    def _open_index(self, index=1):
         #
         # get the Image Contents Property Set
 
@@ -82,14 +78,12 @@ class FpxImageFile(ImageFile.ImageFile):
 
         # size (highest resolution)
 
-        assert isinstance(prop[0x1000002], int)
-        assert isinstance(prop[0x1000003], int)
         self._size = prop[0x1000002], prop[0x1000003]
 
         size = max(self.size)
         i = 1
         while size > 64:
-            size = size // 2
+            size = size / 2
             i += 1
         self.maxid = i - 1
 
@@ -103,14 +97,16 @@ class FpxImageFile(ImageFile.ImageFile):
 
         s = prop[0x2000002 | id]
 
-        if not isinstance(s, bytes) or (bands := i32(s, 4)) > 4:
+        colors = []
+        bands = i32(s, 4)
+        if bands > 4:
             msg = "Invalid number of bands"
             raise OSError(msg)
+        for i in range(bands):
+            # note: for now, we ignore the "uncalibrated" flag
+            colors.append(i32(s, 8 + i * 4) & 0x7FFFFFFF)
 
-        # note: for now, we ignore the "uncalibrated" flag
-        colors = tuple(i32(s, 8 + i * 4) & 0x7FFFFFFF for i in range(bands))
-
-        self._mode, self.rawmode = MODES[colors]
+        self.mode, self.rawmode = MODES[tuple(colors)]
 
         # load JPEG tables, if any
         self.jpeg = {}
@@ -121,7 +117,7 @@ class FpxImageFile(ImageFile.ImageFile):
 
         self._open_subimage(1, self.maxid)
 
-    def _open_subimage(self, index: int = 1, subimage: int = 0) -> None:
+    def _open_subimage(self, index=1, subimage=0):
         #
         # setup tile descriptors for a given subimage
 
@@ -167,18 +163,18 @@ class FpxImageFile(ImageFile.ImageFile):
 
             if compression == 0:
                 self.tile.append(
-                    ImageFile._Tile(
+                    (
                         "raw",
                         (x, y, x1, y1),
                         i32(s, i) + 28,
-                        self.rawmode,
+                        (self.rawmode,),
                     )
                 )
 
             elif compression == 1:
                 # FIXME: the fill decoder is not implemented
                 self.tile.append(
-                    ImageFile._Tile(
+                    (
                         "fill",
                         (x, y, x1, y1),
                         i32(s, i) + 28,
@@ -206,7 +202,7 @@ class FpxImageFile(ImageFile.ImageFile):
                     jpegmode = rawmode
 
                 self.tile.append(
-                    ImageFile._Tile(
+                    (
                         "jpeg",
                         (x, y, x1, y1),
                         i32(s, i) + 28,
@@ -230,22 +226,20 @@ class FpxImageFile(ImageFile.ImageFile):
                 if y >= ysize:
                     break  # isn't really required
 
-        assert self.fp is not None
         self.stream = stream
-        self._fp = self.fp
         self.fp = None
 
-    def load(self) -> Image.core.PixelAccess | None:
+    def load(self):
         if not self.fp:
             self.fp = self.ole.openstream(self.stream[:2] + ["Subimage 0000 Data"])
 
         return ImageFile.ImageFile.load(self)
 
-    def close(self) -> None:
+    def close(self):
         self.ole.close()
         super().close()
 
-    def __exit__(self, *args: object) -> None:
+    def __exit__(self, *args):
         self.ole.close()
         super().__exit__()
 

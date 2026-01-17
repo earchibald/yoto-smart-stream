@@ -1,11 +1,12 @@
 # sql/default_comparator.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
 
-"""Default implementation of SQL comparison operations."""
+"""Default implementation of SQL comparison operations.
+"""
 
 from __future__ import annotations
 
@@ -55,6 +56,7 @@ def _boolean_compare(
     negate_op: Optional[OperatorType] = None,
     reverse: bool = False,
     _python_is_types: Tuple[Type[Any], ...] = (type(None), bool),
+    _any_all_expr: bool = False,
     result_type: Optional[TypeEngine[bool]] = None,
     **kwargs: Any,
 ) -> OperatorExpression[bool]:
@@ -88,7 +90,7 @@ def _boolean_compare(
                 negate=negate_op,
                 modifiers=kwargs,
             )
-        elif expr._is_collection_aggregate:
+        elif _any_all_expr:
             obj = coercions.expect(
                 roles.ConstExprRole, element=obj, operator=op, expr=expr
             )
@@ -169,6 +171,7 @@ def _binary_operate(
     result_type: Optional[TypeEngine[_T]] = None,
     **kw: Any,
 ) -> OperatorExpression[_T]:
+
     coerced_obj = coercions.expect(
         roles.BinaryElementRole, obj, expr=expr, operator=op
     )
@@ -246,7 +249,7 @@ def _unsupported_impl(
     expr: ColumnElement[Any], op: OperatorType, *arg: Any, **kw: Any
 ) -> NoReturn:
     raise NotImplementedError(
-        "Operator '%s' is not supported on this expression" % op.__name__
+        "Operator '%s' is not supported on " "this expression" % op.__name__
     )
 
 
@@ -270,16 +273,6 @@ def _neg_impl(
     return UnaryExpression(expr, operator=operators.neg, type_=expr.type)
 
 
-def _bitwise_not_impl(
-    expr: ColumnElement[Any], op: OperatorType, **kw: Any
-) -> ColumnElement[Any]:
-    """See :meth:`.ColumnOperators.bitwise_not`."""
-
-    return UnaryExpression(
-        expr, operator=operators.bitwise_not_op, type_=expr.type
-    )
-
-
 def _match_impl(
     expr: ColumnElement[Any], op: OperatorType, other: Any, **kw: Any
 ) -> ColumnElement[Any]:
@@ -295,11 +288,9 @@ def _match_impl(
             operator=operators.match_op,
         ),
         result_type=type_api.MATCHTYPE,
-        negate_op=(
-            operators.not_match_op
-            if op is operators.match_op
-            else operators.match_op
-        ),
+        negate_op=operators.not_match_op
+        if op is operators.match_op
+        else operators.match_op,
         **kw,
     )
 
@@ -341,11 +332,9 @@ def _between_impl(
             group=False,
         ),
         op,
-        negate=(
-            operators.not_between_op
-            if op is operators.between_op
-            else operators.between_op
-        ),
+        negate=operators.not_between_op
+        if op is operators.between_op
+        else operators.between_op,
         modifiers=kw,
     )
 
@@ -363,17 +352,24 @@ def _regexp_match_impl(
     flags: Optional[str],
     **kw: Any,
 ) -> ColumnElement[Any]:
-    return BinaryExpression(
-        expr,
-        coercions.expect(
+    if flags is not None:
+        flags_expr = coercions.expect(
             roles.BinaryElementRole,
-            pattern,
+            flags,
             expr=expr,
-            operator=operators.comma_op,
-        ),
+            operator=operators.regexp_replace_op,
+        )
+    else:
+        flags_expr = None
+    return _boolean_compare(
+        expr,
         op,
-        negate=operators.not_regexp_match_op,
-        modifiers={"flags": flags},
+        pattern,
+        flags=flags_expr,
+        negate_op=operators.not_regexp_match_op
+        if op is operators.regexp_match_op
+        else operators.regexp_match_op,
+        **kw,
     )
 
 
@@ -385,27 +381,23 @@ def _regexp_replace_impl(
     flags: Optional[str],
     **kw: Any,
 ) -> ColumnElement[Any]:
-    return BinaryExpression(
-        expr,
-        ExpressionClauseList._construct_for_list(
-            operators.comma_op,
-            type_api.NULLTYPE,
-            coercions.expect(
-                roles.BinaryElementRole,
-                pattern,
-                expr=expr,
-                operator=operators.comma_op,
-            ),
-            coercions.expect(
-                roles.BinaryElementRole,
-                replacement,
-                expr=expr,
-                operator=operators.comma_op,
-            ),
-            group=False,
-        ),
-        op,
-        modifiers={"flags": flags},
+    replacement = coercions.expect(
+        roles.BinaryElementRole,
+        replacement,
+        expr=expr,
+        operator=operators.regexp_replace_op,
+    )
+    if flags is not None:
+        flags_expr = coercions.expect(
+            roles.BinaryElementRole,
+            flags,
+            expr=expr,
+            operator=operators.regexp_replace_op,
+        )
+    else:
+        flags_expr = None
+    return _binary_operate(
+        expr, op, pattern, replacement=replacement, flags=flags_expr, **kw
     )
 
 
@@ -428,12 +420,6 @@ operator_lookup: Dict[
     "sub": (_binary_operate, util.EMPTY_DICT),
     "div": (_binary_operate, util.EMPTY_DICT),
     "mod": (_binary_operate, util.EMPTY_DICT),
-    "bitwise_xor_op": (_binary_operate, util.EMPTY_DICT),
-    "bitwise_or_op": (_binary_operate, util.EMPTY_DICT),
-    "bitwise_and_op": (_binary_operate, util.EMPTY_DICT),
-    "bitwise_not_op": (_bitwise_not_impl, util.EMPTY_DICT),
-    "bitwise_lshift_op": (_binary_operate, util.EMPTY_DICT),
-    "bitwise_rshift_op": (_binary_operate, util.EMPTY_DICT),
     "truediv": (_binary_operate, util.EMPTY_DICT),
     "floordiv": (_binary_operate, util.EMPTY_DICT),
     "custom_op": (_custom_op_operate, util.EMPTY_DICT),

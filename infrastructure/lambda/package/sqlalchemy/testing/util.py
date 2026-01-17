@@ -1,5 +1,5 @@
 # testing/util.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -10,18 +10,13 @@
 from __future__ import annotations
 
 from collections import deque
-from collections import namedtuple
-import contextlib
 import decimal
 import gc
 from itertools import chain
-import pickle
 import random
 import sys
 from sys import getsizeof
-import time
 import types
-from typing import Any
 
 from . import config
 from . import mock
@@ -57,10 +52,15 @@ else:
 
 
 def picklers():
-    nt = namedtuple("picklers", ["loads", "dumps"])
+    picklers = set()
+    import pickle
 
-    for protocol in range(-2, pickle.HIGHEST_PROTOCOL + 1):
-        yield nt(pickle.loads, lambda d: pickle.dumps(d, protocol))
+    picklers.add(pickle)
+
+    # yes, this thing needs this much testing
+    for pickle_ in picklers:
+        for protocol in range(-2, pickle.HIGHEST_PROTOCOL):
+            yield pickle_.loads, lambda d: pickle_.dumps(d, protocol)
 
 
 def random_choices(population, k=1):
@@ -122,6 +122,7 @@ def all_partial_orderings(tuples, elements):
         edges[child].add(parent)
 
     def _all_orderings(elements):
+
         if len(elements) == 1:
             yield list(elements)
         else:
@@ -216,21 +217,22 @@ def provide_metadata(fn, *args, **kw):
         # we have to hardcode some of that cleanup ahead of time.
 
         # close ORM sessions
-        fixtures.close_all_sessions()
+        fixtures._close_all_sessions()
 
         # integrate with the "connection" fixture as there are many
         # tests where it is used along with provide_metadata
-        cfc = fixtures.base._connection_fixture_connection
-        if cfc:
+        if fixtures._connection_fixture_connection:
             # TODO: this warning can be used to find all the places
             # this is used with connection fixture
             # warn("mixing legacy provide metadata with connection fixture")
-            drop_all_tables_from_metadata(metadata, cfc)
+            drop_all_tables_from_metadata(
+                metadata, fixtures._connection_fixture_connection
+            )
             # as the provide_metadata fixture is often used with "testing.db",
             # when we do the drop we have to commit the transaction so that
             # the DB is actually updated as the CREATE would have been
             # committed
-            cfc.get_transaction().commit()
+            fixtures._connection_fixture_connection.get_transaction().commit()
         else:
             drop_all_tables_from_metadata(metadata, config.db)
         self.metadata = prev_meta
@@ -251,19 +253,18 @@ def flag_combinations(*combinations):
             dict(lazy=False, passive=True),
             dict(lazy=False, passive=True, raiseload=True),
         )
-        def test_fn(lazy, passive, raiseload): ...
+
 
     would result in::
 
         @testing.combinations(
-            ("", False, False, False),
-            ("lazy", True, False, False),
-            ("lazy_passive", True, True, False),
-            ("lazy_passive", True, True, True),
-            id_="iaaa",
-            argnames="lazy,passive,raiseload",
+            ('', False, False, False),
+            ('lazy', True, False, False),
+            ('lazy_passive', True, True, False),
+            ('lazy_passive', True, True, True),
+            id_='iaaa',
+            argnames='lazy,passive,raiseload'
         )
-        def test_fn(lazy, passive, raiseload): ...
 
     """
 
@@ -324,6 +325,7 @@ def metadata_fixture(ddl="function"):
 
     def decorate(fn):
         def run_ddl(self):
+
             metadata = self.metadata = schema.MetaData()
             try:
                 result = fn(self, metadata)
@@ -347,6 +349,7 @@ def force_drop_names(*names):
 
     @decorator
     def go(fn, *args, **kw):
+
         try:
             return fn(*args, **kw)
         finally:
@@ -400,6 +403,7 @@ def drop_all_tables(
     consider_schemas=(None,),
     include_names=None,
 ):
+
     if include_names is not None:
         include_names = set(include_names)
 
@@ -518,18 +522,3 @@ def count_cache_key_tuples(tup):
             if elem:
                 stack = list(elem) + [sentinel] + stack
     return num_elements
-
-
-@contextlib.contextmanager
-def skip_if_timeout(seconds: float, cleanup: Any = None):
-
-    now = time.time()
-    yield
-    sec = time.time() - now
-    if sec > seconds:
-        try:
-            cleanup()
-        finally:
-            config.skip_test(
-                f"test took too long ({sec:.4f} seconds > {seconds})"
-            )

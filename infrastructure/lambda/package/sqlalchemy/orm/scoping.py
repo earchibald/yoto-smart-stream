@@ -1,5 +1,5 @@
 # orm/scoping.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
     from ..engine import RowMapping
     from ..engine.interfaces import _CoreAnyExecuteParams
     from ..engine.interfaces import _CoreSingleExecuteParams
-    from ..engine.interfaces import CoreExecuteOptionsParameter
+    from ..engine.interfaces import _ExecuteOptions
     from ..engine.result import ScalarResult
     from ..sql._typing import _ColumnsClauseArgument
     from ..sql._typing import _T0
@@ -70,21 +70,15 @@ if TYPE_CHECKING:
     from ..sql.base import Executable
     from ..sql.elements import ClauseElement
     from ..sql.roles import TypedColumnsClauseRole
-    from ..sql.selectable import ForUpdateParameter
+    from ..sql.selectable import ForUpdateArg
     from ..sql.selectable import TypedReturnsRows
 
 _T = TypeVar("_T", bound=Any)
 
 
-class QueryPropertyDescriptor(Protocol):
-    """Describes the type applied to a class-level
-    :meth:`_orm.scoped_session.query_property` attribute.
-
-    .. versionadded:: 2.0.5
-
-    """
-
-    def __get__(self, instance: Any, owner: Type[_T]) -> Query[_T]: ...
+class _QueryDescriptorType(Protocol):
+    def __get__(self, instance: Any, owner: Type[_T]) -> Query[_T]:
+        ...
 
 
 _O = TypeVar("_O", bound=object)
@@ -105,7 +99,6 @@ __all__ = ["scoped_session"]
         "begin",
         "begin_nested",
         "close",
-        "reset",
         "commit",
         "connection",
         "delete",
@@ -116,7 +109,6 @@ __all__ = ["scoped_session"]
         "expunge_all",
         "flush",
         "get",
-        "get_one",
         "get_bind",
         "is_modified",
         "bulk_save_objects",
@@ -168,6 +160,7 @@ class scoped_session(Generic[_S]):
         session_factory: sessionmaker[_S],
         scopefunc: Optional[Callable[[], Any]] = None,
     ):
+
         """Construct a new :class:`.scoped_session`.
 
         :param session_factory: a factory to create new :class:`.Session`
@@ -261,30 +254,20 @@ class scoped_session(Generic[_S]):
 
     def query_property(
         self, query_cls: Optional[Type[Query[_T]]] = None
-    ) -> QueryPropertyDescriptor:
-        """return a class property which produces a legacy
-        :class:`_query.Query` object against the class and the current
-        :class:`.Session` when called.
-
-        .. legacy:: The :meth:`_orm.scoped_session.query_property` accessor
-           is specific to the legacy :class:`.Query` object and is not
-           considered to be part of :term:`2.0-style` ORM use.
+    ) -> _QueryDescriptorType:
+        """return a class property which produces a :class:`_query.Query`
+        object
+        against the class and the current :class:`.Session` when called.
 
         e.g.::
 
-            from sqlalchemy.orm import QueryPropertyDescriptor
-            from sqlalchemy.orm import scoped_session
-            from sqlalchemy.orm import sessionmaker
-
             Session = scoped_session(sessionmaker())
 
-
             class MyClass:
-                query: QueryPropertyDescriptor = Session.query_property()
-
+                query = Session.query_property()
 
             # after mappers are defined
-            result = MyClass.query.filter(MyClass.name == "foo").all()
+            result = MyClass.query.filter(MyClass.name=='foo').all()
 
         Produces instances of the session's configured query class by
         default.  To override and use a custom implementation, provide
@@ -467,8 +450,7 @@ class scoped_session(Generic[_S]):
 
             :ref:`pysqlite_serializable` - special workarounds required
             with the SQLite driver in order for SAVEPOINT to work
-            correctly. For asyncio use cases, see the section
-            :ref:`aiosqlite_serializable`.
+            correctly.
 
 
         """  # noqa: E501
@@ -493,16 +475,11 @@ class scoped_session(Generic[_S]):
 
         .. tip::
 
-            In the default running mode the :meth:`_orm.Session.close`
-            method **does not prevent the Session from being used again**.
-            The :class:`_orm.Session` itself does not actually have a
-            distinct "closed" state; it merely means
+            The :meth:`_orm.Session.close` method **does not prevent the
+            Session from being used again**.   The :class:`_orm.Session` itself
+            does not actually have a distinct "closed" state; it merely means
             the :class:`_orm.Session` will release all database connections
             and ORM objects.
-
-            Setting the parameter :paramref:`_orm.Session.close_resets_only`
-            to ``False`` will instead make the ``close`` final, meaning that
-            any further action on the session will be forbidden.
 
         .. versionchanged:: 1.4  The :meth:`.Session.close` method does not
            immediately create a new :class:`.SessionTransaction` object;
@@ -512,48 +489,12 @@ class scoped_session(Generic[_S]):
         .. seealso::
 
             :ref:`session_closing` - detail on the semantics of
-            :meth:`_orm.Session.close` and :meth:`_orm.Session.reset`.
-
-            :meth:`_orm.Session.reset` - a similar method that behaves like
-            ``close()`` with  the parameter
-            :paramref:`_orm.Session.close_resets_only` set to ``True``.
+            :meth:`_orm.Session.close`
 
 
         """  # noqa: E501
 
         return self._proxied.close()
-
-    def reset(self) -> None:
-        r"""Close out the transactional resources and ORM objects used by this
-        :class:`_orm.Session`, resetting the session to its initial state.
-
-        .. container:: class_bases
-
-            Proxied for the :class:`_orm.Session` class on
-            behalf of the :class:`_orm.scoping.scoped_session` class.
-
-        This method provides for same "reset-only" behavior that the
-        :meth:`_orm.Session.close` method has provided historically, where the
-        state of the :class:`_orm.Session` is reset as though the object were
-        brand new, and ready to be used again.
-        This method may then be useful for :class:`_orm.Session` objects
-        which set :paramref:`_orm.Session.close_resets_only` to ``False``,
-        so that "reset only" behavior is still available.
-
-        .. versionadded:: 2.0.22
-
-        .. seealso::
-
-            :ref:`session_closing` - detail on the semantics of
-            :meth:`_orm.Session.close` and :meth:`_orm.Session.reset`.
-
-            :meth:`_orm.Session.close` - a similar method will additionally
-            prevent re-use of the Session when the parameter
-            :paramref:`_orm.Session.close_resets_only` is set to ``False``.
-
-        """  # noqa: E501
-
-        return self._proxied.reset()
 
     def commit(self) -> None:
         r"""Flush pending changes and commit the current transaction.
@@ -599,7 +540,7 @@ class scoped_session(Generic[_S]):
     def connection(
         self,
         bind_arguments: Optional[_BindArguments] = None,
-        execution_options: Optional[CoreExecuteOptionsParameter] = None,
+        execution_options: Optional[_ExecuteOptions] = None,
     ) -> Connection:
         r"""Return a :class:`_engine.Connection` object corresponding to this
         :class:`.Session` object's transactional state.
@@ -681,7 +622,8 @@ class scoped_session(Generic[_S]):
         bind_arguments: Optional[_BindArguments] = None,
         _parent_execute_state: Optional[Any] = None,
         _add_event: Optional[Any] = None,
-    ) -> Result[_T]: ...
+    ) -> Result[_T]:
+        ...
 
     @overload
     def execute(
@@ -693,7 +635,8 @@ class scoped_session(Generic[_S]):
         bind_arguments: Optional[_BindArguments] = None,
         _parent_execute_state: Optional[Any] = None,
         _add_event: Optional[Any] = None,
-    ) -> Result[Any]: ...
+    ) -> Result[Any]:
+        ...
 
     def execute(
         self,
@@ -718,8 +661,9 @@ class scoped_session(Generic[_S]):
         E.g.::
 
             from sqlalchemy import select
-
-            result = session.execute(select(User).where(User.id == 5))
+            result = session.execute(
+                select(User).where(User.id == 5)
+            )
 
         The API contract of :meth:`_orm.Session.execute` is similar to that
         of :meth:`_engine.Connection.execute`, the :term:`2.0 style` version
@@ -930,7 +874,7 @@ class scoped_session(Generic[_S]):
         *,
         options: Optional[Sequence[ORMOption]] = None,
         populate_existing: bool = False,
-        with_for_update: ForUpdateParameter = None,
+        with_for_update: Optional[ForUpdateArg] = None,
         identity_token: Optional[Any] = None,
         execution_options: OrmExecuteOptionsParameter = util.EMPTY_DICT,
         bind_arguments: Optional[_BindArguments] = None,
@@ -949,7 +893,10 @@ class scoped_session(Generic[_S]):
 
             some_object = session.get(VersionedFoo, (5, 10))
 
-            some_object = session.get(VersionedFoo, {"id": 5, "version_id": 10})
+            some_object = session.get(
+                VersionedFoo,
+                {"id": 5, "version_id": 10}
+            )
 
         .. versionadded:: 1.4 Added :meth:`_orm.Session.get`, which is moved
            from the now legacy :meth:`_orm.Query.get` method.
@@ -1042,55 +989,6 @@ class scoped_session(Generic[_S]):
         """  # noqa: E501
 
         return self._proxied.get(
-            entity,
-            ident,
-            options=options,
-            populate_existing=populate_existing,
-            with_for_update=with_for_update,
-            identity_token=identity_token,
-            execution_options=execution_options,
-            bind_arguments=bind_arguments,
-        )
-
-    def get_one(
-        self,
-        entity: _EntityBindKey[_O],
-        ident: _PKIdentityArgument,
-        *,
-        options: Optional[Sequence[ORMOption]] = None,
-        populate_existing: bool = False,
-        with_for_update: ForUpdateParameter = None,
-        identity_token: Optional[Any] = None,
-        execution_options: OrmExecuteOptionsParameter = util.EMPTY_DICT,
-        bind_arguments: Optional[_BindArguments] = None,
-    ) -> _O:
-        r"""Return exactly one instance based on the given primary key
-        identifier, or raise an exception if not found.
-
-        .. container:: class_bases
-
-            Proxied for the :class:`_orm.Session` class on
-            behalf of the :class:`_orm.scoping.scoped_session` class.
-
-        Raises :class:`_exc.NoResultFound` if the query selects no rows.
-
-        For a detailed documentation of the arguments see the
-        method :meth:`.Session.get`.
-
-        .. versionadded:: 2.0.22
-
-        :return: The object instance.
-
-        .. seealso::
-
-            :meth:`.Session.get` - equivalent method that instead
-              returns ``None`` if no row was found with the provided primary
-              key
-
-
-        """  # noqa: E501
-
-        return self._proxied.get_one(
             entity,
             ident,
             options=options,
@@ -1211,7 +1109,7 @@ class scoped_session(Generic[_S]):
 
         This method retrieves the history for each instrumented
         attribute on the instance and performs a comparison of the current
-        value to its previously flushed or committed value, if any.
+        value to its previously committed value, if any.
 
         It is in effect a more expensive and accurate
         version of checking for the given instance in the
@@ -1512,6 +1410,10 @@ class scoped_session(Generic[_S]):
 
         See :ref:`unitofwork_merging` for a detailed discussion of merging.
 
+        .. versionchanged:: 1.1 - :meth:`.Session.merge` will now reconcile
+           pending objects with overlapping primary keys in the same way
+           as persistent.  See :ref:`change_3601` for discussion.
+
         :param instance: Instance to be merged.
         :param load: Boolean, when False, :meth:`.merge` switches into
          a "high performance" mode which causes it to forego emitting history
@@ -1553,12 +1455,14 @@ class scoped_session(Generic[_S]):
         return self._proxied.merge(instance, load=load, options=options)
 
     @overload
-    def query(self, _entity: _EntityType[_O]) -> Query[_O]: ...
+    def query(self, _entity: _EntityType[_O]) -> Query[_O]:
+        ...
 
     @overload
     def query(
         self, _colexpr: TypedColumnsClauseRole[_T]
-    ) -> RowReturningQuery[Tuple[_T]]: ...
+    ) -> RowReturningQuery[Tuple[_T]]:
+        ...
 
     # START OVERLOADED FUNCTIONS self.query RowReturningQuery 2-8
 
@@ -1568,12 +1472,14 @@ class scoped_session(Generic[_S]):
     @overload
     def query(
         self, __ent0: _TCCA[_T0], __ent1: _TCCA[_T1]
-    ) -> RowReturningQuery[Tuple[_T0, _T1]]: ...
+    ) -> RowReturningQuery[Tuple[_T0, _T1]]:
+        ...
 
     @overload
     def query(
         self, __ent0: _TCCA[_T0], __ent1: _TCCA[_T1], __ent2: _TCCA[_T2]
-    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2]]: ...
+    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2]]:
+        ...
 
     @overload
     def query(
@@ -1582,7 +1488,8 @@ class scoped_session(Generic[_S]):
         __ent1: _TCCA[_T1],
         __ent2: _TCCA[_T2],
         __ent3: _TCCA[_T3],
-    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3]]: ...
+    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3]]:
+        ...
 
     @overload
     def query(
@@ -1592,7 +1499,8 @@ class scoped_session(Generic[_S]):
         __ent2: _TCCA[_T2],
         __ent3: _TCCA[_T3],
         __ent4: _TCCA[_T4],
-    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3, _T4]]: ...
+    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3, _T4]]:
+        ...
 
     @overload
     def query(
@@ -1603,7 +1511,8 @@ class scoped_session(Generic[_S]):
         __ent3: _TCCA[_T3],
         __ent4: _TCCA[_T4],
         __ent5: _TCCA[_T5],
-    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3, _T4, _T5]]: ...
+    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3, _T4, _T5]]:
+        ...
 
     @overload
     def query(
@@ -1615,7 +1524,8 @@ class scoped_session(Generic[_S]):
         __ent4: _TCCA[_T4],
         __ent5: _TCCA[_T5],
         __ent6: _TCCA[_T6],
-    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3, _T4, _T5, _T6]]: ...
+    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3, _T4, _T5, _T6]]:
+        ...
 
     @overload
     def query(
@@ -1628,14 +1538,16 @@ class scoped_session(Generic[_S]):
         __ent5: _TCCA[_T5],
         __ent6: _TCCA[_T6],
         __ent7: _TCCA[_T7],
-    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3, _T4, _T5, _T6, _T7]]: ...
+    ) -> RowReturningQuery[Tuple[_T0, _T1, _T2, _T3, _T4, _T5, _T6, _T7]]:
+        ...
 
     # END OVERLOADED FUNCTIONS self.query
 
     @overload
     def query(
         self, *entities: _ColumnsClauseArgument[Any], **kwargs: Any
-    ) -> Query[Any]: ...
+    ) -> Query[Any]:
+        ...
 
     def query(
         self, *entities: _ColumnsClauseArgument[Any], **kwargs: Any
@@ -1669,7 +1581,7 @@ class scoped_session(Generic[_S]):
         self,
         instance: object,
         attribute_names: Optional[Iterable[str]] = None,
-        with_for_update: ForUpdateParameter = None,
+        with_for_update: Optional[ForUpdateArg] = None,
     ) -> None:
         r"""Expire and refresh attributes on the given instance.
 
@@ -1686,23 +1598,11 @@ class scoped_session(Generic[_S]):
         :func:`_orm.relationship` oriented attributes will also be immediately
         loaded if they were already eagerly loaded on the object, using the
         same eager loading strategy that they were loaded with originally.
+        Unloaded relationship attributes will remain unloaded, as will
+        relationship attributes that were originally lazy loaded.
 
         .. versionadded:: 1.4 - the :meth:`_orm.Session.refresh` method
            can also refresh eagerly loaded attributes.
-
-        :func:`_orm.relationship` oriented attributes that would normally
-        load using the ``select`` (or "lazy") loader strategy will also
-        load **if they are named explicitly in the attribute_names
-        collection**, emitting a SELECT statement for the attribute using the
-        ``immediate`` loader strategy.  If lazy-loaded relationships are not
-        named in :paramref:`_orm.Session.refresh.attribute_names`, then
-        they remain as "lazy loaded" attributes and are not implicitly
-        refreshed.
-
-        .. versionchanged:: 2.0.4  The :meth:`_orm.Session.refresh` method
-           will now refresh lazy-loaded :func:`_orm.relationship` oriented
-           attributes for those which are named explicitly in the
-           :paramref:`_orm.Session.refresh.attribute_names` collection.
 
         .. tip::
 
@@ -1787,7 +1687,8 @@ class scoped_session(Generic[_S]):
         execution_options: OrmExecuteOptionsParameter = util.EMPTY_DICT,
         bind_arguments: Optional[_BindArguments] = None,
         **kw: Any,
-    ) -> Optional[_T]: ...
+    ) -> Optional[_T]:
+        ...
 
     @overload
     def scalar(
@@ -1798,7 +1699,8 @@ class scoped_session(Generic[_S]):
         execution_options: OrmExecuteOptionsParameter = util.EMPTY_DICT,
         bind_arguments: Optional[_BindArguments] = None,
         **kw: Any,
-    ) -> Any: ...
+    ) -> Any:
+        ...
 
     def scalar(
         self,
@@ -1840,7 +1742,8 @@ class scoped_session(Generic[_S]):
         execution_options: OrmExecuteOptionsParameter = util.EMPTY_DICT,
         bind_arguments: Optional[_BindArguments] = None,
         **kw: Any,
-    ) -> ScalarResult[_T]: ...
+    ) -> ScalarResult[_T]:
+        ...
 
     @overload
     def scalars(
@@ -1851,7 +1754,8 @@ class scoped_session(Generic[_S]):
         execution_options: OrmExecuteOptionsParameter = util.EMPTY_DICT,
         bind_arguments: Optional[_BindArguments] = None,
         **kw: Any,
-    ) -> ScalarResult[Any]: ...
+    ) -> ScalarResult[Any]:
+        ...
 
     def scalars(
         self,
@@ -1876,9 +1780,7 @@ class scoped_session(Generic[_S]):
 
         :return:  a :class:`_result.ScalarResult` object
 
-        .. versionadded:: 1.4.24 Added :meth:`_orm.Session.scalars`
-
-        .. versionadded:: 1.4.26 Added :meth:`_orm.scoped_session.scalars`
+        .. versionadded:: 1.4.24
 
         .. seealso::
 

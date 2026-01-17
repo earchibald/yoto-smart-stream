@@ -1,10 +1,6 @@
 import binascii
 import json
-
-try:
-    from collections.abc import Iterable, Mapping
-except ImportError:
-    from collections import Mapping, Iterable
+from collections.abc import Iterable, Mapping
 
 from jose import jwk
 from jose.backends.base import Key
@@ -219,6 +215,7 @@ def _sig_matches_keys(keys, signing_input, signature, alg):
 
 
 def _get_keys(key):
+
     if isinstance(key, Key):
         return (key,)
 
@@ -251,6 +248,7 @@ def _get_keys(key):
 
 
 def _verify_signature(signing_input, header, signature, key="", algorithms=None):
+
     alg = header.get("alg")
     if not alg:
         raise JWSError("No algorithm was specified in the JWS header.")

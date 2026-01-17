@@ -1,5 +1,5 @@
-# dialects/mysql/reserved_words.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# mysql/reserved_words.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -11,6 +11,7 @@
 # https://mariadb.com/kb/en/reserved-words/
 # includes: Reserved Words, Oracle Mode (separate set unioned)
 # excludes: Exceptions, Function Names
+# mypy: ignore-errors
 
 RESERVED_WORDS_MARIADB = {
     "accessible",
@@ -200,7 +201,6 @@ RESERVED_WORDS_MARIADB = {
     "right",
     "rlike",
     "rows",
-    "row_number",
     "schema",
     "schemas",
     "second_microsecond",
@@ -281,7 +281,6 @@ RESERVED_WORDS_MARIADB = {
     }
 )
 
-# https://dev.mysql.com/doc/refman/8.3/en/keywords.html
 # https://dev.mysql.com/doc/refman/8.0/en/keywords.html
 # https://dev.mysql.com/doc/refman/5.7/en/keywords.html
 # https://dev.mysql.com/doc/refman/5.6/en/keywords.html
@@ -403,7 +402,6 @@ RESERVED_WORDS_MYSQL = {
     "int4",
     "int8",
     "integer",
-    "intersect",
     "interval",
     "into",
     "io_after_gtids",
@@ -469,7 +467,6 @@ RESERVED_WORDS_MYSQL = {
     "outfile",
     "over",
     "parse_gcol_expr",
-    "parallel",
     "partition",
     "percent_rank",
     "persist",
@@ -478,7 +475,6 @@ RESERVED_WORDS_MYSQL = {
     "primary",
     "procedure",
     "purge",
-    "qualify",
     "range",
     "rank",
     "read",

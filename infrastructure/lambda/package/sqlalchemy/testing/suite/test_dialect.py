@@ -1,9 +1,3 @@
-# testing/suite/test_dialect.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
-# <see AUTHORS file>
-#
-# This module is part of SQLAlchemy and is released under
-# the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: ignore-errors
 
 
@@ -17,7 +11,6 @@ from .. import eq_
 from .. import fixtures
 from .. import is_not_none
 from .. import is_true
-from .. import mock
 from .. import ne_
 from .. import provide_metadata
 from ..assertions import expect_raises
@@ -116,7 +109,9 @@ class ExceptionTest(fixtures.TablesTest):
 
     @requirements.duplicate_key_raises_integrity_error
     def test_integrity_error(self):
+
         with config.db.connect() as conn:
+
             trans = conn.begin()
             conn.execute(
                 self.tables.manual_pk.insert(), {"id": 1, "data": "d1"}
@@ -254,30 +249,9 @@ class IsolationLevelTest(fixtures.TestBase):
         ):
             eng.connect()
 
-    @testing.requires.independent_readonly_connections
-    def test_dialect_user_setting_is_restored(self, testing_engine):
-        levels = requirements.get_isolation_levels(config)
-        default = levels["default"]
-        supported = (
-            sorted(
-                set(levels["supported"]).difference([default, "AUTOCOMMIT"])
-            )
-        )[0]
-
-        e = testing_engine(options={"isolation_level": supported})
-
-        with e.connect() as conn:
-            eq_(conn.get_isolation_level(), supported)
-
-        with e.connect() as conn:
-            conn.execution_options(isolation_level=default)
-            eq_(conn.get_isolation_level(), default)
-
-        with e.connect() as conn:
-            eq_(conn.get_isolation_level(), supported)
-
 
 class AutocommitIsolationTest(fixtures.TablesTest):
+
     run_deletes = "each"
 
     __requires__ = ("autocommit",)
@@ -294,11 +268,7 @@ class AutocommitIsolationTest(fixtures.TablesTest):
             test_needs_acid=True,
         )
 
-    def _test_conn_autocommits(self, conn, autocommit, ensure_table=False):
-        if ensure_table:
-            self.tables.some_table.create(conn, checkfirst=True)
-            conn.commit()
-
+    def _test_conn_autocommits(self, conn, autocommit):
         trans = conn.begin()
         conn.execute(
             self.tables.some_table.insert(), {"id": 1, "data": "some data"}
@@ -340,65 +310,6 @@ class AutocommitIsolationTest(fixtures.TablesTest):
             ]
         )
         self._test_conn_autocommits(conn, False)
-
-    @testing.requires.skip_autocommit_rollback
-    @testing.variation("autocommit_setting", ["false", "engine", "option"])
-    @testing.variation("block_rollback", [True, False])
-    def test_autocommit_block(
-        self, testing_engine, autocommit_setting, block_rollback
-    ):
-        kw = {}
-        if bool(block_rollback):
-            kw["skip_autocommit_rollback"] = True
-        if autocommit_setting.engine:
-            kw["isolation_level"] = "AUTOCOMMIT"
-
-        engine = testing_engine(options=kw)
-
-        conn = engine.connect()
-        if autocommit_setting.option:
-            conn.execution_options(isolation_level="AUTOCOMMIT")
-        self._test_conn_autocommits(
-            conn,
-            autocommit_setting.engine or autocommit_setting.option,
-            ensure_table=True,
-        )
-        with mock.patch.object(
-            conn.connection, "rollback", wraps=conn.connection.rollback
-        ) as check_rollback:
-            conn.close()
-        if autocommit_setting.false or not block_rollback:
-            eq_(check_rollback.mock_calls, [mock.call()])
-        else:
-            eq_(check_rollback.mock_calls, [])
-
-    @testing.requires.independent_readonly_connections
-    @testing.variation("use_dialect_setting", [True, False])
-    def test_dialect_autocommit_is_restored(
-        self, testing_engine, use_dialect_setting
-    ):
-        """test #10147"""
-
-        if use_dialect_setting:
-            e = testing_engine(options={"isolation_level": "AUTOCOMMIT"})
-        else:
-            e = testing_engine().execution_options(
-                isolation_level="AUTOCOMMIT"
-            )
-
-        levels = requirements.get_isolation_levels(config)
-
-        default = levels["default"]
-
-        with e.connect() as conn:
-            self._test_conn_autocommits(conn, True)
-
-        with e.connect() as conn:
-            conn.execution_options(isolation_level=default)
-            self._test_conn_autocommits(conn, False)
-
-        with e.connect() as conn:
-            self._test_conn_autocommits(conn, True)
 
 
 class EscapingTest(fixtures.TestBase):
@@ -573,7 +484,7 @@ class DifficultParametersTest(fixtures.TestBase):
             t.c[name].in_(["some name", "some other_name"])
         )
 
-        connection.execute(stmt).first()
+        row = connection.execute(stmt).first()
 
     @testing.fixture
     def multirow_fixture(self, metadata, connection):
@@ -631,6 +542,7 @@ class ReturningGuardsTest(fixtures.TablesTest):
 
     @classmethod
     def define_tables(cls, metadata):
+
         Table(
             "t",
             metadata,
@@ -657,7 +569,7 @@ class ReturningGuardsTest(fixtures.TablesTest):
                         f"current server capabilities does not support "
                         f".*RETURNING when executemany is used",
                     ):
-                        connection.execute(
+                        result = connection.execute(
                             stmt,
                             [
                                 {id_param_name: 1, "data": "d1"},

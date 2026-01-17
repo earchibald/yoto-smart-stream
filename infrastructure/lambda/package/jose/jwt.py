@@ -1,18 +1,7 @@
 import json
 from calendar import timegm
+from collections.abc import Mapping
 from datetime import datetime, timedelta
-
-try:
-    from collections.abc import Mapping
-except ImportError:
-    from collections import Mapping
-
-try:
-    from datetime import UTC  # Preferred in Python 3.13+
-except ImportError:
-    from datetime import timezone
-
-    UTC = timezone.utc  # Preferred in Python 3.12 and below
 
 from jose import jws
 
@@ -53,6 +42,7 @@ def encode(claims, key, algorithm=ALGORITHMS.HS256, headers=None, access_token=N
     """
 
     for time_claim in ["exp", "iat", "nbf"]:
+
         # Convert datetime to a intDate value in known time-format claims
         if isinstance(claims.get(time_claim), datetime):
             claims[time_claim] = timegm(claims[time_claim].utctimetuple())
@@ -68,15 +58,8 @@ def decode(token, key, algorithms=None, options=None, audience=None, issuer=None
 
     Args:
         token (str): A signed JWS to be verified.
-        key (str or iterable): A key to attempt to verify the payload with.
-            This can be simple string with an individual key (e.g. "a1234"),
-            a tuple or list of keys (e.g. ("a1234...", "b3579"),
-            a JSON string, (e.g. '["a1234", "b3579"]'),
-            a dict with the 'keys' key that gives a tuple or list of keys (e.g {'keys': [...]} ) or
-            a dict or JSON string for a JWK set as defined by RFC 7517 (e.g.
-                {'keys': [{'kty': 'oct', 'k': 'YTEyMzQ'}, {'kty': 'oct', 'k':'YjM1Nzk'}]} or
-                '{"keys": [{"kty":"oct","k":"YTEyMzQ"},{"kty":"oct","k":"YjM1Nzk"}]}'
-            ) in which case the keys must be base64 url safe encoded (with optional padding).
+        key (str or dict): A key to attempt to verify the payload with. Can be
+            individual JWK or JWK set.
         algorithms (str or list): Valid algorithms that should be used to verify the JWS.
         audience (str): The intended audience of the token.  If the "aud" claim is
             included in the claim set, then the audience must be included and must equal
@@ -295,7 +278,7 @@ def _validate_nbf(claims, leeway=0):
     except ValueError:
         raise JWTClaimsError("Not Before claim (nbf) must be an integer.")
 
-    now = timegm(datetime.now(UTC).utctimetuple())
+    now = timegm(datetime.utcnow().utctimetuple())
 
     if nbf > (now + leeway):
         raise JWTClaimsError("The token is not yet valid (nbf)")
@@ -325,7 +308,7 @@ def _validate_exp(claims, leeway=0):
     except ValueError:
         raise JWTClaimsError("Expiration Time claim (exp) must be an integer.")
 
-    now = timegm(datetime.now(UTC).utctimetuple())
+    now = timegm(datetime.utcnow().utctimetuple())
 
     if exp < (now - leeway):
         raise ExpiredSignatureError("Signature has expired.")
@@ -399,7 +382,7 @@ def _validate_sub(claims, subject=None):
     "sub" value is a case-sensitive string containing a StringOrURI
     value.  Use of this claim is OPTIONAL.
 
-    Arg
+    Args:
         claims (dict): The claims dictionary to validate.
         subject (str): The subject of the token.
     """
@@ -473,6 +456,7 @@ def _validate_at_hash(claims, access_token, algorithm):
 
 
 def _validate_claims(claims, audience=None, issuer=None, subject=None, algorithm=None, access_token=None, options=None):
+
     leeway = options.get("leeway", 0)
 
     if isinstance(leeway, timedelta):

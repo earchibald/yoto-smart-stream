@@ -1,5 +1,5 @@
 # sql/traversals.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -23,6 +23,7 @@ from typing import Optional
 from typing import Set
 from typing import Tuple
 from typing import Type
+from typing import TypeVar
 
 from . import operators
 from .cache_key import HasCacheKey
@@ -33,8 +34,6 @@ from .visitors import HasTraversalDispatch
 from .visitors import HasTraverseInternals
 from .. import util
 from ..util import langhelpers
-from ..util.typing import Self
-
 
 SKIP_TRAVERSE = util.symbol("skip_traverse")
 COMPARE_FAILED = False
@@ -56,17 +55,20 @@ def _preconfigure_traversals(target_hierarchy: Type[Any]) -> None:
         if hasattr(cls, "_generate_cache_attrs") and hasattr(
             cls, "_traverse_internals"
         ):
-            cls._generate_cache_attrs()
+            cls._generate_cache_attrs()  # type: ignore
             _copy_internals.generate_dispatch(
-                cls,
-                cls._traverse_internals,
+                cls,  # type: ignore
+                cls._traverse_internals,  # type: ignore
                 "_generated_copy_internals_traversal",
             )
             _get_children.generate_dispatch(
-                cls,
-                cls._traverse_internals,
+                cls,  # type: ignore
+                cls._traverse_internals,  # type: ignore
                 "_generated_get_children_traversal",
             )
+
+
+SelfHasShallowCopy = TypeVar("SelfHasShallowCopy", bound="HasShallowCopy")
 
 
 class HasShallowCopy(HasTraverseInternals):
@@ -80,20 +82,25 @@ class HasShallowCopy(HasTraverseInternals):
 
     if typing.TYPE_CHECKING:
 
-        def _generated_shallow_copy_traversal(self, other: Self) -> None: ...
+        def _generated_shallow_copy_traversal(
+            self: SelfHasShallowCopy, other: SelfHasShallowCopy
+        ) -> None:
+            ...
 
         def _generated_shallow_from_dict_traversal(
             self, d: Dict[str, Any]
-        ) -> None: ...
+        ) -> None:
+            ...
 
-        def _generated_shallow_to_dict_traversal(self) -> Dict[str, Any]: ...
+        def _generated_shallow_to_dict_traversal(self) -> Dict[str, Any]:
+            ...
 
     @classmethod
     def _generate_shallow_copy(
-        cls,
+        cls: Type[SelfHasShallowCopy],
         internal_dispatch: _TraverseInternalsType,
         method_name: str,
-    ) -> Callable[[Self, Self], None]:
+    ) -> Callable[[SelfHasShallowCopy, SelfHasShallowCopy], None]:
         code = "\n".join(
             f"    other.{attrname} = self.{attrname}"
             for attrname, _ in internal_dispatch
@@ -103,10 +110,10 @@ class HasShallowCopy(HasTraverseInternals):
 
     @classmethod
     def _generate_shallow_to_dict(
-        cls,
+        cls: Type[SelfHasShallowCopy],
         internal_dispatch: _TraverseInternalsType,
         method_name: str,
-    ) -> Callable[[Self], Dict[str, Any]]:
+    ) -> Callable[[SelfHasShallowCopy], Dict[str, Any]]:
         code = ",\n".join(
             f"    '{attrname}': self.{attrname}"
             for attrname, _ in internal_dispatch
@@ -116,10 +123,10 @@ class HasShallowCopy(HasTraverseInternals):
 
     @classmethod
     def _generate_shallow_from_dict(
-        cls,
+        cls: Type[SelfHasShallowCopy],
         internal_dispatch: _TraverseInternalsType,
         method_name: str,
-    ) -> Callable[[Self, Dict[str, Any]], None]:
+    ) -> Callable[[SelfHasShallowCopy, Dict[str, Any]], None]:
         code = "\n".join(
             f"    self.{attrname} = d['{attrname}']"
             for attrname, _ in internal_dispatch
@@ -162,10 +169,12 @@ class HasShallowCopy(HasTraverseInternals):
             cls._generated_shallow_to_dict_traversal = shallow_to_dict  # type: ignore  # noqa: E501
         return shallow_to_dict(self)
 
-    def _shallow_copy_to(self, other: Self) -> None:
+    def _shallow_copy_to(
+        self: SelfHasShallowCopy, other: SelfHasShallowCopy
+    ) -> None:
         cls = self.__class__
 
-        shallow_copy: Callable[[Self, Self], None]
+        shallow_copy: Callable[[SelfHasShallowCopy, SelfHasShallowCopy], None]
         try:
             shallow_copy = cls.__dict__["_generated_shallow_copy_traversal"]
         except KeyError:
@@ -176,11 +185,16 @@ class HasShallowCopy(HasTraverseInternals):
             cls._generated_shallow_copy_traversal = shallow_copy  # type: ignore  # noqa: E501
         shallow_copy(self, other)
 
-    def _clone(self, **kw: Any) -> Self:
+    def _clone(self: SelfHasShallowCopy, **kw: Any) -> SelfHasShallowCopy:
         """Create a shallow copy"""
         c = self.__class__.__new__(self.__class__)
         self._shallow_copy_to(c)
         return c
+
+
+SelfGenerativeOnTraversal = TypeVar(
+    "SelfGenerativeOnTraversal", bound="GenerativeOnTraversal"
+)
 
 
 class GenerativeOnTraversal(HasShallowCopy):
@@ -196,7 +210,9 @@ class GenerativeOnTraversal(HasShallowCopy):
 
     __slots__ = ()
 
-    def _generate(self) -> Self:
+    def _generate(
+        self: SelfGenerativeOnTraversal,
+    ) -> SelfGenerativeOnTraversal:
         cls = self.__class__
         s = cls.__new__(cls)
         self._shallow_copy_to(s)
@@ -309,11 +325,9 @@ class _CopyInternalsTraversal(HasTraversalDispatch):
         # sequence of 2-tuples
         return [
             (
-                (
-                    clone(key, **kw)
-                    if hasattr(key, "__clause_element__")
-                    else key
-                ),
+                clone(key, **kw)
+                if hasattr(key, "__clause_element__")
+                else key,
                 clone(value, **kw),
             )
             for key, value in element
@@ -335,11 +349,9 @@ class _CopyInternalsTraversal(HasTraversalDispatch):
         def copy(elem):
             if isinstance(elem, (list, tuple)):
                 return [
-                    (
-                        clone(value, **kw)
-                        if hasattr(value, "__clause_element__")
-                        else value
-                    )
+                    clone(value, **kw)
+                    if hasattr(value, "__clause_element__")
+                    else value
                     for value in elem
                 ]
             elif isinstance(elem, dict):
@@ -417,7 +429,7 @@ class _GetChildrenTraversal(HasTraversalDispatch):
         return element
 
     def visit_setup_join_tuple(self, element, **kw):
-        for target, onclause, from_, flags in element:
+        for (target, onclause, from_, flags) in element:
             if from_ is not None:
                 yield from_
 
@@ -562,8 +574,6 @@ class TraversalComparatorStrategy(HasTraversalDispatch, util.MemoizedSlots):
                         return False
                     else:
                         continue
-                elif right_child is None:
-                    return False
 
                 comparison = dispatch(
                     left_attrname, left, left_child, right, right_child, **kw
@@ -716,6 +726,7 @@ class TraversalComparatorStrategy(HasTraversalDispatch, util.MemoizedSlots):
     def visit_string_multi_dict(
         self, attrname, left_parent, left, right_parent, right, **kw
     ):
+
         for lk, rk in zip_longest(
             sorted(left.keys()), sorted(right.keys()), fillvalue=(None, None)
         ):
@@ -739,6 +750,7 @@ class TraversalComparatorStrategy(HasTraversalDispatch, util.MemoizedSlots):
     def visit_multi(
         self, attrname, left_parent, left, right_parent, right, **kw
     ):
+
         lhc = isinstance(left, HasCacheKey)
         rhc = isinstance(right, HasCacheKey)
         if lhc and rhc:
@@ -768,7 +780,7 @@ class TraversalComparatorStrategy(HasTraversalDispatch, util.MemoizedSlots):
     def visit_operator(
         self, attrname, left_parent, left, right_parent, right, **kw
     ):
-        return left == right
+        return left is right
 
     def visit_type(
         self, attrname, left_parent, left, right_parent, right, **kw

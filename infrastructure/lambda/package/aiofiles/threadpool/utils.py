@@ -66,6 +66,7 @@ def _make_cond_delegate_method(attr_name):
         if self._file._rolled:
             cb = functools.partial(getattr(self._file, attr_name), *args, **kwargs)
             return await self._loop.run_in_executor(self._executor, cb)
-        return getattr(self._file, attr_name)(*args, **kwargs)
+        else:
+            return getattr(self._file, attr_name)(*args, **kwargs)
 
     return method

@@ -23,14 +23,6 @@ class S3UploadFailedError(Exception):
     pass
 
 
-class S3DownloadFailedError(Exception):
-    pass
-
-
-class S3CopyFailedError(Exception):
-    pass
-
-
 class InvalidSubscriberMethodError(Exception):
     pass
 
@@ -42,8 +34,4 @@ class TransferNotDoneError(Exception):
 class FatalError(CancelledError):
     """A CancelledError raised from an error in the TransferManager"""
 
-    pass
-
-
-class S3ValidationError(Exception):
     pass

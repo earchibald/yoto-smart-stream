@@ -90,18 +90,18 @@ class YotoManager:
         self,
         player_id: str,
         card: str,
-        secondsIn: int = None,
-        cutoff: int = None,
-        chapterKey: str = None,
-        trackKey: str = None,
+        secondsIn: int,
+        cutoff: int,
+        chapterKey: str,
+        trackKey: str,
     ):
         self.mqtt_client.card_play(
             deviceId=player_id,
             cardId=card,
             secondsIn=secondsIn,
             cutoff=cutoff,
-            chapterKey=chapterKey,
-            trackKey=trackKey,
+            chapterKey=str(chapterKey),
+            trackKey=str(trackKey),
         )
 
     def set_volume(self, player_id: str, volume: int):

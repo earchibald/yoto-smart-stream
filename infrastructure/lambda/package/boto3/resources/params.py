@@ -132,7 +132,7 @@ def build_param_structure(params, target, value, index=None):
                 else:
                     # We have an explicit index
                     index = int(result.group(1))
-                    part = part[: -len(f"{index}[]")]
+                    part = part[: -len(str(index) + '[]')]
             else:
                 # Index will be set after we know the proper part
                 # name and that it's a list instance.

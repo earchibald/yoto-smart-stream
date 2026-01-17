@@ -8,17 +8,13 @@
 #
 # See the README file for information on usage and redistribution.
 #
-from __future__ import annotations
-
-import os
-from typing import IO
 
 from . import Image, ImageFile
 
 _handler = None
 
 
-def register_handler(handler: ImageFile.StubHandler | None) -> None:
+def register_handler(handler):
     """
     Install application-specific HDF5 image handler.
 
@@ -32,35 +28,36 @@ def register_handler(handler: ImageFile.StubHandler | None) -> None:
 # Image adapter
 
 
-def _accept(prefix: bytes) -> bool:
-    return prefix.startswith(b"\x89HDF\r\n\x1a\n")
+def _accept(prefix):
+    return prefix[:8] == b"\x89HDF\r\n\x1a\n"
 
 
 class HDF5StubImageFile(ImageFile.StubImageFile):
     format = "HDF5"
     format_description = "HDF5"
 
-    def _open(self) -> None:
-        assert self.fp is not None
+    def _open(self):
+        offset = self.fp.tell()
+
         if not _accept(self.fp.read(8)):
             msg = "Not an HDF file"
             raise SyntaxError(msg)
 
-        self.fp.seek(-8, os.SEEK_CUR)
+        self.fp.seek(offset)
 
         # make something up
-        self._mode = "F"
+        self.mode = "F"
         self._size = 1, 1
 
         loader = self._load()
         if loader:
             loader.open(self)
 
-    def _load(self) -> ImageFile.StubHandler | None:
+    def _load(self):
         return _handler
 
 
-def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
+def _save(im, fp, filename):
     if _handler is None or not hasattr(_handler, "save"):
         msg = "HDF5 save handler not installed"
         raise OSError(msg)

@@ -1,5 +1,5 @@
-# dialects/mssql/pymssql.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# mssql/pymssql.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -16,9 +16,10 @@
 pymssql is a Python module that provides a Python DBAPI interface around
 `FreeTDS <https://www.freetds.org/>`_.
 
-.. versionchanged:: 2.0.5
+.. note::
 
-    pymssql was restored to SQLAlchemy's continuous integration testing
+    pymssql is currently not included in SQLAlchemy's continuous integration
+    (CI) testing.
 
 
 """  # noqa
@@ -50,7 +51,6 @@ class MSIdentifierPreparer_pymssql(MSIdentifierPreparer):
 class MSDialect_pymssql(MSDialect):
     supports_statement_cache = True
     supports_native_decimal = True
-    supports_native_uuid = True
     driver = "pymssql"
 
     preparer = MSIdentifierPreparer_pymssql
@@ -103,7 +103,6 @@ class MSDialect_pymssql(MSDialect):
             "message 20006",  # Write to the server failed
             "message 20017",  # Unexpected EOF from the server
             "message 20047",  # DBPROCESS is dead or not enabled
-            "The server failed to resume the transaction",
         ):
             if msg in str(e):
                 return True

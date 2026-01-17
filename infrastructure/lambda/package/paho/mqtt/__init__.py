@@ -1,4 +1,4 @@
-__version__ = "2.1.0"
+__version__ = "1.6.1"
 
 
 class MQTTException(Exception):

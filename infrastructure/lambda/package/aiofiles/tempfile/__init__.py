@@ -1,5 +1,4 @@
 import asyncio
-import sys
 from functools import partial, singledispatch
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOBase
 from tempfile import NamedTemporaryFile as syncNamedTemporaryFile
@@ -12,6 +11,7 @@ from ..base import AiofilesContextManager
 from ..threadpool.binary import AsyncBufferedIOBase, AsyncBufferedReader, AsyncFileIO
 from ..threadpool.text import AsyncTextIOWrapper
 from .temptypes import AsyncSpooledTemporaryFile, AsyncTemporaryDirectory
+import sys
 
 __all__ = [
     "NamedTemporaryFile",
@@ -213,8 +213,9 @@ if sys.version_info >= (3, 12):
             result = wrap(f.file, f, loop=loop, executor=executor)
             result._closer = f._closer
             return result
-        # IO object was returned directly without wrapper
-        return wrap(f, f, loop=loop, executor=executor)
+        else:
+            # IO object was returned directly without wrapper
+            return wrap(f, f, loop=loop, executor=executor)
 
 else:
 
@@ -269,8 +270,9 @@ else:
             # add delete property
             result.delete = f.delete
             return result
-        # IO object was returned directly without wrapper
-        return wrap(f, f, loop=loop, executor=executor)
+        else:
+            # IO object was returned directly without wrapper
+            return wrap(f, f, loop=loop, executor=executor)
 
 
 async def _spooled_temporary_file(
@@ -331,9 +333,7 @@ class AiofilesContextManagerTempDir(AiofilesContextManager):
 @singledispatch
 def wrap(base_io_obj, file, *, loop=None, executor=None):
     """Wrap the object with interface based on type of underlying IO"""
-
-    msg = f"Unsupported IO type: {base_io_obj}"
-    raise TypeError(msg)
+    raise TypeError("Unsupported IO type: {}".format(base_io_obj))
 
 
 @wrap.register(TextIOBase)

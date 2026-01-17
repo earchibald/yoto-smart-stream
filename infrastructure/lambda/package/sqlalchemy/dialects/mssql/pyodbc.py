@@ -1,5 +1,5 @@
-# dialects/mssql/pyodbc.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# mssql/pyodbc.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -30,9 +30,7 @@ is configured on the client, a basic DSN-based connection looks like::
 
     engine = create_engine("mssql+pyodbc://scott:tiger@some_dsn")
 
-Which above, will pass the following connection string to PyODBC:
-
-.. sourcecode:: text
+Which above, will pass the following connection string to PyODBC::
 
     DSN=some_dsn;UID=scott;PWD=tiger
 
@@ -51,9 +49,7 @@ When using a hostname connection, the driver name must also be specified in the
 query parameters of the URL.  As these names usually have spaces in them, the
 name must be URL encoded which means using plus signs for spaces::
 
-    engine = create_engine(
-        "mssql+pyodbc://scott:tiger@myhost:port/databasename?driver=ODBC+Driver+17+for+SQL+Server"
-    )
+    engine = create_engine("mssql+pyodbc://scott:tiger@myhost:port/databasename?driver=ODBC+Driver+17+for+SQL+Server")
 
 The ``driver`` keyword is significant to the pyodbc dialect and must be
 specified in lowercase.
@@ -73,7 +69,6 @@ internally::
 The equivalent URL can be constructed using :class:`_sa.engine.URL`::
 
     from sqlalchemy.engine import URL
-
     connection_url = URL.create(
         "mssql+pyodbc",
         username="scott",
@@ -88,6 +83,7 @@ The equivalent URL can be constructed using :class:`_sa.engine.URL`::
         },
     )
 
+
 Pass through exact Pyodbc string
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -98,11 +94,8 @@ using the parameter ``odbc_connect``.  A :class:`_sa.engine.URL` object
 can help make this easier::
 
     from sqlalchemy.engine import URL
-
     connection_string = "DRIVER={SQL Server Native Client 10.0};SERVER=dagger;DATABASE=test;UID=user;PWD=password"
-    connection_url = URL.create(
-        "mssql+pyodbc", query={"odbc_connect": connection_string}
-    )
+    connection_url = URL.create("mssql+pyodbc", query={"odbc_connect": connection_string})
 
     engine = create_engine(connection_url)
 
@@ -134,8 +127,7 @@ database using Azure credentials::
     from sqlalchemy.engine.url import URL
     from azure import identity
 
-    # Connection option for access tokens, as defined in msodbcsql.h
-    SQL_COPT_SS_ACCESS_TOKEN = 1256
+    SQL_COPT_SS_ACCESS_TOKEN = 1256  # Connection option for access tokens, as defined in msodbcsql.h
     TOKEN_URL = "https://database.windows.net/"  # The token URL for any Azure SQL database
 
     connection_string = "mssql+pyodbc://@my-server.database.windows.net/myDb?driver=ODBC+Driver+17+for+SQL+Server"
@@ -144,19 +136,14 @@ database using Azure credentials::
 
     azure_credentials = identity.DefaultAzureCredential()
 
-
     @event.listens_for(engine, "do_connect")
     def provide_token(dialect, conn_rec, cargs, cparams):
         # remove the "Trusted_Connection" parameter that SQLAlchemy adds
         cargs[0] = cargs[0].replace(";Trusted_Connection=Yes", "")
 
         # create token credential
-        raw_token = azure_credentials.get_token(TOKEN_URL).token.encode(
-            "utf-16-le"
-        )
-        token_struct = struct.pack(
-            f"<I{len(raw_token)}s", len(raw_token), raw_token
-        )
+        raw_token = azure_credentials.get_token(TOKEN_URL).token.encode("utf-16-le")
+        token_struct = struct.pack(f"<I{len(raw_token)}s", len(raw_token), raw_token)
 
         # apply it to keyword arguments
         cparams["attrs_before"] = {SQL_COPT_SS_ACCESS_TOKEN: token_struct}
@@ -189,9 +176,7 @@ emit a ``.rollback()`` after an operation had a failure of some kind.
 This specific case can be handled by passing ``ignore_no_transaction_on_rollback=True`` to
 the SQL Server dialect via the :func:`_sa.create_engine` function as follows::
 
-    engine = create_engine(
-        connection_url, ignore_no_transaction_on_rollback=True
-    )
+    engine = create_engine(connection_url, ignore_no_transaction_on_rollback=True)
 
 Using the above parameter, the dialect will catch ``ProgrammingError``
 exceptions raised during ``connection.rollback()`` and emit a warning
@@ -251,6 +236,7 @@ behavior and pass long strings as varchar(max)/nvarchar(max) using the
         },
     )
 
+
 Pyodbc Pooling / connection close behavior
 ------------------------------------------
 
@@ -295,14 +281,29 @@ non-ODBC drivers such as pymssql where it works very well.
 Rowcount Support
 ----------------
 
-Previous limitations with the SQLAlchemy ORM's "versioned rows" feature with
-Pyodbc have been resolved as of SQLAlchemy 2.0.5. See the notes at
-:ref:`mssql_rowcount_versioning`.
+Pyodbc only has partial support for rowcount.  See the notes at
+:ref:`mssql_rowcount_versioning` for important notes when using ORM
+versioning.
 
 .. _mssql_pyodbc_fastexecutemany:
 
 Fast Executemany Mode
 ---------------------
+
+.. note:: SQLAlchemy 2.0 now includes an equivalent "fast executemany"
+   handler for INSERT statements that is more robust than the PyODBC feature;
+   the feature is called :ref:`insertmanyvalues <engine_insertmanyvalues>`
+   and is enabled by default for all INSERT statements used by SQL Server.
+   SQLAlchemy's feature integrates with the PyODBC ``setinputsizes()`` method
+   which allows for more accurate specification of datatypes, and additionally
+   uses a dynamically sized, batched approach that scales to any number of
+   columns and/or rows.
+
+   The SQL Server ``fast_executemany`` parameter may be used at the same time
+   as ``insertmanyvalues`` is enabled; however, the parameter will not be used
+   in as many cases as INSERT statements that are invoked using Core
+   :class:`_dml.Insert` constructs as well as all ORM use no longer use the
+   ``.executemany()`` DBAPI cursor method.
 
 The PyODBC driver includes support for a "fast executemany" mode of execution
 which greatly reduces round trips for a DBAPI ``executemany()`` call when using
@@ -315,15 +316,8 @@ Server dialect supports this parameter by passing the
 
     engine = create_engine(
         "mssql+pyodbc://scott:tiger@mssql2017:1433/test?driver=ODBC+Driver+17+for+SQL+Server",
-        fast_executemany=True,
-    )
+        fast_executemany=True)
 
-.. versionchanged:: 2.0.9 - the ``fast_executemany`` parameter now has its
-   intended effect of this PyODBC feature taking effect for all INSERT
-   statements that are executed with multiple parameter sets, which don't
-   include RETURNING.  Previously, SQLAlchemy 2.0's :term:`insertmanyvalues`
-   feature would cause ``fast_executemany`` to not be used in most cases
-   even if specified.
 
 .. versionadded:: 1.3
 
@@ -343,19 +337,16 @@ fast_executemany=True where it is not supported (assuming
 :ref:`insertmanyvalues <engine_insertmanyvalues>` is kept enabled,
 "fastexecutemany" will not take place for INSERT statements in any case).
 
-The use of ``cursor.setinputsizes()`` can be disabled by passing
-``use_setinputsizes=False`` to :func:`_sa.create_engine`.
+The behavior of setinputsizes can be customized via the
+:meth:`.DialectEvents.do_setinputsizes` hook. See that method for usage
+examples.
 
-When ``use_setinputsizes`` is left at its default of ``True``, the
-specific per-type symbols passed to ``cursor.setinputsizes()`` can be
-programmatically customized using the :meth:`.DialectEvents.do_setinputsizes`
-hook. See that method for usage examples.
+.. versionchanged:: 1.4.1  The pyodbc dialects will not use setinputsizes
+   unless ``use_setinputsizes=True`` is passed.
 
 .. versionchanged:: 2.0  The mssql+pyodbc dialect now defaults to using
-   ``use_setinputsizes=True`` for all statement executions with the exception of
-   cursor.executemany() calls when fast_executemany=True.  The behavior can
-   be turned off by passing ``use_setinputsizes=False`` to
-   :func:`_sa.create_engine`.
+   setinputsizes for all statement executions with the exception of
+   cursor.executemany() calls when fast_executemany=True.
 
 """  # noqa
 
@@ -380,10 +371,10 @@ from ... import exc
 from ... import types as sqltypes
 from ... import util
 from ...connectors.pyodbc import PyODBCConnector
-from ...engine import cursor as _cursor
 
 
 class _ms_numeric_pyodbc:
+
     """Turns Decimals with adjusted() < 0 or > 7 into strings.
 
     The routines here are needed for older pyodbc versions
@@ -392,6 +383,7 @@ class _ms_numeric_pyodbc:
     """
 
     def bind_processor(self, dialect):
+
         super_process = super().bind_processor(dialect)
 
         if not dialect._need_decimal_fix:
@@ -600,22 +592,14 @@ class MSExecutionContext_pyodbc(MSExecutionContext):
                 try:
                     # fetchall() ensures the cursor is consumed
                     # without closing it (FreeTDS particularly)
-                    rows = self.cursor.fetchall()
+                    row = self.cursor.fetchall()[0]
+                    break
                 except self.dialect.dbapi.Error:
                     # no way around this - nextset() consumes the previous set
                     # so we need to just keep flipping
                     self.cursor.nextset()
-                else:
-                    if not rows:
-                        # async adapter drivers just return None here
-                        self.cursor.nextset()
-                        continue
-                    row = rows[0]
-                    break
 
             self._lastrowid = int(row[0])
-
-            self.cursor_fetch_strategy = _cursor._NO_CURSOR_DML
         else:
             super().post_exec()
 
@@ -623,9 +607,10 @@ class MSExecutionContext_pyodbc(MSExecutionContext):
 class MSDialect_pyodbc(PyODBCConnector, MSDialect):
     supports_statement_cache = True
 
-    # note this parameter is no longer used by the ORM or default dialect
-    # see #9414
+    # mssql still has problems with this on Linux
     supports_sane_rowcount_returning = False
+
+    favor_returning_over_lastrowid = True
 
     execution_ctx_cls = MSExecutionContext_pyodbc
 
@@ -675,8 +660,6 @@ class MSDialect_pyodbc(PyODBCConnector, MSDialect):
             8,
         )
         self.fast_executemany = fast_executemany
-        if fast_executemany:
-            self.use_insertmanyvalues_wo_returning = False
 
     def _get_server_version_info(self, connection):
         try:

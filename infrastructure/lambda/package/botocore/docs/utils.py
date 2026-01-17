@@ -214,11 +214,8 @@ _CONTROLS = {
 }
 # Combines all CONTROLS keys into a big or regular expression
 _ESCAPE_CONTROLS_RE = re.compile('|'.join(map(re.escape, _CONTROLS)))
-
-
 # Based on the match get the appropriate replacement from CONTROLS
-def _CONTROLS_MATCH_HANDLER(match):
-    return _CONTROLS[match.group(0)]
+_CONTROLS_MATCH_HANDLER = lambda match: _CONTROLS[match.group(0)]
 
 
 def escape_controls(value):

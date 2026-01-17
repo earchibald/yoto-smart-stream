@@ -20,6 +20,7 @@ go to any `endpoint-rule-set.json` file in /botocore/data/<service>/<api version
 or you can look at the test files in /tests/unit/data/endpoints/valid-rules/
 """
 
+
 import logging
 import re
 from enum import Enum
@@ -42,7 +43,7 @@ from botocore.utils import (
 logger = logging.getLogger(__name__)
 
 TEMPLATE_STRING_RE = re.compile(r"\{[a-zA-Z#]+\}")
-GET_ATTR_RE = re.compile(r"(\w*)\[(\d+)\]")
+GET_ATTR_RE = re.compile(r"(\w+)\[(\d+)\]")
 VALID_HOST_LABEL_RE = re.compile(
     r"^(?!-)[a-zA-Z\d-]{1,63}(?<!-)$",
 )
@@ -169,7 +170,7 @@ class RuleSetStandardLibrary:
         names indicates the one to the right is nested. The index will always occur at
         the end of the path.
 
-        :type value: dict or tuple
+        :type value: dict or list
         :type path: str
         :rtype: Any
         """
@@ -178,8 +179,7 @@ class RuleSetStandardLibrary:
             if match is not None:
                 name, index = match.groups()
                 index = int(index)
-                if name:
-                    value = value.get(name)
+                value = value.get(name)
                 if value is None or index >= len(value):
                     return None
                 return value[index]
@@ -577,7 +577,6 @@ class ParameterType(Enum):
 
     string = str
     boolean = bool
-    stringarray = tuple
 
 
 class ParameterDefinition:
@@ -601,7 +600,7 @@ class ParameterDefinition:
         except AttributeError:
             raise EndpointResolutionError(
                 msg=f"Unknown parameter type: {parameter_type}. "
-                "A parameter must be of type string, boolean, or stringarray."
+                "A parameter must be of type string or boolean."
             )
         self.documentation = documentation
         self.builtin = builtIn
@@ -640,7 +639,7 @@ class ParameterDefinition:
                 return self.default
             if self.required:
                 raise EndpointResolutionError(
-                    msg=f"Cannot find value for required parameter {self.name}"
+                    f"Cannot find value for required parameter {self.name}"
                 )
             # in all other cases, the parameter will keep the value None
         else:

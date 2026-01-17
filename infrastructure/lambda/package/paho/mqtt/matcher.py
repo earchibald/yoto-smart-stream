@@ -1,4 +1,4 @@
-class MQTTMatcher:
+class MQTTMatcher(object):
     """Intended to manage topic filters including wildcards.
 
     Internally, MQTTMatcher use a prefix tree (trie) to store
@@ -6,7 +6,7 @@ class MQTTMatcher:
     method to iterate efficiently over all filters that match
     some topic name."""
 
-    class Node:
+    class Node(object):
         __slots__ = '_children', '_content'
 
         def __init__(self):
@@ -33,8 +33,8 @@ class MQTTMatcher:
             if node._content is None:
                 raise KeyError(key)
             return node._content
-        except KeyError as ke:
-            raise KeyError(key) from ke
+        except KeyError:
+            raise KeyError(key)
 
     def __delitem__(self, key):
         """Delete the value associated with some topic filter :key"""
@@ -46,8 +46,8 @@ class MQTTMatcher:
                  lst.append((parent, k, node))
             # TODO
             node._content = None
-        except KeyError as ke:
-            raise KeyError(key) from ke
+        except KeyError:
+            raise KeyError(key)
         else:  # cleanup
             for parent, k, node in reversed(lst):
                 if node._children or node._content is not None:

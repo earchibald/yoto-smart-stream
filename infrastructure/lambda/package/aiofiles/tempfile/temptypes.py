@@ -1,5 +1,4 @@
 """Async wrappers for spooled temp files and temp directory objects"""
-
 from functools import partial
 
 from ..base import AsyncBase
@@ -38,22 +37,22 @@ class AsyncSpooledTemporaryFile(AsyncBase):
         if self._file._rolled:
             cb = partial(self._file.write, s)
             return await self._loop.run_in_executor(self._executor, cb)
-
-        file = self._file._file  # reference underlying base IO object
-        rv = file.write(s)
-        await self._check()
-        return rv
+        else:
+            file = self._file._file  # reference underlying base IO object
+            rv = file.write(s)
+            await self._check()
+            return rv
 
     async def writelines(self, iterable):
         """Implementation to anticipate rollover"""
         if self._file._rolled:
             cb = partial(self._file.writelines, iterable)
             return await self._loop.run_in_executor(self._executor, cb)
-
-        file = self._file._file  # reference underlying base IO object
-        rv = file.writelines(iterable)
-        await self._check()
-        return rv
+        else:
+            file = self._file._file  # reference underlying base IO object
+            rv = file.writelines(iterable)
+            await self._check()
+            return rv
 
 
 @delegate_to_executor("cleanup")

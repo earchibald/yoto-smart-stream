@@ -2,7 +2,6 @@
 
 Required by rsa_backend but not cryptography_backend.
 """
-
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import namedtype, univ
 

@@ -110,7 +110,9 @@ def build_empty_response(search_path, operation_name, service_model):
                 shape = shape.member
             else:
                 raise NotImplementedError(
-                    f'Search path hits shape type {shape.type_name} from {item}'
+                    'Search path hits shape type {} from {}'.format(
+                        shape.type_name, item
+                    )
                 )
 
     # Anything not handled here is set to None

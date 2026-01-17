@@ -1,10 +1,7 @@
-from __future__ import annotations
-
 import collections
 import os
 import sys
 import warnings
-from typing import IO
 
 import PIL
 
@@ -16,11 +13,10 @@ modules = {
     "freetype2": ("PIL._imagingft", "freetype2_version"),
     "littlecms2": ("PIL._imagingcms", "littlecms_version"),
     "webp": ("PIL._webp", "webpdecoder_version"),
-    "avif": ("PIL._avif", "libavif_version"),
 }
 
 
-def check_module(feature: str) -> bool:
+def check_module(feature):
     """
     Checks if a module is available.
 
@@ -44,7 +40,7 @@ def check_module(feature: str) -> bool:
         return False
 
 
-def version_module(feature: str) -> str | None:
+def version_module(feature):
     """
     :param feature: The module to check for.
     :returns:
@@ -56,10 +52,13 @@ def version_module(feature: str) -> str | None:
 
     module, ver = modules[feature]
 
+    if ver is None:
+        return None
+
     return getattr(__import__(module, fromlist=[ver]), ver)
 
 
-def get_supported_modules() -> list[str]:
+def get_supported_modules():
     """
     :returns: A list of all supported modules.
     """
@@ -74,7 +73,7 @@ codecs = {
 }
 
 
-def check_codec(feature: str) -> bool:
+def check_codec(feature):
     """
     Checks if a codec is available.
 
@@ -88,10 +87,10 @@ def check_codec(feature: str) -> bool:
 
     codec, lib = codecs[feature]
 
-    return f"{codec}_encoder" in dir(Image.core)
+    return codec + "_encoder" in dir(Image.core)
 
 
-def version_codec(feature: str) -> str | None:
+def version_codec(feature):
     """
     :param feature: The codec to check for.
     :returns:
@@ -104,7 +103,7 @@ def version_codec(feature: str) -> str | None:
 
     codec, lib = codecs[feature]
 
-    version = getattr(Image.core, f"{lib}_version")
+    version = getattr(Image.core, lib + "_version")
 
     if feature == "libtiff":
         return version.split("\n")[0].split("Version ")[1]
@@ -112,26 +111,27 @@ def version_codec(feature: str) -> str | None:
     return version
 
 
-def get_supported_codecs() -> list[str]:
+def get_supported_codecs():
     """
     :returns: A list of all supported codecs.
     """
     return [f for f in codecs if check_codec(f)]
 
 
-features: dict[str, tuple[str, str, str | None]] = {
+features = {
+    "webp_anim": ("PIL._webp", "HAVE_WEBPANIM", None),
+    "webp_mux": ("PIL._webp", "HAVE_WEBPMUX", None),
+    "transp_webp": ("PIL._webp", "HAVE_TRANSPARENCY", None),
     "raqm": ("PIL._imagingft", "HAVE_RAQM", "raqm_version"),
     "fribidi": ("PIL._imagingft", "HAVE_FRIBIDI", "fribidi_version"),
     "harfbuzz": ("PIL._imagingft", "HAVE_HARFBUZZ", "harfbuzz_version"),
     "libjpeg_turbo": ("PIL._imaging", "HAVE_LIBJPEGTURBO", "libjpeg_turbo_version"),
-    "mozjpeg": ("PIL._imaging", "HAVE_MOZJPEG", "libjpeg_turbo_version"),
-    "zlib_ng": ("PIL._imaging", "HAVE_ZLIBNG", "zlib_ng_version"),
     "libimagequant": ("PIL._imaging", "HAVE_LIBIMAGEQUANT", "imagequant_version"),
     "xcb": ("PIL._imaging", "HAVE_XCB", None),
 }
 
 
-def check_feature(feature: str) -> bool | None:
+def check_feature(feature):
     """
     Checks if a feature is available.
 
@@ -155,7 +155,7 @@ def check_feature(feature: str) -> bool | None:
         return None
 
 
-def version_feature(feature: str) -> str | None:
+def version_feature(feature):
     """
     :param feature: The feature to check for.
     :returns: The version number as a string, or ``None`` if not available.
@@ -172,14 +172,14 @@ def version_feature(feature: str) -> str | None:
     return getattr(__import__(module, fromlist=[ver]), ver)
 
 
-def get_supported_features() -> list[str]:
+def get_supported_features():
     """
     :returns: A list of all supported features.
     """
     return [f for f in features if check_feature(f)]
 
 
-def check(feature: str) -> bool | None:
+def check(feature):
     """
     :param feature: A module, codec, or feature name.
     :returns:
@@ -197,7 +197,7 @@ def check(feature: str) -> bool | None:
     return False
 
 
-def version(feature: str) -> str | None:
+def version(feature):
     """
     :param feature:
         The module, codec, or feature to check for.
@@ -213,7 +213,7 @@ def version(feature: str) -> str | None:
     return None
 
 
-def get_supported() -> list[str]:
+def get_supported():
     """
     :returns: A list of all supported modules, features, and codecs.
     """
@@ -224,13 +224,10 @@ def get_supported() -> list[str]:
     return ret
 
 
-def pilinfo(out: IO[str] | None = None, supported_formats: bool = True) -> None:
+def pilinfo(out=None, supported_formats=True):
     """
     Prints information about this installation of Pillow.
     This function can be called with ``python3 -m PIL``.
-    It can also be called with ``python3 -m PIL.report`` or ``python3 -m PIL --report``
-    to have "supported_formats" set to ``False``, omitting the list of all supported
-    image file formats.
 
     :param out:
         The output stream to print to. Defaults to ``sys.stdout`` if ``None``.
@@ -245,22 +242,17 @@ def pilinfo(out: IO[str] | None = None, supported_formats: bool = True) -> None:
 
     print("-" * 68, file=out)
     print(f"Pillow {PIL.__version__}", file=out)
-    py_version_lines = sys.version.splitlines()
-    print(f"Python {py_version_lines[0].strip()}", file=out)
-    for py_version in py_version_lines[1:]:
+    py_version = sys.version.splitlines()
+    print(f"Python {py_version[0].strip()}", file=out)
+    for py_version in py_version[1:]:
         print(f"       {py_version.strip()}", file=out)
     print("-" * 68, file=out)
-    print(f"Python executable is {sys.executable or 'unknown'}", file=out)
-    if sys.prefix != sys.base_prefix:
-        print(f"Environment Python files loaded from {sys.prefix}", file=out)
-    print(f"System Python files loaded from {sys.base_prefix}", file=out)
-    print("-" * 68, file=out)
     print(
-        f"Python Pillow modules loaded from {os.path.dirname(Image.__file__)}",
+        f"Python modules loaded from {os.path.dirname(Image.__file__)}",
         file=out,
     )
     print(
-        f"Binary Pillow modules loaded from {os.path.dirname(Image.core.__file__)}",
+        f"Binary modules loaded from {os.path.dirname(Image.core.__file__)}",
         file=out,
     )
     print("-" * 68, file=out)
@@ -271,7 +263,9 @@ def pilinfo(out: IO[str] | None = None, supported_formats: bool = True) -> None:
         ("freetype2", "FREETYPE2"),
         ("littlecms2", "LITTLECMS2"),
         ("webp", "WEBP"),
-        ("avif", "AVIF"),
+        ("transp_webp", "WEBP Transparency"),
+        ("webp_mux", "WEBPMUX"),
+        ("webp_anim", "WEBP Animation"),
         ("jpg", "JPEG"),
         ("jpg_2000", "OPENJPEG (JPEG2000)"),
         ("zlib", "ZLIB (PNG/ZIP)"),
@@ -281,13 +275,9 @@ def pilinfo(out: IO[str] | None = None, supported_formats: bool = True) -> None:
         ("xcb", "XCB (X protocol)"),
     ]:
         if check(name):
-            v: str | None = None
-            if name == "jpg":
-                libjpeg_turbo_version = version_feature("libjpeg_turbo")
-                if libjpeg_turbo_version is not None:
-                    v = "mozjpeg" if check_feature("mozjpeg") else "libjpeg-turbo"
-                    v += " " + libjpeg_turbo_version
-            if v is None:
+            if name == "jpg" and check_feature("libjpeg_turbo"):
+                v = "libjpeg-turbo " + version_feature("libjpeg_turbo")
+            else:
                 v = version(name)
             if v is not None:
                 version_static = name in ("pil", "jpg")
@@ -295,11 +285,7 @@ def pilinfo(out: IO[str] | None = None, supported_formats: bool = True) -> None:
                     # this check is also in src/_imagingcms.c:setup_module()
                     version_static = tuple(int(x) for x in v.split(".")) < (2, 7)
                 t = "compiled for" if version_static else "loaded"
-                if name == "zlib":
-                    zlib_ng_version = version_feature("zlib_ng")
-                    if zlib_ng_version is not None:
-                        v += ", compiled for zlib-ng " + zlib_ng_version
-                elif name == "raqm":
+                if name == "raqm":
                     for f in ("fribidi", "harfbuzz"):
                         v2 = version_feature(f)
                         if v2 is not None:

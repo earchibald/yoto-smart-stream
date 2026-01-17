@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, MutableMapping, Sequence
-from typing import Any, Callable, Union
+from typing import (
+    List,
+    Dict,
+    Any,
+    Union,
+    Optional,
+    Sequence,
+    MutableMapping,
+    Awaitable,
+    Callable,
+)
+from typing_extensions import Literal, Protocol, TypedDict, TypeAlias
 
-from typing_extensions import Literal, Protocol, TypeAlias, TypedDict
 
-LambdaEvent = dict[str, Any]
+LambdaEvent = Dict[str, Any]
 QueryParams: TypeAlias = MutableMapping[str, Union[str, Sequence[str]]]
 
 
@@ -48,8 +57,8 @@ class LambdaMobileClientContext(Protocol):
     """
 
     client: LambdaMobileClient
-    custom: dict[str, Any]
-    env: dict[str, Any]
+    custom: Dict[str, Any]
+    env: Dict[str, Any]
 
 
 class LambdaContext(Protocol):
@@ -76,15 +85,15 @@ class LambdaContext(Protocol):
     aws_request_id: str
     log_group_name: str
     log_stream_name: str
-    identity: LambdaCognitoIdentity | None
-    client_context: LambdaMobileClientContext | None
+    identity: Optional[LambdaCognitoIdentity]
+    client_context: Optional[LambdaMobileClientContext]
 
     def get_remaining_time_in_millis(self) -> int:
         """Returns the number of milliseconds left before the execution times out."""
         ...  # pragma: no cover
 
 
-Headers: TypeAlias = list[list[bytes]]
+Headers: TypeAlias = List[List[bytes]]
 Message: TypeAlias = MutableMapping[str, Any]
 Scope: TypeAlias = MutableMapping[str, Any]
 Receive: TypeAlias = Callable[[], Awaitable[Message]]
@@ -92,7 +101,8 @@ Send: TypeAlias = Callable[[Message], Awaitable[None]]
 
 
 class ASGI(Protocol):
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None: ...  # pragma: no cover
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        ...  # pragma: no cover
 
 
 LifespanMode: TypeAlias = Literal["auto", "on", "off"]
@@ -106,20 +116,27 @@ class Response(TypedDict):
 
 class LambdaConfig(TypedDict):
     api_gateway_base_path: str
-    text_mime_types: list[str]
-    exclude_headers: list[str]
+    text_mime_types: List[str]
+    exclude_headers: List[str]
 
 
 class LambdaHandler(Protocol):
-    def __init__(self, *args: Any) -> None: ...  # pragma: no cover
+    def __init__(self, *args: Any) -> None:
+        ...  # pragma: no cover
 
     @classmethod
-    def infer(cls, event: LambdaEvent, context: LambdaContext, config: LambdaConfig) -> bool: ...  # pragma: no cover
+    def infer(
+        cls, event: LambdaEvent, context: LambdaContext, config: LambdaConfig
+    ) -> bool:
+        ...  # pragma: no cover
 
     @property
-    def body(self) -> bytes: ...  # pragma: no cover
+    def body(self) -> bytes:
+        ...  # pragma: no cover
 
     @property
-    def scope(self) -> Scope: ...  # pragma: no cover
+    def scope(self) -> Scope:
+        ...  # pragma: no cover
 
-    def __call__(self, response: Response) -> dict[str, Any]: ...  # pragma: no cover
+    def __call__(self, response: Response) -> dict:
+        ...  # pragma: no cover

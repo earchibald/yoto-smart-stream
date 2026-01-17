@@ -16,13 +16,11 @@
 #
 # See the README file for information on usage and redistribution.
 #
-from __future__ import annotations
 
 import io
 import os
 import struct
 import sys
-from typing import IO
 
 from . import Image, ImageFile, PngImagePlugin, features
 
@@ -34,13 +32,11 @@ MAGIC = b"icns"
 HEADERSIZE = 8
 
 
-def nextheader(fobj: IO[bytes]) -> tuple[bytes, int]:
+def nextheader(fobj):
     return struct.unpack(">4sI", fobj.read(HEADERSIZE))
 
 
-def read_32t(
-    fobj: IO[bytes], start_length: tuple[int, int], size: tuple[int, int, int]
-) -> dict[str, Image.Image]:
+def read_32t(fobj, start_length, size):
     # The 128x128 icon seems to have an extra header for some reason.
     (start, length) = start_length
     fobj.seek(start)
@@ -51,9 +47,7 @@ def read_32t(
     return read_32(fobj, (start + 4, length - 4), size)
 
 
-def read_32(
-    fobj: IO[bytes], start_length: tuple[int, int], size: tuple[int, int, int]
-) -> dict[str, Image.Image]:
+def read_32(fobj, start_length, size):
     """
     Read a 32bit RGB icon resource.  Seems to be either uncompressed or
     an RLE packbits-like scheme.
@@ -76,14 +70,14 @@ def read_32(
                 byte = fobj.read(1)
                 if not byte:
                     break
-                byte_int = byte[0]
-                if byte_int & 0x80:
-                    blocksize = byte_int - 125
+                byte = byte[0]
+                if byte & 0x80:
+                    blocksize = byte - 125
                     byte = fobj.read(1)
                     for i in range(blocksize):
                         data.append(byte)
                 else:
-                    blocksize = byte_int + 1
+                    blocksize = byte + 1
                     data.append(fobj.read(blocksize))
                 bytesleft -= blocksize
                 if bytesleft <= 0:
@@ -96,9 +90,7 @@ def read_32(
     return {"RGB": im}
 
 
-def read_mk(
-    fobj: IO[bytes], start_length: tuple[int, int], size: tuple[int, int, int]
-) -> dict[str, Image.Image]:
+def read_mk(fobj, start_length, size):
     # Alpha masks seem to be uncompressed
     start = start_length[0]
     fobj.seek(start)
@@ -108,21 +100,18 @@ def read_mk(
     return {"A": band}
 
 
-def read_png_or_jpeg2000(
-    fobj: IO[bytes], start_length: tuple[int, int], size: tuple[int, int, int]
-) -> dict[str, Image.Image]:
+def read_png_or_jpeg2000(fobj, start_length, size):
     (start, length) = start_length
     fobj.seek(start)
     sig = fobj.read(12)
-
-    im: Image.Image
-    if sig.startswith(b"\x89PNG\x0d\x0a\x1a\x0a"):
+    if sig[:8] == b"\x89PNG\x0d\x0a\x1a\x0a":
         fobj.seek(start)
         im = PngImagePlugin.PngImageFile(fobj)
         Image._decompression_bomb_check(im.size)
         return {"RGBA": im}
     elif (
-        sig.startswith((b"\xff\x4f\xff\x51", b"\x0d\x0a\x87\x0a"))
+        sig[:4] == b"\xff\x4f\xff\x51"
+        or sig[:4] == b"\x0d\x0a\x87\x0a"
         or sig == b"\x00\x00\x00\x0cjP  \x0d\x0a\x87\x0a"
     ):
         if not enable_jpeg2k:
@@ -173,12 +162,12 @@ class IcnsFile:
         ],
     }
 
-    def __init__(self, fobj: IO[bytes]) -> None:
+    def __init__(self, fobj):
         """
         fobj is a file-like object as an icns resource
         """
         # signature : (start, length)
-        self.dct = {}
+        self.dct = dct = {}
         self.fobj = fobj
         sig, filesize = nextheader(fobj)
         if not _accept(sig):
@@ -192,11 +181,11 @@ class IcnsFile:
                 raise SyntaxError(msg)
             i += HEADERSIZE
             blocksize -= HEADERSIZE
-            self.dct[sig] = (i, blocksize)
+            dct[sig] = (i, blocksize)
             fobj.seek(blocksize, io.SEEK_CUR)
             i += blocksize
 
-    def itersizes(self) -> list[tuple[int, int, int]]:
+    def itersizes(self):
         sizes = []
         for size, fmts in self.SIZES.items():
             for fmt, reader in fmts:
@@ -205,14 +194,14 @@ class IcnsFile:
                     break
         return sizes
 
-    def bestsize(self) -> tuple[int, int, int]:
+    def bestsize(self):
         sizes = self.itersizes()
         if not sizes:
             msg = "No 32bit icon resources found"
             raise SyntaxError(msg)
         return max(sizes)
 
-    def dataforsize(self, size: tuple[int, int, int]) -> dict[str, Image.Image]:
+    def dataforsize(self, size):
         """
         Get an icon resource as {channel: array}.  Note that
         the arrays are bottom-up like windows bitmaps and will likely
@@ -225,20 +214,18 @@ class IcnsFile:
                 dct.update(reader(self.fobj, desc, size))
         return dct
 
-    def getimage(
-        self, size: tuple[int, int] | tuple[int, int, int] | None = None
-    ) -> Image.Image:
+    def getimage(self, size=None):
         if size is None:
             size = self.bestsize()
-        elif len(size) == 2:
+        if len(size) == 2:
             size = (size[0], size[1], 1)
         channels = self.dataforsize(size)
 
-        im = channels.get("RGBA")
+        im = channels.get("RGBA", None)
         if im:
             return im
 
-        im = channels["RGB"].copy()
+        im = channels.get("RGB").copy()
         try:
             im.putalpha(channels["A"])
         except KeyError:
@@ -264,10 +251,9 @@ class IcnsImageFile(ImageFile.ImageFile):
     format = "ICNS"
     format_description = "Mac OS icns resource"
 
-    def _open(self) -> None:
-        assert self.fp is not None
+    def _open(self):
         self.icns = IcnsFile(self.fp)
-        self._mode = "RGBA"
+        self.mode = "RGBA"
         self.info["sizes"] = self.icns.itersizes()
         self.best_size = self.icns.bestsize()
         self.size = (
@@ -276,30 +262,39 @@ class IcnsImageFile(ImageFile.ImageFile):
         )
 
     @property
-    def size(self) -> tuple[int, int]:
+    def size(self):
         return self._size
 
     @size.setter
-    def size(self, value: tuple[int, int]) -> None:
-        # Check that a matching size exists,
-        # or that there is a scale that would create a size that matches
-        for size in self.info["sizes"]:
-            simple_size = size[0] * size[2], size[1] * size[2]
-            scale = simple_size[0] // value[0]
-            if simple_size[1] / value[1] == scale:
-                self._size = value
-                return
-        msg = "This is not one of the allowed sizes of this image"
-        raise ValueError(msg)
+    def size(self, value):
+        info_size = value
+        if info_size not in self.info["sizes"] and len(info_size) == 2:
+            info_size = (info_size[0], info_size[1], 1)
+        if (
+            info_size not in self.info["sizes"]
+            and len(info_size) == 3
+            and info_size[2] == 1
+        ):
+            simple_sizes = [
+                (size[0] * size[2], size[1] * size[2]) for size in self.info["sizes"]
+            ]
+            if value in simple_sizes:
+                info_size = self.info["sizes"][simple_sizes.index(value)]
+        if info_size not in self.info["sizes"]:
+            msg = "This is not one of the allowed sizes of this image"
+            raise ValueError(msg)
+        self._size = value
 
-    def load(self, scale: int | None = None) -> Image.core.PixelAccess | None:
-        if scale is not None:
-            width, height = self.size[:2]
-            self.size = width * scale, height * scale
-            self.best_size = width, height, scale
+    def load(self):
+        if len(self.size) == 3:
+            self.best_size = self.size
+            self.size = (
+                self.best_size[0] * self.best_size[2],
+                self.best_size[1] * self.best_size[2],
+            )
 
         px = Image.Image.load(self)
-        if self._im is not None and self.im.size == self.size:
+        if self.im is not None and self.im.size == self.size:
             # Already loaded
             return px
         self.load_prepare()
@@ -310,13 +305,13 @@ class IcnsImageFile(ImageFile.ImageFile):
         px = im.load()
 
         self.im = im.im
-        self._mode = im.mode
+        self.mode = im.mode
         self.size = im.size
 
         return px
 
 
-def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
+def _save(im, fp, filename):
     """
     Saves the image as a series of PNG files,
     that are then combined into a .icns file.
@@ -350,34 +345,36 @@ def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
     entries = []
     for type, size in sizes.items():
         stream = size_streams[size]
-        entries.append((type, HEADERSIZE + len(stream), stream))
+        entries.append(
+            {"type": type, "size": HEADERSIZE + len(stream), "stream": stream}
+        )
 
     # Header
     fp.write(MAGIC)
     file_length = HEADERSIZE  # Header
     file_length += HEADERSIZE + 8 * len(entries)  # TOC
-    file_length += sum(entry[1] for entry in entries)
+    file_length += sum(entry["size"] for entry in entries)
     fp.write(struct.pack(">i", file_length))
 
     # TOC
     fp.write(b"TOC ")
     fp.write(struct.pack(">i", HEADERSIZE + len(entries) * HEADERSIZE))
     for entry in entries:
-        fp.write(entry[0])
-        fp.write(struct.pack(">i", entry[1]))
+        fp.write(entry["type"])
+        fp.write(struct.pack(">i", entry["size"]))
 
     # Data
     for entry in entries:
-        fp.write(entry[0])
-        fp.write(struct.pack(">i", entry[1]))
-        fp.write(entry[2])
+        fp.write(entry["type"])
+        fp.write(struct.pack(">i", entry["size"]))
+        fp.write(entry["stream"])
 
     if hasattr(fp, "flush"):
         fp.flush()
 
 
-def _accept(prefix: bytes) -> bool:
-    return prefix.startswith(MAGIC)
+def _accept(prefix):
+    return prefix[:4] == MAGIC
 
 
 Image.register_open(IcnsImageFile.format, IcnsImageFile, _accept)
@@ -394,8 +391,8 @@ if __name__ == "__main__":
     with open(sys.argv[1], "rb") as fp:
         imf = IcnsImageFile(fp)
         for size in imf.info["sizes"]:
-            width, height, scale = imf.size = size
-            imf.save(f"out-{width}-{height}-{scale}.png")
+            imf.size = size
+            imf.save("out-%s-%s-%s.png" % size)
         with Image.open(sys.argv[1]) as im:
             im.save("out.png")
         if sys.platform == "windows":

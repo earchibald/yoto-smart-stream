@@ -358,17 +358,6 @@ async def logout():
             token_file.unlink()
             logger.info("Refresh token removed")
 
-        # Remove token from Secrets Manager if running in Lambda
-        try:
-            import os
-            if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-                from ...utils.token_storage import TokenStorage
-                token_storage = TokenStorage()
-                token_storage.delete_token(user_id="default")
-                logger.info("Scheduled deletion of refresh token in Secrets Manager")
-        except Exception as se:
-            logger.warning(f"Failed to delete token from Secrets Manager: {se}")
-
         # Clear client authentication using public method
         client = get_yoto_client()
         if client:

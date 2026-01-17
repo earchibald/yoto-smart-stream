@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = "Yoto Smart Stream"
-    app_version: str = "0.2.7"
+    app_version: str = "0.2.6"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
     log_full_streams_requests: bool = Field(
@@ -110,7 +110,6 @@ class Settings(BaseSettings):
 
     # Storage settings
     audio_files_dir: Path = Field(default=Path("audio_files"), description="Audio files directory")
-    s3_ui_bucket: Optional[str] = Field(default=None, description="S3 UI bucket for static assets")
     
     @field_validator("audio_files_dir", mode="before")
     @classmethod

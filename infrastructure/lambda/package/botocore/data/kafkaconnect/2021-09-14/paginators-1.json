@@ -17,12 +17,6 @@
       "output_token": "nextToken",
       "limit_key": "maxResults",
       "result_key": "workerConfigurations"
-    },
-    "ListConnectorOperations": {
-      "input_token": "nextToken",
-      "output_token": "nextToken",
-      "limit_key": "maxResults",
-      "result_key": "connectorOperations"
     }
   }
 }

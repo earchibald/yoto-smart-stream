@@ -1,50 +1,98 @@
-# dialects/postgresql/json.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# postgresql/json.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
+# mypy: ignore-errors
 
-from __future__ import annotations
-
-from typing import Any
-from typing import Callable
-from typing import List
-from typing import Optional
-from typing import TYPE_CHECKING
-from typing import Union
 
 from .array import ARRAY
 from .array import array as _pg_array
-from .operators import ASTEXT
-from .operators import CONTAINED_BY
-from .operators import CONTAINS
-from .operators import DELETE_PATH
-from .operators import HAS_ALL
-from .operators import HAS_ANY
-from .operators import HAS_KEY
-from .operators import JSONPATH_ASTEXT
-from .operators import PATH_EXISTS
-from .operators import PATH_MATCH
 from ... import types as sqltypes
 from ...sql import cast
-from ...sql._typing import _T
+from ...sql import operators
 
-if TYPE_CHECKING:
-    from ...engine.interfaces import Dialect
-    from ...sql.elements import ColumnElement
-    from ...sql.type_api import _BindProcessorType
-    from ...sql.type_api import _LiteralProcessorType
-    from ...sql.type_api import TypeEngine
 
 __all__ = ("JSON", "JSONB")
 
+idx_precedence = operators._PRECEDENCE[operators.json_getitem_op]
+
+ASTEXT = operators.custom_op(
+    "->>",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
+JSONPATH_ASTEXT = operators.custom_op(
+    "#>>",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
+
+HAS_KEY = operators.custom_op(
+    "?",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
+HAS_ALL = operators.custom_op(
+    "?&",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
+HAS_ANY = operators.custom_op(
+    "?|",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
+CONTAINS = operators.custom_op(
+    "@>",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
+CONTAINED_BY = operators.custom_op(
+    "<@",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
+DELETE_PATH = operators.custom_op(
+    "#-",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
+PATH_EXISTS = operators.custom_op(
+    "@?",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
+PATH_MATCH = operators.custom_op(
+    "@@",
+    precedence=idx_precedence,
+    natural_self_precedent=True,
+    eager_grouping=True,
+)
+
 
 class JSONPathType(sqltypes.JSON.JSONPathType):
-    def _processor(
-        self, dialect: Dialect, super_proc: Optional[Callable[[Any], Any]]
-    ) -> Callable[[Any], Any]:
-        def process(value: Any) -> Any:
+    def _processor(self, dialect, super_proc):
+        def process(value):
             if isinstance(value, str):
                 # If it's already a string assume that it's in json path
                 # format. This allows using cast with json paths literals
@@ -61,13 +109,11 @@ class JSONPathType(sqltypes.JSON.JSONPathType):
 
         return process
 
-    def bind_processor(self, dialect: Dialect) -> _BindProcessorType[Any]:
-        return self._processor(dialect, self.string_bind_processor(dialect))  # type: ignore[return-value]  # noqa: E501
+    def bind_processor(self, dialect):
+        return self._processor(dialect, self.string_bind_processor(dialect))
 
-    def literal_processor(
-        self, dialect: Dialect
-    ) -> _LiteralProcessorType[Any]:
-        return self._processor(dialect, self.string_literal_processor(dialect))  # type: ignore[return-value]  # noqa: E501
+    def literal_processor(self, dialect):
+        return self._processor(dialect, self.string_literal_processor(dialect))
 
 
 class JSONPATH(JSONPathType):
@@ -109,14 +155,14 @@ class JSON(sqltypes.JSON):
 
     * Index operations (the ``->`` operator)::
 
-        data_table.c.data["some key"]
+        data_table.c.data['some key']
 
         data_table.c.data[5]
 
-    * Index operations returning text
-      (the ``->>`` operator)::
 
-        data_table.c.data["some key"].astext == "some value"
+    * Index operations returning text (the ``->>`` operator)::
+
+        data_table.c.data['some key'].astext == 'some value'
 
       Note that equivalent functionality is available via the
       :attr:`.JSON.Comparator.as_string` accessor.
@@ -124,20 +170,24 @@ class JSON(sqltypes.JSON):
     * Index operations with CAST
       (equivalent to ``CAST(col ->> ['some key'] AS <type>)``)::
 
-        data_table.c.data["some key"].astext.cast(Integer) == 5
+        data_table.c.data['some key'].astext.cast(Integer) == 5
 
       Note that equivalent functionality is available via the
       :attr:`.JSON.Comparator.as_integer` and similar accessors.
 
     * Path index operations (the ``#>`` operator)::
 
-        data_table.c.data[("key_1", "key_2", 5, ..., "key_n")]
+        data_table.c.data[('key_1', 'key_2', 5, ..., 'key_n')]
 
     * Path index operations returning text (the ``#>>`` operator)::
 
-        data_table.c.data[
-            ("key_1", "key_2", 5, ..., "key_n")
-        ].astext == "some value"
+        data_table.c.data[('key_1', 'key_2', 5, ..., 'key_n')].astext == 'some value'
+
+    .. versionchanged:: 1.1  The :meth:`_expression.ColumnElement.cast`
+       operator on
+       JSON objects now requires that the :attr:`.JSON.Comparator.astext`
+       modifier be called explicitly, if the cast works only from a textual
+       string.
 
     Index operations return an expression object whose type defaults to
     :class:`_types.JSON` by default,
@@ -149,11 +199,10 @@ class JSON(sqltypes.JSON):
     using psycopg2, the DBAPI only allows serializers at the per-cursor
     or per-connection level.   E.g.::
 
-        engine = create_engine(
-            "postgresql+psycopg2://scott:tiger@localhost/test",
-            json_serializer=my_serialize_fn,
-            json_deserializer=my_deserialize_fn,
-        )
+        engine = create_engine("postgresql+psycopg2://scott:tiger@localhost/test",
+                                json_serializer=my_serialize_fn,
+                                json_deserializer=my_deserialize_fn
+                        )
 
     When using the psycopg2 dialect, the json_deserializer is registered
     against the database using ``psycopg2.extras.register_default_json``.
@@ -164,16 +213,14 @@ class JSON(sqltypes.JSON):
 
         :class:`_postgresql.JSONB`
 
+    .. versionchanged:: 1.1 :class:`_postgresql.JSON` is now a PostgreSQL-
+       specific specialization of the new :class:`_types.JSON` type.
+
     """  # noqa
 
-    render_bind_cast = True
-    astext_type: TypeEngine[str] = sqltypes.Text()
+    astext_type = sqltypes.Text()
 
-    def __init__(
-        self,
-        none_as_null: bool = False,
-        astext_type: Optional[TypeEngine[str]] = None,
-    ):
+    def __init__(self, none_as_null=False, astext_type=None):
         """Construct a :class:`_types.JSON` type.
 
         :param none_as_null: if True, persist the value ``None`` as a
@@ -182,8 +229,10 @@ class JSON(sqltypes.JSON):
          be used to persist a NULL value::
 
              from sqlalchemy import null
+             conn.execute(table.insert(), data=null())
 
-             conn.execute(table.insert(), {"data": null()})
+         .. versionchanged:: 0.9.8 - Added ``none_as_null``, and :func:`.null`
+            is now supported in order to persist a NULL value.
 
          .. seealso::
 
@@ -193,24 +242,24 @@ class JSON(sqltypes.JSON):
          :attr:`.JSON.Comparator.astext`
          accessor on indexed attributes.  Defaults to :class:`_types.Text`.
 
+         .. versionadded:: 1.1
+
         """
         super().__init__(none_as_null=none_as_null)
         if astext_type is not None:
             self.astext_type = astext_type
 
-    class Comparator(sqltypes.JSON.Comparator[_T]):
+    class Comparator(sqltypes.JSON.Comparator):
         """Define comparison operations for :class:`_types.JSON`."""
 
-        type: JSON
-
         @property
-        def astext(self) -> ColumnElement[str]:
+        def astext(self):
             """On an indexed expression, use the "astext" (e.g. "->>")
             conversion when rendered in SQL.
 
             E.g.::
 
-                select(data_table.c.data["some key"].astext)
+                select(data_table.c.data['some key'].astext)
 
             .. seealso::
 
@@ -218,13 +267,13 @@ class JSON(sqltypes.JSON):
 
             """
             if isinstance(self.expr.right.type, sqltypes.JSON.JSONPathType):
-                return self.expr.left.operate(  # type: ignore[no-any-return]
+                return self.expr.left.operate(
                     JSONPATH_ASTEXT,
                     self.expr.right,
                     result_type=self.type.astext_type,
                 )
             else:
-                return self.expr.left.operate(  # type: ignore[no-any-return]
+                return self.expr.left.operate(
                     ASTEXT, self.expr.right, result_type=self.type.astext_type
                 )
 
@@ -237,16 +286,15 @@ class JSONB(JSON):
     The :class:`_postgresql.JSONB` type stores arbitrary JSONB format data,
     e.g.::
 
-        data_table = Table(
-            "data_table",
-            metadata,
-            Column("id", Integer, primary_key=True),
-            Column("data", JSONB),
+        data_table = Table('data_table', metadata,
+            Column('id', Integer, primary_key=True),
+            Column('data', JSONB)
         )
 
         with engine.connect() as conn:
             conn.execute(
-                data_table.insert(), data={"key1": "value1", "key2": "value2"}
+                data_table.insert(),
+                data = {"key1": "value1", "key2": "value2"}
             )
 
     The :class:`_postgresql.JSONB` type includes all operations provided by
@@ -275,89 +323,53 @@ class JSONB(JSON):
     in the same way that ``psycopg2.extras.register_default_json`` is used
     to register these handlers with the json type.
 
+    .. versionadded:: 0.9.7
+
     .. seealso::
 
         :class:`_types.JSON`
-
-    .. warning::
-
-        **For applications that have indexes against JSONB subscript
-        expressions**
-
-        SQLAlchemy 2.0.42 made a change in how the subscript operation for
-        :class:`.JSONB` is rendered, from ``-> 'element'`` to ``['element']``,
-        for PostgreSQL versions greater than 14. This change caused an
-        unintended side effect for indexes that were created against
-        expressions that use subscript notation, e.g.
-        ``Index("ix_entity_json_ab_text", data["a"]["b"].astext)``. If these
-        indexes were generated with the older syntax e.g. ``((entity.data ->
-        'a') ->> 'b')``, they will not be used by the PostgreSQL query planner
-        when a query is made using SQLAlchemy 2.0.42 or higher on PostgreSQL
-        versions 14 or higher. This occurs because the new text will resemble
-        ``(entity.data['a'] ->> 'b')`` which will fail to produce the exact
-        textual syntax match required by the PostgreSQL query planner.
-        Therefore, for users upgrading to SQLAlchemy 2.0.42 or higher, existing
-        indexes that were created against :class:`.JSONB` expressions that use
-        subscripting would need to be dropped and re-created in order for them
-        to work with the new query syntax, e.g. an expression like
-        ``((entity.data -> 'a') ->> 'b')`` would become ``(entity.data['a'] ->>
-        'b')``.
-
-        .. seealso::
-
-            :ticket:`12868` - discussion of this issue
 
     """
 
     __visit_name__ = "JSONB"
 
-    class Comparator(JSON.Comparator[_T]):
+    class Comparator(JSON.Comparator):
         """Define comparison operations for :class:`_types.JSON`."""
 
-        type: JSONB
-
-        def has_key(self, other: Any) -> ColumnElement[bool]:
-            """Boolean expression.  Test for presence of a key (equivalent of
-            the ``?`` operator).  Note that the key may be a SQLA expression.
+        def has_key(self, other):
+            """Boolean expression.  Test for presence of a key.  Note that the
+            key may be a SQLA expression.
             """
             return self.operate(HAS_KEY, other, result_type=sqltypes.Boolean)
 
-        def has_all(self, other: Any) -> ColumnElement[bool]:
-            """Boolean expression.  Test for presence of all keys in jsonb
-            (equivalent of the ``?&`` operator)
-            """
+        def has_all(self, other):
+            """Boolean expression.  Test for presence of all keys in jsonb"""
             return self.operate(HAS_ALL, other, result_type=sqltypes.Boolean)
 
-        def has_any(self, other: Any) -> ColumnElement[bool]:
-            """Boolean expression.  Test for presence of any key in jsonb
-            (equivalent of the ``?|`` operator)
-            """
+        def has_any(self, other):
+            """Boolean expression.  Test for presence of any key in jsonb"""
             return self.operate(HAS_ANY, other, result_type=sqltypes.Boolean)
 
-        def contains(self, other: Any, **kwargs: Any) -> ColumnElement[bool]:
+        def contains(self, other, **kwargs):
             """Boolean expression.  Test if keys (or array) are a superset
-            of/contained the keys of the argument jsonb expression
-            (equivalent of the ``@>`` operator).
+            of/contained the keys of the argument jsonb expression.
 
             kwargs may be ignored by this operator but are required for API
             conformance.
             """
             return self.operate(CONTAINS, other, result_type=sqltypes.Boolean)
 
-        def contained_by(self, other: Any) -> ColumnElement[bool]:
+        def contained_by(self, other):
             """Boolean expression.  Test if keys are a proper subset of the
-            keys of the argument jsonb expression
-            (equivalent of the ``<@`` operator).
+            keys of the argument jsonb expression.
             """
             return self.operate(
                 CONTAINED_BY, other, result_type=sqltypes.Boolean
             )
 
-        def delete_path(
-            self, array: Union[List[str], _pg_array[str]]
-        ) -> ColumnElement[JSONB]:
+        def delete_path(self, array):
             """JSONB expression. Deletes field or array element specified in
-            the argument array (equivalent of the ``#-`` operator).
+            the argument array.
 
             The input may be a list of strings that will be coerced to an
             ``ARRAY`` or an instance of :meth:`_postgres.array`.
@@ -369,9 +381,9 @@ class JSONB(JSON):
             right_side = cast(array, ARRAY(sqltypes.TEXT))
             return self.operate(DELETE_PATH, right_side, result_type=JSONB)
 
-        def path_exists(self, other: Any) -> ColumnElement[bool]:
+        def path_exists(self, other):
             """Boolean expression. Test for presence of item given by the
-            argument JSONPath expression (equivalent of the ``@?`` operator).
+            argument JSONPath expression.
 
             .. versionadded:: 2.0
             """
@@ -379,10 +391,9 @@ class JSONB(JSON):
                 PATH_EXISTS, other, result_type=sqltypes.Boolean
             )
 
-        def path_match(self, other: Any) -> ColumnElement[bool]:
+        def path_match(self, other):
             """Boolean expression. Test if JSONPath predicate given by the
-            argument JSONPath expression matches
-            (equivalent of the ``@@`` operator).
+            argument JSONPath expression matches.
 
             Only the first item of the result is taken into account.
 

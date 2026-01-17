@@ -1,12 +1,9 @@
-from collections.abc import Sequence
-from typing import Annotated, Any, Callable, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
-from annotated_doc import Doc
 from fastapi import params
 from fastapi._compat import Undefined
 from fastapi.openapi.models import Example
-from pydantic import AliasChoices, AliasPath
-from typing_extensions import Literal, deprecated
+from typing_extensions import Annotated, Doc, deprecated  # type: ignore [attr-defined]
 
 _Unset: Any = Undefined
 
@@ -55,8 +52,10 @@ def Path(  # noqa: N802
             """
         ),
     ] = _Unset,
+    # TODO: update when deprecating Pydantic v1, import these types
+    # validation_alias: str | AliasPath | AliasChoices | None
     validation_alias: Annotated[
-        Union[str, AliasPath, AliasChoices, None],
+        Union[str, None],
         Doc(
             """
             'Whitelist' validation step. The parameter field will be the single one
@@ -209,7 +208,7 @@ def Path(  # noqa: N802
         ),
     ] = _Unset,
     examples: Annotated[
-        Optional[list[Any]],
+        Optional[List[Any]],
         Doc(
             """
             Example values for this field.
@@ -224,7 +223,7 @@ def Path(  # noqa: N802
         ),
     ] = _Unset,
     openapi_examples: Annotated[
-        Optional[dict[str, Example]],
+        Optional[Dict[str, Example]],
         Doc(
             """
             OpenAPI-specific examples.
@@ -241,7 +240,7 @@ def Path(  # noqa: N802
         ),
     ] = None,
     deprecated: Annotated[
-        Union[deprecated, str, bool, None],
+        Optional[bool],
         Doc(
             """
             Mark this parameter field as deprecated.
@@ -262,7 +261,7 @@ def Path(  # noqa: N802
         ),
     ] = True,
     json_schema_extra: Annotated[
-        Union[dict[str, Any], None],
+        Union[Dict[str, Any], None],
         Doc(
             """
             Any additional JSON schema data.
@@ -378,8 +377,10 @@ def Query(  # noqa: N802
             """
         ),
     ] = _Unset,
+    # TODO: update when deprecating Pydantic v1, import these types
+    # validation_alias: str | AliasPath | AliasChoices | None
     validation_alias: Annotated[
-        Union[str, AliasPath, AliasChoices, None],
+        Union[str, None],
         Doc(
             """
             'Whitelist' validation step. The parameter field will be the single one
@@ -532,7 +533,7 @@ def Query(  # noqa: N802
         ),
     ] = _Unset,
     examples: Annotated[
-        Optional[list[Any]],
+        Optional[List[Any]],
         Doc(
             """
             Example values for this field.
@@ -547,7 +548,7 @@ def Query(  # noqa: N802
         ),
     ] = _Unset,
     openapi_examples: Annotated[
-        Optional[dict[str, Example]],
+        Optional[Dict[str, Example]],
         Doc(
             """
             OpenAPI-specific examples.
@@ -564,7 +565,7 @@ def Query(  # noqa: N802
         ),
     ] = None,
     deprecated: Annotated[
-        Union[deprecated, str, bool, None],
+        Optional[bool],
         Doc(
             """
             Mark this parameter field as deprecated.
@@ -585,7 +586,7 @@ def Query(  # noqa: N802
         ),
     ] = True,
     json_schema_extra: Annotated[
-        Union[dict[str, Any], None],
+        Union[Dict[str, Any], None],
         Doc(
             """
             Any additional JSON schema data.
@@ -680,8 +681,10 @@ def Header(  # noqa: N802
             """
         ),
     ] = _Unset,
+    # TODO: update when deprecating Pydantic v1, import these types
+    # validation_alias: str | AliasPath | AliasChoices | None
     validation_alias: Annotated[
-        Union[str, AliasPath, AliasChoices, None],
+        Union[str, None],
         Doc(
             """
             'Whitelist' validation step. The parameter field will be the single one
@@ -845,7 +848,7 @@ def Header(  # noqa: N802
         ),
     ] = _Unset,
     examples: Annotated[
-        Optional[list[Any]],
+        Optional[List[Any]],
         Doc(
             """
             Example values for this field.
@@ -860,7 +863,7 @@ def Header(  # noqa: N802
         ),
     ] = _Unset,
     openapi_examples: Annotated[
-        Optional[dict[str, Example]],
+        Optional[Dict[str, Example]],
         Doc(
             """
             OpenAPI-specific examples.
@@ -877,7 +880,7 @@ def Header(  # noqa: N802
         ),
     ] = None,
     deprecated: Annotated[
-        Union[deprecated, str, bool, None],
+        Optional[bool],
         Doc(
             """
             Mark this parameter field as deprecated.
@@ -898,7 +901,7 @@ def Header(  # noqa: N802
         ),
     ] = True,
     json_schema_extra: Annotated[
-        Union[dict[str, Any], None],
+        Union[Dict[str, Any], None],
         Doc(
             """
             Any additional JSON schema data.
@@ -994,8 +997,10 @@ def Cookie(  # noqa: N802
             """
         ),
     ] = _Unset,
+    # TODO: update when deprecating Pydantic v1, import these types
+    # validation_alias: str | AliasPath | AliasChoices | None
     validation_alias: Annotated[
-        Union[str, AliasPath, AliasChoices, None],
+        Union[str, None],
         Doc(
             """
             'Whitelist' validation step. The parameter field will be the single one
@@ -1148,7 +1153,7 @@ def Cookie(  # noqa: N802
         ),
     ] = _Unset,
     examples: Annotated[
-        Optional[list[Any]],
+        Optional[List[Any]],
         Doc(
             """
             Example values for this field.
@@ -1163,7 +1168,7 @@ def Cookie(  # noqa: N802
         ),
     ] = _Unset,
     openapi_examples: Annotated[
-        Optional[dict[str, Example]],
+        Optional[Dict[str, Example]],
         Doc(
             """
             OpenAPI-specific examples.
@@ -1180,7 +1185,7 @@ def Cookie(  # noqa: N802
         ),
     ] = None,
     deprecated: Annotated[
-        Union[deprecated, str, bool, None],
+        Optional[bool],
         Doc(
             """
             Mark this parameter field as deprecated.
@@ -1201,7 +1206,7 @@ def Cookie(  # noqa: N802
         ),
     ] = True,
     json_schema_extra: Annotated[
-        Union[dict[str, Any], None],
+        Union[Dict[str, Any], None],
         Doc(
             """
             Any additional JSON schema data.
@@ -1277,7 +1282,7 @@ def Body(  # noqa: N802
         ),
     ] = _Unset,
     embed: Annotated[
-        Union[bool, None],
+        bool,
         Doc(
             """
             When `embed` is `True`, the parameter will be expected in a JSON body as a
@@ -1289,7 +1294,7 @@ def Body(  # noqa: N802
             [FastAPI docs for Body - Multiple Parameters](https://fastapi.tiangolo.com/tutorial/body-multiple-params/#embed-a-single-body-parameter).
             """
         ),
-    ] = None,
+    ] = False,
     media_type: Annotated[
         str,
         Doc(
@@ -1319,8 +1324,10 @@ def Body(  # noqa: N802
             """
         ),
     ] = _Unset,
+    # TODO: update when deprecating Pydantic v1, import these types
+    # validation_alias: str | AliasPath | AliasChoices | None
     validation_alias: Annotated[
-        Union[str, AliasPath, AliasChoices, None],
+        Union[str, None],
         Doc(
             """
             'Whitelist' validation step. The parameter field will be the single one
@@ -1473,7 +1480,7 @@ def Body(  # noqa: N802
         ),
     ] = _Unset,
     examples: Annotated[
-        Optional[list[Any]],
+        Optional[List[Any]],
         Doc(
             """
             Example values for this field.
@@ -1488,7 +1495,7 @@ def Body(  # noqa: N802
         ),
     ] = _Unset,
     openapi_examples: Annotated[
-        Optional[dict[str, Example]],
+        Optional[Dict[str, Example]],
         Doc(
             """
             OpenAPI-specific examples.
@@ -1505,7 +1512,7 @@ def Body(  # noqa: N802
         ),
     ] = None,
     deprecated: Annotated[
-        Union[deprecated, str, bool, None],
+        Optional[bool],
         Doc(
             """
             Mark this parameter field as deprecated.
@@ -1526,7 +1533,7 @@ def Body(  # noqa: N802
         ),
     ] = True,
     json_schema_extra: Annotated[
-        Union[dict[str, Any], None],
+        Union[Dict[str, Any], None],
         Doc(
             """
             Any additional JSON schema data.
@@ -1632,8 +1639,10 @@ def Form(  # noqa: N802
             """
         ),
     ] = _Unset,
+    # TODO: update when deprecating Pydantic v1, import these types
+    # validation_alias: str | AliasPath | AliasChoices | None
     validation_alias: Annotated[
-        Union[str, AliasPath, AliasChoices, None],
+        Union[str, None],
         Doc(
             """
             'Whitelist' validation step. The parameter field will be the single one
@@ -1786,7 +1795,7 @@ def Form(  # noqa: N802
         ),
     ] = _Unset,
     examples: Annotated[
-        Optional[list[Any]],
+        Optional[List[Any]],
         Doc(
             """
             Example values for this field.
@@ -1801,7 +1810,7 @@ def Form(  # noqa: N802
         ),
     ] = _Unset,
     openapi_examples: Annotated[
-        Optional[dict[str, Example]],
+        Optional[Dict[str, Example]],
         Doc(
             """
             OpenAPI-specific examples.
@@ -1818,7 +1827,7 @@ def Form(  # noqa: N802
         ),
     ] = None,
     deprecated: Annotated[
-        Union[deprecated, str, bool, None],
+        Optional[bool],
         Doc(
             """
             Mark this parameter field as deprecated.
@@ -1839,7 +1848,7 @@ def Form(  # noqa: N802
         ),
     ] = True,
     json_schema_extra: Annotated[
-        Union[dict[str, Any], None],
+        Union[Dict[str, Any], None],
         Doc(
             """
             Any additional JSON schema data.
@@ -1944,8 +1953,10 @@ def File(  # noqa: N802
             """
         ),
     ] = _Unset,
+    # TODO: update when deprecating Pydantic v1, import these types
+    # validation_alias: str | AliasPath | AliasChoices | None
     validation_alias: Annotated[
-        Union[str, AliasPath, AliasChoices, None],
+        Union[str, None],
         Doc(
             """
             'Whitelist' validation step. The parameter field will be the single one
@@ -2098,7 +2109,7 @@ def File(  # noqa: N802
         ),
     ] = _Unset,
     examples: Annotated[
-        Optional[list[Any]],
+        Optional[List[Any]],
         Doc(
             """
             Example values for this field.
@@ -2113,7 +2124,7 @@ def File(  # noqa: N802
         ),
     ] = _Unset,
     openapi_examples: Annotated[
-        Optional[dict[str, Example]],
+        Optional[Dict[str, Example]],
         Doc(
             """
             OpenAPI-specific examples.
@@ -2130,7 +2141,7 @@ def File(  # noqa: N802
         ),
     ] = None,
     deprecated: Annotated[
-        Union[deprecated, str, bool, None],
+        Optional[bool],
         Doc(
             """
             Mark this parameter field as deprecated.
@@ -2151,7 +2162,7 @@ def File(  # noqa: N802
         ),
     ] = True,
     json_schema_extra: Annotated[
-        Union[dict[str, Any], None],
+        Union[Dict[str, Any], None],
         Doc(
             """
             Any additional JSON schema data.
@@ -2233,26 +2244,6 @@ def Depends(  # noqa: N802
             """
         ),
     ] = True,
-    scope: Annotated[
-        Union[Literal["function", "request"], None],
-        Doc(
-            """
-            Mainly for dependencies with `yield`, define when the dependency function
-            should start (the code before `yield`) and when it should end (the code
-            after `yield`).
-
-            * `"function"`: start the dependency before the *path operation function*
-                that handles the request, end the dependency after the *path operation
-                function* ends, but **before** the response is sent back to the client.
-                So, the dependency function will be executed **around** the *path operation
-                **function***.
-            * `"request"`: start the dependency before the *path operation function*
-                that handles the request (similar to when using `"function"`), but end
-                **after** the response is sent back to the client. So, the dependency
-                function will be executed **around** the **request** and response cycle.
-            """
-        ),
-    ] = None,
 ) -> Any:
     """
     Declare a FastAPI dependency.
@@ -2283,7 +2274,7 @@ def Depends(  # noqa: N802
         return commons
     ```
     """
-    return params.Depends(dependency=dependency, use_cache=use_cache, scope=scope)
+    return params.Depends(dependency=dependency, use_cache=use_cache)
 
 
 def Security(  # noqa: N802
@@ -2307,7 +2298,7 @@ def Security(  # noqa: N802
             dependency.
 
             The term "scope" comes from the OAuth2 specification, it seems to be
-            intentionally vague and interpretable. It normally refers to permissions,
+            intentionaly vague and interpretable. It normally refers to permissions,
             in cases to roles.
 
             These scopes are integrated with OpenAPI (and the API docs at `/docs`).
@@ -2352,7 +2343,7 @@ def Security(  # noqa: N802
     ```python
     from typing import Annotated
 
-    from fastapi import Security, FastAPI
+    from fastapi import Depends, FastAPI
 
     from .db import User
     from .security import get_current_active_user

@@ -1,24 +1,22 @@
-from typing import TYPE_CHECKING
+# -*- coding: utf-8 -*-
 
 # Export the main method, helper methods, and the public data types.
-from .exceptions import EmailNotValidError, EmailSyntaxError, EmailUndeliverableError
-from .types import ValidatedEmail
+from .exceptions_types import ValidatedEmail, EmailNotValidError, \
+                              EmailSyntaxError, EmailUndeliverableError
 from .validate_email import validate_email
-from .version import __version__
+
 
 __all__ = ["validate_email",
            "ValidatedEmail", "EmailNotValidError",
            "EmailSyntaxError", "EmailUndeliverableError",
-           "caching_resolver", "__version__"]
+           "caching_resolver"]
 
-if TYPE_CHECKING:
+
+def caching_resolver(*args, **kwargs):
+    # Lazy load `deliverability` as it is slow to import (due to dns.resolver)
     from .deliverability import caching_resolver
-else:
-    def caching_resolver(*args, **kwargs):
-        # Lazy load `deliverability` as it is slow to import (due to dns.resolver)
-        from .deliverability import caching_resolver
 
-        return caching_resolver(*args, **kwargs)
+    return caching_resolver(*args, **kwargs)
 
 
 # These global attributes are a part of the library's API and can be
@@ -27,11 +25,8 @@ else:
 # Default values for keyword arguments.
 
 ALLOW_SMTPUTF8 = True
-ALLOW_EMPTY_LOCAL = False
 ALLOW_QUOTED_LOCAL = False
 ALLOW_DOMAIN_LITERAL = False
-ALLOW_DISPLAY_NAME = False
-STRICT = False
 GLOBALLY_DELIVERABLE = True
 CHECK_DELIVERABILITY = True
 TEST_ENVIRONMENT = False
