@@ -378,6 +378,8 @@ class YotoSmartStreamStack(Stack):
                 "S3_UI_BUCKET": self.ui_bucket.bucket_name,
                 "YOTO_CLIENT_ID": yoto_client_id or "",
                 "YOTO_SECRET_PREFIX": f"yoto-smart-stream-{self.env_name}",
+                "SECRETS_EXTENSION_HTTP_POLL": "1000",  # Extension polling interval in ms
+                "SECRETS_EXTENSION_HTTP_PORT": "2773",  # Extension port
                 "COGNITO_USER_POOL_ID": self.cognito_user_pool.user_pool_id,
                 "COGNITO_CLIENT_ID": self.cognito_user_pool_client.user_pool_client_id,  # Fixed: use client ID not provider name
                 "AUDIO_FILES_DIR": "/tmp/audio_files",  # Lambda writable directory
@@ -387,6 +389,18 @@ class YotoSmartStreamStack(Stack):
             },
             log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,
         )
+        
+        # Add AWS Secrets Manager Lambda Extension Layer
+        # This layer provides automatic caching and refresh of secrets
+        # Using the underlying CDK construct to add the layer directly to CloudFormation
+        from aws_cdk.aws_lambda import CfnFunction
+        
+        cfn_function = function.node.default_child
+        extension_layer_arn = f"arn:aws:lambda:{self.region}:976759262368:layer:AWS-Parameters-and-Secrets-Lambda-Extension:12"
+        
+        if not hasattr(cfn_function, "layers"):
+            cfn_function.layers = []
+        cfn_function.layers.append(extension_layer_arn)
         
         # FFmpeg Lambda layer removed - exceeds Lambda size limit (250MB)
         # Audio recording/conversion features will not work
