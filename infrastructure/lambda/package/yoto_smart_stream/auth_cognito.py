@@ -139,16 +139,22 @@ class CognitoAuth:
             return False
         
         try:
-            self.client.admin_create_user(
-                UserPoolId=self.user_pool_id,
-                Username=username,
-                UserAttributes=[
+            # Build parameters for admin_create_user
+            create_user_params = {
+                "UserPoolId": self.user_pool_id,
+                "Username": username,
+                "UserAttributes": [
                     {"Name": "email", "Value": email},
                     {"Name": "email_verified", "Value": "true"},
                 ],
-                TemporaryPassword=password if temporary_password else None,
-                MessageAction="SUPPRESS",  # Don't send welcome email
-            )
+                "MessageAction": "SUPPRESS",  # Don't send welcome email
+            }
+            
+            # Only include TemporaryPassword if using temporary password
+            if temporary_password:
+                create_user_params["TemporaryPassword"] = password
+            
+            self.client.admin_create_user(**create_user_params)
             
             # Set permanent password if not temporary
             if not temporary_password:
