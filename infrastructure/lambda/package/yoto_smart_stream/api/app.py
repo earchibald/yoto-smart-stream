@@ -10,10 +10,13 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+import mimetypes
+import boto3
+from botocore.exceptions import ClientError
 
 from ..config import get_settings, log_configuration
 from ..core import YotoClient
@@ -157,29 +160,35 @@ async def lifespan(app: FastAPI):
     yoto_client = None
     refresh_task = None
     try:
-        # Initialize Yoto client
+        # Initialize Yoto client (always, even if auth fails)
         yoto_client = YotoClient(settings)
-        yoto_client.authenticate()
-        yoto_client.update_player_status()
         set_yoto_client(yoto_client)
-        logger.info("✓ Yoto API connected successfully")
+        
+        # Try to authenticate with existing token
+        try:
+            yoto_client.authenticate()
+            yoto_client.update_player_status()
+            logger.info("✓ Yoto API connected successfully")
 
-        # Connect to MQTT if enabled
-        if settings.mqtt_enabled:
-            try:
-                yoto_client.connect_mqtt()
-                logger.info("✓ MQTT connected successfully")
-            except Exception as e:
-                logger.warning(f"⚠ MQTT connection failed: {e}")
-                logger.warning("  Continuing without MQTT (some features may not work)")
+            # Connect to MQTT if enabled
+            if settings.mqtt_enabled:
+                try:
+                    yoto_client.connect_mqtt()
+                    logger.info("✓ MQTT connected successfully")
+                except Exception as e:
+                    logger.warning(f"⚠ MQTT connection failed: {e}")
+                    logger.warning("  Continuing without MQTT (some features may not work)")
 
-        # Start background token refresh task
-        refresh_task = asyncio.create_task(
-            periodic_token_refresh(yoto_client, settings.token_refresh_interval_hours)
-        )
+            # Start background token refresh task
+            refresh_task = asyncio.create_task(
+                periodic_token_refresh(yoto_client, settings.token_refresh_interval_hours)
+            )
+        except Exception as auth_error:
+            logger.warning(f"⚠ Could not authenticate with Yoto API on startup: {auth_error}")
+            logger.warning("  User must complete OAuth flow to use player features")
 
     except Exception as e:
-        logger.error(f"⚠ Warning: Could not initialize Yoto API: {e}")
+        logger.error(f"⚠ Warning: Could not initialize Yoto client: {e}")
         logger.error("  Some endpoints may not work until authentication is completed.")
 
     # Create test stream with 1.mp3 through 10.mp3
@@ -263,9 +272,36 @@ def create_app() -> FastAPI:
     # Define static directory path once
     static_dir = Path(__file__).parent.parent / "static"
 
-    # Mount static files directory
-    if static_dir.exists():
-        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    # Serve static assets from S3 UI bucket via proxy for cache-busting and updates
+    s3_client = boto3.client("s3")
+    ui_bucket = get_settings().s3_ui_bucket
+
+    @app.get("/static/{key:path}", tags=["Web UI"])
+    async def static_proxy(key: str):
+        """Proxy static assets from the S3 UI bucket under the 'static/' prefix.
+
+        Example: /static/js/dashboard.js -> s3://<bucket>/static/js/dashboard.js
+        """
+        if not ui_bucket:
+            # Fallback to local static files if bucket not configured
+            local_path = static_dir / key
+            if local_path.exists():
+                guessed = mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"
+                return FileResponse(local_path, media_type=guessed)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Static asset not found")
+
+        s3_key = f"static/{key}"
+        try:
+            obj = s3_client.get_object(Bucket=ui_bucket, Key=s3_key)
+            body = obj["Body"].read()
+            content_type = obj.get("ContentType") or mimetypes.guess_type(key)[0] or "application/octet-stream"
+            headers = {
+                "Cache-Control": "public, max-age=31536000",
+            }
+            return Response(content=body, media_type=content_type, headers=headers)
+        except ClientError as e:
+            logger.error(f"Static fetch failed for s3://{ui_bucket}/{s3_key}: {e}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Static asset not found")
 
     # Include routers
     app.include_router(health.router, prefix="/api", tags=["Health"])

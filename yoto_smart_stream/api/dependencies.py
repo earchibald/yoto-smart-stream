@@ -1,6 +1,11 @@
 """FastAPI dependencies for dependency injection."""
 
+import logging
+
+from ..config import Settings
 from ..core import YotoClient
+
+logger = logging.getLogger(__name__)
 
 # Global Yoto client instance
 _yoto_client: YotoClient | None = None
@@ -15,13 +20,52 @@ def set_yoto_client(client: YotoClient) -> None:
 def get_yoto_client() -> YotoClient:
     """
     Get the global Yoto client instance.
+    
+<<<<<<< Updated upstream
+    If client not yet initialized, creates it lazily but does not authenticate.
+    Client will be authenticated when OAuth flow is completed.
 
     Returns:
-        Initialized and authenticated YotoClient
+        Initialized YotoClient (may not be authenticated yet)
+=======
+    If client not yet initialized, creates it lazily and attempts to load persisted auth.
+    If no persisted auth exists, client will be unauthenticated until OAuth flow completes.
+
+    Returns:
+        Initialized YotoClient (authenticated if token persists, otherwise unauthenticated)
+>>>>>>> Stashed changes
 
     Raises:
-        RuntimeError: If client not initialized
+        RuntimeError: If client cannot be created
     """
+    global _yoto_client
+    
     if _yoto_client is None:
-        raise RuntimeError("Yoto client not initialized")
+        try:
+            # Create client if it doesn't exist yet
+<<<<<<< Updated upstream
+            # This ensures get_yoto_client() always returns a client object
+            # Authentication will be completed separately via OAuth flow
+            settings = Settings()
+            _yoto_client = YotoClient(settings)
+            logger.debug("Lazy-created YotoClient instance")
+=======
+            settings = Settings()
+            _yoto_client = YotoClient(settings)
+            logger.debug("Lazy-created YotoClient instance")
+            
+            # Try to load persisted authentication automatically
+            # This ensures warm Lambda containers reload tokens after OAuth completes
+            try:
+                _yoto_client.authenticate()
+                logger.info("✓ Client authenticated with persisted token")
+            except FileNotFoundError:
+                logger.debug("No persisted token found, client will be unauthenticated until OAuth")
+            except Exception as e:
+                logger.debug(f"Could not load persisted auth: {e}, client will be unauthenticated")
+>>>>>>> Stashed changes
+        except Exception as e:
+            logger.error(f"Failed to lazy-create YotoClient: {e}")
+            raise RuntimeError(f"Could not create Yoto client: {e}") from e
+    
     return _yoto_client

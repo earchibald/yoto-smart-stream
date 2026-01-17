@@ -157,29 +157,35 @@ async def lifespan(app: FastAPI):
     yoto_client = None
     refresh_task = None
     try:
-        # Initialize Yoto client
+        # Initialize Yoto client (always, even if auth fails)
         yoto_client = YotoClient(settings)
-        yoto_client.authenticate()
-        yoto_client.update_player_status()
         set_yoto_client(yoto_client)
-        logger.info("✓ Yoto API connected successfully")
+        
+        # Try to authenticate with existing token
+        try:
+            yoto_client.authenticate()
+            yoto_client.update_player_status()
+            logger.info("✓ Yoto API connected successfully")
 
-        # Connect to MQTT if enabled
-        if settings.mqtt_enabled:
-            try:
-                yoto_client.connect_mqtt()
-                logger.info("✓ MQTT connected successfully")
-            except Exception as e:
-                logger.warning(f"⚠ MQTT connection failed: {e}")
-                logger.warning("  Continuing without MQTT (some features may not work)")
+            # Connect to MQTT if enabled
+            if settings.mqtt_enabled:
+                try:
+                    yoto_client.connect_mqtt()
+                    logger.info("✓ MQTT connected successfully")
+                except Exception as e:
+                    logger.warning(f"⚠ MQTT connection failed: {e}")
+                    logger.warning("  Continuing without MQTT (some features may not work)")
 
-        # Start background token refresh task
-        refresh_task = asyncio.create_task(
-            periodic_token_refresh(yoto_client, settings.token_refresh_interval_hours)
-        )
+            # Start background token refresh task
+            refresh_task = asyncio.create_task(
+                periodic_token_refresh(yoto_client, settings.token_refresh_interval_hours)
+            )
+        except Exception as auth_error:
+            logger.warning(f"⚠ Could not authenticate with Yoto API on startup: {auth_error}")
+            logger.warning("  User must complete OAuth flow to use player features")
 
     except Exception as e:
-        logger.error(f"⚠ Warning: Could not initialize Yoto API: {e}")
+        logger.error(f"⚠ Warning: Could not initialize Yoto client: {e}")
         logger.error("  Some endpoints may not work until authentication is completed.")
 
     # Create test stream with 1.mp3 through 10.mp3

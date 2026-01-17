@@ -21,6 +21,7 @@ class CognitoAuth:
         """Initialize Cognito client"""
         self.user_pool_id = os.getenv("COGNITO_USER_POOL_ID")
         self.client_id = os.getenv("COGNITO_CLIENT_ID")
+        self.last_error: Optional[str] = None
         
         if not self.user_pool_id:
             logger.warning("COGNITO_USER_POOL_ID not set, Cognito auth disabled")
@@ -134,6 +135,7 @@ class CognitoAuth:
         """
         if not self.is_enabled():
             logger.warning("Cannot create user: Cognito not enabled")
+            self.last_error = "Cognito not enabled"
             return False
         
         try:
@@ -158,13 +160,21 @@ class CognitoAuth:
                 )
             
             logger.info(f"Created Cognito user: {username}")
+            self.last_error = None
             return True
             
         except ClientError as e:
             logger.error(f"Failed to create user: {e}")
+            try:
+                code = e.response.get("Error", {}).get("Code")
+                msg = e.response.get("Error", {}).get("Message")
+                self.last_error = f"{code}: {msg}" if code or msg else str(e)
+            except Exception:
+                self.last_error = str(e)
             return False
         except Exception as e:
             logger.error(f"Unexpected error creating user: {e}")
+            self.last_error = str(e)
             return False
     
     def list_users(self, limit: int = 60) -> list:

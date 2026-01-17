@@ -22,6 +22,15 @@ Minimal skill for managing multi-environment AWS deployments for the yoto-smart-
 	- Deploy (see env flags in cli_scripts.md): `cdk deploy ...`
 - Optional first-time setup: `cdk bootstrap` (per account/region)
 
+## Architecture Documentation
+- AWS infrastructure diagram and documentation maintained in `docs/` directory
+- When CDK stack changes, update corresponding documentation
+- See `reference/architecture_documentation.md` for complete update process
+- Files to maintain:
+  - `docs/AWS_ARCHITECTURE_DIAGRAM.svg` - Generated graphical diagram
+  - `docs/AWS_ARCHITECTURE_OVERVIEW.md` - Detailed technical documentation
+  - `docs/README_ARCHITECTURE.md` - Quick reference guide
+
 ## Railway legacy migration notes
 - Export audio files from Railway persistent volume if needed (legacy):
   `railway run tar -czf /tmp/audio.tar.gz /data/audio_files/ && railway cp /tmp/audio.tar.gz ./audio.tar.gz`.

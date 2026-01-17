@@ -10,6 +10,8 @@ import tempfile
 from pathlib import Path
 from typing import Optional, Tuple
 
+from pydub import AudioSegment
+
 logger = logging.getLogger(__name__)
 
 
@@ -99,6 +101,22 @@ class PollyTTSService:
                 with open(output_path, "wb") as file:
                     file.write(response["AudioStream"].read())
                 
+                # Validate audio content (duration and non-silence)
+                try:
+                    audio = AudioSegment.from_mp3(str(output_path))
+                    duration_ms = len(audio)
+                    if duration_ms < 800 or audio.rms == 0:
+                        logger.warning(
+                            f"Polly produced invalid audio (duration={duration_ms}ms, rms={audio.rms}); treating as failure"
+                        )
+                        try:
+                            output_path.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                        return False, None, "Polly produced silent or empty audio"
+                except Exception as audio_err:
+                    logger.warning(f"Could not validate Polly audio output: {audio_err}")
+
                 file_size = output_path.stat().st_size
                 logger.info(f"✓ Polly synthesis complete: {output_path.name} ({file_size} bytes)")
                 
