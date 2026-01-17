@@ -1,6 +1,7 @@
 pydantic_core-2.41.5.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
 pydantic_core-2.41.5.dist-info/METADATA,sha256=Cfg7qjIC7D2piihKVq_fG6aZduSvcXJIiIflsrIFkak,7277
 pydantic_core-2.41.5.dist-info/RECORD,,
+pydantic_core-2.41.5.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
 pydantic_core-2.41.5.dist-info/WHEEL,sha256=AUS7tHOBvWg1bDsPcHg1j3P_rKxqebEdeR--lIGHkyI,129
 pydantic_core-2.41.5.dist-info/licenses/LICENSE,sha256=Kv3TDVS01itvSIprzBVG6E7FBh8T9CCcA9ASNIeDeVo,1080
 pydantic_core/__init__.py,sha256=nK1ikrdSVK9gapcKrpv_blrp8LCAic1jrK-jkbYHlNI,5115
