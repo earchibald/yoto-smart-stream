@@ -32,9 +32,6 @@ class UserRecord:
     is_admin: bool
     created_at: datetime
     updated_at: datetime
-    yoto_access_token: Optional[str] = None
-    yoto_refresh_token: Optional[str] = None
-    yoto_token_expires_at: Optional[datetime] = None
 
     @property
     def id(self) -> int:
@@ -122,9 +119,6 @@ class DynamoStore:
             is_admin=bool(item.get("is_admin", False)),
             created_at=_parse_dt(item.get("created_at")) or _now_utc(),
             updated_at=_parse_dt(item.get("updated_at")) or _now_utc(),
-            yoto_access_token=item.get("yoto_access_token"),
-            yoto_refresh_token=item.get("yoto_refresh_token"),
-            yoto_token_expires_at=_parse_dt(item.get("yoto_token_expires_at")),
         )
 
     def list_users(self) -> List[UserRecord]:
@@ -210,32 +204,6 @@ class DynamoStore:
         )
 
         return self.get_user(user.username)
-
-    def set_user_tokens(
-        self,
-        username: str,
-        access_token: Optional[str],
-        refresh_token: Optional[str],
-        expires_at: Optional[datetime],
-    ) -> None:
-        update_expr = ["updated_at = :updated_at"]
-        values = {":updated_at": _iso(_now_utc())}
-
-        if access_token is not None:
-            update_expr.append("yoto_access_token = :access")
-            values[":access"] = access_token
-        if refresh_token is not None:
-            update_expr.append("yoto_refresh_token = :refresh")
-            values[":refresh"] = refresh_token
-        if expires_at is not None:
-            update_expr.append("yoto_token_expires_at = :expires")
-            values[":expires"] = _iso(expires_at)
-
-        self.table.update_item(
-            Key={"PK": self._user_pk(username), "SK": self._user_sk()},
-            UpdateExpression="SET " + ", ".join(update_expr),
-            ExpressionAttributeValues=values,
-        )
 
     def ensure_admin_user(self, hashed_password: str, email: Optional[str]) -> UserRecord:
         existing = self.get_user("admin")

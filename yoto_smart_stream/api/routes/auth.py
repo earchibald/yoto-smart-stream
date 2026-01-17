@@ -218,13 +218,17 @@ async def poll_auth_status(
 
     try:
         # Try to complete the device code flow
-        client.manager.device_code_flow_complete()
-
+        result = client.manager.device_code_flow_complete()
+        
+        # Log for debugging
+        logger.debug(f"device_code_flow_complete() result: {result}")
+        logger.debug(f"client.manager.token: {client.manager.token}")
+        
         # If we get here, authentication succeeded
         client.set_authenticated(True)
 
         # Save tokens to Secrets Manager (primary storage)
-        if client.manager.token and client.manager.token.refresh_token:
+        if client.manager.token and hasattr(client.manager.token, 'refresh_token') and client.manager.token.refresh_token:
             try:
                 from ...storage.secrets_manager import save_yoto_tokens, YotoTokens
                 
@@ -269,7 +273,12 @@ async def poll_auth_status(
         )
 
     except Exception as e:
+        import traceback
         error_msg = str(e).lower()
+        
+        # Log full traceback for debugging
+        logger.error(f"Auth poll exception: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
 
         # Check for common error types
         if "authorization_pending" in error_msg or "pending" in error_msg:
