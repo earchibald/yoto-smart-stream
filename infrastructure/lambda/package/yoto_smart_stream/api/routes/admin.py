@@ -255,54 +255,33 @@ async def update_user(
         )
     
     try:
-        # Update email if provided
-        if update_data.email is not None:
-            # Check if email is already in use by another user
-            existing_user = db.query(User).filter(
-                User.email == update_data.email,
-                User.id != user_id
-            ).first()
-            if existing_user:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Email '{update_data.email}' is already in use by another user"
-                )
-            user.email = update_data.email
-            logger.info(f"Updated email for user {user.username}")
-        
-        # Update password if provided
-        if update_data.password:
-            user.hashed_password = get_password_hash(update_data.password)
-            logger.info(f"Updated password for user {user.username}")
-        
-        try:
-            hashed_password = get_password_hash(update_data.password) if update_data.password else None
-            updated = store.update_user(user_id, email=update_data.email, hashed_password=hashed_password)
-            if not updated:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User with id {user_id} not found"
-                )
-
-            logger.info(f"✓ User updated successfully: {updated.username} (id: {updated.user_id})")
-
-            return UpdateUserResponse(
-                success=True,
-                message=f"User '{updated.username}' updated successfully",
-                user=UserResponse(
-                    id=updated.user_id,
-                    username=updated.username,
-                    email=updated.email,
-                    is_active=updated.is_active,
-                    is_admin=updated.is_admin,
-                    created_at=updated.created_at.isoformat()
-                )
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to update user: {e}")
+        hashed_password = get_password_hash(update_data.password) if update_data.password else None
+        updated = store.update_user(user_id, email=update_data.email, hashed_password=hashed_password)
+        if not updated:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to update user: {str(e)}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with id {user_id} not found"
             )
+
+        logger.info(f"✓ User updated successfully: {updated.username} (id: {updated.user_id})")
+
+        return UpdateUserResponse(
+            success=True,
+            message=f"User '{updated.username}' updated successfully",
+            user=UserResponse(
+                id=updated.user_id,
+                username=updated.username,
+                email=updated.email,
+                is_active=updated.is_active,
+                is_admin=updated.is_admin,
+                created_at=updated.created_at.isoformat()
+            )
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update user: {str(e)}"
+        )
