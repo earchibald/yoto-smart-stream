@@ -197,6 +197,41 @@
                         <small>File will be saved as: <strong id="filename-preview">my-story.mp3</strong></small>
                     </div>
                     <div class="form-group">
+                        <label for="tts-voice" title="Select AWS Polly Neural voice">
+                            Voice:
+                        </label>
+                        <select id="tts-voice" name="voice" required>
+                            <optgroup label="US English - Neural">
+                                <option value="Joanna" selected>Joanna (Female, US)</option>
+                                <option value="Matthew">Matthew (Male, US)</option>
+                                <option value="Ivy">Ivy (Child, Female, US)</option>
+                                <option value="Joey">Joey (Male, US)</option>
+                                <option value="Kendra">Kendra (Female, US)</option>
+                                <option value="Kimberly">Kimberly (Female, US)</option>
+                                <option value="Salli">Salli (Female, US)</option>
+                                <option value="Justin">Justin (Child, Male, US)</option>
+                            </optgroup>
+                            <optgroup label="British English - Neural">
+                                <option value="Amy">Amy (Female, British)</option>
+                                <option value="Emma">Emma (Female, British)</option>
+                                <option value="Brian">Brian (Male, British)</option>
+                                <option value="Arthur">Arthur (Male, British)</option>
+                            </optgroup>
+                            <optgroup label="Australian English - Neural">
+                                <option value="Olivia">Olivia (Female, Australian)</option>
+                            </optgroup>
+                            <optgroup label="Indian English - Neural">
+                                <option value="Kajal">Kajal (Female, Indian)</option>
+                            </optgroup>
+                        </select>
+                        <button type="button" class="btn-secondary" id="test-voice-btn" style="margin-top: 8px;">
+                            <span id="test-voice-text">▶️ Test Voice</span>
+                            <span id="test-voice-spinner" style="display: none;">⏳</span>
+                        </button>
+                        <audio id="voice-preview-player" style="display: none;"></audio>
+                        <small>Click "Test Voice" to hear a sample of the selected voice</small>
+                    </div>
+                    <div class="form-group">
                         <label for="tts-text" title="Text that will be converted to speech">
                             Text to convert to speech:
                         </label>

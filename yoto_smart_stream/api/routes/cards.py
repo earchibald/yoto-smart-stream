@@ -114,6 +114,7 @@ class GenerateTTSRequest(BaseModel):
 
     filename: str = Field(..., description="Output filename (without extension)")
     text: str = Field(..., description="Text to convert to speech", min_length=1)
+    voice_id: Optional[str] = Field("Joanna", description="AWS Polly voice ID (default: Joanna)")
 
 
 # Audio streaming endpoints
@@ -225,6 +226,7 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
         success, s3_url, error_msg = polly_service.synthesize_speech(
             text=request.text,
             output_path=output_path,
+            voice_id=request.voice_id,
         )
 
         if success:

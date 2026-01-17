@@ -212,6 +212,15 @@ async def poll_auth_status(
         )
 
     try:
+        # Reconstruct auth_result with the device_code from the poll request
+        # This is necessary because in a stateless/serverless environment,
+        # the manager instance may not preserve state between requests
+        client.manager.auth_result = {
+            "device_code": poll_request.device_code,
+            "interval": 5,  # Default interval
+            "expires_in": 300  # Default expiration (5 minutes)
+        }
+        
         # Try to complete the device code flow
         client.manager.device_code_flow_complete()
 

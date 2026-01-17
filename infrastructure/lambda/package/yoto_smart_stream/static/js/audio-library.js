@@ -51,6 +51,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const ttsForm = document.getElementById('tts-form');
     if (ttsForm) {
         ttsForm.addEventListener('submit', handleTTSSubmit);
+        
+        // Setup test voice button
+        const testVoiceBtn = document.getElementById('test-voice-btn');
+        if (testVoiceBtn) {
+            testVoiceBtn.addEventListener('click', handleTestVoice);
+        }
     }
     
     // Setup filename preview
@@ -384,6 +390,7 @@ async function handleTTSSubmit(event) {
     // Get form data
     const filename = document.getElementById('tts-filename').value.trim();
     const text = document.getElementById('tts-text').value.trim();
+    const voice = document.getElementById('tts-voice').value;
     
     if (!filename || !text) {
         showTTSError('Please fill in all fields');
@@ -407,6 +414,7 @@ async function handleTTSSubmit(event) {
             body: JSON.stringify({
                 filename: filename,
                 text: text,
+                voice_id: voice,
             }),
         });
         
@@ -453,6 +461,69 @@ function showTTSError(message) {
     errorMessage.textContent = message;
     errorDiv.style.display = 'block';
     result.style.display = 'block';
+}
+
+// Handle test voice button click
+async function handleTestVoice() {
+    const testVoiceBtn = document.getElementById('test-voice-btn');
+    const testVoiceText = document.getElementById('test-voice-text');
+    const testVoiceSpinner = document.getElementById('test-voice-spinner');
+    const voiceSelect = document.getElementById('tts-voice');
+    const audioPlayer = document.getElementById('voice-preview-player');
+    
+    const selectedVoice = voiceSelect.value;
+    const voiceName = voiceSelect.options[voiceSelect.selectedIndex].text;
+    
+    // Sample text for each voice to demonstrate its characteristics
+    const sampleText = `Hello! I'm ${voiceName.split('(')[0].trim()}. This is how I sound when reading text.`;
+    
+    // Show loading state
+    testVoiceBtn.disabled = true;
+    testVoiceText.style.display = 'none';
+    testVoiceSpinner.style.display = 'inline';
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/generate-tts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                filename: `voice-preview-${selectedVoice}-${Date.now()}`,
+                text: sampleText,
+                voice_id: selectedVoice,
+            }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to generate voice preview');
+        }
+        
+        // Play the generated audio
+        if (data.url) {
+            audioPlayer.src = data.url;
+            audioPlayer.style.display = 'block';
+            audioPlayer.play();
+            
+            // Hide player after it finishes
+            audioPlayer.onended = () => {
+                setTimeout(() => {
+                    audioPlayer.style.display = 'none';
+                }, 2000);
+            };
+        }
+        
+    } catch (error) {
+        console.error('Error testing voice:', error);
+        showTTSError(`Failed to test voice: ${error.message}`);
+    } finally {
+        // Reset button state
+        testVoiceBtn.disabled = false;
+        testVoiceText.style.display = 'inline';
+        testVoiceSpinner.style.display = 'none';
+    }
 }
 
 // ============================================================================
