@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/Users/earchibald/mambaforge/envs/quo/bin/python3.10
 # -*- coding: utf-8 -*-
 import re
 import sys
