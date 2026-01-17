@@ -5,7 +5,7 @@ This module manages queues of audio files that can be streamed sequentially
 to clients, appearing as a single continuous MP3 stream.
 
 Storage Backend:
-- Lambda/AWS: Uses in-memory storage with optional DynamoDB persistence
+- Lambda/AWS: Uses in-memory storage with optional ephemeral /tmp persistence
 - Local Development: Uses local filesystem at ./streams
 """
 
