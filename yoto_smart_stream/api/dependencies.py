@@ -68,22 +68,30 @@ def get_authenticated_yoto_client() -> YotoClient:
     """
     Get an authenticated Yoto client, ensuring token is fresh.
     
+    IMPORTANT: This creates a FRESH client instance for each request to avoid
+    race conditions and token corruption from concurrent requests sharing state.
+    
     This is the recommended way to get a client in route handlers.
     It automatically:
-    1. Gets or creates the global client
-    2. Ensures token is valid (refreshes if needed)
-    3. Returns 401 if not authenticated
+    1. Creates a fresh client instance (not shared globally)
+    2. Loads persisted authentication from Secrets Manager/file
+    3. Ensures token is valid (refreshes if needed)
+    4. Returns 401 if not authenticated
     
     Returns:
-        Authenticated YotoClient with fresh token
+        Fresh authenticated YotoClient with valid token
     
     Raises:
         HTTPException 401: If not authenticated with Yoto API
         HTTPException 500: If there's a server error during auth
     """
     try:
-        client = get_yoto_client()
-    except RuntimeError as e:
+        # Create a FRESH client instance for this request
+        # Don't reuse the global one to avoid race conditions with concurrent requests
+        settings = Settings()
+        client = YotoClient(settings)
+        logger.debug("Created fresh YotoClient instance for request")
+    except Exception as e:
         logger.error(f"Failed to create Yoto client: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
