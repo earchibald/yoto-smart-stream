@@ -282,10 +282,10 @@ async def poll_auth_status(
             else:
                 logger.error("No refresh token available after authentication!")
 
-            # Persist the authenticated client globally so subsequent requests use it
-            logger.info("Setting authenticated client globally for future requests...")
-            set_yoto_client(client)
-            logger.info("✓ Authenticated client persisted")
+            # IMPORTANT: Reset the global client so the next request loads from Secrets Manager
+            # This ensures cold/warm Lambda containers pick up the newly saved token
+            set_yoto_client(None)
+            logger.info("Global client reset; next request will load token from Secrets Manager")
             
             # Update player status
             try:

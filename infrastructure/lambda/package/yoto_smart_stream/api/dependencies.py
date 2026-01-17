@@ -79,15 +79,38 @@ def get_authenticated_yoto_client() -> YotoClient:
     
     Raises:
         HTTPException 401: If not authenticated with Yoto API
+        HTTPException 500: If there's a server error during auth
     """
     try:
         client = get_yoto_client()
+    except RuntimeError as e:
+        logger.error(f"Failed to create Yoto client: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to initialize Yoto client"
+        )
+    
+    try:
         client.ensure_authenticated()
         return client
-    except Exception as e:
-        logger.info(f"Failed to ensure authentication: {e}")
+    except FileNotFoundError as e:
+        logger.info(f"No authentication token found: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated with Yoto API. Please connect your Yoto account."
         )
+    except Exception as e:
+        error_str = str(e).lower()
+        if "authentication" in error_str or "unauthorized" in error_str or "refresh token" in error_str:
+            logger.info(f"Authentication failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated with Yoto API. Please connect your Yoto account."
+            )
+        else:
+            logger.error(f"Unexpected error during authentication: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error during authentication"
+            )
 

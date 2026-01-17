@@ -107,14 +107,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load system status immediately
     loadSystemStatus();
     
-    // Load players and let it handle auth display
-    // This is more reliable than checking /api/auth/status independently
-    // because it avoids race conditions on page reload after OAuth
-    loadPlayers();
+    // Load players FIRST and wait for it to complete
+    await loadPlayers(true);  // Pass true for initial load
     
-    // Check auth status after a brief delay to allow Lambda/Secrets Manager to stabilize
-    // This prevents showing the auth prompt during the initialization phase
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // NOW check auth status after players have loaded
+    // This ensures we have accurate player count for auth decision
     checkAuthStatus();
     
     // Start auto-refresh for players every 5 seconds
@@ -133,30 +130,40 @@ async function checkAuthStatus() {
         if (!response.ok) throw new Error('Failed to check auth status');
         
         const data = await response.json();
+        const playerCount = document.getElementById('player-count');
+        const hasLoadedPlayers = playerCount && playerCount.textContent && 
+                                 playerCount.textContent !== '-' && 
+                                 playerCount.textContent !== 'Loading...' &&
+                                 playerCount.textContent !== '0';
         
         if (data.authenticated) {
-            // Hide auth section, show logout button
+            // Auth confirmed - hide auth section, show logout button
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('logout-button').style.display = 'inline-block';
+        } else if (hasLoadedPlayers) {
+            // Auth check says not authenticated BUT players loaded successfully
+            // This is a transient state - don't show auth section, players are real
+            // The next auth check will likely succeed
+            console.warn('Auth status says not authenticated but players are loaded - trusting players');
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('logout-button').style.display = 'none';
         } else {
-            // Only show auth section if players haven't loaded yet
-            // This prevents flicker when players load successfully but auth status
-            // check returns false due to Lambda cold start/token loading race condition
-            const playersList = document.getElementById('players-list');
-            const playerCount = document.getElementById('player-count');
-            const hasLoadedPlayers = playerCount && playerCount.textContent !== '-' && playerCount.textContent !== 'Loading...';
-            
-            if (!hasLoadedPlayers) {
-                // Show auth section only if no players have loaded yet
-                document.getElementById('auth-section').style.display = 'block';
-                document.getElementById('logout-button').style.display = 'none';
-            }
-            // If players have loaded, don't show auth section - we're actually authenticated
+            // No players loaded AND not authenticated - show auth section
+            document.getElementById('auth-section').style.display = 'block';
+            document.getElementById('logout-button').style.display = 'none';
         }
     } catch (error) {
         console.error('Error checking auth status:', error);
-        // Show auth section on error
-        document.getElementById('auth-section').style.display = 'block';
+        // On error, check if players loaded - if so, don't show auth prompt
+        const playerCount = document.getElementById('player-count');
+        const hasLoadedPlayers = playerCount && playerCount.textContent && 
+                                 playerCount.textContent !== '-' && 
+                                 playerCount.textContent !== 'Loading...' &&
+                                 playerCount.textContent !== '0';
+        
+        if (!hasLoadedPlayers) {
+            document.getElementById('auth-section').style.display = 'block';
+        }
     }
 }
 
@@ -316,7 +323,7 @@ async function loadSystemStatus() {
 }
 
 // Load players list
-async function loadPlayers() {
+async function loadPlayers(isInitialLoad = false) {
     const container = document.getElementById('players-list');
     
     // Prevent concurrent API calls
@@ -330,9 +337,18 @@ async function loadPlayers() {
         const response = await fetch(`${API_BASE}/players`);
         console.debug(`Players endpoint response: status=${response.status}, ok=${response.ok}`);
         if (response.status === 401) {
-            console.log('Players endpoint returned 401, showing auth prompt');
-            document.getElementById('player-count').textContent = '-';
-            container.innerHTML = '<p class="loading">Connect your Yoto account to see players.</p>';
+            console.log('Players endpoint returned 401');
+            // Only clear players on initial load
+            // During auto-refresh (5 sec interval), keep showing the last known players
+            // because this might be a transient auth failure
+            if (isInitialLoad) {
+                console.log('Initial load auth failure - showing auth prompt');
+                document.getElementById('player-count').textContent = '-';
+                container.innerHTML = '<p class="loading">Connect your Yoto account to see players.</p>';
+            } else {
+                console.log('Auto-refresh auth failure - keeping previous players visible');
+                // Keep existing players visible, don't flip UI
+            }
             return;
         }
         if (!response.ok) {

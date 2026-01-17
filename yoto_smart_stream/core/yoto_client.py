@@ -110,6 +110,7 @@ class YotoClient:
 
         refresh_token = None
         
+        logger.info(f"authenticate() called, looking for token for user_id={user_id}")
         # On Lambda, try loading from Secrets Manager first
         if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
             try:
