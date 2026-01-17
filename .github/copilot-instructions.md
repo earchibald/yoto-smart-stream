@@ -26,11 +26,13 @@ source cdk_venv/bin/activate
 1. Implement the solution following best practices.
 1. Write agent-focused tests to verify the solution using the guidelines provided.
 1. Update the version shown in the web UI footer if applicable.
-  1. Use semver format: MAJOR.MINOR.PATCH
+  1. Use semver format: MAJOR.MINOR.PATCH[+BUILD]
   1. Increment:
      - MAJOR for incompatible API changes
      - MINOR for backward-compatible functionality
      - PATCH for backward-compatible bug fixes
+     - +BUILD for build metadata. Release versions will omit this.
+
 1. Perform a **targeted** commit with a descriptive message.
 1. Push changes to the appropriate branch.
 1. Deploy to AWS using the established deployment process and the `cdk` commands below.
@@ -43,7 +45,7 @@ source cdk_venv/bin/activate
 ## Deployment Configuration
 
 ### Environment Selection
-- **aws-develop branch or copilot/* branches**: Deploy to CDK environment `dev`
+- **aws-develop branch or copilot* branches**: Deploy to CDK environment `dev`
 - **aws-main branch**: Deploy to CDK environment `prod`
 
 ### Deployment Flags by Environment
