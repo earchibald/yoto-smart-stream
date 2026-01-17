@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 
 from ...config import get_settings
-from ..dependencies import get_yoto_client
+from ..dependencies import get_yoto_client, get_authenticated_yoto_client
 
 router = APIRouter()
 
@@ -40,7 +40,7 @@ async def readiness_check():
     Verifies the service is ready to accept requests.
     """
     try:
-        client = get_yoto_client()
+        client = get_authenticated_yoto_client()
         if not client.is_authenticated():
             return {"ready": False, "reason": "Not authenticated"}
         return {"ready": True}

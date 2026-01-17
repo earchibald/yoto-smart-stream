@@ -16,7 +16,7 @@ from ...models import User
 from .user_auth import require_auth
 from ..mqtt_event_store import get_mqtt_event_store
 from ..stream_manager import get_stream_manager, StreamQueue
-from ..dependencies import get_yoto_client
+from ..dependencies import get_yoto_client, get_authenticated_yoto_client
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -317,7 +317,7 @@ async def create_playlist_from_stream(
         Created playlist information including playlist ID
     """
     settings = get_settings()
-    client = get_yoto_client()
+    client = get_authenticated_yoto_client()
     stream_manager = get_stream_manager()
     
     # Verify the stream exists
@@ -438,7 +438,7 @@ async def delete_playlist(
     Returns:
         Success message
     """
-    client = get_yoto_client()
+    client = get_authenticated_yoto_client()
     
     try:
         # Ensure we're authenticated
@@ -512,7 +512,7 @@ async def search_playlists_by_name(
     Returns:
         List of matching playlists with IDs and metadata
     """
-    client = get_yoto_client()
+    client = get_authenticated_yoto_client()
     
     try:
         # Ensure we're authenticated
@@ -594,7 +594,7 @@ async def delete_multiple_playlists(
     Returns:
         Results for each deletion attempt
     """
-    client = get_yoto_client()
+    client = get_authenticated_yoto_client()
     results = {
         "success": [],
         "failed": [],

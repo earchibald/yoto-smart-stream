@@ -14,7 +14,7 @@ from pydub import AudioSegment
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
-from ..dependencies import get_yoto_client
+from ..dependencies import get_yoto_client, get_authenticated_yoto_client
 from ...database import get_db
 from ...models import User
 from .user_auth import require_auth
@@ -642,7 +642,7 @@ async def create_streaming_card(request: CreateCardRequest, user: User = Depends
         Created card information including card ID
     """
     settings = get_settings()
-    client = get_yoto_client()
+    client = get_authenticated_yoto_client()
     manager = client.get_manager()
 
     # Verify audio file exists
@@ -988,7 +988,7 @@ async def create_playlist_from_audio(
         Created card information including card ID
     """
     settings = get_settings()
-    client = get_yoto_client()
+    client = get_authenticated_yoto_client()
     manager = client.get_manager()
 
     # Verify all audio files exist

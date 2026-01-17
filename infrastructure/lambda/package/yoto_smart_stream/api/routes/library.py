@@ -7,7 +7,7 @@ import requests
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
-from ..dependencies import get_yoto_client
+from ..dependencies import get_yoto_client, get_authenticated_yoto_client
 from ...database import get_db
 from ...models import User
 from .user_auth import require_auth
@@ -28,7 +28,7 @@ async def get_library(
         Dictionary with cards and playlists from the user's Yoto library
     """
     try:
-        client = get_yoto_client()
+        client = get_authenticated_yoto_client()
         manager = client.get_manager()
 
         # Update library from Yoto API (with cache clear via YotoClient)
@@ -199,7 +199,7 @@ async def get_content_details(content_id: str, user: User = Depends(require_auth
                 detail="Invalid content ID format"
             )
         
-        client = get_yoto_client()
+        client = get_authenticated_yoto_client()
         manager = client.get_manager()
         
         # Get token for authentication
@@ -267,7 +267,7 @@ async def delete_library_item(content_id: str, user: User = Depends(require_auth
                 detail="Invalid content ID format"
             )
 
-        client = get_yoto_client()
+        client = get_authenticated_yoto_client()
         manager = client.get_manager()
 
         token = manager.token
@@ -341,7 +341,7 @@ async def get_card_chapters(card_id: str, user: User = Depends(require_auth)):
         List of chapters with their metadata
     """
     try:
-        client = get_yoto_client()
+        client = get_authenticated_yoto_client()
         manager = client.get_manager()
         
         # Ensure library is loaded
@@ -411,7 +411,7 @@ async def get_card_raw_data(card_id: str, user: User = Depends(require_auth)):
         Dictionary with all available card data
     """
     try:
-        client = get_yoto_client()
+        client = get_authenticated_yoto_client()
         manager = client.get_manager()
         
         # Ensure library is loaded

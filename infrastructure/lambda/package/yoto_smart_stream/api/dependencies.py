@@ -1,6 +1,7 @@
 """FastAPI dependencies for dependency injection."""
 
 import logging
+from fastapi import HTTPException, status
 
 from ..config import Settings
 from ..core import YotoClient
@@ -61,3 +62,32 @@ def get_yoto_client() -> YotoClient:
             raise RuntimeError(f"Could not create Yoto client: {e}") from e
     
     return _yoto_client
+
+
+def get_authenticated_yoto_client() -> YotoClient:
+    """
+    Get an authenticated Yoto client, ensuring token is fresh.
+    
+    This is the recommended way to get a client in route handlers.
+    It automatically:
+    1. Gets or creates the global client
+    2. Ensures token is valid (refreshes if needed)
+    3. Returns 401 if not authenticated
+    
+    Returns:
+        Authenticated YotoClient with fresh token
+    
+    Raises:
+        HTTPException 401: If not authenticated with Yoto API
+    """
+    try:
+        client = get_yoto_client()
+        client.ensure_authenticated()
+        return client
+    except Exception as e:
+        logger.info(f"Failed to ensure authentication: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated with Yoto API. Please connect your Yoto account."
+        )
+
