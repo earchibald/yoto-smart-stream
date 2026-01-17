@@ -217,6 +217,13 @@ async def poll_auth_status(
         )
 
     try:
+        # Set the auth_result with the device_code from the poll request
+        # This is needed because each Lambda invocation may not have the original auth_result
+        if not client.manager.auth_result or client.manager.auth_result.get("device_code") != poll_request.device_code:
+            client.manager.auth_result = {
+                "device_code": poll_request.device_code
+            }
+        
         # Try to complete the device code flow
         result = client.manager.device_code_flow_complete()
         
