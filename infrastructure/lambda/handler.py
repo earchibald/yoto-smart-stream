@@ -20,16 +20,23 @@ try:
     from yoto_smart_stream.auth import get_password_hash
     import logging
     
-    # Initialize database on cold start
+    # Configure logging first
+    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
+    
+    # Initialize database on cold start
+    print("Lambda: Initializing database...")  # Print to ensure output
     logger.info("Initializing database for Lambda...")
     init_db()
+    print("Lambda: Database initialized")
     
     # Create default admin user if doesn't exist  
     db = SessionLocal()
     try:
+        print("Lambda: Checking for admin user...")
         admin_user = db.query(User).filter(User.username == "admin").first()
         if not admin_user:
+            print("Lambda: Creating admin user...")
             hashed = get_password_hash("yoto")
             admin_user = User(
                 username="admin",
@@ -40,9 +47,18 @@ try:
             )
             db.add(admin_user)
             db.commit()
+            db.refresh(admin_user)
+            print(f"Lambda: ✓ Default admin user created (id: {admin_user.id})")
             logger.info("✓ Default admin user created in Lambda")
+        else:
+            print(f"Lambda: Admin user already exists (id: {admin_user.id})")
+            logger.info(f"Admin user already exists (id: {admin_user.id})")
     except Exception as e:
+        print(f"Lambda: ERROR creating default admin user: {e}")
         logger.error(f"Error creating default admin user: {e}")
+        import traceback
+        print(traceback.format_exc())
+        db.rollback()
     finally:
         db.close()
     
