@@ -24,9 +24,16 @@ def get_yoto_client() -> YotoClient:
     If client not yet initialized, creates it lazily and attempts to load
     persisted authentication from Secrets Manager (Lambda) or local file.
     If no persisted auth exists, client will be unauthenticated until OAuth completes.
+    
+    IMPORTANT: This function returns a client that may not be authenticated.
+    Callers MUST call ensure_authenticated() to guarantee a valid token before
+    making API calls. This handles the case where:
+    - Token expiration between requests
+    - Lambda container reuse with stale tokens
+    - Secrets Manager token updates
 
     Returns:
-        Initialized YotoClient (authenticated if token persists, otherwise unauthenticated)
+        Initialized YotoClient (may not be authenticated - caller must check/refresh)
 
     Raises:
         RuntimeError: If client cannot be created
