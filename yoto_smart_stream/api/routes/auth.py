@@ -228,8 +228,9 @@ async def poll_auth_status(
 
             # Save refresh token using Secrets Manager (AWS Lambda) or file (local dev)
             if client.manager.token and client.manager.token.refresh_token:
-                # Determine user_id for token storage
-                user_id = current_user.username if current_user else "default"
+                # Use 'default' as user_id for single-tenant application
+                # This ensures tokens can be loaded on startup without knowing the user
+                user_id = "default"
                 
                 # On Lambda, use Secrets Manager for persistent storage
                 if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):

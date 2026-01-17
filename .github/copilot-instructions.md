@@ -100,7 +100,7 @@ This is the Yoto Smart Stream project - a service to stream audio to Yoto device
 This workspace contains locally-maintained custom skills in `.github/skills/`:
 
 1. **aws-service-management** - Multi-environment AWS deployment management
-2. **yoto-api-development** - Yoto Play API integration, audio streaming, and MQTT handling
+2. **yoto-smart-stream-service** - Yoto Smart Stream service development, API integration, and testing
 
 ### Skill and copilot-instructions.md Maintenance Directive
 
@@ -124,7 +124,7 @@ This workspace contains locally-maintained custom skills in `.github/skills/`:
 
 **How to Update Skills:**
 
-1. **Identify the relevant skill** - Determine which skill (`aws-service-management` or `yoto-api-development`) the new information relates to
+1. **Identify the relevant skill** - Determine which skill (`aws-service-management` or `yoto-smart-stream-service`) the new information relates to
 2. **Locate the appropriate file** - Skills have a main `SKILL.md` and reference docs in `reference/` subdirectories
 3. **Update the documentation** - Add or correct information in the relevant file(s)
 4. **Be specific** - Include examples, code snippets, or command syntax where applicable
@@ -142,21 +142,19 @@ This workspace contains locally-maintained custom skills in `.github/skills/`:
 │       ├── deployment_workflows.md
 │       ├── configuration_management.md
 │       └── ...
-└── yoto-api-development/
+└── yoto-smart-stream-service/
     ├── SKILL.md                    # Main overview and quick start
     └── reference/                  # Detailed reference docs
-        ├── yoto_api_reference.md
-        ├── yoto_mqtt_reference.md
-        ├── architecture.md
-        └── ...
+        ├── playwright_oauth_automation.md
+        └── test_oauth_flow.py
 ```
 
 **Examples of Updates to Make:**
 
-- ✅ You discover a new Yoto API endpoint → Update `yoto-api-development/reference/yoto_api_reference.md`
+- ✅ You discover new Yoto service functionality → Update `yoto-smart-stream-service/SKILL.md`
 - ✅ You find a better AWS deployment pattern → Update `aws-service-management/reference/deployment_workflows.md`
-- ✅ You implement MQTT reconnection logic → Update `yoto-api-development/reference/yoto_mqtt_reference.md` with the pattern
-- ✅ You correct an error in documented API behavior → Fix it in the relevant reference file
+- ✅ You implement MQTT reconnection logic → Update `yoto-smart-stream-service/SKILL.md` with the pattern
+- ✅ You correct an error in service behavior → Fix it in the relevant skill file
 - ✅ You add a new AWS CLI command pattern → Add it to `aws-service-management/reference/cli_scripts.md`
 
 ## failure to maintain skills
