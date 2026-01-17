@@ -291,9 +291,6 @@ greenlet_internal_mod_init() noexcept
         //      << "\n\tPyGreenlet     : " << sizeof(PyGreenlet)
         //      << endl;
 
-#ifdef Py_GIL_DISABLED
-        PyUnstable_Module_SetGIL(m.borrow(), Py_MOD_GIL_NOT_USED);
-#endif
         return m.borrow(); // But really it's the main reference.
     }
     catch (const LockInitError& e) {

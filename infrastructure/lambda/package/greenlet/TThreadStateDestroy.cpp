@@ -33,7 +33,6 @@ struct ThreadState_DestroyNoGIL
     MarkGreenletDeadAndQueueCleanup(ThreadState* const state)
     {
 #if GREENLET_BROKEN_THREAD_LOCAL_CLEANUP_JUST_LEAK
-        // One rare platform.
         return;
 #endif
         // We are *NOT* holding the GIL. Our thread is in the middle
@@ -71,11 +70,7 @@ private:
     static bool
     MarkGreenletDeadIfNeeded(ThreadState* const state)
     {
-        if (!state) {
-            return false;
-        }
-        LockGuard cleanup_lock(*mod_globs->thread_states_to_destroy_lock);
-        if (state->has_main_greenlet()) {
+        if (state && state->has_main_greenlet()) {
             // mark the thread as dead ASAP.
             // this is racy! If we try to throw or switch to a
             // greenlet from this thread from some other thread before
@@ -119,7 +114,7 @@ private:
             // from the queue; its next iteration will go ahead and delete the item we just added.
             // And the pending call we schedule here will have no work to do.
             int result = AddPendingCall(
-                           PendingCallback_DestroyQueue,
+                           PendingCallback_DestroyQueueWithGIL,
                             nullptr);
             if (result < 0) {
                 // Hmm, what can we do here?
@@ -131,11 +126,10 @@ private:
     }
 
     static int
-    PendingCallback_DestroyQueue(void* UNUSED(arg))
+    PendingCallback_DestroyQueueWithGIL(void* UNUSED(arg))
     {
-        // We're may or may not be holding the GIL here (depending on
-        // Py_GIL_DISABLED), so calls to ``os.fork()`` may or may not
-        // be possible.
+        // We're holding the GIL here, so no Python code should be able to
+        // run to call ``os.fork()``.
         while (1) {
             ThreadState* to_destroy;
             {
@@ -150,15 +144,15 @@ private:
             // Drop the lock while we do the actual deletion.
             // This allows other calls to MarkGreenletDeadAndQueueCleanup
             // to enter and add to our queue.
-            DestroyOne(to_destroy);
+            DestroyOneWithGIL(to_destroy);
         }
         return 0;
     }
 
     static void
-    DestroyOne(const ThreadState* const state)
+    DestroyOneWithGIL(const ThreadState* const state)
     {
-        // May or may not be holding the GIL (depending on Py_GIL_DISABLED).
+        // Holding the GIL.
         // Passed a non-shared pointer to the actual thread state.
         // state -> main greenlet
         assert(state->has_main_greenlet());

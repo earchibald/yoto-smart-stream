@@ -15,8 +15,6 @@ namespace greenlet {
 
 typedef void (*ThreadStateDestructor)(ThreadState* const);
 
-// Only one of these, auto created per thread as a thread_local.
-// Constructing the state constructs the MainGreenlet.
 template<ThreadStateDestructor Destructor>
 class ThreadStateCreator
 {
@@ -38,6 +36,8 @@ private:
 
 public:
 
+    // Only one of these, auto created per thread.
+    // Constructing the state constructs the MainGreenlet.
     ThreadStateCreator() :
         _state((ThreadState*)1)
     {
