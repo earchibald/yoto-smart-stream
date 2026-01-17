@@ -125,11 +125,23 @@ OAuth authorization flow is required for Yoto device access:
 
 ### Audio Streaming Architecture
 
-1. **Audio files** stored in persistent directory (`/data/audio_files` on AWS)
-2. **MYO cards** created with URLs pointing to THIS service, not Yoto's servers
-3. **Dynamic content** - Update audio without recreating cards
-4. **No upload limits** - Stream any size file
-5. **Byte-range support** - Enable seeking during playback
+1. **Audio files** - Stored in `/tmp/audio_files` (Lambda ephemeral) or `./audio_files` (local)
+2. **Stream queues** - Dynamic playlist configuration stored in-memory or local `./streams` directory
+3. **MYO cards** created with URLs pointing to THIS service, not Yoto's servers
+4. **Dynamic content** - Update audio without recreating cards
+5. **No upload limits** - Stream any size file
+6. **Byte-range support** - Enable seeking during playback
+
+**Storage Strategy (Environment-Aware):**
+- **Lambda/AWS**: In-memory stream queues (ephemeral, recreated on cold start). Audio from S3 buckets.
+- **Local Development**: Filesystem-persisted queues at `./streams/` and audio at `./audio_files/`
+- **Graceful Degradation**: If storage unavailable, queues work in-memory without persistence
+
+**Stream Queue Architecture:**
+- Queue configuration (file list, order) stored per-stream as JSON
+- Implementation: `StreamManager` auto-detects environment and uses appropriate storage
+- On Lambda: Ephemeral storage at `/tmp/streams` (cold-start safe)
+- No persistent storage needed - streams are recreated as needed
 
 **Supported Audio Formats:**
 - MP3 (recommended: 128-256 kbps)
@@ -195,7 +207,10 @@ Yoto Mini devices support 16x16 pixel custom icons:
 ## Service Structure
 
 - **Frontend:** FastAPI with Uvicorn
-- **Database:** SQLite with persistent volume at `/data`
+- **Database:** SQLite stored at `/tmp/yoto_smart_stream.db` (Lambda) or `./yoto_smart_stream.db` (local)
+- **Stream Queues:** In-memory with optional filesystem persistence
+  - Lambda: `/tmp/streams` (ephemeral)
+  - Local: `./streams` (persistent)
 - **API:** RESTful endpoints for device control, streaming, user management
 - **Real-time:** MQTT for device events and control via yoto_api library
 
