@@ -309,6 +309,11 @@ async function loadPlayers() {
     
     try {
         const response = await fetch(`${API_BASE}/players`);
+        if (response.status === 401) {
+            document.getElementById('player-count').textContent = '-';
+            container.innerHTML = '<p class="loading">Connect your Yoto account to see players.</p>';
+            return;
+        }
         if (!response.ok) throw new Error('Failed to fetch players');
         
         const players = await response.json();

@@ -164,7 +164,7 @@ async def create_user(
             if not success:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to create user in Cognito"
+                    detail=f"Failed to create user in Cognito: {cognito.last_error or 'Unknown error'}"
                 )
             
             logger.info(f"✓ User created in Cognito: {user_data.username}")

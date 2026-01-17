@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -160,10 +161,26 @@ class YotoClient:
                 self.authenticate()
 
     def update_player_status(self) -> None:
-        """Update player status from API."""
+        """Update player status from API with retry logic."""
         self.ensure_authenticated()
-        self.manager.update_players_status()
-        logger.debug(f"Updated status for {len(self.manager.players)} players")
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                self.manager.update_players_status()
+                logger.debug(f"Updated status for {len(self.manager.players)} players")
+                return
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                    logger.warning(
+                        f"Player status update failed (attempt {attempt + 1}/{max_retries}): {type(e).__name__}: {e}, "
+                        f"retrying in {wait_time}s"
+                    )
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"Failed to update player status after {max_retries} attempts: {type(e).__name__}: {e}")
+                    raise
 
     def update_library(self) -> None:
         """Update library from API to get card metadata."""
