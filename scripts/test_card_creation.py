@@ -145,6 +145,7 @@ def validate_card_in_library(
         # Check in cards list
         cards = library.get("cards", [])
         for card in cards:
+            # Match by ID first (most reliable)
             if card.get("cardId") == card_id or card.get("id") == card_id:
                 print("✅ Card found in library!")
                 print(f"   Title: {card.get('title')}")
@@ -152,11 +153,12 @@ def validate_card_in_library(
                 print(f"   Content ID: {card.get('contentId')}")
                 return True
 
-        # Check in playlists list
+        # Check in playlists list - use exact title match
         playlists = library.get("playlists", [])
         for playlist in playlists:
             playlist_title = playlist.get("name") or playlist.get("title")
-            if title.lower() in playlist_title.lower():
+            # Exact match only to avoid false positives
+            if playlist_title and playlist_title == title:
                 print("✅ Card found in playlists!")
                 print(f"   Title: {playlist_title}")
                 print(f"   ID: {playlist.get('id')}")

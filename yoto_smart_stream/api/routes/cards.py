@@ -800,6 +800,13 @@ async def create_streaming_card_from_url(
     Returns:
         Created card information including card ID and content ID
     """
+    # Validate audio URL is a valid HTTP/HTTPS URL
+    if not request.audio_url.startswith(("http://", "https://")):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="audio_url must be a valid HTTP or HTTPS URL",
+        )
+
     client = get_yoto_client()
     manager = client.get_manager()
 
