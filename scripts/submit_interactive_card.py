@@ -155,7 +155,6 @@ def build_interactive_payload() -> Dict[str, Any]:
                             "format": "mp3",
                             "display": None,
                             "ambient": None,
-                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch1.mp3",
                             "events": {
                                 "onLhb": {
                                     "cmd": "goto",
@@ -194,7 +193,6 @@ def build_interactive_payload() -> Dict[str, Any]:
                             "format": "mp3",
                             "display": None,
                             "ambient": None,
-                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch2.mp3",
                             "events": {
                                 "onEnd": {
                                     "cmd": "stop"
@@ -232,7 +230,6 @@ def build_interactive_payload() -> Dict[str, Any]:
                             "format": "mp3",
                             "display": None,
                             "ambient": None,
-                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch3.mp3",
                             "events": {
                                 "onEnd": {
                                 "cmd": "stop"
@@ -263,7 +260,6 @@ def build_interactive_payload() -> Dict[str, Any]:
                             "format": "mp3",
                             "display": None,
                             "ambient": None,
-                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch4.mp3",
                             "events": {
                                 "onEnd": {
                                 "cmd": "stop"
@@ -294,7 +290,6 @@ def build_interactive_payload() -> Dict[str, Any]:
                             "format": "mp3",
                             "display": None,
                             "ambient": None,
-                            "trackUrl": "https://yoto-smart-stream-develop.up.railway.app/api/audio/ch4.mp3",
                             "events": {
                                 "onEnd": {
                                     "cmd": "stop"

@@ -268,15 +268,6 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
 
 ### Cloud Deployment
-- **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
-- **[Railway Direct Inspection](docs/RAILWAY_DIRECT_INSPECTION.md)**: Direct API access for service inspection and troubleshooting (NEW)
-- **[Railway PR Environments](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)**: Automatic ephemeral environments for pull requests
-- **[Validating PR Environments](docs/VALIDATING_PR_ENVIRONMENTS.md)**: How to validate Railway PR environments are working correctly (NEW)
-- **[Railway MCP Tool Validation](README_RAILWAY_MCP_VALIDATION.md)**: Railway MCP server setup and validation (NEW)
-- **[Railway Shared Development](docs/RAILWAY_SHARED_DEVELOPMENT.md)**: Coordinated access to shared dev environment
-- **[Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md)**: Configure separate tokens per environment
-- **[Codespaces Railway Setup](docs/CODESPACES_RAILWAY_SETUP.md)**: Configure Railway access for GitHub Codespaces
-- **[Copilot Workspace Configuration](docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md)**: Network access and Railway MCP server for GitHub Copilot Workspace (NEW)
 - **[AWS Cost-Optimization Report](docs/AWS_COST_OPTIMIZATION_REPORT.md)**: Complete AWS architecture analysis with cost breakdowns ($5-47/month options) (NEW)
 - **[AWS Cost Quick Reference](docs/AWS_COST_QUICK_REFERENCE.md)**: Fast decision matrix for AWS deployment options (NEW)
 
@@ -307,7 +298,6 @@ This project is configured for GitHub Codespaces with a complete development env
 2. Wait for the environment to set up automatically
 3. Start developing!
 
-**Note:** GitHub Copilot Workspace has network access configured to test Railway deployments directly. See [Copilot Workspace Network Configuration](docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md) for details.
 
 ### Local Development
 
@@ -330,32 +320,23 @@ black .
 
 ## ☁️ Deployment
 
-### Railway.app
 
-Deploy to Railway with automated CI/CD and environment-specific tokens:
 
 ```bash
 # Staging: Automatic on push to develop branch
 git push origin develop
 
 # Development: Manual with coordination
-# Via GitHub Actions: Railway Development (Shared Environment) workflow
 
-# Pull Requests: Automatic via Railway native PR Environments
-# Open a PR → Railway creates pr-{number} environment automatically
 ```
 
-**Persistent Storage**: Railway volumes are configured to persist Yoto OAuth tokens across deployments and restarts. Tokens are stored in `/data/.yoto_refresh_token` on Railway, ensuring authentication survives instance restarts.
 
-**PR Environments**: Railway automatically creates ephemeral environments for pull requests with zero configuration. See [Railway PR Environments Guide](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md).
 
 **Static Environments**: Uses pre-registered callback URLs for Yoto OAuth compatibility.
 
-**Token Security**: Production uses a single Railway token (`RAILWAY_TOKEN_PROD`). Application secrets like `YOTO_CLIENT_ID` are stored as Railway Shared Variables. See [GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md).
 
 **Status**: 
 - ✅ Production (main branch) - Auto-deployed with `RAILWAY_TOKEN_PROD`
-- ✅ PR Environments (all PRs) - Auto-created by Railway native feature, inherits secrets via Shared Variables
 
 **Resources**:
 - **[GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md)** - Configure deployment secrets
@@ -367,7 +348,6 @@ git push origin develop
 
 All deployments include a health check endpoint:
 ```bash
-curl https://your-app.up.railway.app/health
 ```
 
 ## 📖 Examples

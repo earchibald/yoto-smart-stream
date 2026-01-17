@@ -46,7 +46,6 @@ def fetch_library(session: requests.Session, base_url: str) -> dict:
 def normalize_base_url(raw_base_url: Optional[str]) -> str:
     """Ensure we have a usable API base URL."""
     if not raw_base_url:
-        return "https://yoto-smart-stream-develop.up.railway.app/api"
     return raw_base_url.rstrip("/")
 
 
@@ -92,7 +91,6 @@ def delete_target(session: requests.Session, base_url: str, target: dict) -> tup
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Delete library items matching text via server API")
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="API base URL (default: Railway develop)")
     parser.add_argument("--username", default=DEFAULT_USERNAME, help="Server username (default: admin)")
     parser.add_argument("--password", help="Server password (prompted if not provided)")
     parser.add_argument("--match", default=DEFAULT_MATCH, help="Substring to match in title/name (default: 'LLM Test')")
