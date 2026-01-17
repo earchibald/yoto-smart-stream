@@ -8,6 +8,7 @@
 - ALWAYS use Playwright MCP for web UI interactions.
 - ALWAYS deploy fixes to AWS before testing.
 - NEVER deploy to Railway. Railway is retired.
+- ALWAYS use the option to disable the interactive pager when using certain CLI tools (e.g., `--no-pager` for `git`, `aws`, etc.) to ensure output is not blocked.
 
 ## Shell initialization
 - ALWAYS source the python virtual environment before running any commands:
