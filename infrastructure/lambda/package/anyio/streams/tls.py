@@ -1,24 +1,58 @@
 from __future__ import annotations
 
+__all__ = (
+    "TLSAttribute",
+    "TLSConnectable",
+    "TLSListener",
+    "TLSStream",
+)
+
 import logging
 import re
 import ssl
+import sys
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Mapping, Tuple, TypeVar
+from ssl import SSLContext
+from typing import Any, TypeVar
 
 from .. import (
     BrokenResourceError,
     EndOfStream,
     aclose_forcefully,
     get_cancelled_exc_class,
+    to_thread,
 )
 from .._core._typedattr import TypedAttributeSet, typed_attribute
-from ..abc import AnyByteStream, ByteStream, Listener, TaskGroup
+from ..abc import (
+    AnyByteStream,
+    AnyByteStreamConnectable,
+    ByteStream,
+    ByteStreamConnectable,
+    Listener,
+    TaskGroup,
+)
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
+
+if sys.version_info >= (3, 11):
+    from typing import TypeVarTuple, Unpack
+else:
+    from typing_extensions import TypeVarTuple, Unpack
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
 
 T_Retval = TypeVar("T_Retval")
-_PCTRTT = Tuple[Tuple[str, str], ...]
-_PCTRTTT = Tuple[_PCTRTT, ...]
+PosArgsT = TypeVarTuple("PosArgsT")
+_PCTRTT: TypeAlias = tuple[tuple[str, str], ...]
+_PCTRTTT: TypeAlias = tuple[_PCTRTT, ...]
 
 
 class TLSAttribute(TypedAttributeSet):
@@ -31,8 +65,8 @@ class TLSAttribute(TypedAttributeSet):
     #: the selected cipher
     cipher: tuple[str, str, int] = typed_attribute()
     #: the peer certificate in dictionary form (see :meth:`ssl.SSLSocket.getpeercert`
-    #: for more information)
-    peer_certificate: dict[str, str | _PCTRTTT | _PCTRTT] | None = typed_attribute()
+    # for more information)
+    peer_certificate: None | (dict[str, str | _PCTRTTT | _PCTRTT]) = typed_attribute()
     #: the peer certificate in binary form
     peer_certificate_binary: bytes | None = typed_attribute()
     #: ``True`` if this is the server side of the connection
@@ -90,8 +124,9 @@ class TLSStream(ByteStream):
         :param hostname: host name of the peer (if host name checking is desired)
         :param ssl_context: the SSLContext object to use (if not provided, a secure
             default will be created)
-        :param standard_compatible: if ``False``, skip the closing handshake when closing the
-            connection, and don't raise an exception if the peer does the same
+        :param standard_compatible: if ``False``, skip the closing handshake when
+            closing the connection, and don't raise an exception if the peer does the
+            same
         :raises ~ssl.SSLError: if the TLS handshake fails
 
         """
@@ -110,9 +145,23 @@ class TLSStream(ByteStream):
 
         bio_in = ssl.MemoryBIO()
         bio_out = ssl.MemoryBIO()
-        ssl_object = ssl_context.wrap_bio(
-            bio_in, bio_out, server_side=server_side, server_hostname=hostname
-        )
+
+        # External SSLContext implementations may do blocking I/O in wrap_bio(),
+        # but the standard library implementation won't
+        if type(ssl_context) is ssl.SSLContext:
+            ssl_object = ssl_context.wrap_bio(
+                bio_in, bio_out, server_side=server_side, server_hostname=hostname
+            )
+        else:
+            ssl_object = await to_thread.run_sync(
+                ssl_context.wrap_bio,
+                bio_in,
+                bio_out,
+                server_side,
+                hostname,
+                None,
+            )
+
         wrapper = cls(
             transport_stream=transport_stream,
             standard_compatible=standard_compatible,
@@ -124,7 +173,7 @@ class TLSStream(ByteStream):
         return wrapper
 
     async def _call_sslobject_method(
-        self, func: Callable[..., T_Retval], *args: object
+        self, func: Callable[[Unpack[PosArgsT]], T_Retval], *args: Unpack[PosArgsT]
     ) -> T_Retval:
         while True:
             try:
@@ -153,9 +202,8 @@ class TLSStream(ByteStream):
             except ssl.SSLError as exc:
                 self._read_bio.write_eof()
                 self._write_bio.write_eof()
-                if (
-                    isinstance(exc, ssl.SSLEOFError)
-                    or "UNEXPECTED_EOF_WHILE_READING" in exc.strerror
+                if isinstance(exc, ssl.SSLEOFError) or (
+                    exc.strerror and "UNEXPECTED_EOF_WHILE_READING" in exc.strerror
                 ):
                     if self.standard_compatible:
                         raise BrokenResourceError from exc
@@ -222,7 +270,9 @@ class TLSStream(ByteStream):
         return {
             **self.transport_stream.extra_attributes,
             TLSAttribute.alpn_protocol: self._ssl_object.selected_alpn_protocol,
-            TLSAttribute.channel_binding_tls_unique: self._ssl_object.get_channel_binding,
+            TLSAttribute.channel_binding_tls_unique: (
+                self._ssl_object.get_channel_binding
+            ),
             TLSAttribute.cipher: self._ssl_object.cipher,
             TLSAttribute.peer_certificate: lambda: self._ssl_object.getpeercert(False),
             TLSAttribute.peer_certificate_binary: lambda: self._ssl_object.getpeercert(
@@ -241,11 +291,12 @@ class TLSStream(ByteStream):
 @dataclass(eq=False)
 class TLSListener(Listener[TLSStream]):
     """
-    A convenience listener that wraps another listener and auto-negotiates a TLS session on every
-    accepted connection.
+    A convenience listener that wraps another listener and auto-negotiates a TLS session
+    on every accepted connection.
 
-    If the TLS handshake times out or raises an exception, :meth:`handle_handshake_error` is
-    called to do whatever post-mortem processing is deemed necessary.
+    If the TLS handshake times out or raises an exception,
+    :meth:`handle_handshake_error` is called to do whatever post-mortem processing is
+    deemed necessary.
 
     Supports only the :attr:`~TLSAttribute.standard_compatible` extra attribute.
 
@@ -281,7 +332,13 @@ class TLSListener(Listener[TLSStream]):
 
         # Log all except cancellation exceptions
         if not isinstance(exc, get_cancelled_exc_class()):
-            logging.getLogger(__name__).exception("Error during TLS handshake")
+            # CPython (as of 3.11.5) returns incorrect `sys.exc_info()` here when using
+            # any asyncio implementation, so we explicitly pass the exception to log
+            # (https://github.com/python/cpython/issues/108668). Trio does not have this
+            # issue because it works around the CPython bug.
+            logging.getLogger(__name__).exception(
+                "Error during TLS handshake", exc_info=exc
+            )
 
         # Only reraise base exceptions and cancellation exceptions
         if not isinstance(exc, Exception) or isinstance(exc, get_cancelled_exc_class()):
@@ -318,3 +375,50 @@ class TLSListener(Listener[TLSStream]):
         return {
             TLSAttribute.standard_compatible: lambda: self.standard_compatible,
         }
+
+
+class TLSConnectable(ByteStreamConnectable):
+    """
+    Wraps another connectable and does TLS negotiation after a successful connection.
+
+    :param connectable: the connectable to wrap
+    :param hostname: host name of the server (if host name checking is desired)
+    :param ssl_context: the SSLContext object to use (if not provided, a secure default
+        will be created)
+    :param standard_compatible: if ``False``, skip the closing handshake when closing
+        the connection, and don't raise an exception if the server does the same
+    """
+
+    def __init__(
+        self,
+        connectable: AnyByteStreamConnectable,
+        *,
+        hostname: str | None = None,
+        ssl_context: ssl.SSLContext | None = None,
+        standard_compatible: bool = True,
+    ) -> None:
+        self.connectable = connectable
+        self.ssl_context: SSLContext = ssl_context or ssl.create_default_context(
+            ssl.Purpose.SERVER_AUTH
+        )
+        if not isinstance(self.ssl_context, ssl.SSLContext):
+            raise TypeError(
+                "ssl_context must be an instance of ssl.SSLContext, not "
+                f"{type(self.ssl_context).__name__}"
+            )
+        self.hostname = hostname
+        self.standard_compatible = standard_compatible
+
+    @override
+    async def connect(self) -> TLSStream:
+        stream = await self.connectable.connect()
+        try:
+            return await TLSStream.wrap(
+                stream,
+                hostname=self.hostname,
+                ssl_context=self.ssl_context,
+                standard_compatible=self.standard_compatible,
+            )
+        except BaseException:
+            await aclose_forcefully(stream)
+            raise

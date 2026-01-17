@@ -54,15 +54,13 @@ from .util.util import to_str
 if typing.TYPE_CHECKING:
     import ssl
 
-    from typing_extensions import Literal
+    from typing_extensions import Self
 
     from ._base_connection import BaseHTTPConnection, BaseHTTPSConnection
 
 log = logging.getLogger(__name__)
 
 _TYPE_TIMEOUT = typing.Union[Timeout, float, _TYPE_DEFAULT, None]
-
-_SelfT = typing.TypeVar("_SelfT")
 
 
 # Pool objects
@@ -96,7 +94,7 @@ class ConnectionPool:
     def __str__(self) -> str:
         return f"{type(self).__name__}(host={self.host!r}, port={self.port!r})"
 
-    def __enter__(self: _SelfT) -> _SelfT:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
@@ -104,7 +102,7 @@ class ConnectionPool:
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
-    ) -> Literal[False]:
+    ) -> typing.Literal[False]:
         self.close()
         # Return False to re-raise any potential exceptions
         return False
@@ -172,9 +170,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
     """
 
     scheme = "http"
-    ConnectionCls: (
-        type[BaseHTTPConnection] | type[BaseHTTPSConnection]
-    ) = HTTPConnection
+    ConnectionCls: type[BaseHTTPConnection] | type[BaseHTTPSConnection] = HTTPConnection
 
     def __init__(
         self,
@@ -512,9 +508,10 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             pass
         except OSError as e:
             # MacOS/Linux
-            # EPROTOTYPE is needed on macOS
+            # EPROTOTYPE and ECONNRESET are needed on macOS
             # https://erickt.github.io/blog/2014/11/19/adventures-in-debugging-a-potential-osx-kernel-bug/
-            if e.errno != errno.EPROTOTYPE:
+            # Condition changed later to emit ECONNRESET instead of only EPROTOTYPE.
+            if e.errno != errno.EPROTOTYPE and e.errno != errno.ECONNRESET:
                 raise
 
         # Reset the timeout for the recv() on the socket
@@ -551,10 +548,9 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             self.port,
             method,
             url,
-            # HTTP version
-            conn._http_vsn_str,  # type: ignore[attr-defined]
+            response.version_string,
             response.status,
-            response.length_remaining,  # type: ignore[attr-defined]
+            response.length_remaining,
         )
 
         return response
@@ -647,7 +643,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             Configure the number of retries to allow before raising a
             :class:`~urllib3.exceptions.MaxRetryError` exception.
 
-            Pass ``None`` to retry until you receive a response. Pass a
+            If ``None`` (default) will retry 3 times, see ``Retry.DEFAULT``. Pass a
             :class:`~urllib3.util.retry.Retry` object for fine-grained control
             over different types of retries.
             Pass an integer number to retry connection errors that many times,
@@ -1000,7 +996,7 @@ class HTTPSConnectionPool(HTTPConnectionPool):
         ssl_version: int | str | None = None,
         ssl_minimum_version: ssl.TLSVersion | None = None,
         ssl_maximum_version: ssl.TLSVersion | None = None,
-        assert_hostname: str | Literal[False] | None = None,
+        assert_hostname: str | typing.Literal[False] | None = None,
         assert_fingerprint: str | None = None,
         ca_cert_dir: str | None = None,
         **conn_kw: typing.Any,
@@ -1096,7 +1092,8 @@ class HTTPSConnectionPool(HTTPConnectionPool):
         if conn.is_closed:
             conn.connect()
 
-        if not conn.is_verified:
+        # TODO revise this, see https://github.com/urllib3/urllib3/issues/2791
+        if not conn.is_verified and not conn.proxy_is_verified:
             warnings.warn(
                 (
                     f"Unverified HTTPS request is being made to host '{conn.host}'. "
@@ -1138,13 +1135,11 @@ def connection_from_url(url: str, **kw: typing.Any) -> HTTPConnectionPool:
 
 
 @typing.overload
-def _normalize_host(host: None, scheme: str | None) -> None:
-    ...
+def _normalize_host(host: None, scheme: str | None) -> None: ...
 
 
 @typing.overload
-def _normalize_host(host: str, scheme: str | None) -> str:
-    ...
+def _normalize_host(host: str, scheme: str | None) -> str: ...
 
 
 def _normalize_host(host: str | None, scheme: str | None) -> str | None:

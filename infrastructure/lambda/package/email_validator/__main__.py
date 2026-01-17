@@ -12,23 +12,25 @@
 # When using STDIN, no output will be given for valid email addresses.
 #
 # Keyword arguments to validate_email can be set in environment variables
-# of the same name but upprcase (see below).
+# of the same name but uppercase (see below).
 
 import json
 import os
 import sys
+from typing import Any, Dict, Optional
 
-from .validate_email import validate_email
+from .validate_email import validate_email, _Resolver
 from .deliverability import caching_resolver
-from .exceptions_types import EmailNotValidError
+from .exceptions import EmailNotValidError
 
 
-def main(dns_resolver=None):
+def main(dns_resolver: Optional[_Resolver] = None) -> None:
     # The dns_resolver argument is for tests.
 
     # Set options from environment variables.
-    options = {}
-    for varname in ('ALLOW_SMTPUTF8', 'ALLOW_QUOTED_LOCAL', 'ALLOW_DOMAIN_LITERAL',
+    options: Dict[str, Any] = {}
+    for varname in ('ALLOW_SMTPUTF8', 'ALLOW_EMPTY_LOCAL', 'ALLOW_QUOTED_LOCAL', 'ALLOW_DOMAIN_LITERAL',
+                    'ALLOW_DISPLAY_NAME',
                     'GLOBALLY_DELIVERABLE', 'CHECK_DELIVERABILITY', 'TEST_ENVIRONMENT'):
         if varname in os.environ:
             options[varname.lower()] = bool(os.environ[varname])
@@ -37,7 +39,7 @@ def main(dns_resolver=None):
             options[varname.lower()] = float(os.environ[varname])
 
     if len(sys.argv) == 1:
-        # Validate the email addresses pased line-by-line on STDIN.
+        # Validate the email addresses passed line-by-line on STDIN.
         dns_resolver = dns_resolver or caching_resolver()
         for line in sys.stdin:
             email = line.strip()

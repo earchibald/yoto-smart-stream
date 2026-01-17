@@ -1,11 +1,11 @@
-# oracle/__init__.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# dialects/oracle/__init__.py
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: ignore-errors
-
+from types import ModuleType
 
 from . import base  # noqa
 from . import cx_oracle  # noqa
@@ -32,7 +32,18 @@ from .base import ROWID
 from .base import TIMESTAMP
 from .base import VARCHAR
 from .base import VARCHAR2
+from .base import VECTOR
+from .base import VectorIndexConfig
+from .base import VectorIndexType
+from .vector import SparseVector
+from .vector import VectorDistanceType
+from .vector import VectorStorageFormat
+from .vector import VectorStorageType
 
+# Alias oracledb also as oracledb_async
+oracledb_async = type(
+    "oracledb_async", (ModuleType,), {"dialect": oracledb.dialect_async}
+)
 
 base.dialect = dialect = cx_oracle.dialect
 
@@ -59,4 +70,12 @@ __all__ = (
     "VARCHAR2",
     "NVARCHAR2",
     "ROWID",
+    "REAL",
+    "VECTOR",
+    "VectorDistanceType",
+    "VectorIndexType",
+    "VectorIndexConfig",
+    "VectorStorageFormat",
+    "VectorStorageType",
+    "SparseVector",
 )

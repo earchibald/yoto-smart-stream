@@ -14,32 +14,24 @@
 #
 # See the README file for information on usage and redistribution.
 #
-import os
-import tempfile
+from __future__ import annotations
+
+from io import BytesIO
+from typing import cast
 
 from . import Image, ImageFile
-from ._binary import i8
 from ._binary import i16be as i16
 from ._binary import i32be as i32
-from ._binary import o8
 
 COMPRESSION = {1: "raw", 5: "jpeg"}
-
-PAD = o8(0) * 4
 
 
 #
 # Helpers
 
 
-def i(c):
-    return i32((PAD + c)[-4:])
-
-
-def dump(c):
-    for i in c:
-        print("%02x" % i8(i), end=" ")
-    print()
+def _i(c: bytes) -> int:
+    return i32((b"\0\0\0\0" + c)[-4:])
 
 
 ##
@@ -51,20 +43,21 @@ class IptcImageFile(ImageFile.ImageFile):
     format = "IPTC"
     format_description = "IPTC/NAA"
 
-    def getint(self, key):
-        return i(self.info[key])
+    def getint(self, key: tuple[int, int]) -> int:
+        return _i(self.info[key])
 
-    def field(self):
+    def field(self) -> tuple[tuple[int, int] | None, int]:
         #
         # get a IPTC field header
+        assert self.fp is not None
         s = self.fp.read(5)
-        if not len(s):
+        if not s.strip(b"\x00"):
             return None, 0
 
         tag = s[1], s[2]
 
         # syntax
-        if s[0] != 0x1C or tag[0] < 1 or tag[0] > 9:
+        if s[0] != 0x1C or tag[0] not in [1, 2, 3, 4, 5, 6, 7, 8, 9, 240]:
             msg = "invalid IPTC/NAA file"
             raise SyntaxError(msg)
 
@@ -76,14 +69,15 @@ class IptcImageFile(ImageFile.ImageFile):
         elif size == 128:
             size = 0
         elif size > 128:
-            size = i(self.fp.read(size - 128))
+            size = _i(self.fp.read(size - 128))
         else:
             size = i16(s, 3)
 
         return tag, size
 
-    def _open(self):
+    def _open(self) -> None:
         # load descriptive fields
+        assert self.fp is not None
         while True:
             offset = self.fp.tell()
             tag, size = self.field()
@@ -102,18 +96,20 @@ class IptcImageFile(ImageFile.ImageFile):
                 self.info[tag] = tagdata
 
         # mode
-        layers = i8(self.info[(3, 60)][0])
-        component = i8(self.info[(3, 60)][1])
-        if (3, 65) in self.info:
-            id = i8(self.info[(3, 65)][0]) - 1
-        else:
-            id = 0
+        layers = self.info[(3, 60)][0]
+        component = self.info[(3, 60)][1]
         if layers == 1 and not component:
-            self.mode = "L"
-        elif layers == 3 and component:
-            self.mode = "RGB"[id]
-        elif layers == 4 and component:
-            self.mode = "CMYK"[id]
+            self._mode = "L"
+            band = None
+        else:
+            if layers == 3 and component:
+                self._mode = "RGB"
+            elif layers == 4 and component:
+                self._mode = "CMYK"
+            if (3, 65) in self.info:
+                band = self.info[(3, 65)][0] - 1
+            else:
+                band = 0
 
         # size
         self._size = self.getint((3, 20)), self.getint((3, 30))
@@ -128,47 +124,46 @@ class IptcImageFile(ImageFile.ImageFile):
         # tile
         if tag == (8, 10):
             self.tile = [
-                ("iptc", (compression, offset), (0, 0, self.size[0], self.size[1]))
+                ImageFile._Tile("iptc", (0, 0) + self.size, offset, (compression, band))
             ]
 
-    def load(self):
-        if len(self.tile) != 1 or self.tile[0][0] != "iptc":
-            return ImageFile.ImageFile.load(self)
+    def load(self) -> Image.core.PixelAccess | None:
+        if self.tile:
+            args = self.tile[0].args
+            assert isinstance(args, tuple)
+            compression, band = args
 
-        type, tile, box = self.tile[0]
+            assert self.fp is not None
+            self.fp.seek(self.tile[0].offset)
 
-        encoding, offset = tile
-
-        self.fp.seek(offset)
-
-        # Copy image data to temporary file
-        o_fd, outfile = tempfile.mkstemp(text=False)
-        o = os.fdopen(o_fd)
-        if encoding == "raw":
-            # To simplify access to the extracted file,
-            # prepend a PPM header
-            o.write("P5\n%d %d\n255\n" % self.size)
-        while True:
-            type, size = self.field()
-            if type != (8, 10):
-                break
-            while size > 0:
-                s = self.fp.read(min(size, 8192))
-                if not s:
+            # Copy image data to temporary file
+            o = BytesIO()
+            if compression == "raw":
+                # To simplify access to the extracted file,
+                # prepend a PPM header
+                o.write(b"P5\n%d %d\n255\n" % self.size)
+            while True:
+                type, size = self.field()
+                if type != (8, 10):
                     break
-                o.write(s)
-                size -= len(s)
-        o.close()
+                while size > 0:
+                    s = self.fp.read(min(size, 8192))
+                    if not s:
+                        break
+                    o.write(s)
+                    size -= len(s)
 
-        try:
-            with Image.open(outfile) as _im:
-                _im.load()
-                self.im = _im.im
-        finally:
-            try:
-                os.unlink(outfile)
-            except OSError:
-                pass
+            with Image.open(o) as _im:
+                if band is not None:
+                    bands = [Image.new("L", _im.size)] * Image.getmodebands(self.mode)
+                    bands[band] = _im
+                    im = Image.merge(self.mode, bands)
+                else:
+                    im = _im
+                    im.load()
+                self.im = im.im
+            self.tile = []
+        return ImageFile.ImageFile.load(self)
 
 
 Image.register_open(IptcImageFile.format, IptcImageFile)
@@ -176,7 +171,9 @@ Image.register_open(IptcImageFile.format, IptcImageFile)
 Image.register_extension(IptcImageFile.format, ".iim")
 
 
-def getiptcinfo(im):
+def getiptcinfo(
+    im: ImageFile.ImageFile,
+) -> dict[tuple[int, int], bytes | list[bytes]] | None:
     """
     Get IPTC information from TIFF, JPEG, or IPTC file.
 
@@ -184,15 +181,17 @@ def getiptcinfo(im):
     :returns: A dictionary containing IPTC information, or None if
         no IPTC information block was found.
     """
-    import io
-
     from . import JpegImagePlugin, TiffImagePlugin
 
     data = None
 
+    info: dict[tuple[int, int], bytes | list[bytes]] = {}
     if isinstance(im, IptcImageFile):
         # return info dictionary right away
-        return im.info
+        for k, v in im.info.items():
+            if isinstance(k, tuple):
+                info[k] = v
+        return info
 
     elif isinstance(im, JpegImagePlugin.JpegImageFile):
         # extract the IPTC/NAA resource
@@ -204,8 +203,8 @@ def getiptcinfo(im):
         # get raw data from the IPTC/NAA tag (PhotoShop tags the data
         # as 4-byte integers, so we cannot use the get method...)
         try:
-            data = im.tag.tagdata[TiffImagePlugin.IPTC_NAA_CHUNK]
-        except (AttributeError, KeyError):
+            data = im.tag_v2._tagdata[TiffImagePlugin.IPTC_NAA_CHUNK]
+        except KeyError:
             pass
 
     if data is None:
@@ -215,16 +214,20 @@ def getiptcinfo(im):
     class FakeImage:
         pass
 
-    im = FakeImage()
-    im.__class__ = IptcImageFile
+    fake_im = FakeImage()
+    fake_im.__class__ = IptcImageFile  # type: ignore[assignment]
+    iptc_im = cast(IptcImageFile, fake_im)
 
     # parse the IPTC information chunk
-    im.info = {}
-    im.fp = io.BytesIO(data)
+    iptc_im.info = {}
+    iptc_im.fp = BytesIO(data)
 
     try:
-        im._open()
+        iptc_im._open()
     except (IndexError, KeyError):
         pass  # expected failure
 
-    return im.info
+    for k, v in iptc_im.info.items():
+        if isinstance(k, tuple):
+            info[k] = v
+    return info

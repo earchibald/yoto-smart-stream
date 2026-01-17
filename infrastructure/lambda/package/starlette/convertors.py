@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import math
-import typing
 import uuid
+from typing import Any, ClassVar, Generic, TypeVar
 
-T = typing.TypeVar("T")
+T = TypeVar("T")
 
 
-class Convertor(typing.Generic[T]):
-    regex: typing.ClassVar[str] = ""
+class Convertor(Generic[T]):
+    regex: ClassVar[str] = ""
 
     def convert(self, value: str) -> T:
         raise NotImplementedError()  # pragma: no cover
@@ -15,7 +17,7 @@ class Convertor(typing.Generic[T]):
         raise NotImplementedError()  # pragma: no cover
 
 
-class StringConvertor(Convertor):
+class StringConvertor(Convertor[str]):
     regex = "[^/]+"
 
     def convert(self, value: str) -> str:
@@ -28,7 +30,7 @@ class StringConvertor(Convertor):
         return value
 
 
-class PathConvertor(Convertor):
+class PathConvertor(Convertor[str]):
     regex = ".*"
 
     def convert(self, value: str) -> str:
@@ -38,7 +40,7 @@ class PathConvertor(Convertor):
         return str(value)
 
 
-class IntegerConvertor(Convertor):
+class IntegerConvertor(Convertor[int]):
     regex = "[0-9]+"
 
     def convert(self, value: str) -> int:
@@ -50,7 +52,7 @@ class IntegerConvertor(Convertor):
         return str(value)
 
 
-class FloatConvertor(Convertor):
+class FloatConvertor(Convertor[float]):
     regex = r"[0-9]+(\.[0-9]+)?"
 
     def convert(self, value: str) -> float:
@@ -64,8 +66,8 @@ class FloatConvertor(Convertor):
         return ("%0.20f" % value).rstrip("0").rstrip(".")
 
 
-class UUIDConvertor(Convertor):
-    regex = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+class UUIDConvertor(Convertor[uuid.UUID]):
+    regex = "[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}"
 
     def convert(self, value: str) -> uuid.UUID:
         return uuid.UUID(value)
@@ -74,7 +76,7 @@ class UUIDConvertor(Convertor):
         return str(value)
 
 
-CONVERTOR_TYPES = {
+CONVERTOR_TYPES: dict[str, Convertor[Any]] = {
     "str": StringConvertor(),
     "path": PathConvertor(),
     "int": IntegerConvertor(),
@@ -83,5 +85,5 @@ CONVERTOR_TYPES = {
 }
 
 
-def register_url_convertor(key: str, convertor: Convertor) -> None:
+def register_url_convertor(key: str, convertor: Convertor[Any]) -> None:
     CONVERTOR_TYPES[key] = convertor

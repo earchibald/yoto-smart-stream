@@ -1,17 +1,16 @@
+from collections.abc import Iterable, Mapping
 from enum import Enum
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type, Union
+from typing import Annotated, Any, Callable, Optional, Union
 
-from fastapi._compat import (
-    PYDANTIC_V2,
-    CoreSchema,
-    GetJsonSchemaHandler,
-    JsonSchemaValue,
-    _model_rebuild,
-    with_info_plain_validator_function,
-)
+from fastapi._compat import with_info_plain_validator_function
 from fastapi.logger import logger
-from pydantic import AnyUrl, BaseModel, Field
-from typing_extensions import Annotated, Literal, TypedDict
+from pydantic import (
+    AnyUrl,
+    BaseModel,
+    Field,
+    GetJsonSchemaHandler,
+)
+from typing_extensions import Literal, TypedDict
 from typing_extensions import deprecated as typing_deprecated
 
 try:
@@ -44,46 +43,34 @@ except ImportError:  # pragma: no cover
 
         @classmethod
         def __get_pydantic_json_schema__(
-            cls, core_schema: CoreSchema, handler: GetJsonSchemaHandler
-        ) -> JsonSchemaValue:
+            cls, core_schema: Mapping[str, Any], handler: GetJsonSchemaHandler
+        ) -> dict[str, Any]:
             return {"type": "string", "format": "email"}
 
         @classmethod
         def __get_pydantic_core_schema__(
-            cls, source: Type[Any], handler: Callable[[Any], CoreSchema]
-        ) -> CoreSchema:
+            cls, source: type[Any], handler: Callable[[Any], Mapping[str, Any]]
+        ) -> Mapping[str, Any]:
             return with_info_plain_validator_function(cls._validate)
 
 
-class Contact(BaseModel):
+class BaseModelWithConfig(BaseModel):
+    model_config = {"extra": "allow"}
+
+
+class Contact(BaseModelWithConfig):
     name: Optional[str] = None
     url: Optional[AnyUrl] = None
     email: Optional[EmailStr] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-class License(BaseModel):
+class License(BaseModelWithConfig):
     name: str
     identifier: Optional[str] = None
     url: Optional[AnyUrl] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-class Info(BaseModel):
+class Info(BaseModelWithConfig):
     title: str
     summary: Optional[str] = None
     description: Optional[str] = None
@@ -92,41 +79,17 @@ class Info(BaseModel):
     license: Optional[License] = None
     version: str
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-class ServerVariable(BaseModel):
-    enum: Annotated[Optional[List[str]], Field(min_length=1)] = None
+class ServerVariable(BaseModelWithConfig):
+    enum: Annotated[Optional[list[str]], Field(min_length=1)] = None
     default: str
     description: Optional[str] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-class Server(BaseModel):
+class Server(BaseModelWithConfig):
     url: Union[AnyUrl, str]
     description: Optional[str] = None
-    variables: Optional[Dict[str, ServerVariable]] = None
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
+    variables: Optional[dict[str, ServerVariable]] = None
 
 
 class Reference(BaseModel):
@@ -135,39 +98,29 @@ class Reference(BaseModel):
 
 class Discriminator(BaseModel):
     propertyName: str
-    mapping: Optional[Dict[str, str]] = None
+    mapping: Optional[dict[str, str]] = None
 
 
-class XML(BaseModel):
+class XML(BaseModelWithConfig):
     name: Optional[str] = None
     namespace: Optional[str] = None
     prefix: Optional[str] = None
     attribute: Optional[bool] = None
     wrapped: Optional[bool] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-class ExternalDocumentation(BaseModel):
+class ExternalDocumentation(BaseModelWithConfig):
     description: Optional[str] = None
     url: AnyUrl
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
+# Ref JSON Schema 2020-12: https://json-schema.org/draft/2020-12/json-schema-validation#name-type
+SchemaType = Literal[
+    "array", "boolean", "integer", "null", "number", "object", "string"
+]
 
 
-class Schema(BaseModel):
+class Schema(BaseModelWithConfig):
     # Ref: JSON Schema 2020-12: https://json-schema.org/draft/2020-12/json-schema-core.html#name-the-json-schema-core-vocabu
     # Core Vocabulary
     schema_: Optional[str] = Field(default=None, alias="$schema")
@@ -177,34 +130,34 @@ class Schema(BaseModel):
     dynamicAnchor: Optional[str] = Field(default=None, alias="$dynamicAnchor")
     ref: Optional[str] = Field(default=None, alias="$ref")
     dynamicRef: Optional[str] = Field(default=None, alias="$dynamicRef")
-    defs: Optional[Dict[str, "SchemaOrBool"]] = Field(default=None, alias="$defs")
+    defs: Optional[dict[str, "SchemaOrBool"]] = Field(default=None, alias="$defs")
     comment: Optional[str] = Field(default=None, alias="$comment")
     # Ref: JSON Schema 2020-12: https://json-schema.org/draft/2020-12/json-schema-core.html#name-a-vocabulary-for-applying-s
     # A Vocabulary for Applying Subschemas
-    allOf: Optional[List["SchemaOrBool"]] = None
-    anyOf: Optional[List["SchemaOrBool"]] = None
-    oneOf: Optional[List["SchemaOrBool"]] = None
+    allOf: Optional[list["SchemaOrBool"]] = None
+    anyOf: Optional[list["SchemaOrBool"]] = None
+    oneOf: Optional[list["SchemaOrBool"]] = None
     not_: Optional["SchemaOrBool"] = Field(default=None, alias="not")
     if_: Optional["SchemaOrBool"] = Field(default=None, alias="if")
     then: Optional["SchemaOrBool"] = None
     else_: Optional["SchemaOrBool"] = Field(default=None, alias="else")
-    dependentSchemas: Optional[Dict[str, "SchemaOrBool"]] = None
-    prefixItems: Optional[List["SchemaOrBool"]] = None
+    dependentSchemas: Optional[dict[str, "SchemaOrBool"]] = None
+    prefixItems: Optional[list["SchemaOrBool"]] = None
     # TODO: uncomment and remove below when deprecating Pydantic v1
-    # It generales a list of schemas for tuples, before prefixItems was available
+    # It generates a list of schemas for tuples, before prefixItems was available
     # items: Optional["SchemaOrBool"] = None
-    items: Optional[Union["SchemaOrBool", List["SchemaOrBool"]]] = None
+    items: Optional[Union["SchemaOrBool", list["SchemaOrBool"]]] = None
     contains: Optional["SchemaOrBool"] = None
-    properties: Optional[Dict[str, "SchemaOrBool"]] = None
-    patternProperties: Optional[Dict[str, "SchemaOrBool"]] = None
+    properties: Optional[dict[str, "SchemaOrBool"]] = None
+    patternProperties: Optional[dict[str, "SchemaOrBool"]] = None
     additionalProperties: Optional["SchemaOrBool"] = None
     propertyNames: Optional["SchemaOrBool"] = None
     unevaluatedItems: Optional["SchemaOrBool"] = None
     unevaluatedProperties: Optional["SchemaOrBool"] = None
     # Ref: JSON Schema Validation 2020-12: https://json-schema.org/draft/2020-12/json-schema-validation.html#name-a-vocabulary-for-structural
     # A Vocabulary for Structural Validation
-    type: Optional[str] = None
-    enum: Optional[List[Any]] = None
+    type: Optional[Union[SchemaType, list[SchemaType]]] = None
+    enum: Optional[list[Any]] = None
     const: Optional[Any] = None
     multipleOf: Optional[float] = Field(default=None, gt=0)
     maximum: Optional[float] = None
@@ -221,8 +174,8 @@ class Schema(BaseModel):
     minContains: Optional[int] = Field(default=None, ge=0)
     maxProperties: Optional[int] = Field(default=None, ge=0)
     minProperties: Optional[int] = Field(default=None, ge=0)
-    required: Optional[List[str]] = None
-    dependentRequired: Optional[Dict[str, Set[str]]] = None
+    required: Optional[list[str]] = None
+    dependentRequired: Optional[dict[str, set[str]]] = None
     # Ref: JSON Schema Validation 2020-12: https://json-schema.org/draft/2020-12/json-schema-validation.html#name-vocabularies-for-semantic-c
     # Vocabularies for Semantic Content With "format"
     format: Optional[str] = None
@@ -239,7 +192,7 @@ class Schema(BaseModel):
     deprecated: Optional[bool] = None
     readOnly: Optional[bool] = None
     writeOnly: Optional[bool] = None
-    examples: Optional[List[Any]] = None
+    examples: Optional[list[Any]] = None
     # Ref: OpenAPI 3.1.0: https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.1.0.md#schema-object
     # Schema Object
     discriminator: Optional[Discriminator] = None
@@ -253,14 +206,6 @@ class Schema(BaseModel):
         ),
     ] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
-
 
 # Ref: https://json-schema.org/draft/2020-12/json-schema-core.html#name-json-schema-documents
 # A JSON Schema MUST be an object or a boolean.
@@ -273,13 +218,7 @@ class Example(TypedDict, total=False):
     value: Optional[Any]
     externalValue: Optional[AnyUrl]
 
-    if PYDANTIC_V2:  # type: ignore [misc]
-        __pydantic_config__ = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
+    __pydantic_config__ = {"extra": "allow"}  # type: ignore[misc]
 
 
 class ParameterInType(Enum):
@@ -289,38 +228,22 @@ class ParameterInType(Enum):
     cookie = "cookie"
 
 
-class Encoding(BaseModel):
+class Encoding(BaseModelWithConfig):
     contentType: Optional[str] = None
-    headers: Optional[Dict[str, Union["Header", Reference]]] = None
+    headers: Optional[dict[str, Union["Header", Reference]]] = None
     style: Optional[str] = None
     explode: Optional[bool] = None
     allowReserved: Optional[bool] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-class MediaType(BaseModel):
+class MediaType(BaseModelWithConfig):
     schema_: Optional[Union[Schema, Reference]] = Field(default=None, alias="schema")
     example: Optional[Any] = None
-    examples: Optional[Dict[str, Union[Example, Reference]]] = None
-    encoding: Optional[Dict[str, Encoding]] = None
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
+    examples: Optional[dict[str, Union[Example, Reference]]] = None
+    encoding: Optional[dict[str, Encoding]] = None
 
 
-class ParameterBase(BaseModel):
+class ParameterBase(BaseModelWithConfig):
     description: Optional[str] = None
     required: Optional[bool] = None
     deprecated: Optional[bool] = None
@@ -330,17 +253,9 @@ class ParameterBase(BaseModel):
     allowReserved: Optional[bool] = None
     schema_: Optional[Union[Schema, Reference]] = Field(default=None, alias="schema")
     example: Optional[Any] = None
-    examples: Optional[Dict[str, Union[Example, Reference]]] = None
+    examples: Optional[dict[str, Union[Example, Reference]]] = None
     # Serialization rules for more complex scenarios
-    content: Optional[Dict[str, MediaType]] = None
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
+    content: Optional[dict[str, MediaType]] = None
 
 
 class Parameter(ParameterBase):
@@ -352,77 +267,45 @@ class Header(ParameterBase):
     pass
 
 
-class RequestBody(BaseModel):
+class RequestBody(BaseModelWithConfig):
     description: Optional[str] = None
-    content: Dict[str, MediaType]
+    content: dict[str, MediaType]
     required: Optional[bool] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-class Link(BaseModel):
+class Link(BaseModelWithConfig):
     operationRef: Optional[str] = None
     operationId: Optional[str] = None
-    parameters: Optional[Dict[str, Union[Any, str]]] = None
+    parameters: Optional[dict[str, Union[Any, str]]] = None
     requestBody: Optional[Union[Any, str]] = None
     description: Optional[str] = None
     server: Optional[Server] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-class Response(BaseModel):
+class Response(BaseModelWithConfig):
     description: str
-    headers: Optional[Dict[str, Union[Header, Reference]]] = None
-    content: Optional[Dict[str, MediaType]] = None
-    links: Optional[Dict[str, Union[Link, Reference]]] = None
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
+    headers: Optional[dict[str, Union[Header, Reference]]] = None
+    content: Optional[dict[str, MediaType]] = None
+    links: Optional[dict[str, Union[Link, Reference]]] = None
 
 
-class Operation(BaseModel):
-    tags: Optional[List[str]] = None
+class Operation(BaseModelWithConfig):
+    tags: Optional[list[str]] = None
     summary: Optional[str] = None
     description: Optional[str] = None
     externalDocs: Optional[ExternalDocumentation] = None
     operationId: Optional[str] = None
-    parameters: Optional[List[Union[Parameter, Reference]]] = None
+    parameters: Optional[list[Union[Parameter, Reference]]] = None
     requestBody: Optional[Union[RequestBody, Reference]] = None
     # Using Any for Specification Extensions
-    responses: Optional[Dict[str, Union[Response, Any]]] = None
-    callbacks: Optional[Dict[str, Union[Dict[str, "PathItem"], Reference]]] = None
+    responses: Optional[dict[str, Union[Response, Any]]] = None
+    callbacks: Optional[dict[str, Union[dict[str, "PathItem"], Reference]]] = None
     deprecated: Optional[bool] = None
-    security: Optional[List[Dict[str, List[str]]]] = None
-    servers: Optional[List[Server]] = None
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
+    security: Optional[list[dict[str, list[str]]]] = None
+    servers: Optional[list[Server]] = None
 
 
-class PathItem(BaseModel):
+class PathItem(BaseModelWithConfig):
     ref: Optional[str] = Field(default=None, alias="$ref")
     summary: Optional[str] = None
     description: Optional[str] = None
@@ -434,16 +317,8 @@ class PathItem(BaseModel):
     head: Optional[Operation] = None
     patch: Optional[Operation] = None
     trace: Optional[Operation] = None
-    servers: Optional[List[Server]] = None
-    parameters: Optional[List[Union[Parameter, Reference]]] = None
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
+    servers: Optional[list[Server]] = None
+    parameters: Optional[list[Union[Parameter, Reference]]] = None
 
 
 class SecuritySchemeType(Enum):
@@ -453,17 +328,9 @@ class SecuritySchemeType(Enum):
     openIdConnect = "openIdConnect"
 
 
-class SecurityBase(BaseModel):
+class SecurityBase(BaseModelWithConfig):
     type_: SecuritySchemeType = Field(alias="type")
     description: Optional[str] = None
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
 
 
 class APIKeyIn(Enum):
@@ -488,17 +355,9 @@ class HTTPBearer(HTTPBase):
     bearerFormat: Optional[str] = None
 
 
-class OAuthFlow(BaseModel):
+class OAuthFlow(BaseModelWithConfig):
     refreshUrl: Optional[str] = None
-    scopes: Dict[str, str] = {}
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
+    scopes: dict[str, str] = {}
 
 
 class OAuthFlowImplicit(OAuthFlow):
@@ -518,19 +377,11 @@ class OAuthFlowAuthorizationCode(OAuthFlow):
     tokenUrl: str
 
 
-class OAuthFlows(BaseModel):
+class OAuthFlows(BaseModelWithConfig):
     implicit: Optional[OAuthFlowImplicit] = None
     password: Optional[OAuthFlowPassword] = None
     clientCredentials: Optional[OAuthFlowClientCredentials] = None
     authorizationCode: Optional[OAuthFlowAuthorizationCode] = None
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
 
 
 class OAuth2(SecurityBase):
@@ -548,64 +399,40 @@ class OpenIdConnect(SecurityBase):
 SecurityScheme = Union[APIKey, HTTPBase, OAuth2, OpenIdConnect, HTTPBearer]
 
 
-class Components(BaseModel):
-    schemas: Optional[Dict[str, Union[Schema, Reference]]] = None
-    responses: Optional[Dict[str, Union[Response, Reference]]] = None
-    parameters: Optional[Dict[str, Union[Parameter, Reference]]] = None
-    examples: Optional[Dict[str, Union[Example, Reference]]] = None
-    requestBodies: Optional[Dict[str, Union[RequestBody, Reference]]] = None
-    headers: Optional[Dict[str, Union[Header, Reference]]] = None
-    securitySchemes: Optional[Dict[str, Union[SecurityScheme, Reference]]] = None
-    links: Optional[Dict[str, Union[Link, Reference]]] = None
+class Components(BaseModelWithConfig):
+    schemas: Optional[dict[str, Union[Schema, Reference]]] = None
+    responses: Optional[dict[str, Union[Response, Reference]]] = None
+    parameters: Optional[dict[str, Union[Parameter, Reference]]] = None
+    examples: Optional[dict[str, Union[Example, Reference]]] = None
+    requestBodies: Optional[dict[str, Union[RequestBody, Reference]]] = None
+    headers: Optional[dict[str, Union[Header, Reference]]] = None
+    securitySchemes: Optional[dict[str, Union[SecurityScheme, Reference]]] = None
+    links: Optional[dict[str, Union[Link, Reference]]] = None
     # Using Any for Specification Extensions
-    callbacks: Optional[Dict[str, Union[Dict[str, PathItem], Reference, Any]]] = None
-    pathItems: Optional[Dict[str, Union[PathItem, Reference]]] = None
-
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
-
-    else:
-
-        class Config:
-            extra = "allow"
+    callbacks: Optional[dict[str, Union[dict[str, PathItem], Reference, Any]]] = None
+    pathItems: Optional[dict[str, Union[PathItem, Reference]]] = None
 
 
-class Tag(BaseModel):
+class Tag(BaseModelWithConfig):
     name: str
     description: Optional[str] = None
     externalDocs: Optional[ExternalDocumentation] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-class OpenAPI(BaseModel):
+class OpenAPI(BaseModelWithConfig):
     openapi: str
     info: Info
     jsonSchemaDialect: Optional[str] = None
-    servers: Optional[List[Server]] = None
+    servers: Optional[list[Server]] = None
     # Using Any for Specification Extensions
-    paths: Optional[Dict[str, Union[PathItem, Any]]] = None
-    webhooks: Optional[Dict[str, Union[PathItem, Reference]]] = None
+    paths: Optional[dict[str, Union[PathItem, Any]]] = None
+    webhooks: Optional[dict[str, Union[PathItem, Reference]]] = None
     components: Optional[Components] = None
-    security: Optional[List[Dict[str, List[str]]]] = None
-    tags: Optional[List[Tag]] = None
+    security: Optional[list[dict[str, list[str]]]] = None
+    tags: Optional[list[Tag]] = None
     externalDocs: Optional[ExternalDocumentation] = None
 
-    if PYDANTIC_V2:
-        model_config = {"extra": "allow"}
 
-    else:
-
-        class Config:
-            extra = "allow"
-
-
-_model_rebuild(Schema)
-_model_rebuild(Operation)
-_model_rebuild(Encoding)
+Schema.model_rebuild()
+Operation.model_rebuild()
+Encoding.model_rebuild()

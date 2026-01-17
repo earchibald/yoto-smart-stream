@@ -1,5 +1,5 @@
-# sqlalchemy/ext/baked.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# ext/baked.py
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -258,23 +258,19 @@ class BakedQuery:
         is passed to the lambda::
 
             sub_bq = self.bakery(lambda s: s.query(User.name))
-            sub_bq += lambda q: q.filter(
-                User.id == Address.user_id).correlate(Address)
+            sub_bq += lambda q: q.filter(User.id == Address.user_id).correlate(Address)
 
             main_bq = self.bakery(lambda s: s.query(Address))
-            main_bq += lambda q: q.filter(
-                sub_bq.to_query(q).exists())
+            main_bq += lambda q: q.filter(sub_bq.to_query(q).exists())
 
         In the case where the subquery is used in the first callable against
         a :class:`.Session`, the :class:`.Session` is also accepted::
 
             sub_bq = self.bakery(lambda s: s.query(User.name))
-            sub_bq += lambda q: q.filter(
-                User.id == Address.user_id).correlate(Address)
+            sub_bq += lambda q: q.filter(User.id == Address.user_id).correlate(Address)
 
             main_bq = self.bakery(
-                lambda s: s.query(
-                Address.id, sub_bq.to_query(q).scalar_subquery())
+                lambda s: s.query(Address.id, sub_bq.to_query(q).scalar_subquery())
             )
 
         :param query_or_session: a :class:`_query.Query` object or a class
@@ -285,7 +281,7 @@ class BakedQuery:
          .. versionadded:: 1.3
 
 
-        """
+        """  # noqa: E501
 
         if isinstance(query_or_session, Session):
             session = query_or_session
@@ -430,8 +426,6 @@ class Result:
         Note this uses a subquery to ensure an accurate count regardless
         of the structure of the original statement.
 
-        .. versionadded:: 1.1.6
-
         """
 
         col = func.count(literal_column("*"))
@@ -444,8 +438,6 @@ class Result:
         raises MultipleResultsFound.
 
         Equivalent to :meth:`_query.Query.scalar`.
-
-        .. versionadded:: 1.1.6
 
         """
         try:
@@ -485,8 +477,6 @@ class Result:
         rows.
 
         Equivalent to :meth:`_query.Query.one_or_none`.
-
-        .. versionadded:: 1.0.9
 
         """
         return self._iter().one_or_none()

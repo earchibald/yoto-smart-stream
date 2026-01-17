@@ -1,5 +1,5 @@
 # util/_collections.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -9,7 +9,6 @@
 """Collection classes and helpers."""
 from __future__ import annotations
 
-import collections.abc as collections_abc
 import operator
 import threading
 import types
@@ -17,6 +16,7 @@ import typing
 from typing import Any
 from typing import Callable
 from typing import cast
+from typing import Container
 from typing import Dict
 from typing import FrozenSet
 from typing import Generic
@@ -36,6 +36,7 @@ from typing import ValuesView
 import weakref
 
 from ._has_cy import HAS_CYEXTENSION
+from .typing import is_non_string_iterable
 from .typing import Literal
 from .typing import Protocol
 
@@ -69,6 +70,7 @@ _VT = TypeVar("_VT", bound=Any)
 _T_co = TypeVar("_T_co", covariant=True)
 
 EMPTY_SET: FrozenSet[Any] = frozenset()
+NONE_SET: FrozenSet[Any] = frozenset([None])
 
 
 def merge_lists_w_ordering(a: List[Any], b: List[Any]) -> List[Any]:
@@ -78,8 +80,8 @@ def merge_lists_w_ordering(a: List[Any], b: List[Any]) -> List[Any]:
 
     Example::
 
-        >>> a = ['__tablename__', 'id', 'x', 'created_at']
-        >>> b = ['id', 'name', 'data', 'y', 'created_at']
+        >>> a = ["__tablename__", "id", "x", "created_at"]
+        >>> b = ["id", "name", "data", "y", "created_at"]
         >>> merge_lists_w_ordering(a, b)
         ['__tablename__', 'id', 'name', 'data', 'y', 'x', 'created_at']
 
@@ -143,7 +145,7 @@ class FacadeDict(ImmutableDictBase[_KT, _VT]):
     """A dictionary that is not publicly mutable."""
 
     def __new__(cls, *args: Any) -> FacadeDict[Any, Any]:
-        new = dict.__new__(cls)
+        new = ImmutableDictBase.__new__(cls)
         return new
 
     def copy(self) -> NoReturn:
@@ -188,7 +190,7 @@ class Properties(Generic[_T]):
         return dir(super()) + [str(k) for k in self._data.keys()]
 
     def __add__(self, other: Properties[_F]) -> List[Union[_T, _F]]:
-        return list(self) + list(other)  # type: ignore
+        return list(self) + list(other)
 
     def __setitem__(self, key: str, obj: _T) -> None:
         self._data[key] = obj
@@ -226,12 +228,10 @@ class Properties(Generic[_T]):
         self._data.update(value)
 
     @overload
-    def get(self, key: str) -> Optional[_T]:
-        ...
+    def get(self, key: str) -> Optional[_T]: ...
 
     @overload
-    def get(self, key: str, default: Union[_DT, _T]) -> Union[_DT, _T]:
-        ...
+    def get(self, key: str, default: Union[_DT, _T]) -> Union[_DT, _T]: ...
 
     def get(
         self, key: str, default: Optional[Union[_DT, _T]] = None
@@ -392,16 +392,16 @@ class UniqueAppender(Generic[_T]):
         self.data = data
         self._unique = {}
         if via:
-            self._data_appender = getattr(data, via)  # type: ignore[assignment]  # noqa: E501
+            self._data_appender = getattr(data, via)
         elif hasattr(data, "append"):
-            self._data_appender = cast("List[_T]", data).append  # type: ignore[assignment]  # noqa: E501
+            self._data_appender = cast("List[_T]", data).append
         elif hasattr(data, "add"):
-            self._data_appender = cast("Set[_T]", data).add  # type: ignore[assignment]  # noqa: E501
+            self._data_appender = cast("Set[_T]", data).add
 
     def append(self, item: _T) -> None:
         id_ = id(item)
         if id_ not in self._unique:
-            self._data_appender(item)  # type: ignore[call-arg]
+            self._data_appender(item)
             self._unique[id_] = True
 
     def __iter__(self) -> Iterator[_T]:
@@ -418,9 +418,7 @@ def coerce_generator_arg(arg: Any) -> List[Any]:
 def to_list(x: Any, default: Optional[List[Any]] = None) -> List[Any]:
     if x is None:
         return default  # type: ignore
-    if not isinstance(x, collections_abc.Iterable) or isinstance(
-        x, (str, bytes)
-    ):
+    if not is_non_string_iterable(x):
         return [x]
     elif isinstance(x, list):
         return x
@@ -428,15 +426,14 @@ def to_list(x: Any, default: Optional[List[Any]] = None) -> List[Any]:
         return list(x)
 
 
-def has_intersection(set_, iterable):
+def has_intersection(set_: Container[Any], iterable: Iterable[Any]) -> bool:
     r"""return True if any items of set\_ are present in iterable.
 
     Goes through special effort to ensure __hash__ is not called
     on items in iterable that don't support it.
 
     """
-    # TODO: optimize, write in C, etc.
-    return bool(set_.intersection([i for i in iterable if i.__hash__]))
+    return any(i in set_ for i in iterable if i.__hash__)
 
 
 def to_set(x):
@@ -457,7 +454,9 @@ def to_column_set(x: Any) -> Set[Any]:
         return x
 
 
-def update_copy(d, _new=None, **kw):
+def update_copy(
+    d: Dict[Any, Any], _new: Optional[Dict[Any, Any]] = None, **kw: Any
+) -> Dict[Any, Any]:
     """Copy the given dict and update with the given values."""
 
     d = d.copy()
@@ -521,18 +520,16 @@ class LRUCache(typing.MutableMapping[_KT, _VT]):
         return self._counter
 
     @overload
-    def get(self, key: _KT) -> Optional[_VT]:
-        ...
+    def get(self, key: _KT) -> Optional[_VT]: ...
 
     @overload
-    def get(self, key: _KT, default: Union[_VT, _T]) -> Union[_VT, _T]:
-        ...
+    def get(self, key: _KT, default: Union[_VT, _T]) -> Union[_VT, _T]: ...
 
     def get(
         self, key: _KT, default: Optional[Union[_VT, _T]] = None
     ) -> Optional[Union[_VT, _T]]:
-        item = self._data.get(key, default)
-        if item is not default and item is not None:
+        item = self._data.get(key)
+        if item is not None:
             item[2][0] = self._inc_counter()
             return item[1]
         else:
@@ -588,13 +585,11 @@ class LRUCache(typing.MutableMapping[_KT, _VT]):
 
 
 class _CreateFuncType(Protocol[_T_co]):
-    def __call__(self) -> _T_co:
-        ...
+    def __call__(self) -> _T_co: ...
 
 
 class _ScopeFuncType(Protocol):
-    def __call__(self) -> Any:
-        ...
+    def __call__(self) -> Any: ...
 
 
 class ScopedRegistry(Generic[_T]):
@@ -676,7 +671,7 @@ class ThreadLocalRegistry(ScopedRegistry[_T]):
             return self.registry.value  # type: ignore[no-any-return]
         except AttributeError:
             val = self.registry.value = self.createfunc()
-            return val  # type: ignore[no-any-return]
+            return val
 
     def has(self) -> bool:
         return hasattr(self.registry, "value")

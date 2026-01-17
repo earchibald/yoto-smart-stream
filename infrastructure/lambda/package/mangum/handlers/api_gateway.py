@@ -1,4 +1,6 @@
-from typing import Dict, List, Tuple
+from __future__ import annotations
+
+from typing import Any
 from urllib.parse import urlencode
 
 from mangum.handlers.utils import (
@@ -10,12 +12,12 @@ from mangum.handlers.utils import (
     strip_api_gateway_path,
 )
 from mangum.types import (
-    Response,
-    LambdaConfig,
     Headers,
-    LambdaEvent,
+    LambdaConfig,
     LambdaContext,
+    LambdaEvent,
     QueryParams,
+    Response,
     Scope,
 )
 
@@ -30,7 +32,7 @@ def _encode_query_string_for_apigw(event: LambdaEvent) -> bytes:
     return urlencode(params, doseq=True).encode()
 
 
-def _handle_multi_value_headers_for_request(event: LambdaEvent) -> Dict[str, str]:
+def _handle_multi_value_headers_for_request(event: LambdaEvent) -> dict[str, str]:
     headers = event.get("headers", {}) or {}
     headers = {k.lower(): v for k, v in headers.items()}
     if event.get("multiValueHeaders"):
@@ -46,9 +48,9 @@ def _handle_multi_value_headers_for_request(event: LambdaEvent) -> Dict[str, str
 
 def _combine_headers_v2(
     input_headers: Headers,
-) -> Tuple[Dict[str, str], List[str]]:
-    output_headers: Dict[str, str] = {}
-    cookies: List[str] = []
+) -> tuple[dict[str, str], list[str]]:
+    output_headers: dict[str, str] = {}
+    cookies: list[str] = []
     for key, value in input_headers:
         normalized_key: str = key.decode().lower()
         normalized_value: str = value.decode()
@@ -56,9 +58,7 @@ def _combine_headers_v2(
             cookies.append(normalized_value)
         else:
             if normalized_key in output_headers:
-                normalized_value = (
-                    f"{output_headers[normalized_key]},{normalized_value}"
-                )
+                normalized_value = f"{output_headers[normalized_key]},{normalized_value}"
             output_headers[normalized_key] = normalized_value
 
     return output_headers, cookies
@@ -66,14 +66,10 @@ def _combine_headers_v2(
 
 class APIGateway:
     @classmethod
-    def infer(
-        cls, event: LambdaEvent, context: LambdaContext, config: LambdaConfig
-    ) -> bool:
+    def infer(cls, event: LambdaEvent, context: LambdaContext, config: LambdaConfig) -> bool:
         return "resource" in event and "requestContext" in event
 
-    def __init__(
-        self, event: LambdaEvent, context: LambdaContext, config: LambdaConfig
-    ) -> None:
+    def __init__(self, event: LambdaEvent, context: LambdaContext, config: LambdaConfig) -> None:
         self.event = event
         self.context = context
         self.config = config
@@ -111,10 +107,8 @@ class APIGateway:
             "aws.context": self.context,
         }
 
-    def __call__(self, response: Response) -> dict:
-        finalized_headers, multi_value_headers = handle_multi_value_headers(
-            response["headers"]
-        )
+    def __call__(self, response: Response) -> dict[str, Any]:
+        finalized_headers, multi_value_headers = handle_multi_value_headers(response["headers"])
         finalized_body, is_base64_encoded = handle_base64_response_body(
             response["body"], finalized_headers, self.config["text_mime_types"]
         )
@@ -122,9 +116,7 @@ class APIGateway:
         return {
             "statusCode": response["status"],
             "headers": handle_exclude_headers(finalized_headers, self.config),
-            "multiValueHeaders": handle_exclude_headers(
-                multi_value_headers, self.config
-            ),
+            "multiValueHeaders": handle_exclude_headers(multi_value_headers, self.config),
             "body": finalized_body,
             "isBase64Encoded": is_base64_encoded,
         }
@@ -132,14 +124,10 @@ class APIGateway:
 
 class HTTPGateway:
     @classmethod
-    def infer(
-        cls, event: LambdaEvent, context: LambdaContext, config: LambdaConfig
-    ) -> bool:
+    def infer(cls, event: LambdaEvent, context: LambdaContext, config: LambdaConfig) -> bool:
         return "version" in event and "requestContext" in event
 
-    def __init__(
-        self, event: LambdaEvent, context: LambdaContext, config: LambdaConfig
-    ) -> None:
+    def __init__(self, event: LambdaEvent, context: LambdaContext, config: LambdaConfig) -> None:
         self.event = event
         self.context = context
         self.config = config
@@ -199,7 +187,7 @@ class HTTPGateway:
             "aws.context": self.context,
         }
 
-    def __call__(self, response: Response) -> dict:
+    def __call__(self, response: Response) -> dict[str, Any]:
         if self.scope["aws.event"]["version"] == "2.0":
             finalized_headers, cookies = _combine_headers_v2(response["headers"])
 
@@ -216,13 +204,9 @@ class HTTPGateway:
                 "cookies": cookies or None,
                 "isBase64Encoded": is_base64_encoded,
             }
-            return {
-                key: value for key, value in response_out.items() if value is not None
-            }
+            return {key: value for key, value in response_out.items() if value is not None}
 
-        finalized_headers, multi_value_headers = handle_multi_value_headers(
-            response["headers"]
-        )
+        finalized_headers, multi_value_headers = handle_multi_value_headers(response["headers"])
         finalized_body, is_base64_encoded = handle_base64_response_body(
             response["body"], finalized_headers, self.config["text_mime_types"]
         )

@@ -1,15 +1,12 @@
-# sqlalchemy/naming.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# sql/naming.py
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: allow-untyped-defs, allow-untyped-calls
 
-"""Establish constraint and index naming conventions.
-
-
-"""
+"""Establish constraint and index naming conventions."""
 
 from __future__ import annotations
 
@@ -140,7 +137,6 @@ _prefix_dict = {
 
 
 def _get_convention(dict_, key):
-
     for super_ in key.__mro__:
         if super_ in _prefix_dict and _prefix_dict[super_] in dict_:
             return dict_[_prefix_dict[super_]]

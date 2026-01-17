@@ -1,17 +1,33 @@
 from __future__ import annotations
 
+__all__ = (
+    "TextConnectable",
+    "TextReceiveStream",
+    "TextSendStream",
+    "TextStream",
+)
+
 import codecs
+import sys
+from collections.abc import Callable, Mapping
 from dataclasses import InitVar, dataclass, field
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from ..abc import (
     AnyByteReceiveStream,
     AnyByteSendStream,
     AnyByteStream,
+    AnyByteStreamConnectable,
     ObjectReceiveStream,
     ObjectSendStream,
     ObjectStream,
+    ObjectStreamConnectable,
 )
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:
+    from typing_extensions import override
 
 
 @dataclass(eq=False)
@@ -19,16 +35,17 @@ class TextReceiveStream(ObjectReceiveStream[str]):
     """
     Stream wrapper that decodes bytes to strings using the given encoding.
 
-    Decoding is done using :class:`~codecs.IncrementalDecoder` which returns any completely
-    received unicode characters as soon as they come in.
+    Decoding is done using :class:`~codecs.IncrementalDecoder` which returns any
+    completely received unicode characters as soon as they come in.
 
     :param transport_stream: any bytes-based receive stream
-    :param encoding: character encoding to use for decoding bytes to strings (defaults to
-        ``utf-8``)
+    :param encoding: character encoding to use for decoding bytes to strings (defaults
+        to ``utf-8``)
     :param errors: handling scheme for decoding errors (defaults to ``strict``; see the
         `codecs module documentation`_ for a comprehensive list of options)
 
-    .. _codecs module documentation: https://docs.python.org/3/library/codecs.html#codec-objects
+    .. _codecs module documentation:
+        https://docs.python.org/3/library/codecs.html#codec-objects
     """
 
     transport_stream: AnyByteReceiveStream
@@ -62,12 +79,13 @@ class TextSendStream(ObjectSendStream[str]):
     Sends strings to the wrapped stream as bytes using the given encoding.
 
     :param AnyByteSendStream transport_stream: any bytes-based send stream
-    :param str encoding: character encoding to use for encoding strings to bytes (defaults to
-        ``utf-8``)
-    :param str errors: handling scheme for encoding errors (defaults to ``strict``; see the
-        `codecs module documentation`_ for a comprehensive list of options)
+    :param str encoding: character encoding to use for encoding strings to bytes
+        (defaults to ``utf-8``)
+    :param str errors: handling scheme for encoding errors (defaults to ``strict``; see
+        the `codecs module documentation`_ for a comprehensive list of options)
 
-    .. _codecs module documentation: https://docs.python.org/3/library/codecs.html#codec-objects
+    .. _codecs module documentation:
+        https://docs.python.org/3/library/codecs.html#codec-objects
     """
 
     transport_stream: AnyByteSendStream
@@ -93,19 +111,20 @@ class TextSendStream(ObjectSendStream[str]):
 @dataclass(eq=False)
 class TextStream(ObjectStream[str]):
     """
-    A bidirectional stream that decodes bytes to strings on receive and encodes strings to bytes on
-    send.
+    A bidirectional stream that decodes bytes to strings on receive and encodes strings
+    to bytes on send.
 
-    Extra attributes will be provided from both streams, with the receive stream providing the
-    values in case of a conflict.
+    Extra attributes will be provided from both streams, with the receive stream
+    providing the values in case of a conflict.
 
     :param AnyByteStream transport_stream: any bytes-based stream
-    :param str encoding: character encoding to use for encoding/decoding strings to/from bytes
-        (defaults to ``utf-8``)
-    :param str errors: handling scheme for encoding errors (defaults to ``strict``; see the
-        `codecs module documentation`_ for a comprehensive list of options)
+    :param str encoding: character encoding to use for encoding/decoding strings to/from
+        bytes (defaults to ``utf-8``)
+    :param str errors: handling scheme for encoding errors (defaults to ``strict``; see
+        the `codecs module documentation`_ for a comprehensive list of options)
 
-    .. _codecs module documentation: https://docs.python.org/3/library/codecs.html#codec-objects
+    .. _codecs module documentation:
+        https://docs.python.org/3/library/codecs.html#codec-objects
     """
 
     transport_stream: AnyByteStream
@@ -141,3 +160,17 @@ class TextStream(ObjectStream[str]):
             **self._send_stream.extra_attributes,
             **self._receive_stream.extra_attributes,
         }
+
+
+class TextConnectable(ObjectStreamConnectable[str]):
+    def __init__(self, connectable: AnyByteStreamConnectable):
+        """
+        :param connectable: the bytestream endpoint to wrap
+
+        """
+        self.connectable = connectable
+
+    @override
+    async def connect(self) -> TextStream:
+        stream = await self.connectable.connect()
+        return TextStream(stream)

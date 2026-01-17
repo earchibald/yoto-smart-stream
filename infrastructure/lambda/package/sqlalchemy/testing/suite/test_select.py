@@ -1,3 +1,9 @@
+# testing/suite/test_select.py
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# <see AUTHORS file>
+#
+# This module is part of SQLAlchemy and is released under
+# the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: ignore-errors
 
 import collections.abc as collections_abc
@@ -41,7 +47,7 @@ from ...exc import ProgrammingError
 
 
 class CollateTest(fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -87,7 +93,7 @@ class OrderByLabelTest(fixtures.TablesTest):
 
     """
 
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -158,7 +164,7 @@ class OrderByLabelTest(fixtures.TablesTest):
 class ValuesExpressionTest(fixtures.TestBase):
     __requires__ = ("table_value_constructor",)
 
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     def test_tuples(self, connection):
         value_expr = values(
@@ -228,7 +234,9 @@ class FetchLimitOffsetTest(fixtures.TablesTest):
 
     def test_limit_render_multiple_times(self, connection):
         table = self.tables.some_table
-        stmt = select(table.c.id).limit(1).scalar_subquery()
+        stmt = (
+            select(table.c.id).order_by(table.c.id).limit(1).scalar_subquery()
+        )
 
         u = union(select(stmt), select(stmt)).subquery().select()
 
@@ -629,7 +637,7 @@ class FetchLimitOffsetTest(fixtures.TablesTest):
 class SameNamedSchemaTableTest(fixtures.TablesTest):
     """tests for #7471"""
 
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     __requires__ = ("schemas",)
 
@@ -726,7 +734,7 @@ class SameNamedSchemaTableTest(fixtures.TablesTest):
 
 
 class JoinTest(fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     def _assert_result(self, select, result, params=()):
         with config.db.connect() as conn:
@@ -826,7 +834,7 @@ class JoinTest(fixtures.TablesTest):
 
 
 class CompoundSelectTest(fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -1487,7 +1495,7 @@ class ExpandingBoundInTest(fixtures.TablesTest):
 
 
 class LikeFunctionsTest(fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     run_inserts = "once"
     run_deletes = None
@@ -1535,6 +1543,7 @@ class LikeFunctionsTest(fixtures.TablesTest):
         col = self.tables.some_table.c.data
         self._test(col.startswith("ab%c"), {1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 
+    @testing.requires.like_escapes
     def test_startswith_autoescape(self):
         col = self.tables.some_table.c.data
         self._test(col.startswith("ab%c", autoescape=True), {3})
@@ -1546,10 +1555,12 @@ class LikeFunctionsTest(fixtures.TablesTest):
             {1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
         )
 
+    @testing.requires.like_escapes
     def test_startswith_escape(self):
         col = self.tables.some_table.c.data
         self._test(col.startswith("ab##c", escape="#"), {7})
 
+    @testing.requires.like_escapes
     def test_startswith_autoescape_escape(self):
         col = self.tables.some_table.c.data
         self._test(col.startswith("ab%c", autoescape=True, escape="#"), {3})
@@ -1565,14 +1576,17 @@ class LikeFunctionsTest(fixtures.TablesTest):
             col.endswith(literal_column("'e%fg'")), {1, 2, 3, 4, 5, 6, 7, 8, 9}
         )
 
+    @testing.requires.like_escapes
     def test_endswith_autoescape(self):
         col = self.tables.some_table.c.data
         self._test(col.endswith("e%fg", autoescape=True), {6})
 
+    @testing.requires.like_escapes
     def test_endswith_escape(self):
         col = self.tables.some_table.c.data
         self._test(col.endswith("e##fg", escape="#"), {9})
 
+    @testing.requires.like_escapes
     def test_endswith_autoescape_escape(self):
         col = self.tables.some_table.c.data
         self._test(col.endswith("e%fg", autoescape=True, escape="#"), {6})
@@ -1582,14 +1596,17 @@ class LikeFunctionsTest(fixtures.TablesTest):
         col = self.tables.some_table.c.data
         self._test(col.contains("b%cde"), {1, 2, 3, 4, 5, 6, 7, 8, 9})
 
+    @testing.requires.like_escapes
     def test_contains_autoescape(self):
         col = self.tables.some_table.c.data
         self._test(col.contains("b%cde", autoescape=True), {3})
 
+    @testing.requires.like_escapes
     def test_contains_escape(self):
         col = self.tables.some_table.c.data
         self._test(col.contains("b##cde", escape="#"), {7})
 
+    @testing.requires.like_escapes
     def test_contains_autoescape_escape(self):
         col = self.tables.some_table.c.data
         self._test(col.contains("b%cd", autoescape=True, escape="#"), {3})
@@ -1623,7 +1640,7 @@ class LikeFunctionsTest(fixtures.TablesTest):
 
 
 class ComputedColumnTest(fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
     __requires__ = ("computed_columns",)
 
     @classmethod
@@ -1729,7 +1746,6 @@ class IdentityColumnTest(fixtures.TablesTest):
         eq_(res, [(-5, "b"), (0, "a"), (42, "c")])
 
     def test_select_columns(self, connection):
-
         res = connection.execute(
             select(self.tables.tbl_a.c.id).order_by(self.tables.tbl_a.c.id)
         ).fetchall()
@@ -1766,13 +1782,13 @@ class IdentityAutoincrementTest(fixtures.TablesTest):
         )
 
     def test_autoincrement_with_identity(self, connection):
-        res = connection.execute(self.tables.tbl.insert(), {"desc": "row"})
+        connection.execute(self.tables.tbl.insert(), {"desc": "row"})
         res = connection.execute(self.tables.tbl.select()).first()
         eq_(res, (1, "row"))
 
 
 class ExistsTest(fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -1819,7 +1835,7 @@ class ExistsTest(fixtures.TablesTest):
 
 
 class DistinctOnTest(AssertsCompiledSQL, fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @testing.fails_if(testing.requires.supports_distinct_on)
     def test_distinct_on(self):
@@ -1831,7 +1847,7 @@ class DistinctOnTest(AssertsCompiledSQL, fixtures.TablesTest):
 
 
 class IsOrIsNotDistinctFromTest(fixtures.TablesTest):
-    __backend__ = True
+    __sparse_driver_backend__ = True
     __requires__ = ("supports_is_distinct_from",)
 
     @classmethod
@@ -1881,3 +1897,114 @@ class IsOrIsNotDistinctFromTest(fixtures.TablesTest):
             len(result),
             expected_row_count_for_is_not,
         )
+
+
+class WindowFunctionTest(fixtures.TablesTest):
+    __requires__ = ("window_functions",)
+
+    __sparse_driver_backend__ = True
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "some_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("col1", Integer),
+            Column("col2", Integer),
+        )
+
+    @classmethod
+    def insert_data(cls, connection):
+        connection.execute(
+            cls.tables.some_table.insert(),
+            [{"id": i, "col1": i, "col2": i * 5} for i in range(1, 50)],
+        )
+
+    def test_window(self, connection):
+        some_table = self.tables.some_table
+        rows = connection.execute(
+            select(
+                func.max(some_table.c.col2).over(
+                    order_by=[some_table.c.col1.desc()]
+                )
+            ).where(some_table.c.col1 < 20)
+        ).all()
+
+        eq_(rows, [(95,) for i in range(19)])
+
+    def test_window_rows_between(self, connection):
+        some_table = self.tables.some_table
+
+        # note the rows are part of the cache key right now, not handled
+        # as binds.  this is issue #11515
+        rows = connection.execute(
+            select(
+                func.max(some_table.c.col2).over(
+                    order_by=[some_table.c.col1],
+                    rows=(-5, 0),
+                )
+            )
+        ).all()
+
+        eq_(rows, [(i,) for i in range(5, 250, 5)])
+
+
+class BitwiseTest(fixtures.TablesTest):
+    __backend__ = True
+    run_inserts = run_deletes = "once"
+
+    inserted_data = [{"a": i, "b": i + 1} for i in range(10)]
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table("bitwise", metadata, Column("a", Integer), Column("b", Integer))
+
+    @classmethod
+    def insert_data(cls, connection):
+        connection.execute(cls.tables.bitwise.insert(), cls.inserted_data)
+
+    @testing.combinations(
+        (
+            lambda a: a.bitwise_xor(5),
+            [i for i in range(10) if i != 5],
+            testing.requires.supports_bitwise_xor,
+        ),
+        (
+            lambda a: a.bitwise_or(1),
+            list(range(10)),
+            testing.requires.supports_bitwise_or,
+        ),
+        (
+            lambda a: a.bitwise_and(4),
+            list(range(4, 8)),
+            testing.requires.supports_bitwise_and,
+        ),
+        (
+            lambda a: (a - 2).bitwise_not(),
+            [0],
+            testing.requires.supports_bitwise_not,
+        ),
+        (
+            lambda a: a.bitwise_lshift(1),
+            list(range(1, 10)),
+            testing.requires.supports_bitwise_shift,
+        ),
+        (
+            lambda a: a.bitwise_rshift(2),
+            list(range(4, 10)),
+            testing.requires.supports_bitwise_shift,
+        ),
+        argnames="case, expected",
+    )
+    def test_bitwise(self, case, expected, connection):
+        tbl = self.tables.bitwise
+
+        a = tbl.c.a
+
+        op = testing.resolve_lambda(case, a=a)
+
+        stmt = select(tbl).where(op > 0).order_by(a)
+
+        res = connection.execute(stmt).mappings().all()
+        eq_(res, [self.inserted_data[i] for i in expected])

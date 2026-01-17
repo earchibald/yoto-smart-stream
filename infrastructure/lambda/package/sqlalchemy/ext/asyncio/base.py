@@ -1,5 +1,5 @@
 # ext/asyncio/base.py
-# Copyright (C) 2020-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2020-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -21,24 +21,20 @@ from typing import Generic
 from typing import NoReturn
 from typing import Optional
 from typing import overload
-from typing import Type
+from typing import Tuple
 from typing import TypeVar
 import weakref
 
 from . import exc as async_exc
 from ... import util
 from ...util.typing import Literal
+from ...util.typing import Self
 
 _T = TypeVar("_T", bound=Any)
 _T_co = TypeVar("_T_co", bound=Any, covariant=True)
 
 
 _PT = TypeVar("_PT", bound=Any)
-
-
-SelfReversibleProxy = TypeVar(
-    "SelfReversibleProxy", bound="ReversibleProxy[Any]"
-)
 
 
 class ReversibleProxy(Generic[_PT]):
@@ -48,12 +44,10 @@ class ReversibleProxy(Generic[_PT]):
     __slots__ = ("__weakref__",)
 
     @overload
-    def _assign_proxied(self, target: _PT) -> _PT:
-        ...
+    def _assign_proxied(self, target: _PT) -> _PT: ...
 
     @overload
-    def _assign_proxied(self, target: None) -> None:
-        ...
+    def _assign_proxied(self, target: None) -> None: ...
 
     def _assign_proxied(self, target: Optional[_PT]) -> Optional[_PT]:
         if target is not None:
@@ -62,9 +56,7 @@ class ReversibleProxy(Generic[_PT]):
             )
             proxy_ref = weakref.ref(
                 self,
-                functools.partial(  # type: ignore
-                    ReversibleProxy._target_gced, target_ref
-                ),
+                functools.partial(ReversibleProxy._target_gced, target_ref),
             )
             ReversibleProxy._proxy_objects[target_ref] = proxy_ref
 
@@ -72,38 +64,34 @@ class ReversibleProxy(Generic[_PT]):
 
     @classmethod
     def _target_gced(
-        cls: Type[SelfReversibleProxy],
+        cls,
         ref: weakref.ref[_PT],
-        proxy_ref: Optional[weakref.ref[SelfReversibleProxy]] = None,
+        proxy_ref: Optional[weakref.ref[Self]] = None,  # noqa: U100
     ) -> None:
         cls._proxy_objects.pop(ref, None)
 
     @classmethod
     def _regenerate_proxy_for_target(
-        cls: Type[SelfReversibleProxy], target: _PT
-    ) -> SelfReversibleProxy:
+        cls, target: _PT, **additional_kw: Any
+    ) -> Self:
         raise NotImplementedError()
 
     @overload
     @classmethod
     def _retrieve_proxy_for_target(
-        cls: Type[SelfReversibleProxy],
-        target: _PT,
-        regenerate: Literal[True] = ...,
-    ) -> SelfReversibleProxy:
-        ...
+        cls, target: _PT, regenerate: Literal[True] = ..., **additional_kw: Any
+    ) -> Self: ...
 
     @overload
     @classmethod
     def _retrieve_proxy_for_target(
-        cls: Type[SelfReversibleProxy], target: _PT, regenerate: bool = True
-    ) -> Optional[SelfReversibleProxy]:
-        ...
+        cls, target: _PT, regenerate: bool = True, **additional_kw: Any
+    ) -> Optional[Self]: ...
 
     @classmethod
     def _retrieve_proxy_for_target(
-        cls: Type[SelfReversibleProxy], target: _PT, regenerate: bool = True
-    ) -> Optional[SelfReversibleProxy]:
+        cls, target: _PT, regenerate: bool = True, **additional_kw: Any
+    ) -> Optional[Self]:
         try:
             proxy_ref = cls._proxy_objects[weakref.ref(target)]
         except KeyError:
@@ -114,30 +102,23 @@ class ReversibleProxy(Generic[_PT]):
                 return proxy  # type: ignore
 
         if regenerate:
-            return cls._regenerate_proxy_for_target(target)
+            return cls._regenerate_proxy_for_target(target, **additional_kw)
         else:
             return None
-
-
-SelfStartableContext = TypeVar(
-    "SelfStartableContext", bound="StartableContext[Any]"
-)
 
 
 class StartableContext(Awaitable[_T_co], abc.ABC):
     __slots__ = ()
 
     @abc.abstractmethod
-    async def start(
-        self: SelfStartableContext, is_ctxmanager: bool = False
-    ) -> _T_co:
+    async def start(self, is_ctxmanager: bool = False) -> _T_co:
         raise NotImplementedError()
 
     def __await__(self) -> Generator[Any, Any, _T_co]:
         return self.start().__await__()
 
-    async def __aenter__(self: SelfStartableContext) -> _T_co:
-        return await self.start(is_ctxmanager=True)  # type: ignore
+    async def __aenter__(self) -> _T_co:
+        return await self.start(is_ctxmanager=True)
 
     @abc.abstractmethod
     async def __aexit__(
@@ -160,8 +141,8 @@ class GeneratorStartableContext(StartableContext[_T_co]):
     def __init__(
         self,
         func: Callable[..., AsyncIterator[_T_co]],
-        args: tuple[Any, ...],
-        kwds: dict[str, Any],
+        args: Tuple[Any, ...],
+        kwds: Dict[str, Any],
     ):
         self.gen = func(*args, **kwds)  # type: ignore
 
@@ -197,7 +178,7 @@ class GeneratorStartableContext(StartableContext[_T_co]):
                 # tell if we get the same exception back
                 value = typ()
             try:
-                await self.gen.athrow(typ, value, traceback)
+                await self.gen.athrow(value)
             except StopAsyncIteration as exc:
                 # Suppress StopIteration *unless* it's the same exception that
                 # was passed to throw().  This prevents a StopIteration
@@ -234,7 +215,7 @@ class GeneratorStartableContext(StartableContext[_T_co]):
 
 
 def asyncstartablecontext(
-    func: Callable[..., AsyncIterator[_T_co]]
+    func: Callable[..., AsyncIterator[_T_co]],
 ) -> Callable[..., GeneratorStartableContext[_T_co]]:
     """@asyncstartablecontext decorator.
 
@@ -243,7 +224,9 @@ def asyncstartablecontext(
     ``@contextlib.asynccontextmanager`` supports, and the usage pattern
     is different as well.
 
-    Typical usage::
+    Typical usage:
+
+    .. sourcecode:: text
 
         @asyncstartablecontext
         async def some_async_generator(<arguments>):

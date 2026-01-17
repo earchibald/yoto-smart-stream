@@ -1,8 +1,15 @@
+# testing/provision.py
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# <see AUTHORS file>
+#
+# This module is part of SQLAlchemy and is released under
+# the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: ignore-errors
 
 from __future__ import annotations
 
 import collections
+import contextlib
 import logging
 
 from . import config
@@ -10,9 +17,13 @@ from . import engines
 from . import util
 from .. import exc
 from .. import inspect
+from ..engine import Connection
+from ..engine import Engine
 from ..engine import url as sa_url
+from ..schema import sort_tables_and_constraints
 from ..sql import ddl
 from ..sql import schema
+from ..util import decorator
 
 
 log = logging.getLogger(__name__)
@@ -43,18 +54,23 @@ class register:
 
         return decorate
 
-    def __call__(self, cfg, *arg):
+    def call_original(self, cfg, *arg, **kw):
+        return self.fns["*"](cfg, *arg, **kw)
+
+    def __call__(self, cfg, *arg, **kw):
         if isinstance(cfg, str):
             url = sa_url.make_url(cfg)
         elif isinstance(cfg, sa_url.URL):
             url = cfg
+        elif isinstance(cfg, (Engine, Connection)):
+            url = cfg.engine.url
         else:
             url = cfg.db.url
         backend = url.get_backend_name()
         if backend in self.fns:
-            return self.fns[backend](cfg, *arg)
+            return self.fns[backend](cfg, *arg, **kw)
         else:
-            return self.fns["*"](cfg, *arg)
+            return self.fns["*"](cfg, *arg, **kw)
 
 
 def create_follower_db(follower_ident):
@@ -68,6 +84,7 @@ def setup_config(db_url, options, file_config, follower_ident):
     # hooks
 
     dialect = sa_url.make_url(db_url).get_dialect()
+
     dialect.load_provisioning()
 
     if follower_ident:
@@ -76,7 +93,9 @@ def setup_config(db_url, options, file_config, follower_ident):
     update_db_opts(db_url, db_opts, options)
     db_opts["scope"] = "global"
     eng = engines.testing_engine(db_url, db_opts)
+
     post_configure_engine(db_url, eng, follower_ident)
+
     eng.connect().close()
 
     cfg = config.Config.register(eng, db_opts, options, file_config)
@@ -101,7 +120,9 @@ def generate_db_urls(db_urls, extra_drivers):
     """Generate a set of URLs to test given configured URLs plus additional
     driver names.
 
-    Given::
+    Given:
+
+    .. sourcecode:: text
 
         --dburi postgresql://db1  \
         --dburi postgresql://db2  \
@@ -109,7 +130,9 @@ def generate_db_urls(db_urls, extra_drivers):
         --dbdriver=psycopg2 --dbdriver=asyncpg?async_fallback=true
 
     Noting that the default postgresql driver is psycopg2,  the output
-    would be::
+    would be:
+
+    .. sourcecode:: text
 
         postgresql+psycopg2://db1
         postgresql+asyncpg://db1
@@ -126,6 +149,8 @@ def generate_db_urls(db_urls, extra_drivers):
     driver name. For example, to enable the async fallback option for
     asyncpg::
 
+    .. sourcecode:: text
+
         --dburi postgresql://db1  \
         --dbdriver=asyncpg?async_fallback=true
 
@@ -140,7 +165,10 @@ def generate_db_urls(db_urls, extra_drivers):
     ]
 
     for url_obj, dialect in urls_plus_dialects:
-        backend_to_driver_we_already_have[dialect.name].add(dialect.driver)
+        # use get_driver_name instead of dialect.driver to account for
+        # "_async" virtual drivers like oracledb and psycopg
+        driver_name = url_obj.get_driver_name()
+        backend_to_driver_we_already_have[dialect.name].add(driver_name)
 
     backend_to_driver_we_need = {}
 
@@ -170,9 +198,7 @@ def _generate_driver_urls(url, extra_drivers):
     yield url
 
     for drv in list(extra_drivers):
-
         if "?" in drv:
-
             driver_only, query_str = drv.split("?", 1)
 
         else:
@@ -184,6 +210,23 @@ def _generate_driver_urls(url, extra_drivers):
             extra_drivers.remove(drv)
 
             yield new_url
+
+
+@register.init
+def is_preferred_driver(cfg, engine):
+    """Return True if the engine's URL is on the "default" driver, or
+    more generally the "preferred" driver to use for tests.
+
+    Backends can override this to make a different driver the "prefeferred"
+    driver that's not the default.
+
+    """
+    return (
+        engine.url._get_entrypoint()
+        is engine.url.set(
+            drivername=engine.url.get_backend_name()
+        )._get_entrypoint()
+    )
 
 
 @register.init
@@ -234,7 +277,6 @@ def drop_all_schema_objects_post_tables(cfg, eng):
 
 
 def drop_all_schema_objects(cfg, eng):
-
     drop_all_schema_objects_pre_tables(cfg, eng)
 
     drop_views(cfg, eng)
@@ -353,9 +395,22 @@ def update_db_opts(db_url, db_opts, options):
 
 @register.init
 def post_configure_engine(url, engine, follower_ident):
-    """Perform extra steps after configuring an engine for testing.
+    """Perform extra steps after configuring the main engine for testing.
 
-    (For the internal dialects, currently only used by sqlite, oracle)
+    (For the internal dialects, currently only used by sqlite, oracle, mssql)
+    """
+
+
+@register.init
+def post_configure_testing_engine(url, engine, options, scope):
+    """perform extra steps after configuring any engine within the
+    testing_engine() function.
+
+    this includes the main engine as well as most ad-hoc testing engines.
+
+    steps here should not get in the way of test cases that are looking
+    for events, etc.
+
     """
 
 
@@ -462,7 +517,9 @@ def set_default_schema_on_connection(cfg, dbapi_connection, schema_name):
 
 
 @register.init
-def upsert(cfg, table, returning, set_lambda=None):
+def upsert(
+    cfg, table, returning, *, set_lambda=None, sort_by_parameter_order=False
+):
     """return the backends insert..on conflict / on dupe etc. construct.
 
     while we should add a backend-neutral upsert construct as well, such as
@@ -485,3 +542,56 @@ def normalize_sequence(cfg, sequence):
     The default implementation does nothing
     """
     return sequence
+
+
+@register.init
+def allow_stale_update_impl(cfg):
+    return contextlib.nullcontext()
+
+
+@decorator
+def allow_stale_updates(fn, *arg, **kw):
+    """decorator around a test function that indicates the test will
+    be UPDATING rows that have been read and are now stale.
+
+    This normally doesn't require intervention except for mariadb 12
+    which now raises its own error for that, and we want to turn off
+    that setting just within the scope of the test that needs it
+    to be turned off (i.e. ORM stale version tests)
+
+    """
+    with allow_stale_update_impl(config._current):
+        return fn(*arg, **kw)
+
+
+@register.init
+def delete_from_all_tables(connection, cfg, metadata):
+    """an absolutely foolproof delete from all tables routine.
+
+    dialects should override this to add special instructions like
+    disable constraints etc.
+
+    """
+    savepoints = getattr(cfg.requirements, "savepoints", False)
+    if savepoints:
+        savepoints = savepoints.enabled
+
+    inspector = inspect(connection)
+
+    for table in reversed(
+        [
+            t
+            for (t, fks) in sort_tables_and_constraints(
+                metadata.tables.values()
+            )
+            if t is not None
+            # remember that inspector.get_table_names() is cached,
+            # so this emits SQL once per unique schema name
+            and t.name in inspector.get_table_names(schema=t.schema)
+        ]
+    ):
+        if savepoints:
+            with connection.begin_nested():
+                connection.execute(table.delete())
+        else:
+            connection.execute(table.delete())

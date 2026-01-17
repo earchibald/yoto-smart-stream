@@ -1,5 +1,5 @@
 # ext/mutable.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -20,6 +20,7 @@ JSON strings before being persisted::
 
     from sqlalchemy.types import TypeDecorator, VARCHAR
     import json
+
 
     class JSONEncodedDict(TypeDecorator):
         "Represents an immutable structure as a json-encoded string."
@@ -47,6 +48,7 @@ version of the :class:`.MutableDict` dictionary object, which applies
 the :class:`.Mutable` mixin to a plain Python dictionary::
 
     from sqlalchemy.ext.mutable import Mutable
+
 
     class MutableDict(Mutable, dict):
         @classmethod
@@ -101,9 +103,11 @@ attribute. Such as, with classical table metadata::
 
     from sqlalchemy import Table, Column, Integer
 
-    my_data = Table('my_data', metadata,
-        Column('id', Integer, primary_key=True),
-        Column('data', MutableDict.as_mutable(JSONEncodedDict))
+    my_data = Table(
+        "my_data",
+        metadata,
+        Column("id", Integer, primary_key=True),
+        Column("data", MutableDict.as_mutable(JSONEncodedDict)),
     )
 
 Above, :meth:`~.Mutable.as_mutable` returns an instance of ``JSONEncodedDict``
@@ -115,13 +119,17 @@ mapping against the ``my_data`` table::
     from sqlalchemy.orm import Mapped
     from sqlalchemy.orm import mapped_column
 
+
     class Base(DeclarativeBase):
         pass
 
+
     class MyDataClass(Base):
-        __tablename__ = 'my_data'
+        __tablename__ = "my_data"
         id: Mapped[int] = mapped_column(primary_key=True)
-        data: Mapped[dict[str, str]] = mapped_column(MutableDict.as_mutable(JSONEncodedDict))
+        data: Mapped[dict[str, str]] = mapped_column(
+            MutableDict.as_mutable(JSONEncodedDict)
+        )
 
 The ``MyDataClass.data`` member will now be notified of in place changes
 to its value.
@@ -132,11 +140,11 @@ will flag the attribute as "dirty" on the parent object::
     >>> from sqlalchemy.orm import Session
 
     >>> sess = Session(some_engine)
-    >>> m1 = MyDataClass(data={'value1':'foo'})
+    >>> m1 = MyDataClass(data={"value1": "foo"})
     >>> sess.add(m1)
     >>> sess.commit()
 
-    >>> m1.data['value1'] = 'bar'
+    >>> m1.data["value1"] = "bar"
     >>> assert m1 in sess.dirty
     True
 
@@ -153,14 +161,15 @@ the need to declare it individually::
 
     MutableDict.associate_with(JSONEncodedDict)
 
+
     class Base(DeclarativeBase):
         pass
 
+
     class MyDataClass(Base):
-        __tablename__ = 'my_data'
+        __tablename__ = "my_data"
         id: Mapped[int] = mapped_column(primary_key=True)
         data: Mapped[dict[str, str]] = mapped_column(JSONEncodedDict)
-
 
 Supporting Pickling
 --------------------
@@ -180,7 +189,7 @@ stream::
     class MyMutableType(Mutable):
         def __getstate__(self):
             d = self.__dict__.copy()
-            d.pop('_parents', None)
+            d.pop("_parents", None)
             return d
 
 With our dictionary example, we need to return the contents of the dict itself
@@ -213,13 +222,18 @@ from within the mutable extension::
     from sqlalchemy.orm import mapped_column
     from sqlalchemy import event
 
+
     class Base(DeclarativeBase):
         pass
 
+
     class MyDataClass(Base):
-        __tablename__ = 'my_data'
+        __tablename__ = "my_data"
         id: Mapped[int] = mapped_column(primary_key=True)
-        data: Mapped[dict[str, str]] = mapped_column(MutableDict.as_mutable(JSONEncodedDict))
+        data: Mapped[dict[str, str]] = mapped_column(
+            MutableDict.as_mutable(JSONEncodedDict)
+        )
+
 
     @event.listens_for(MyDataClass.data, "modified")
     def modified_json(instance, initiator):
@@ -247,6 +261,7 @@ class introduced in :ref:`mapper_composite` to include
     import dataclasses
     from sqlalchemy.ext.mutable import MutableComposite
 
+
     @dataclasses.dataclass
     class Point(MutableComposite):
         x: int
@@ -261,7 +276,6 @@ class introduced in :ref:`mapper_composite` to include
             # alert all parents to the change
             self.changed()
 
-
 The :class:`.MutableComposite` class makes use of class mapping events to
 automatically establish listeners for any usage of :func:`_orm.composite` that
 specifies our ``Point`` type. Below, when ``Point`` is mapped to the ``Vertex``
@@ -270,6 +284,7 @@ objects to each of the ``Vertex.start`` and ``Vertex.end`` attributes::
 
     from sqlalchemy.orm import DeclarativeBase, Mapped
     from sqlalchemy.orm import composite, mapped_column
+
 
     class Base(DeclarativeBase):
         pass
@@ -280,8 +295,12 @@ objects to each of the ``Vertex.start`` and ``Vertex.end`` attributes::
 
         id: Mapped[int] = mapped_column(primary_key=True)
 
-        start: Mapped[Point] = composite(mapped_column("x1"), mapped_column("y1"))
-        end: Mapped[Point] = composite(mapped_column("x2"), mapped_column("y2"))
+        start: Mapped[Point] = composite(
+            mapped_column("x1"), mapped_column("y1")
+        )
+        end: Mapped[Point] = composite(
+            mapped_column("x2"), mapped_column("y2")
+        )
 
         def __repr__(self):
             return f"Vertex(start={self.start}, end={self.end})"
@@ -369,6 +388,7 @@ from typing import Optional
 from typing import overload
 from typing import Set
 from typing import Tuple
+from typing import TYPE_CHECKING
 from typing import TypeVar
 from typing import Union
 import weakref
@@ -389,12 +409,12 @@ from ..orm.context import QueryContext
 from ..orm.decl_api import DeclarativeAttributeIntercept
 from ..orm.state import InstanceState
 from ..orm.unitofwork import UOWTransaction
+from ..sql._typing import _TypeEngineArgument
 from ..sql.base import SchemaEventTarget
 from ..sql.schema import Column
 from ..sql.type_api import TypeEngine
 from ..util import memoized_property
 from ..util.typing import SupportsIndex
-from ..util.typing import TypeGuard
 
 _KT = TypeVar("_KT")  # Key type.
 _VT = TypeVar("_VT")  # Value type.
@@ -468,8 +488,6 @@ class MutableBase:
         of attribute names that have been refreshed; the list is compared
         against this set to determine if action needs to be taken.
 
-        .. versionadded:: 1.0.5
-
         """
         return {attribute.key}
 
@@ -504,6 +522,7 @@ class MutableBase:
             if val is not None:
                 if coerce:
                     val = cls.coerce(key, val)
+                    assert val is not None
                     state.dict[key] = val
                 val._parents[state] = key
 
@@ -638,7 +657,7 @@ class Mutable(MutableBase):
         event.listen(Mapper, "mapper_configured", listen_for_type)
 
     @classmethod
-    def as_mutable(cls, sqltype: TypeEngine[_T]) -> TypeEngine[_T]:
+    def as_mutable(cls, sqltype: _TypeEngineArgument[_T]) -> TypeEngine[_T]:
         """Associate a SQL type with this mutable Python type.
 
         This establishes listeners that will detect ORM mappings against
@@ -647,9 +666,11 @@ class Mutable(MutableBase):
         The type is returned, unconditionally as an instance, so that
         :meth:`.as_mutable` can be used inline::
 
-            Table('mytable', metadata,
-                Column('id', Integer, primary_key=True),
-                Column('data', MyMutableType.as_mutable(PickleType))
+            Table(
+                "mytable",
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("data", MyMutableType.as_mutable(PickleType)),
             )
 
         Note that the returned type is always an instance, even if a class
@@ -694,14 +715,28 @@ class Mutable(MutableBase):
         ) -> None:
             if mapper.non_primary:
                 return
+            _APPLIED_KEY = "_ext_mutable_listener_applied"
+
             for prop in mapper.column_attrs:
                 if (
-                    schema_event_check
-                    and hasattr(prop.expression, "info")
-                    and prop.expression.info.get("_ext_mutable_orig_type")  # type: ignore # noqa: E501 # TODO: https://github.com/python/mypy/issues/1424#issuecomment-1272354487
-                    is sqltype
-                ) or (prop.columns[0].type is sqltype):
-                    cls.associate_with_attribute(getattr(class_, prop.key))
+                    # all Mutable types refer to a Column that's mapped,
+                    # since this is the only kind of Core target the ORM can
+                    # "mutate"
+                    isinstance(prop.expression, Column)
+                    and (
+                        (
+                            schema_event_check
+                            and prop.expression.info.get(
+                                "_ext_mutable_orig_type"
+                            )
+                            is sqltype
+                        )
+                        or prop.expression.type is sqltype
+                    )
+                ):
+                    if not prop.expression.info.get(_APPLIED_KEY, False):
+                        prop.expression.info[_APPLIED_KEY] = True
+                        cls.associate_with_attribute(getattr(class_, prop.key))
 
         event.listen(Mapper, "mapper_configured", listen_for_type)
 
@@ -725,7 +760,6 @@ class MutableComposite(MutableBase):
         """Subclasses should call this method whenever change events occur."""
 
         for parent, key in self._parents.items():
-
             prop = parent.mapper.get_property(key)
             for value, attr_name in zip(
                 prop._composite_values_from_instance(self),
@@ -778,63 +812,64 @@ class MutableDict(Mutable, Dict[_KT, _VT]):
 
     def __setitem__(self, key: _KT, value: _VT) -> None:
         """Detect dictionary set events and emit change events."""
-        super().__setitem__(key, value)
+        dict.__setitem__(self, key, value)
         self.changed()
 
-    def _exists(self, value: _T | None) -> TypeGuard[_T]:
-        return value is not None
+    if TYPE_CHECKING:
+        # from https://github.com/python/mypy/issues/14858
 
-    def _is_none(self, value: _T | None) -> TypeGuard[None]:
-        return value is None
+        @overload
+        def setdefault(
+            self: MutableDict[_KT, Optional[_T]], key: _KT, value: None = None
+        ) -> Optional[_T]: ...
 
-    @overload
-    def setdefault(self, key: _KT) -> _VT | None:
-        ...
+        @overload
+        def setdefault(self, key: _KT, value: _VT) -> _VT: ...
 
-    @overload
-    def setdefault(self, key: _KT, value: _VT) -> _VT:
-        ...
+        def setdefault(self, key: _KT, value: object = None) -> object: ...
 
-    def setdefault(self, key: _KT, value: _VT | None = None) -> _VT | None:
-        if self._exists(value):
-            result = super().setdefault(key, value)
-        else:
-            result = super().setdefault(key)  # type: ignore[call-arg]
-        self.changed()
-        return result
+    else:
+
+        def setdefault(self, *arg):  # noqa: F811
+            result = dict.setdefault(self, *arg)
+            self.changed()
+            return result
 
     def __delitem__(self, key: _KT) -> None:
         """Detect dictionary del events and emit change events."""
-        super().__delitem__(key)
+        dict.__delitem__(self, key)
         self.changed()
 
     def update(self, *a: Any, **kw: _VT) -> None:
-        super().update(*a, **kw)
+        dict.update(self, *a, **kw)
         self.changed()
 
-    @overload
-    def pop(self, __key: _KT) -> _VT:
-        ...
+    if TYPE_CHECKING:
 
-    @overload
-    def pop(self, __key: _KT, __default: _VT | _T) -> _VT | _T:
-        ...
+        @overload
+        def pop(self, __key: _KT) -> _VT: ...
 
-    def pop(self, __key: _KT, __default: _VT | _T | None = None) -> _VT | _T:
-        if self._exists(__default):
-            result = super().pop(__key, __default)
-        else:
-            result = super().pop(__key)
-        self.changed()
-        return result
+        @overload
+        def pop(self, __key: _KT, __default: _VT | _T) -> _VT | _T: ...
+
+        def pop(
+            self, __key: _KT, __default: _VT | _T | None = None
+        ) -> _VT | _T: ...
+
+    else:
+
+        def pop(self, *arg):  # noqa: F811
+            result = dict.pop(self, *arg)
+            self.changed()
+            return result
 
     def popitem(self) -> Tuple[_KT, _VT]:
-        result = super().popitem()
+        result = dict.popitem(self)
         self.changed()
         return result
 
     def clear(self) -> None:
-        super().clear()
+        dict.clear(self)
         self.changed()
 
     @classmethod
@@ -847,7 +882,7 @@ class MutableDict(Mutable, Dict[_KT, _VT]):
         else:
             return value
 
-    def __getstate__(self) -> dict[_KT, _VT]:
+    def __getstate__(self) -> Dict[_KT, _VT]:
         return dict(self)
 
     def __setstate__(
@@ -871,8 +906,6 @@ class MutableList(Mutable, List[_T]):
     coercion to the values placed in the dictionary so that they too are
     "mutable", and emit events up to their parent structure.
 
-    .. versionadded:: 1.1
-
     .. seealso::
 
         :class:`.MutableDict`
@@ -891,38 +924,29 @@ class MutableList(Mutable, List[_T]):
     def __setstate__(self, state: Iterable[_T]) -> None:
         self[:] = state
 
-    def is_scalar(self, value: _T | Iterable[_T]) -> TypeGuard[_T]:
-        return not isinstance(value, Iterable)
-
-    def is_iterable(self, value: _T | Iterable[_T]) -> TypeGuard[Iterable[_T]]:
-        return isinstance(value, Iterable)
-
     def __setitem__(
         self, index: SupportsIndex | slice, value: _T | Iterable[_T]
     ) -> None:
         """Detect list set events and emit change events."""
-        if isinstance(index, SupportsIndex) and self.is_scalar(value):
-            super().__setitem__(index, value)
-        elif isinstance(index, slice) and self.is_iterable(value):
-            super().__setitem__(index, value)
+        list.__setitem__(self, index, value)
         self.changed()
 
     def __delitem__(self, index: SupportsIndex | slice) -> None:
         """Detect list del events and emit change events."""
-        super().__delitem__(index)
+        list.__delitem__(self, index)
         self.changed()
 
     def pop(self, *arg: SupportsIndex) -> _T:
-        result = super().pop(*arg)
+        result = list.pop(self, *arg)
         self.changed()
         return result
 
     def append(self, x: _T) -> None:
-        super().append(x)
+        list.append(self, x)
         self.changed()
 
     def extend(self, x: Iterable[_T]) -> None:
-        super().extend(x)
+        list.extend(self, x)
         self.changed()
 
     def __iadd__(self, x: Iterable[_T]) -> MutableList[_T]:  # type: ignore[override,misc] # noqa: E501
@@ -930,23 +954,23 @@ class MutableList(Mutable, List[_T]):
         return self
 
     def insert(self, i: SupportsIndex, x: _T) -> None:
-        super().insert(i, x)
+        list.insert(self, i, x)
         self.changed()
 
     def remove(self, i: _T) -> None:
-        super().remove(i)
+        list.remove(self, i)
         self.changed()
 
     def clear(self) -> None:
-        super().clear()
+        list.clear(self)
         self.changed()
 
     def sort(self, **kw: Any) -> None:
-        super().sort(**kw)
+        list.sort(self, **kw)
         self.changed()
 
     def reverse(self) -> None:
-        super().reverse()
+        list.reverse(self)
         self.changed()
 
     @classmethod
@@ -977,8 +1001,6 @@ class MutableSet(Mutable, Set[_T]):
     coercion to the values placed in the dictionary so that they too are
     "mutable", and emit events up to their parent structure.
 
-    .. versionadded:: 1.1
-
     .. seealso::
 
         :class:`.MutableDict`
@@ -989,19 +1011,19 @@ class MutableSet(Mutable, Set[_T]):
     """
 
     def update(self, *arg: Iterable[_T]) -> None:
-        super().update(*arg)
+        set.update(self, *arg)
         self.changed()
 
     def intersection_update(self, *arg: Iterable[Any]) -> None:
-        super().intersection_update(*arg)
+        set.intersection_update(self, *arg)
         self.changed()
 
     def difference_update(self, *arg: Iterable[Any]) -> None:
-        super().difference_update(*arg)
+        set.difference_update(self, *arg)
         self.changed()
 
     def symmetric_difference_update(self, *arg: Iterable[_T]) -> None:
-        super().symmetric_difference_update(*arg)
+        set.symmetric_difference_update(self, *arg)
         self.changed()
 
     def __ior__(self, other: AbstractSet[_T]) -> MutableSet[_T]:  # type: ignore[override,misc] # noqa: E501
@@ -1021,24 +1043,24 @@ class MutableSet(Mutable, Set[_T]):
         return self
 
     def add(self, elem: _T) -> None:
-        super().add(elem)
+        set.add(self, elem)
         self.changed()
 
     def remove(self, elem: _T) -> None:
-        super().remove(elem)
+        set.remove(self, elem)
         self.changed()
 
     def discard(self, elem: _T) -> None:
-        super().discard(elem)
+        set.discard(self, elem)
         self.changed()
 
     def pop(self, *arg: Any) -> _T:
-        result = super().pop(*arg)
+        result = set.pop(self, *arg)
         self.changed()
         return result
 
     def clear(self) -> None:
-        super().clear()
+        set.clear(self)
         self.changed()
 
     @classmethod
@@ -1051,7 +1073,7 @@ class MutableSet(Mutable, Set[_T]):
         else:
             return value
 
-    def __getstate__(self) -> set[_T]:
+    def __getstate__(self) -> Set[_T]:
         return set(self)
 
     def __setstate__(self, state: Iterable[_T]) -> None:

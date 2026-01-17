@@ -1,4 +1,5 @@
 """Handle files using a thread pool executor."""
+
 import asyncio
 import sys
 from functools import partial, singledispatch
@@ -10,7 +11,6 @@ from io import (
     FileIO,
     TextIOBase,
 )
-from types import coroutine
 
 from ..base import AiofilesContextManager
 from .binary import (
@@ -63,8 +63,7 @@ def open(
     )
 
 
-@coroutine
-def _open(
+async def _open(
     file,
     mode="r",
     buffering=-1,
@@ -91,14 +90,15 @@ def _open(
         closefd=closefd,
         opener=opener,
     )
-    f = yield from loop.run_in_executor(executor, cb)
+    f = await loop.run_in_executor(executor, cb)
 
     return wrap(f, loop=loop, executor=executor)
 
 
 @singledispatch
 def wrap(file, *, loop=None, executor=None):
-    raise TypeError("Unsupported io type: {}.".format(file))
+    msg = f"Unsupported io type: {file}."
+    raise TypeError(msg)
 
 
 @wrap.register(TextIOBase)

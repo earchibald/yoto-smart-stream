@@ -1,32 +1,20 @@
+from __future__ import annotations
+
 import logging
 from itertools import chain
-from contextlib import ExitStack
-from typing import List, Optional, Type
+from typing import Any
 
-from mangum.protocols import HTTPCycle, LifespanCycle
-from mangum.handlers import ALB, HTTPGateway, APIGateway, LambdaAtEdge
+from mangum._compat import asyncio_run
 from mangum.exceptions import ConfigurationError
-from mangum.types import (
-    ASGI,
-    LifespanMode,
-    LambdaConfig,
-    LambdaEvent,
-    LambdaContext,
-    LambdaHandler,
-)
-
+from mangum.handlers import ALB, APIGateway, HTTPGateway, LambdaAtEdge
+from mangum.protocols import HTTPCycle, LifespanCycle
+from mangum.types import ASGI, LambdaConfig, LambdaContext, LambdaEvent, LambdaHandler, LifespanMode
 
 logger = logging.getLogger("mangum")
 
+HANDLERS: list[type[LambdaHandler]] = [ALB, HTTPGateway, APIGateway, LambdaAtEdge]
 
-HANDLERS: List[Type[LambdaHandler]] = [
-    ALB,
-    HTTPGateway,
-    APIGateway,
-    LambdaAtEdge,
-]
-
-DEFAULT_TEXT_MIME_TYPES: List[str] = [
+DEFAULT_TEXT_MIME_TYPES: list[str] = [
     "text/",
     "application/json",
     "application/javascript",
@@ -42,14 +30,12 @@ class Mangum:
         app: ASGI,
         lifespan: LifespanMode = "auto",
         api_gateway_base_path: str = "/",
-        custom_handlers: Optional[List[Type[LambdaHandler]]] = None,
-        text_mime_types: Optional[List[str]] = None,
-        exclude_headers: Optional[List[str]] = None,
+        custom_handlers: list[type[LambdaHandler]] | None = None,
+        text_mime_types: list[str] | None = None,
+        exclude_headers: list[str] | None = None,
     ) -> None:
         if lifespan not in ("auto", "on", "off"):
-            raise ConfigurationError(
-                "Invalid argument supplied for `lifespan`. Choices are: auto|on|off"
-            )
+            raise ConfigurationError("Invalid argument supplied for `lifespan`. Choices are: auto|on|off")
 
         self.app = app
         self.lifespan = lifespan
@@ -72,16 +58,21 @@ class Mangum:
             "supported handler.)"
         )
 
-    def __call__(self, event: LambdaEvent, context: LambdaContext) -> dict:
-        handler = self.infer(event, context)
-        with ExitStack() as stack:
+    def __call__(self, event: LambdaEvent, context: LambdaContext) -> dict[str, Any]:
+        async def handle_request() -> dict[str, Any]:
+            handler = self.infer(event, context)
+            scope = handler.scope
+
             if self.lifespan in ("auto", "on"):
                 lifespan_cycle = LifespanCycle(self.app, self.lifespan)
-                stack.enter_context(lifespan_cycle)
+                async with lifespan_cycle:
+                    scope.update({"state": lifespan_cycle.lifespan_state.copy()})
+                    http_cycle = HTTPCycle(scope, handler.body)
+                    http_response = await http_cycle(self.app)
+                    return handler(http_response)
+            else:
+                http_cycle = HTTPCycle(scope, handler.body)
+                http_response = await http_cycle(self.app)
+                return handler(http_response)
 
-            http_cycle = HTTPCycle(handler.scope, handler.body)
-            http_response = http_cycle(self.app)
-
-            return handler(http_response)
-
-        assert False, "unreachable"  # pragma: no cover
+        return asyncio_run(handle_request())

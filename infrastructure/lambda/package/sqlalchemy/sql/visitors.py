@@ -1,14 +1,11 @@
 # sql/visitors.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
 
-"""Visitor/traversal interface and library functions.
-
-
-"""
+"""Visitor/traversal interface and library functions."""
 
 from __future__ import annotations
 
@@ -72,8 +69,7 @@ __all__ = [
 
 
 class _CompilerDispatchType(Protocol):
-    def __call__(_self, self: Visitable, visitor: Any, **kw: Any) -> Any:
-        ...
+    def __call__(_self, self: Visitable, visitor: Any, **kw: Any) -> Any: ...
 
 
 class Visitable:
@@ -100,8 +96,7 @@ class Visitable:
 
     if typing.TYPE_CHECKING:
 
-        def _compiler_dispatch(self, visitor: Any, **kw: Any) -> str:
-            ...
+        def _compiler_dispatch(self, visitor: Any, **kw: Any) -> str: ...
 
     def __init_subclass__(cls) -> None:
         if "__visit_name__" in cls.__dict__:
@@ -146,7 +141,7 @@ class Visitable:
             cls._original_compiler_dispatch
         ) = _compiler_dispatch
 
-    def __class_getitem__(cls, key: str) -> Any:
+    def __class_getitem__(cls, key: Any) -> Any:
         # allow generic classes in py3.9+
         return cls
 
@@ -161,16 +156,17 @@ class InternalTraversal(Enum):
     the ``_traverse_internals`` collection.   Such as, the :class:`.Case`
     object defines ``_traverse_internals`` as ::
 
-        _traverse_internals = [
-            ("value", InternalTraversal.dp_clauseelement),
-            ("whens", InternalTraversal.dp_clauseelement_tuples),
-            ("else_", InternalTraversal.dp_clauseelement),
-        ]
+        class Case(ColumnElement[_T]):
+            _traverse_internals = [
+                ("value", InternalTraversal.dp_clauseelement),
+                ("whens", InternalTraversal.dp_clauseelement_tuples),
+                ("else_", InternalTraversal.dp_clauseelement),
+            ]
 
     Above, the :class:`.Case` class indicates its internal state as the
     attributes named ``value``, ``whens``, and ``else_``.    They each
     link to an :class:`.InternalTraversal` method which indicates the type
-    of datastructure referred towards.
+    of datastructure to which each attribute refers.
 
     Using the ``_traverse_internals`` structure, objects of type
     :class:`.InternalTraversible` will have the following methods automatically
@@ -492,8 +488,7 @@ class HasTraverseInternals:
 
 
 class _InternalTraversalDispatchType(Protocol):
-    def __call__(s, self: object, visitor: HasTraversalDispatch) -> Any:
-        ...
+    def __call__(s, self: object, visitor: HasTraversalDispatch) -> Any: ...
 
 
 class HasTraversalDispatch:
@@ -594,11 +589,6 @@ _dispatch_lookup = HasTraversalDispatch._dispatch_lookup
 _generate_traversal_dispatch()
 
 
-SelfExternallyTraversible = TypeVar(
-    "SelfExternallyTraversible", bound="ExternallyTraversible"
-)
-
-
 class ExternallyTraversible(HasTraverseInternals, Visitable):
     __slots__ = ()
 
@@ -606,17 +596,13 @@ class ExternallyTraversible(HasTraverseInternals, Visitable):
 
     if typing.TYPE_CHECKING:
 
-        def _annotate(
-            self: SelfExternallyTraversible, values: _AnnotationDict
-        ) -> SelfExternallyTraversible:
-            ...
+        def _annotate(self, values: _AnnotationDict) -> Self: ...
 
         def get_children(
             self, *, omit_attrs: Tuple[str, ...] = (), **kw: Any
-        ) -> Iterable[ExternallyTraversible]:
-            ...
+        ) -> Iterable[ExternallyTraversible]: ...
 
-    def _clone(self: Self, **kw: Any) -> Self:
+    def _clone(self, **kw: Any) -> Self:
         """clone this element"""
         raise NotImplementedError()
 
@@ -644,13 +630,11 @@ _TraverseCallableType = Callable[[_ET], None]
 
 
 class _CloneCallableType(Protocol):
-    def __call__(self, element: _ET, **kw: Any) -> _ET:
-        ...
+    def __call__(self, element: _ET, **kw: Any) -> _ET: ...
 
 
 class _TraverseTransformCallableType(Protocol[_ET]):
-    def __call__(self, element: _ET, **kw: Any) -> Optional[_ET]:
-        ...
+    def __call__(self, element: _ET, **kw: Any) -> Optional[_ET]: ...
 
 
 _ExtT = TypeVar("_ExtT", bound="ExternalTraversal")
@@ -686,12 +670,12 @@ class ExternalTraversal(util.MemoizedSlots):
         return iterate(obj, self.__traverse_options__)
 
     @overload
-    def traverse(self, obj: Literal[None]) -> None:
-        ...
+    def traverse(self, obj: Literal[None]) -> None: ...
 
     @overload
-    def traverse(self, obj: ExternallyTraversible) -> ExternallyTraversible:
-        ...
+    def traverse(
+        self, obj: ExternallyTraversible
+    ) -> ExternallyTraversible: ...
 
     def traverse(
         self, obj: Optional[ExternallyTraversible]
@@ -752,12 +736,12 @@ class CloningExternalTraversal(ExternalTraversal):
         return [self.traverse(x) for x in list_]
 
     @overload
-    def traverse(self, obj: Literal[None]) -> None:
-        ...
+    def traverse(self, obj: Literal[None]) -> None: ...
 
     @overload
-    def traverse(self, obj: ExternallyTraversible) -> ExternallyTraversible:
-        ...
+    def traverse(
+        self, obj: ExternallyTraversible
+    ) -> ExternallyTraversible: ...
 
     def traverse(
         self, obj: Optional[ExternallyTraversible]
@@ -792,12 +776,12 @@ class ReplacingExternalTraversal(CloningExternalTraversal):
         return None
 
     @overload
-    def traverse(self, obj: Literal[None]) -> None:
-        ...
+    def traverse(self, obj: Literal[None]) -> None: ...
 
     @overload
-    def traverse(self, obj: ExternallyTraversible) -> ExternallyTraversible:
-        ...
+    def traverse(
+        self, obj: ExternallyTraversible
+    ) -> ExternallyTraversible: ...
 
     def traverse(
         self, obj: Optional[ExternallyTraversible]
@@ -872,8 +856,7 @@ def traverse_using(
     iterator: Iterable[ExternallyTraversible],
     obj: Literal[None],
     visitors: Mapping[str, _TraverseCallableType[Any]],
-) -> None:
-    ...
+) -> None: ...
 
 
 @overload
@@ -881,8 +864,7 @@ def traverse_using(
     iterator: Iterable[ExternallyTraversible],
     obj: ExternallyTraversible,
     visitors: Mapping[str, _TraverseCallableType[Any]],
-) -> ExternallyTraversible:
-    ...
+) -> ExternallyTraversible: ...
 
 
 def traverse_using(
@@ -926,8 +908,7 @@ def traverse(
     obj: Literal[None],
     opts: Mapping[str, Any],
     visitors: Mapping[str, _TraverseCallableType[Any]],
-) -> None:
-    ...
+) -> None: ...
 
 
 @overload
@@ -935,8 +916,7 @@ def traverse(
     obj: ExternallyTraversible,
     opts: Mapping[str, Any],
     visitors: Mapping[str, _TraverseCallableType[Any]],
-) -> ExternallyTraversible:
-    ...
+) -> ExternallyTraversible: ...
 
 
 def traverse(
@@ -951,10 +931,12 @@ def traverse(
 
         from sqlalchemy.sql import visitors
 
-        stmt = select(some_table).where(some_table.c.foo == 'bar')
+        stmt = select(some_table).where(some_table.c.foo == "bar")
+
 
         def visit_bindparam(bind_param):
             print("found bound value: %s" % bind_param.value)
+
 
         visitors.traverse(stmt, {}, {"bindparam": visit_bindparam})
 
@@ -981,8 +963,7 @@ def cloned_traverse(
     obj: Literal[None],
     opts: Mapping[str, Any],
     visitors: Mapping[str, _TraverseCallableType[Any]],
-) -> None:
-    ...
+) -> None: ...
 
 
 # a bit of controversy here, as the clone of the lead element
@@ -994,8 +975,7 @@ def cloned_traverse(
     obj: _ET,
     opts: Mapping[str, Any],
     visitors: Mapping[str, _TraverseCallableType[Any]],
-) -> _ET:
-    ...
+) -> _ET: ...
 
 
 def cloned_traverse(
@@ -1056,7 +1036,6 @@ def cloned_traverse(
             return elem
         else:
             if id(elem) not in cloned:
-
                 if "replace" in kw:
                     newelem = cast(
                         Optional[ExternallyTraversible], kw["replace"](elem)
@@ -1095,8 +1074,7 @@ def replacement_traverse(
     obj: Literal[None],
     opts: Mapping[str, Any],
     replace: _TraverseTransformCallableType[Any],
-) -> None:
-    ...
+) -> None: ...
 
 
 @overload
@@ -1104,8 +1082,7 @@ def replacement_traverse(
     obj: _CE,
     opts: Mapping[str, Any],
     replace: _TraverseTransformCallableType[Any],
-) -> _CE:
-    ...
+) -> _CE: ...
 
 
 @overload
@@ -1113,8 +1090,7 @@ def replacement_traverse(
     obj: ExternallyTraversible,
     opts: Mapping[str, Any],
     replace: _TraverseTransformCallableType[Any],
-) -> ExternallyTraversible:
-    ...
+) -> ExternallyTraversible: ...
 
 
 def replacement_traverse(

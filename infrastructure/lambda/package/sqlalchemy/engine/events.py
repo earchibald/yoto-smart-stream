@@ -1,5 +1,5 @@
-# sqlalchemy/engine/events.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# engine/events.py
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -54,19 +54,24 @@ class ConnectionEvents(event.Events[ConnectionEventsTarget]):
 
         from sqlalchemy import event, create_engine
 
-        def before_cursor_execute(conn, cursor, statement, parameters, context,
-                                                        executemany):
+
+        def before_cursor_execute(
+            conn, cursor, statement, parameters, context, executemany
+        ):
             log.info("Received statement: %s", statement)
 
-        engine = create_engine('postgresql+psycopg2://scott:tiger@localhost/test')
+
+        engine = create_engine("postgresql+psycopg2://scott:tiger@localhost/test")
         event.listen(engine, "before_cursor_execute", before_cursor_execute)
 
     or with a specific :class:`_engine.Connection`::
 
         with engine.begin() as conn:
-            @event.listens_for(conn, 'before_cursor_execute')
-            def before_cursor_execute(conn, cursor, statement, parameters,
-                                            context, executemany):
+
+            @event.listens_for(conn, "before_cursor_execute")
+            def before_cursor_execute(
+                conn, cursor, statement, parameters, context, executemany
+            ):
                 log.info("Received statement: %s", statement)
 
     When the methods are called with a `statement` parameter, such as in
@@ -84,9 +89,11 @@ class ConnectionEvents(event.Events[ConnectionEventsTarget]):
         from sqlalchemy.engine import Engine
         from sqlalchemy import event
 
+
         @event.listens_for(Engine, "before_cursor_execute", retval=True)
-        def comment_sql_calls(conn, cursor, statement, parameters,
-                                            context, executemany):
+        def comment_sql_calls(
+            conn, cursor, statement, parameters, context, executemany
+        ):
             statement = statement + " -- some comment"
             return statement, parameters
 
@@ -131,7 +138,7 @@ class ConnectionEvents(event.Events[ConnectionEventsTarget]):
         if default_dispatch is None and hasattr(
             target, "_no_async_engine_events"
         ):
-            target._no_async_engine_events()  # type: ignore
+            target._no_async_engine_events()
 
         return default_dispatch
 
@@ -316,8 +323,9 @@ class ConnectionEvents(event.Events[ConnectionEventsTarget]):
         returned as a two-tuple in this case::
 
             @event.listens_for(Engine, "before_cursor_execute", retval=True)
-            def before_cursor_execute(conn, cursor, statement,
-                            parameters, context, executemany):
+            def before_cursor_execute(
+                conn, cursor, statement, parameters, context, executemany
+            ):
                 # do something with statement, parameters
                 return statement, parameters
 
@@ -498,8 +506,6 @@ class ConnectionEvents(event.Events[ConnectionEventsTarget]):
         can still be used for new requests in which case
         it re-acquires connection resources.
 
-        .. versionadded:: 1.0.5
-
         """
 
     def begin(self, conn: Connection) -> None:
@@ -636,16 +642,13 @@ class DialectEvents(event.Events[Dialect]):
 
         :meth:`_events.ConnectionEvents.after_execute`
 
-
-    .. versionadded:: 0.9.4
-
     """
 
     _target_class_doc = "SomeEngine"
     _dispatch_target = Dialect
 
     @classmethod
-    def _listen(  # type: ignore
+    def _listen(
         cls,
         event_key: event._EventKey[Dialect],
         *,
@@ -663,7 +666,6 @@ class DialectEvents(event.Events[Dialect]):
         target: Union[Engine, Type[Engine], Dialect, Type[Dialect]],
         identifier: str,
     ) -> Optional[Union[Dialect, Type[Dialect]]]:
-
         if isinstance(target, type):
             if issubclass(target, Engine):
                 return Dialect
@@ -744,6 +746,25 @@ class DialectEvents(event.Events[Dialect]):
         make use of a native ``ping()`` method supplied by the DBAPI which does
         not make use of disconnect codes.
 
+        .. versionchanged:: 2.0.0 The :meth:`.DialectEvents.handle_error`
+           event hook participates in connection pool "pre-ping" operations.
+           Within this usage, the :attr:`.ExceptionContext.engine` attribute
+           will be ``None``, however the :class:`.Dialect` in use is always
+           available via the :attr:`.ExceptionContext.dialect` attribute.
+
+        .. versionchanged:: 2.0.5 Added :attr:`.ExceptionContext.is_pre_ping`
+           attribute which will be set to ``True`` when the
+           :meth:`.DialectEvents.handle_error` event hook is triggered within
+           a connection pool pre-ping operation.
+
+        .. versionchanged:: 2.0.5 An issue was repaired that allows for the
+           PostgreSQL ``psycopg`` and ``psycopg2`` drivers, as well as all
+           MySQL drivers, to properly participate in the
+           :meth:`.DialectEvents.handle_error` event hook during
+           connection pool "pre-ping" operations; previously, the
+           implementation was non-working for these drivers.
+
+
         A handler function has two options for replacing
         the SQLAlchemy-constructed exception into one that is user
         defined.   It can either raise this new exception directly, in
@@ -753,9 +774,9 @@ class DialectEvents(event.Events[Dialect]):
 
             @event.listens_for(Engine, "handle_error")
             def handle_exception(context):
-                if isinstance(context.original_exception,
-                    psycopg2.OperationalError) and \
-                    "failed" in str(context.original_exception):
+                if isinstance(
+                    context.original_exception, psycopg2.OperationalError
+                ) and "failed" in str(context.original_exception):
                     raise MySpecialException("failed operation")
 
         .. warning::  Because the
@@ -778,10 +799,13 @@ class DialectEvents(event.Events[Dialect]):
 
             @event.listens_for(Engine, "handle_error", retval=True)
             def handle_exception(context):
-                if context.chained_exception is not None and \
-                    "special" in context.chained_exception.message:
-                    return MySpecialException("failed",
-                        cause=context.chained_exception)
+                if (
+                    context.chained_exception is not None
+                    and "special" in context.chained_exception.message
+                ):
+                    return MySpecialException(
+                        "failed", cause=context.chained_exception
+                    )
 
         Handlers that return ``None`` may be used within the chain; when
         a handler returns ``None``, the previous exception instance,
@@ -823,7 +847,8 @@ class DialectEvents(event.Events[Dialect]):
 
             e = create_engine("postgresql+psycopg2://user@host/dbname")
 
-            @event.listens_for(e, 'do_connect')
+
+            @event.listens_for(e, "do_connect")
             def receive_do_connect(dialect, conn_rec, cargs, cparams):
                 cparams["password"] = "some_password"
 
@@ -832,12 +857,10 @@ class DialectEvents(event.Events[Dialect]):
 
             e = create_engine("postgresql+psycopg2://user@host/dbname")
 
-            @event.listens_for(e, 'do_connect')
+
+            @event.listens_for(e, "do_connect")
             def receive_do_connect(dialect, conn_rec, cargs, cparams):
                 return psycopg2.connect(*cargs, **cparams)
-
-
-        .. versionadded:: 1.0.3
 
         .. seealso::
 
@@ -918,7 +941,8 @@ class DialectEvents(event.Events[Dialect]):
 
         The setinputsizes hook overall is only used for dialects which include
         the flag ``use_setinputsizes=True``.  Dialects which use this
-        include cx_Oracle, pg8000, asyncpg, and pyodbc dialects.
+        include python-oracledb, cx_Oracle, pg8000, asyncpg, and pyodbc
+        dialects.
 
         .. note::
 

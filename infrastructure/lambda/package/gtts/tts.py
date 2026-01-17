@@ -82,7 +82,7 @@ class gTTS:
 
     Raises:
         AssertionError: When ``text`` is ``None`` or empty; when there's nothing
-            left to speak after pre-precessing, tokenizing and cleaning.
+            left to speak after pre-processing, tokenizing and cleaning.
         ValueError: When ``lang_check`` is ``True`` and ``lang`` is not supported.
         RuntimeError: When ``lang_check`` is ``True`` but there's an error loading
             the languages dictionary.
@@ -333,6 +333,7 @@ class gTTS:
         """
         with open(str(savefile), "wb") as f:
             self.write_to_fp(f)
+            f.flush()
             log.debug("Saved to %s", savefile)
 
 

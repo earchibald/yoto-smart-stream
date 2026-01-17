@@ -1,5 +1,5 @@
 # testing/config.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -9,7 +9,9 @@
 
 from __future__ import annotations
 
+from argparse import Namespace
 import collections
+import inspect
 import typing
 from typing import Any
 from typing import Callable
@@ -20,10 +22,15 @@ from typing import Tuple
 from typing import TypeVar
 from typing import Union
 
+from . import mock
+from . import requirements as _requirements
 from .util import fail
 from .. import util
 
-requirements = None
+# default requirements; this is replaced by plugin_base when pytest
+# is run
+requirements = _requirements.SuiteRequirements()
+
 db = None
 db_url = None
 db_opts = None
@@ -33,13 +40,49 @@ test_schema_2 = None
 any_async = False
 _current = None
 ident = "main"
+options: Namespace = None  # type: ignore
 
 if typing.TYPE_CHECKING:
     from .plugin.plugin_base import FixtureFunctions
 
     _fixture_functions: FixtureFunctions
 else:
-    _fixture_functions = None  # installed by plugin_base
+
+    class _NullFixtureFunctions:
+        def _null_decorator(self):
+            def go(fn):
+                return fn
+
+            return go
+
+        def skip_test_exception(self, *arg, **kw):
+            return Exception()
+
+        @property
+        def add_to_marker(self):
+            return mock.Mock()
+
+        def mark_base_test_class(self):
+            return self._null_decorator()
+
+        def combinations(self, *arg_sets, **kw):
+            return self._null_decorator()
+
+        def param_ident(self, *parameters):
+            return self._null_decorator()
+
+        def fixture(self, *arg, **kw):
+            return self._null_decorator()
+
+        def get_current_test_name(self):
+            return None
+
+        def async_test(self, fn):
+            return fn
+
+    # default fixture functions; these are replaced by plugin_base when
+    # pytest runs
+    _fixture_functions = _NullFixtureFunctions()
 
 
 _FN = TypeVar("_FN", bound=Callable[..., Any])
@@ -79,7 +122,9 @@ def combinations(
      passed, each argument combination is turned into a pytest.param() object,
      mapping the elements of the argument tuple to produce an id based on a
      character value in the same position within the string template using the
-     following scheme::
+     following scheme:
+
+     .. sourcecode:: text
 
         i - the given argument is a string that is part of the id only, don't
             pass it as an argument
@@ -103,7 +148,7 @@ def combinations(
             (operator.ne, "ne"),
             (operator.gt, "gt"),
             (operator.lt, "lt"),
-            id_="na"
+            id_="na",
         )
         def test_operator(self, opfunc, name):
             pass
@@ -118,14 +163,7 @@ def combinations(
     )
 
 
-def combinations_list(
-    arg_iterable: Iterable[
-        Tuple[
-            Any,
-        ]
-    ],
-    **kw,
-):
+def combinations_list(arg_iterable: Iterable[Tuple[Any, ...]], **kw):
     "As combination, but takes a single iterable"
     return combinations(*arg_iterable, **kw)
 
@@ -141,8 +179,7 @@ class Variation:
 
     if typing.TYPE_CHECKING:
 
-        def __getattr__(self, key: str) -> bool:
-            ...
+        def __getattr__(self, key: str) -> bool: ...
 
     @property
     def name(self):
@@ -185,7 +222,7 @@ class Variation:
         return [typ(casename, argname, case_names) for casename in case_names]
 
 
-def variation(argname, cases):
+def variation(argname_or_fn, cases=None):
     """a helper around testing.combinations that provides a single namespace
     that can be used as a switch.
 
@@ -193,14 +230,9 @@ def variation(argname, cases):
 
         @testing.variation("querytyp", ["select", "subquery", "legacy_query"])
         @testing.variation("lazy", ["select", "raise", "raise_on_sql"])
-        def test_thing(
-            self,
-            querytyp,
-            lazy,
-            decl_base
-        ):
+        def test_thing(self, querytyp, lazy, decl_base):
             class Thing(decl_base):
-                __tablename__ = 'thing'
+                __tablename__ = "thing"
 
                 # use name directly
                 rel = relationship("Rel", lazy=lazy.name)
@@ -215,16 +247,28 @@ def variation(argname, cases):
             else:
                 querytyp.fail()
 
-
     The variable provided is a slots object of boolean variables, as well
     as the name of the case itself under the attribute ".name"
 
     """
 
+    if inspect.isfunction(argname_or_fn):
+        argname = argname_or_fn.__name__
+        cases = argname_or_fn(None)
+
+        @variation_fixture(argname, cases)
+        def go(self, request):
+            yield request.param
+
+        return go
+    else:
+        argname = argname_or_fn
     cases_plus_limitations = [
-        entry
-        if (isinstance(entry, tuple) and len(entry) == 2)
-        else (entry, None)
+        (
+            entry
+            if (isinstance(entry, tuple) and len(entry) == 2)
+            else (entry, None)
+        )
         for entry in cases
     ]
 
@@ -233,9 +277,11 @@ def variation(argname, cases):
     )
     return combinations(
         *[
-            (variation._name, variation, limitation)
-            if limitation is not None
-            else (variation._name, variation)
+            (
+                (variation._name, variation, limitation)
+                if limitation is not None
+                else (variation._name, variation)
+            )
             for variation, (case, limitation) in zip(
                 variations, cases_plus_limitations
             )
@@ -287,8 +333,19 @@ class Config:
             db.url.query.get("async_fallback", False)
         )
 
+        from . import provision
+
+        self.is_default_dialect = provision.is_preferred_driver(self, db)
+
     _stack = collections.deque()
     _configs = set()
+
+    def __repr__(self):
+        return (
+            f"sqlalchemy.testing.config.Config"
+            f"({self.db.name}+{self.db.driver}, "
+            f"{self.db.dialect.server_version_info})"
+        )
 
     def _set_name(self, db):
         suffix = "_async" if db.dialect.is_async else ""

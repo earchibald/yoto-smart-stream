@@ -1,4 +1,5 @@
 import base64
+import re
 import struct
 
 # Piggyback of the backends implementation of the function that converts a long
@@ -8,7 +9,6 @@ try:
 
     def long_to_bytes(n, blocksize=0):
         return _long_to_bytes(n, blocksize or None)
-
 
 except ImportError:
     from ecdsa.ecdsa import int_to_string as _long_to_bytes
@@ -67,7 +67,7 @@ def base64url_decode(input):
     """Helper method to base64url_decode a string.
 
     Args:
-        input (str): A base64url_encoded string to decode.
+        input (bytes): A base64url_encoded string (bytes) to decode.
 
     """
     rem = len(input) % 4
@@ -82,7 +82,7 @@ def base64url_encode(input):
     """Helper method to base64url_encode a string.
 
     Args:
-        input (str): A base64url_encoded string to encode.
+        input (bytes): A base64url_encoded string (bytes) to encode.
 
     """
     return base64.urlsafe_b64encode(input).replace(b"=", b"")
@@ -106,3 +106,60 @@ def ensure_binary(s):
     if isinstance(s, str):
         return s.encode("utf-8", "strict")
     raise TypeError(f"not expecting type '{type(s)}'")
+
+
+# The following was copied from PyJWT:
+#   https://github.com/jpadilla/pyjwt/commit/9c528670c455b8d948aff95ed50e22940d1ad3fc
+# Based on:
+#   https://github.com/hynek/pem/blob/7ad94db26b0bc21d10953f5dbad3acfdfacf57aa/src/pem/_core.py#L224-L252
+_PEMS = {
+    b"CERTIFICATE",
+    b"TRUSTED CERTIFICATE",
+    b"PRIVATE KEY",
+    b"PUBLIC KEY",
+    b"ENCRYPTED PRIVATE KEY",
+    b"OPENSSH PRIVATE KEY",
+    b"DSA PRIVATE KEY",
+    b"RSA PRIVATE KEY",
+    b"RSA PUBLIC KEY",
+    b"EC PRIVATE KEY",
+    b"DH PARAMETERS",
+    b"NEW CERTIFICATE REQUEST",
+    b"CERTIFICATE REQUEST",
+    b"SSH2 PUBLIC KEY",
+    b"SSH2 ENCRYPTED PRIVATE KEY",
+    b"X509 CRL",
+}
+_PEM_RE = re.compile(
+    b"----[- ]BEGIN (" + b"|".join(re.escape(pem) for pem in _PEMS) + b")[- ]----",
+)
+
+
+def is_pem_format(key: bytes) -> bool:
+    return bool(_PEM_RE.search(key))
+
+
+# Based on
+# https://github.com/pyca/cryptography/blob/bcb70852d577b3f490f015378c75cba74986297b
+#   /src/cryptography/hazmat/primitives/serialization/ssh.py#L40-L46
+_CERT_SUFFIX = b"-cert-v01@openssh.com"
+_SSH_PUBKEY_RC = re.compile(rb"\A(\S+)[ \t]+(\S+)")
+_SSH_KEY_FORMATS = [
+    b"ssh-ed25519",
+    b"ssh-rsa",
+    b"ssh-dss",
+    b"ecdsa-sha2-nistp256",
+    b"ecdsa-sha2-nistp384",
+    b"ecdsa-sha2-nistp521",
+]
+
+
+def is_ssh_key(key: bytes) -> bool:
+    if any(string_value in key for string_value in _SSH_KEY_FORMATS):
+        return True
+    ssh_pubkey_match = _SSH_PUBKEY_RC.match(key)
+    if ssh_pubkey_match:
+        key_type = ssh_pubkey_match.group(1)
+        if _CERT_SUFFIX == key_type[-len(_CERT_SUFFIX) :]:
+            return True
+    return False

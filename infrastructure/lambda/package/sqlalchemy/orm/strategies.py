@@ -1,5 +1,5 @@
 # orm/strategies.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -8,7 +8,7 @@
 
 
 """sqlalchemy.orm.interfaces.LoaderStrategy
-   implementations, and related MapperOptions."""
+implementations, and related MapperOptions."""
 
 from __future__ import annotations
 
@@ -16,8 +16,10 @@ import collections
 import itertools
 from typing import Any
 from typing import Dict
+from typing import Optional
 from typing import Tuple
 from typing import TYPE_CHECKING
+from typing import Union
 
 from . import attributes
 from . import exc as orm_exc
@@ -45,7 +47,7 @@ from .interfaces import StrategizedProperty
 from .session import _state_session
 from .state import InstanceState
 from .strategy_options import Load
-from .util import _none_set
+from .util import _none_only_set
 from .util import AliasedClass
 from .. import event
 from .. import exc as sa_exc
@@ -57,8 +59,10 @@ from ..sql import util as sql_util
 from ..sql import visitors
 from ..sql.selectable import LABEL_STYLE_TABLENAME_PLUS_COL
 from ..sql.selectable import Select
+from ..util.typing import Literal
 
 if TYPE_CHECKING:
+    from .mapper import Mapper
     from .relationships import RelationshipProperty
     from ..sql.elements import ColumnElement
 
@@ -75,7 +79,6 @@ def _register_attribute(
     impl_class=None,
     **kw,
 ):
-
     listen_hooks = []
 
     uselist = useobject and prop.uselist
@@ -120,7 +123,6 @@ def _register_attribute(
         if prop is m._props.get(
             prop.key
         ) and not m.class_manager._attr_has_impl(prop.key):
-
             desc = attributes.register_attribute_impl(
                 m.class_,
                 prop.key,
@@ -308,8 +310,9 @@ class ExpressionColumnLoader(ColumnLoader):
         **kwargs,
     ):
         columns = None
-        if loadopt and "expression" in loadopt.local_opts:
-            columns = [loadopt.local_opts["expression"]]
+        if loadopt and loadopt._extra_criteria:
+            columns = loadopt._extra_criteria
+
         elif self._have_default_expression:
             columns = self.parent_property.columns
 
@@ -345,8 +348,8 @@ class ExpressionColumnLoader(ColumnLoader):
     ):
         # look through list of columns represented here
         # to see which, if any, is present in the row.
-        if loadopt and "expression" in loadopt.local_opts:
-            columns = [loadopt.local_opts["expression"]]
+        if loadopt and loadopt._extra_criteria:
+            columns = loadopt._extra_criteria
 
             for col in columns:
                 if adapter:
@@ -385,7 +388,7 @@ class DeferredColumnLoader(LoaderStrategy):
         super().__init__(parent, strategy_key)
         if hasattr(self.parent_property, "composite_class"):
             raise NotImplementedError(
-                "Deferred loading for composite " "types not implemented yet"
+                "Deferred loading for composite types not implemented yet"
             )
         self.raiseload = self.strategy_opts.get("raiseload", False)
         self.columns = self.parent_property.columns
@@ -402,7 +405,6 @@ class DeferredColumnLoader(LoaderStrategy):
         adapter,
         populators,
     ):
-
         # for a DeferredColumnLoader, this method is only used during a
         # "row processor only" query; see test_deferred.py ->
         # tests with "rowproc_only" in their name.  As of the 1.0 series,
@@ -467,7 +469,6 @@ class DeferredColumnLoader(LoaderStrategy):
         only_load_props=None,
         **kw,
     ):
-
         if (
             (
                 compile_state.compile_options._render_for_subquery
@@ -588,6 +589,30 @@ class AbstractRelationshipLoader(LoaderStrategy):
         self.entity = self.parent_property.entity
         self.target = self.parent_property.target
         self.uselist = self.parent_property.uselist
+
+    def _immediateload_create_row_processor(
+        self,
+        context,
+        query_entity,
+        path,
+        loadopt,
+        mapper,
+        result,
+        adapter,
+        populators,
+    ):
+        return self.parent_property._get_strategy(
+            (("lazy", "immediate"),)
+        ).create_row_processor(
+            context,
+            query_entity,
+            path,
+            loadopt,
+            mapper,
+            result,
+            adapter,
+            populators,
+        )
 
 
 @log.class_logger
@@ -737,7 +762,7 @@ class LazyLoader(
                         self._equated_columns[c] = self._equated_columns[col]
 
             self.logger.info(
-                "%s will use Session.get() to " "optimize instance loads", self
+                "%s will use Session.get() to optimize instance loads", self
             )
 
     def init_class_attribute(self, mapper):
@@ -775,7 +800,6 @@ class LazyLoader(
         )
 
     def _memoized_attr__simple_lazy_clause(self):
-
         lazywhere = sql_util._deep_annotate(
             self._lazywhere, {"_orm_adapt": True}
         )
@@ -888,7 +912,6 @@ class LazyLoader(
                 or passive & PassiveFlag.RELATED_OBJECT_OK
             )
         ):
-
             self._invoke_raise_load(state, passive, "raise")
 
         session = _state_session(state)
@@ -913,8 +936,15 @@ class LazyLoader(
             elif LoaderCallableStatus.NEVER_SET in primary_key_identity:
                 return LoaderCallableStatus.NEVER_SET
 
-            if _none_set.issuperset(primary_key_identity):
-                return None
+            # test for None alone in primary_key_identity based on
+            # allow_partial_pks preference.   PASSIVE_NO_RESULT and NEVER_SET
+            # have already been tested above
+            if not self.mapper.allow_partial_pks:
+                if _none_only_set.intersection(primary_key_identity):
+                    return None
+            else:
+                if _none_only_set.issuperset(primary_key_identity):
+                    return None
 
             if (
                 self.key in state.dict
@@ -1039,6 +1069,7 @@ class LazyLoader(
 
         if extra_options:
             stmt._with_options += extra_options
+
         stmt._compile_options += {"_current_path": effective_path}
 
         if use_get:
@@ -1078,7 +1109,6 @@ class LazyLoader(
         lazy_clause, params = self._generate_lazy_clause(state, passive)
 
         if execution_options:
-
             execution_options = util.EMPTY_DICT.merge_with(
                 execution_options,
                 {
@@ -1143,6 +1173,22 @@ class LazyLoader(
     ):
         key = self.key
 
+        if (
+            context.load_options._is_user_refresh
+            and context.query._compile_options._only_load_props
+            and self.key in context.query._compile_options._only_load_props
+        ):
+            return self._immediateload_create_row_processor(
+                context,
+                query_entity,
+                path,
+                loadopt,
+                mapper,
+                result,
+                adapter,
+                populators,
+            )
+
         if not self.is_class_level or (loadopt and loadopt._extra_criteria):
             # we are not the primary manager for this attribute
             # on this class - set up a
@@ -1160,9 +1206,11 @@ class LazyLoader(
                     key,
                     self,
                     loadopt,
-                    loadopt._generate_extra_criteria(context)
-                    if loadopt._extra_criteria
-                    else None,
+                    (
+                        loadopt._generate_extra_criteria(context)
+                        if loadopt._extra_criteria
+                        else None
+                    ),
                 ),
                 key,
             )
@@ -1242,7 +1290,6 @@ class PostLoader(AbstractRelationshipLoader):
     __slots__ = ()
 
     def _setup_for_recursion(self, context, path, loadopt, join_depth=None):
-
         effective_path = (
             context.compile_state.current_path or orm_util.PathRegistry.root
         ) + path
@@ -1312,34 +1359,14 @@ class PostLoader(AbstractRelationshipLoader):
 
         return effective_path, True, execution_options, recursion_depth
 
-    def _immediateload_create_row_processor(
-        self,
-        context,
-        query_entity,
-        path,
-        loadopt,
-        mapper,
-        result,
-        adapter,
-        populators,
-    ):
-        return self.parent_property._get_strategy(
-            (("lazy", "immediate"),)
-        ).create_row_processor(
-            context,
-            query_entity,
-            path,
-            loadopt,
-            mapper,
-            result,
-            adapter,
-            populators,
-        )
-
 
 @relationships.RelationshipProperty.strategy_for(lazy="immediate")
 class ImmediateLoader(PostLoader):
-    __slots__ = ()
+    __slots__ = ("join_depth",)
+
+    def __init__(self, parent, strategy_key):
+        super().__init__(parent, strategy_key)
+        self.join_depth = self.parent_property.join_depth
 
     def init_class_attribute(self, mapper):
         self.parent_property._get_strategy(
@@ -1357,13 +1384,16 @@ class ImmediateLoader(PostLoader):
         adapter,
         populators,
     ):
+        if not context.compile_state.compile_options._enable_eagerloads:
+            return
 
         (
             effective_path,
             run_loader,
             execution_options,
             recursion_depth,
-        ) = self._setup_for_recursion(context, path, loadopt)
+        ) = self._setup_for_recursion(context, path, loadopt, self.join_depth)
+
         if not run_loader:
             # this will not emit SQL and will only emit for a many-to-one
             # "use get" load.   the "_RELATED" part means it may return
@@ -1396,7 +1426,6 @@ class ImmediateLoader(PostLoader):
         recursion_depth,
         execution_options,
     ):
-
         if recursion_depth:
             new_opt = Load(loadopt.path.entity)
             new_opt.context = (
@@ -1406,7 +1435,6 @@ class ImmediateLoader(PostLoader):
             alternate_effective_path = path._truncate_recursive()
             extra_options = (new_opt,)
         else:
-            new_opt = None
             alternate_effective_path = path
             extra_options = ()
 
@@ -1423,7 +1451,10 @@ class ImmediateLoader(PostLoader):
                     alternate_effective_path=alternate_effective_path,
                     execution_options=execution_options,
                 )
-                if value is not ATTR_WAS_SET:
+                if value not in (
+                    ATTR_WAS_SET,
+                    LoaderCallableStatus.PASSIVE_NO_RESULT,
+                ):
                     state.get_impl(key).set_committed_value(
                         state, dict_, value
                     )
@@ -1642,7 +1673,6 @@ class SubqueryLoader(PostLoader):
     def _apply_joins(
         self, q, to_join, left_alias, parent_alias, effective_entity
     ):
-
         ltj = len(to_join)
         if ltj == 1:
             to_join = [
@@ -1658,9 +1688,11 @@ class SubqueryLoader(PostLoader):
         elif ltj > 2:
             middle = [
                 (
-                    orm_util.AliasedClass(item[0])
-                    if not inspect(item[0]).is_aliased_class
-                    else item[0].entity,
+                    (
+                        orm_util.AliasedClass(item[0])
+                        if not inspect(item[0]).is_aliased_class
+                        else item[0].entity
+                    ),
                     item[1],
                 )
                 for item in to_join[1:-1]
@@ -1702,7 +1734,6 @@ class SubqueryLoader(PostLoader):
         effective_entity,
         loadopt,
     ):
-
         # note that because the subqueryload object
         # does not re-use the cached query, instead always making
         # use of the current invoked query, while we have two queries
@@ -1713,7 +1744,6 @@ class SubqueryLoader(PostLoader):
         new_options = orig_query._with_options
 
         if loadopt and loadopt._extra_criteria:
-
             new_options += (
                 orm_util.LoaderCriteriaOption(
                     self.entity,
@@ -1899,11 +1929,12 @@ class SubqueryLoader(PostLoader):
 
         q = query.Query(effective_entity)
 
-        q._execution_options = q._execution_options.union(
+        q._execution_options = context.query._execution_options.merge_with(
+            context.execution_options,
             {
                 ("orig_query", SubqueryLoader): orig_query,
                 ("subquery_paths", None): (subq_path, rewritten_path),
-            }
+            },
         )
 
         q = q._set_enable_single_crit(False)
@@ -1940,6 +1971,17 @@ class SubqueryLoader(PostLoader):
         adapter,
         populators,
     ):
+        if (
+            loadopt
+            and context.compile_state.statement is not None
+            and context.compile_state.statement.is_dml
+        ):
+            util.warn_deprecated(
+                "The subqueryload loader option is not compatible with DML "
+                "statements such as INSERT, UPDATE.  Only SELECT may be used."
+                "This warning will become an exception in a future release.",
+                "2.0",
+            )
 
         if context.refresh_state:
             return self._immediateload_create_row_processor(
@@ -2079,12 +2121,11 @@ class JoinedLoader(AbstractRelationshipLoader):
 
     """
 
-    __slots__ = "join_depth", "_aliased_class_pool"
+    __slots__ = "join_depth"
 
     def __init__(self, parent, strategy_key):
         super().__init__(parent, strategy_key)
         self.join_depth = self.parent_property.join_depth
-        self._aliased_class_pool = []
 
     def init_class_attribute(self, mapper):
         self.parent_property._get_strategy(
@@ -2107,12 +2148,21 @@ class JoinedLoader(AbstractRelationshipLoader):
 
         if not compile_state.compile_options._enable_eagerloads:
             return
+        elif (
+            loadopt
+            and compile_state.statement is not None
+            and compile_state.statement.is_dml
+        ):
+            util.warn_deprecated(
+                "The joinedload loader option is not compatible with DML "
+                "statements such as INSERT, UPDATE.  Only SELECT may be used."
+                "This warning will become an exception in a future release.",
+                "2.0",
+            )
         elif self.uselist:
             compile_state.multi_row_eager_loaders = True
 
         path = path[self.parent_property]
-
-        with_polymorphic = None
 
         user_defined_adapter = (
             self._init_user_defined_eager_proc(
@@ -2123,7 +2173,6 @@ class JoinedLoader(AbstractRelationshipLoader):
         )
 
         if user_defined_adapter is not False:
-
             # setup an adapter but dont create any JOIN, assume it's already
             # in the query
             (
@@ -2197,19 +2246,23 @@ class JoinedLoader(AbstractRelationshipLoader):
             chained_from_outerjoin=chained_from_outerjoin,
         )
 
-        if with_poly_entity is not None and None in set(
-            compile_state.secondary_columns
-        ):
-            raise sa_exc.InvalidRequestError(
-                "Detected unaliased columns when generating joined "
-                "load.  Make sure to use aliased=True or flat=True "
-                "when using joined loading with with_polymorphic()."
-            )
+        has_nones = util.NONE_SET.intersection(compile_state.secondary_columns)
+
+        if has_nones:
+            if with_poly_entity is not None:
+                raise sa_exc.InvalidRequestError(
+                    "Detected unaliased columns when generating joined "
+                    "load.  Make sure to use aliased=True or flat=True "
+                    "when using joined loading with with_polymorphic()."
+                )
+            else:
+                compile_state.secondary_columns = [
+                    c for c in compile_state.secondary_columns if c is not None
+                ]
 
     def _init_user_defined_eager_proc(
         self, loadopt, compile_state, target_attributes
     ):
-
         # check if the opt applies at all
         if "eager_from_alias" not in loadopt.local_opts:
             # nope
@@ -2267,7 +2320,6 @@ class JoinedLoader(AbstractRelationshipLoader):
     def _setup_query_on_user_defined_adapter(
         self, context, entity, path, adapter, user_defined_adapter
     ):
-
         # apply some more wrapping to the "user defined adapter"
         # if we are setting up the query for SQL render.
         adapter = entity._get_entity_clauses(context)
@@ -2290,40 +2342,6 @@ class JoinedLoader(AbstractRelationshipLoader):
         add_to_collection = context.primary_columns
         return user_defined_adapter, adapter, add_to_collection
 
-    def _gen_pooled_aliased_class(self, context):
-        # keep a local pool of AliasedClass objects that get re-used.
-        # we need one unique AliasedClass per query per appearance of our
-        # entity in the query.
-
-        if inspect(self.entity).is_aliased_class:
-            alt_selectable = inspect(self.entity).selectable
-        else:
-            alt_selectable = None
-
-        key = ("joinedloader_ac", self)
-        if key not in context.attributes:
-            context.attributes[key] = idx = 0
-        else:
-            context.attributes[key] = idx = context.attributes[key] + 1
-
-        if idx >= len(self._aliased_class_pool):
-            to_adapt = orm_util.AliasedClass(
-                self.mapper,
-                alias=alt_selectable._anonymous_fromclause(flat=True)
-                if alt_selectable is not None
-                else None,
-                flat=True,
-                use_mapper_path=True,
-            )
-
-            # load up the .columns collection on the Alias() before
-            # the object becomes shared among threads.  this prevents
-            # races for column identities.
-            inspect(to_adapt).selectable.c
-            self._aliased_class_pool.append(to_adapt)
-
-        return self._aliased_class_pool[idx]
-
     def _generate_row_adapter(
         self,
         compile_state,
@@ -2341,7 +2359,22 @@ class JoinedLoader(AbstractRelationshipLoader):
         if with_poly_entity:
             to_adapt = with_poly_entity
         else:
-            to_adapt = self._gen_pooled_aliased_class(compile_state)
+            insp = inspect(self.entity)
+            if insp.is_aliased_class:
+                alt_selectable = insp.selectable
+            else:
+                alt_selectable = None
+
+            to_adapt = orm_util.AliasedClass(
+                self.mapper,
+                alias=(
+                    alt_selectable._anonymous_fromclause(flat=True)
+                    if alt_selectable is not None
+                    else None
+                ),
+                flat=True,
+                use_mapper_path=True,
+            )
 
         to_adapt_insp = inspect(to_adapt)
 
@@ -2420,7 +2453,6 @@ class JoinedLoader(AbstractRelationshipLoader):
             and not should_nest_selectable
             and compile_state.from_clauses
         ):
-
             indexes = sql_util.find_left_clause_that_matches_given(
                 compile_state.from_clauses, query_entity.selectable
             )
@@ -2509,13 +2541,13 @@ class JoinedLoader(AbstractRelationshipLoader):
                 or query_entity.entity_zero.represents_outer_join
                 or (chained_from_outerjoin and isinstance(towrap, sql.Join)),
                 _left_memo=self.parent,
-                _right_memo=self.mapper,
+                _right_memo=path[self.mapper],
                 _extra_criteria=extra_join_criteria,
             )
         else:
             # all other cases are innerjoin=='nested' approach
             eagerjoin = self._splice_nested_inner_join(
-                path, towrap, clauses, onclause, extra_join_criteria
+                path, path[-2], towrap, clauses, onclause, extra_join_criteria
             )
 
         compile_state.eager_joins[query_entity_key] = eagerjoin
@@ -2549,94 +2581,177 @@ class JoinedLoader(AbstractRelationshipLoader):
             )
 
     def _splice_nested_inner_join(
-        self, path, join_obj, clauses, onclause, extra_criteria, splicing=False
+        self,
+        path,
+        entity_we_want_to_splice_onto,
+        join_obj,
+        clauses,
+        onclause,
+        extra_criteria,
+        entity_inside_join_structure: Union[
+            Mapper, None, Literal[False]
+        ] = False,
+        detected_existing_path: Optional[path_registry.PathRegistry] = None,
     ):
-
         # recursive fn to splice a nested join into an existing one.
-        # splicing=False means this is the outermost call, and it
-        # should return a value.  splicing=<from object> is the recursive
-        # form, where it can return None to indicate the end of the recursion
+        # entity_inside_join_structure=False means this is the outermost call,
+        # and it should return a value.  entity_inside_join_structure=<mapper>
+        # indicates we've descended into a join and are looking at a FROM
+        # clause representing this mapper; if this is not
+        # entity_we_want_to_splice_onto then return None to end the recursive
+        # branch
 
-        if splicing is False:
-            # first call is always handed a join object
-            # from the outside
+        assert entity_we_want_to_splice_onto is path[-2]
+
+        if entity_inside_join_structure is False:
             assert isinstance(join_obj, orm_util._ORMJoin)
-        elif isinstance(join_obj, sql.selectable.FromGrouping):
+
+        if isinstance(join_obj, sql.selectable.FromGrouping):
+            # FromGrouping - continue descending into the structure
             return self._splice_nested_inner_join(
                 path,
+                entity_we_want_to_splice_onto,
                 join_obj.element,
                 clauses,
                 onclause,
                 extra_criteria,
-                splicing,
+                entity_inside_join_structure,
             )
-        elif not isinstance(join_obj, orm_util._ORMJoin):
-            if path[-2].isa(splicing):
-                return orm_util._ORMJoin(
-                    join_obj,
-                    clauses.aliased_insp,
-                    onclause,
-                    isouter=False,
-                    _left_memo=splicing,
-                    _right_memo=path[-1].mapper,
-                    _extra_criteria=extra_criteria,
-                )
-            else:
-                return None
+        elif isinstance(join_obj, orm_util._ORMJoin):
+            # _ORMJoin - continue descending into the structure
 
-        target_join = self._splice_nested_inner_join(
-            path,
-            join_obj.right,
-            clauses,
-            onclause,
-            extra_criteria,
-            join_obj._right_memo,
-        )
-        if target_join is None:
-            right_splice = False
+            join_right_path = join_obj._right_memo
+
+            # see if right side of join is viable
             target_join = self._splice_nested_inner_join(
                 path,
-                join_obj.left,
+                entity_we_want_to_splice_onto,
+                join_obj.right,
                 clauses,
                 onclause,
                 extra_criteria,
-                join_obj._left_memo,
+                entity_inside_join_structure=(
+                    join_right_path[-1].mapper
+                    if join_right_path is not None
+                    else None
+                ),
             )
-            if target_join is None:
-                # should only return None when recursively called,
-                # e.g. splicing refers to a from obj
-                assert (
-                    splicing is not False
-                ), "assertion failed attempting to produce joined eager loads"
-                return None
-        else:
-            right_splice = True
 
-        if right_splice:
-            # for a right splice, attempt to flatten out
-            # a JOIN b JOIN c JOIN .. to avoid needless
-            # parenthesis nesting
-            if not join_obj.isouter and not target_join.isouter:
-                eagerjoin = join_obj._splice_into_center(target_join)
+            if target_join is not None:
+                # for a right splice, attempt to flatten out
+                # a JOIN b JOIN c JOIN .. to avoid needless
+                # parenthesis nesting
+                if not join_obj.isouter and not target_join.isouter:
+                    eagerjoin = join_obj._splice_into_center(target_join)
+                else:
+                    eagerjoin = orm_util._ORMJoin(
+                        join_obj.left,
+                        target_join,
+                        join_obj.onclause,
+                        isouter=join_obj.isouter,
+                        _left_memo=join_obj._left_memo,
+                    )
+
+                eagerjoin._target_adapter = target_join._target_adapter
+                return eagerjoin
+
             else:
-                eagerjoin = orm_util._ORMJoin(
+                # see if left side of join is viable
+                target_join = self._splice_nested_inner_join(
+                    path,
+                    entity_we_want_to_splice_onto,
                     join_obj.left,
-                    target_join,
-                    join_obj.onclause,
-                    isouter=join_obj.isouter,
-                    _left_memo=join_obj._left_memo,
+                    clauses,
+                    onclause,
+                    extra_criteria,
+                    entity_inside_join_structure=join_obj._left_memo,
+                    detected_existing_path=join_right_path,
                 )
-        else:
-            eagerjoin = orm_util._ORMJoin(
-                target_join,
-                join_obj.right,
-                join_obj.onclause,
-                isouter=join_obj.isouter,
-                _right_memo=join_obj._right_memo,
-            )
 
-        eagerjoin._target_adapter = target_join._target_adapter
-        return eagerjoin
+                if target_join is not None:
+                    eagerjoin = orm_util._ORMJoin(
+                        target_join,
+                        join_obj.right,
+                        join_obj.onclause,
+                        isouter=join_obj.isouter,
+                        _right_memo=join_obj._right_memo,
+                    )
+                    eagerjoin._target_adapter = target_join._target_adapter
+                    return eagerjoin
+
+            # neither side viable, return None, or fail if this was the top
+            # most call
+            if entity_inside_join_structure is False:
+                assert (
+                    False
+                ), "assertion failed attempting to produce joined eager loads"
+            return None
+
+        # reached an endpoint (e.g. a table that's mapped, or an alias of that
+        # table).  determine if we can use this endpoint to splice onto
+
+        # is this the entity we want to splice onto in the first place?
+        if not entity_we_want_to_splice_onto.isa(entity_inside_join_structure):
+            return None
+
+        # path check.  if we know the path how this join endpoint got here,
+        # lets look at our path we are satisfying and see if we're in the
+        # wrong place.  This is specifically for when our entity may
+        # appear more than once in the path, issue #11449
+        # updated in issue #11965.
+        if detected_existing_path and len(detected_existing_path) > 2:
+            # this assertion is currently based on how this call is made,
+            # where given a join_obj, the call will have these parameters as
+            # entity_inside_join_structure=join_obj._left_memo
+            # and entity_inside_join_structure=join_obj._right_memo.mapper
+            assert detected_existing_path[-3] is entity_inside_join_structure
+
+            # from that, see if the path we are targeting matches the
+            # "existing" path of this join all the way up to the midpoint
+            # of this join object (e.g. the relationship).
+            # if not, then this is not our target
+            #
+            # a test condition where this test is false looks like:
+            #
+            # desired splice:         Node->kind->Kind
+            # path of desired splice: NodeGroup->nodes->Node->kind
+            # path we've located:     NodeGroup->nodes->Node->common_node->Node
+            #
+            # above, because we want to splice kind->Kind onto
+            # NodeGroup->nodes->Node, this is not our path because it actually
+            # goes more steps than we want into self-referential
+            # ->common_node->Node
+            #
+            # a test condition where this test is true looks like:
+            #
+            # desired splice:         B->c2s->C2
+            # path of desired splice: A->bs->B->c2s
+            # path we've located:     A->bs->B->c1s->C1
+            #
+            # above, we want to splice c2s->C2 onto B, and the located path
+            # shows that the join ends with B->c1s->C1.  so we will
+            # add another join onto that, which would create a "branch" that
+            # we might represent in a pseudopath as:
+            #
+            # B->c1s->C1
+            #  ->c2s->C2
+            #
+            # i.e. A JOIN B ON <bs> JOIN C1 ON <c1s>
+            #                       JOIN C2 ON <c2s>
+            #
+
+            if detected_existing_path[0:-2] != path.path[0:-1]:
+                return None
+
+        return orm_util._ORMJoin(
+            join_obj,
+            clauses.aliased_insp,
+            onclause,
+            isouter=False,
+            _left_memo=entity_inside_join_structure,
+            _right_memo=path[path[-1].mapper],
+            _extra_criteria=extra_criteria,
+        )
 
     def _create_eager_adapter(self, context, result, adapter, path, loadopt):
         compile_state = context.compile_state
@@ -2685,6 +2800,10 @@ class JoinedLoader(AbstractRelationshipLoader):
         adapter,
         populators,
     ):
+
+        if not context.compile_state.compile_options._enable_eagerloads:
+            return
+
         if not self.parent.class_manager[self.key].impl.supports_population:
             raise sa_exc.InvalidRequestError(
                 "'%s' does not support object "
@@ -2940,7 +3059,6 @@ class SelectInLoader(PostLoader, util.MemoizedSlots):
         adapter,
         populators,
     ):
-
         if context.refresh_state:
             return self._immediateload_create_row_processor(
                 context,
@@ -2961,7 +3079,11 @@ class SelectInLoader(PostLoader, util.MemoizedSlots):
         ) = self._setup_for_recursion(
             context, path, loadopt, join_depth=self.join_depth
         )
+
         if not run_loader:
+            return
+
+        if not context.compile_state.compile_options._enable_eagerloads:
             return
 
         if not self.parent.class_manager[self.key].impl.supports_population:
@@ -3121,7 +3243,7 @@ class SelectInLoader(PostLoader, util.MemoizedSlots):
         orig_query = context.compile_state.select_statement
 
         # the actual statement that was requested is this one:
-        #  context_query = context.query
+        #  context_query = context.user_passed_query
         #
         # that's not the cached one, however.  So while it is of the identical
         # structure, if it has entities like AliasedInsp, which we get from
@@ -3145,11 +3267,11 @@ class SelectInLoader(PostLoader, util.MemoizedSlots):
 
         effective_path = path[self.parent_property]
 
-        if orig_query is context.query:
+        if orig_query is context.user_passed_query:
             new_options = orig_query._with_options
         else:
             cached_options = orig_query._with_options
-            uncached_options = context.query._with_options
+            uncached_options = context.user_passed_query._with_options
 
             # propagate compile state options from the original query,
             # updating their "extra_criteria" as necessary.
@@ -3299,7 +3421,6 @@ class SelectInLoader(PostLoader, util.MemoizedSlots):
                 data[k].extend(vv[1] for vv in v)
 
             for key, state, state_dict, overwrite in chunk:
-
                 if not overwrite and self.key in state_dict:
                     continue
 

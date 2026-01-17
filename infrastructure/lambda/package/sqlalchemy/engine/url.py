@@ -1,5 +1,5 @@
 # engine/url.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -32,6 +32,7 @@ from typing import Tuple
 from typing import Type
 from typing import Union
 from urllib.parse import parse_qsl
+from urllib.parse import quote
 from urllib.parse import quote_plus
 from urllib.parse import unquote
 
@@ -121,7 +122,9 @@ class URL(NamedTuple):
        for keys and either strings or tuples of strings for values, e.g.::
 
             >>> from sqlalchemy.engine import make_url
-            >>> url = make_url("postgresql+psycopg2://user:pass@host/dbname?alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt")
+            >>> url = make_url(
+            ...     "postgresql+psycopg2://user:pass@host/dbname?alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt"
+            ... )
             >>> url.query
             immutabledict({'alt_host': ('host1', 'host2'), 'ssl_cipher': '/path/to/crt'})
 
@@ -169,6 +172,11 @@ class URL(NamedTuple):
         :param username: The user name.
         :param password: database password.  Is typically a string, but may
           also be an object that can be stringified with ``str()``.
+
+          .. note:: The password string should **not** be URL encoded when
+             passed as an argument to :meth:`_engine.URL.create`; the string
+             should contain the password characters exactly as they would be
+             typed.
 
           .. note::  A password-producing object will be stringified only
              **once** per :class:`_engine.Engine` object.  For dynamic password
@@ -247,14 +255,12 @@ class URL(NamedTuple):
         @overload
         def _assert_value(
             val: str,
-        ) -> str:
-            ...
+        ) -> str: ...
 
         @overload
         def _assert_value(
             val: Sequence[str],
-        ) -> Union[str, Tuple[str, ...]]:
-            ...
+        ) -> Union[str, Tuple[str, ...]]: ...
 
         def _assert_value(
             val: Union[str, Sequence[str]],
@@ -367,7 +373,9 @@ class URL(NamedTuple):
 
             >>> from sqlalchemy.engine import make_url
             >>> url = make_url("postgresql+psycopg2://user:pass@host/dbname")
-            >>> url = url.update_query_string("alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt")
+            >>> url = url.update_query_string(
+            ...     "alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt"
+            ... )
             >>> str(url)
             'postgresql+psycopg2://user:pass@host/dbname?alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt'
 
@@ -403,7 +411,13 @@ class URL(NamedTuple):
 
             >>> from sqlalchemy.engine import make_url
             >>> url = make_url("postgresql+psycopg2://user:pass@host/dbname")
-            >>> url = url.update_query_pairs([("alt_host", "host1"), ("alt_host", "host2"), ("ssl_cipher", "/path/to/crt")])
+            >>> url = url.update_query_pairs(
+            ...     [
+            ...         ("alt_host", "host1"),
+            ...         ("alt_host", "host2"),
+            ...         ("ssl_cipher", "/path/to/crt"),
+            ...     ]
+            ... )
             >>> str(url)
             'postgresql+psycopg2://user:pass@host/dbname?alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt'
 
@@ -485,7 +499,9 @@ class URL(NamedTuple):
 
             >>> from sqlalchemy.engine import make_url
             >>> url = make_url("postgresql+psycopg2://user:pass@host/dbname")
-            >>> url = url.update_query_dict({"alt_host": ["host1", "host2"], "ssl_cipher": "/path/to/crt"})
+            >>> url = url.update_query_dict(
+            ...     {"alt_host": ["host1", "host2"], "ssl_cipher": "/path/to/crt"}
+            ... )
             >>> str(url)
             'postgresql+psycopg2://user:pass@host/dbname?alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt'
 
@@ -523,14 +539,14 @@ class URL(NamedTuple):
 
         E.g.::
 
-            url = url.difference_update_query(['foo', 'bar'])
+            url = url.difference_update_query(["foo", "bar"])
 
         Equivalent to using :meth:`_engine.URL.set` as follows::
 
             url = url.set(
                 query={
                     key: url.query[key]
-                    for key in set(url.query).difference(['foo', 'bar'])
+                    for key in set(url.query).difference(["foo", "bar"])
                 }
             )
 
@@ -564,7 +580,7 @@ class URL(NamedTuple):
             ),
         )
 
-    @util.memoized_property
+    @property
     def normalized_query(self) -> Mapping[str, Sequence[str]]:
         """Return the :attr:`_engine.URL.query` dictionary with values normalized
         into sequences.
@@ -579,7 +595,9 @@ class URL(NamedTuple):
 
 
             >>> from sqlalchemy.engine import make_url
-            >>> url = make_url("postgresql+psycopg2://user:pass@host/dbname?alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt")
+            >>> url = make_url(
+            ...     "postgresql+psycopg2://user:pass@host/dbname?alt_host=host1&alt_host=host2&ssl_cipher=%2Fpath%2Fto%2Fcrt"
+            ... )
             >>> url.query
             immutabledict({'alt_host': ('host1', 'host2'), 'ssl_cipher': '/path/to/crt'})
             >>> url.normalized_query
@@ -621,17 +639,17 @@ class URL(NamedTuple):
         """
         s = self.drivername + "://"
         if self.username is not None:
-            s += _sqla_url_quote(self.username)
+            s += quote(self.username, safe=" +")
             if self.password is not None:
                 s += ":" + (
                     "***"
                     if hide_password
-                    else _sqla_url_quote(str(self.password))
+                    else quote(str(self.password), safe=" +")
                 )
             s += "@"
         if self.host is not None:
             if ":" in self.host:
-                s += "[%s]" % self.host
+                s += f"[{self.host}]"
             else:
                 s += self.host
         if self.port is not None:
@@ -642,7 +660,7 @@ class URL(NamedTuple):
             keys = list(self.query)
             keys.sort()
             s += "?" + "&".join(
-                "%s=%s" % (quote_plus(k), quote_plus(element))
+                f"{quote_plus(k)}={quote_plus(element)}"
                 for k in keys
                 for element in util.to_list(self.query[k])
             )
@@ -836,6 +854,12 @@ def make_url(name_or_url: Union[str, URL]) -> URL:
 
     if isinstance(name_or_url, str):
         return _parse_url(name_or_url)
+    elif not isinstance(name_or_url, URL) and not hasattr(
+        name_or_url, "_sqla_is_testing_if_this_is_a_mock_object"
+    ):
+        raise exc.ArgumentError(
+            f"Expected string or URL object, got {name_or_url!r}"
+        )
     else:
         return name_or_url
 
@@ -879,10 +903,10 @@ def _parse_url(name: str) -> URL:
         components["query"] = query
 
         if components["username"] is not None:
-            components["username"] = _sqla_url_unquote(components["username"])
+            components["username"] = unquote(components["username"])
 
         if components["password"] is not None:
-            components["password"] = _sqla_url_unquote(components["password"])
+            components["password"] = unquote(components["password"])
 
         ipv4host = components.pop("ipv4host")
         ipv6host = components.pop("ipv6host")
@@ -896,12 +920,5 @@ def _parse_url(name: str) -> URL:
 
     else:
         raise exc.ArgumentError(
-            "Could not parse SQLAlchemy URL from string '%s'" % name
+            "Could not parse SQLAlchemy URL from given URL string"
         )
-
-
-def _sqla_url_quote(text: str) -> str:
-    return re.sub(r"[:@/]", lambda m: "%%%X" % ord(m.group(0)), text)
-
-
-_sqla_url_unquote = unquote

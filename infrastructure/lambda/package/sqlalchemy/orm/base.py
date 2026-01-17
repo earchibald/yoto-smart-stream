@@ -1,13 +1,11 @@
 # orm/base.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
 
-"""Constants and rudimental functions used throughout the ORM.
-
-"""
+"""Constants and rudimental functions used throughout the ORM."""
 
 from __future__ import annotations
 
@@ -21,6 +19,7 @@ from typing import Generic
 from typing import no_type_check
 from typing import Optional
 from typing import overload
+from typing import Tuple
 from typing import Type
 from typing import TYPE_CHECKING
 from typing import TypeVar
@@ -31,6 +30,7 @@ from ._typing import insp_is_mapper
 from .. import exc as sa_exc
 from .. import inspection
 from .. import util
+from ..sql import roles
 from ..sql.elements import SQLColumnExpression
 from ..sql.elements import SQLCoreOperations
 from ..util import FastIntFlag
@@ -55,6 +55,7 @@ if typing.TYPE_CHECKING:
     from ..sql.operators import OperatorType
 
 _T = TypeVar("_T", bound=Any)
+_T_co = TypeVar("_T_co", bound=Any, covariant=True)
 
 _O = TypeVar("_O", bound=object)
 
@@ -142,13 +143,15 @@ class PassiveFlag(FastIntFlag):
     """
 
     NO_AUTOFLUSH = 64
-    """Loader callables should disable autoflush.""",
+    """Loader callables should disable autoflush."""
 
     NO_RAISE = 128
     """Loader callables should not raise any assertions"""
 
     DEFERRED_HISTORY_LOAD = 256
     """indicates special load of the previous value of an attribute"""
+
+    INCLUDE_PENDING_MUTATIONS = 512
 
     # pre-packaged sets of flags used as inputs
     PASSIVE_OFF = (
@@ -190,6 +193,7 @@ class PassiveFlag(FastIntFlag):
     NO_AUTOFLUSH,
     NO_RAISE,
     DEFERRED_HISTORY_LOAD,
+    INCLUDE_PENDING_MUTATIONS,
     PASSIVE_OFF,
     PASSIVE_RETURN_NO_VALUE,
     PASSIVE_NO_INITIALIZE,
@@ -277,6 +281,8 @@ _never_set = frozenset([NEVER_SET])
 
 _none_set = frozenset([None, NEVER_SET, PASSIVE_NO_RESULT])
 
+_none_only_set = frozenset([None])
+
 _SET_DEFERRED_EXPIRED = util.symbol("SET_DEFERRED_EXPIRED")
 
 _DEFER_FOR_STATE = util.symbol("DEFER_FOR_STATE")
@@ -303,29 +309,23 @@ def _assertions(
 
 if TYPE_CHECKING:
 
-    def manager_of_class(cls: Type[_O]) -> ClassManager[_O]:
-        ...
+    def manager_of_class(cls: Type[_O]) -> ClassManager[_O]: ...
 
     @overload
-    def opt_manager_of_class(cls: AliasedClass[Any]) -> None:
-        ...
+    def opt_manager_of_class(cls: AliasedClass[Any]) -> None: ...
 
     @overload
     def opt_manager_of_class(
         cls: _ExternalEntityType[_O],
-    ) -> Optional[ClassManager[_O]]:
-        ...
+    ) -> Optional[ClassManager[_O]]: ...
 
     def opt_manager_of_class(
         cls: _ExternalEntityType[_O],
-    ) -> Optional[ClassManager[_O]]:
-        ...
+    ) -> Optional[ClassManager[_O]]: ...
 
-    def instance_state(instance: _O) -> InstanceState[_O]:
-        ...
+    def instance_state(instance: _O) -> InstanceState[_O]: ...
 
-    def instance_dict(instance: object) -> Dict[str, Any]:
-        ...
+    def instance_dict(instance: object) -> Dict[str, Any]: ...
 
 else:
     # these can be replaced by sqlalchemy.ext.instrumentation
@@ -433,7 +433,7 @@ def _inspect_mapped_object(instance: _T) -> Optional[InstanceState[_T]]:
 
 
 def _class_to_mapper(
-    class_or_mapper: Union[Mapper[_T], Type[_T]]
+    class_or_mapper: Union[Mapper[_T], Type[_T]],
 ) -> Mapper[_T]:
     # can't get mypy to see an overload for this
     insp = inspection.inspect(class_or_mapper, False)
@@ -445,7 +445,7 @@ def _class_to_mapper(
 
 
 def _mapper_or_none(
-    entity: Union[Type[_T], _InternalEntityType[_T]]
+    entity: Union[Type[_T], _InternalEntityType[_T]],
 ) -> Optional[Mapper[_T]]:
     """Return the :class:`_orm.Mapper` for the given class or None if the
     class is not mapped.
@@ -507,8 +507,7 @@ def _entity_descriptor(entity: _EntityType[Any], key: str) -> Any:
 
 if TYPE_CHECKING:
 
-    def _state_mapper(state: InstanceState[_O]) -> Mapper[_O]:
-        ...
+    def _state_mapper(state: InstanceState[_O]) -> Mapper[_O]: ...
 
 else:
     _state_mapper = util.dottedgetter("manager.mapper")
@@ -581,7 +580,7 @@ class InspectionAttr:
 
     """
 
-    __slots__ = ()
+    __slots__: Tuple[str, ...] = ()
 
     is_selectable = False
     """Return True if this object is an instance of
@@ -664,11 +663,6 @@ class InspectionAttrInfo(InspectionAttr):
         :func:`.composite`
         functions.
 
-        .. versionchanged:: 1.0.0 :attr:`.MapperProperty.info` is also
-           available on extension types via the
-           :attr:`.InspectionAttrInfo.info` attribute, so that it can apply
-           to a wider variety of ORM and extension constructs.
-
         .. seealso::
 
             :attr:`.QueryableAttribute.info`
@@ -679,35 +673,33 @@ class InspectionAttrInfo(InspectionAttr):
         return {}
 
 
-class SQLORMOperations(SQLCoreOperations[_T], TypingOnly):
+class SQLORMOperations(SQLCoreOperations[_T_co], TypingOnly):
     __slots__ = ()
 
     if typing.TYPE_CHECKING:
 
-        def of_type(self, class_: _EntityType[Any]) -> PropComparator[_T]:
-            ...
+        def of_type(
+            self, class_: _EntityType[Any]
+        ) -> PropComparator[_T_co]: ...
 
         def and_(
             self, *criteria: _ColumnExpressionArgument[bool]
-        ) -> PropComparator[bool]:
-            ...
+        ) -> PropComparator[bool]: ...
 
         def any(  # noqa: A001
             self,
             criterion: Optional[_ColumnExpressionArgument[bool]] = None,
             **kwargs: Any,
-        ) -> ColumnElement[bool]:
-            ...
+        ) -> ColumnElement[bool]: ...
 
         def has(
             self,
             criterion: Optional[_ColumnExpressionArgument[bool]] = None,
             **kwargs: Any,
-        ) -> ColumnElement[bool]:
-            ...
+        ) -> ColumnElement[bool]: ...
 
 
-class ORMDescriptor(Generic[_T], TypingOnly):
+class ORMDescriptor(Generic[_T_co], TypingOnly):
     """Represent any Python descriptor that provides a SQL expression
     construct at the class level."""
 
@@ -718,26 +710,22 @@ class ORMDescriptor(Generic[_T], TypingOnly):
         @overload
         def __get__(
             self, instance: Any, owner: Literal[None]
-        ) -> ORMDescriptor[_T]:
-            ...
+        ) -> ORMDescriptor[_T_co]: ...
 
         @overload
         def __get__(
             self, instance: Literal[None], owner: Any
-        ) -> SQLCoreOperations[_T]:
-            ...
+        ) -> SQLCoreOperations[_T_co]: ...
 
         @overload
-        def __get__(self, instance: object, owner: Any) -> _T:
-            ...
+        def __get__(self, instance: object, owner: Any) -> _T_co: ...
 
         def __get__(
             self, instance: object, owner: Any
-        ) -> Union[ORMDescriptor[_T], SQLCoreOperations[_T], _T]:
-            ...
+        ) -> Union[ORMDescriptor[_T_co], SQLCoreOperations[_T_co], _T_co]: ...
 
 
-class _MappedAnnotationBase(Generic[_T], TypingOnly):
+class _MappedAnnotationBase(Generic[_T_co], TypingOnly):
     """common class for Mapped and similar ORM container classes.
 
     these are classes that can appear on the left side of an ORM declarative
@@ -750,7 +738,7 @@ class _MappedAnnotationBase(Generic[_T], TypingOnly):
 
 
 class SQLORMExpression(
-    SQLORMOperations[_T], SQLColumnExpression[_T], TypingOnly
+    SQLORMOperations[_T_co], SQLColumnExpression[_T_co], TypingOnly
 ):
     """A type that may be used to indicate any ORM-level attribute or
     object that acts in place of one, in the context of SQL expression
@@ -772,9 +760,10 @@ class SQLORMExpression(
 
 
 class Mapped(
-    SQLORMExpression[_T],
-    ORMDescriptor[_T],
-    _MappedAnnotationBase[_T],
+    SQLORMExpression[_T_co],
+    ORMDescriptor[_T_co],
+    _MappedAnnotationBase[_T_co],
+    roles.DDLConstraintColumnRole,
 ):
     """Represent an ORM mapped attribute on a mapped class.
 
@@ -819,32 +808,26 @@ class Mapped(
         @overload
         def __get__(
             self, instance: None, owner: Any
-        ) -> InstrumentedAttribute[_T]:
-            ...
+        ) -> InstrumentedAttribute[_T_co]: ...
 
         @overload
-        def __get__(self, instance: object, owner: Any) -> _T:
-            ...
+        def __get__(self, instance: object, owner: Any) -> _T_co: ...
 
         def __get__(
             self, instance: Optional[object], owner: Any
-        ) -> Union[InstrumentedAttribute[_T], _T]:
-            ...
+        ) -> Union[InstrumentedAttribute[_T_co], _T_co]: ...
 
         @classmethod
-        def _empty_constructor(cls, arg1: Any) -> Mapped[_T]:
-            ...
+        def _empty_constructor(cls, arg1: Any) -> Mapped[_T_co]: ...
 
         def __set__(
-            self, instance: Any, value: Union[SQLCoreOperations[_T], _T]
-        ) -> None:
-            ...
+            self, instance: Any, value: Union[SQLCoreOperations[_T_co], _T_co]
+        ) -> None: ...
 
-        def __delete__(self, instance: Any) -> None:
-            ...
+        def __delete__(self, instance: Any) -> None: ...
 
 
-class _MappedAttribute(Generic[_T], TypingOnly):
+class _MappedAttribute(Generic[_T_co], TypingOnly):
     """Mixin for attributes which should be replaced by mapper-assigned
     attributes.
 
@@ -853,7 +836,7 @@ class _MappedAttribute(Generic[_T], TypingOnly):
     __slots__ = ()
 
 
-class _DeclarativeMapped(Mapped[_T], _MappedAttribute[_T]):
+class _DeclarativeMapped(Mapped[_T_co], _MappedAttribute[_T_co]):
     """Mixin for :class:`.MapperProperty` subclasses that allows them to
     be compatible with ORM-annotated declarative mappings.
 
@@ -878,7 +861,7 @@ class _DeclarativeMapped(Mapped[_T], _MappedAttribute[_T]):
         return NotImplemented
 
 
-class DynamicMapped(_MappedAnnotationBase[_T]):
+class DynamicMapped(_MappedAnnotationBase[_T_co]):
     """Represent the ORM mapped attribute type for a "dynamic" relationship.
 
     The :class:`_orm.DynamicMapped` type annotation may be used in an
@@ -915,16 +898,26 @@ class DynamicMapped(_MappedAnnotationBase[_T]):
 
     if TYPE_CHECKING:
 
+        @overload
+        def __get__(
+            self, instance: None, owner: Any
+        ) -> InstrumentedAttribute[_T_co]: ...
+
+        @overload
+        def __get__(
+            self, instance: object, owner: Any
+        ) -> AppenderQuery[_T_co]: ...
+
         def __get__(
             self, instance: Optional[object], owner: Any
-        ) -> AppenderQuery[_T]:
-            ...
+        ) -> Union[InstrumentedAttribute[_T_co], AppenderQuery[_T_co]]: ...
 
-        def __set__(self, instance: Any, value: typing.Collection[_T]) -> None:
-            ...
+        def __set__(
+            self, instance: Any, value: typing.Collection[_T_co]
+        ) -> None: ...
 
 
-class WriteOnlyMapped(_MappedAnnotationBase[_T]):
+class WriteOnlyMapped(_MappedAnnotationBase[_T_co]):
     """Represent the ORM mapped attribute type for a "write only" relationship.
 
     The :class:`_orm.WriteOnlyMapped` type annotation may be used in an
@@ -957,10 +950,22 @@ class WriteOnlyMapped(_MappedAnnotationBase[_T]):
 
     if TYPE_CHECKING:
 
+        @overload
+        def __get__(
+            self, instance: None, owner: Any
+        ) -> InstrumentedAttribute[_T_co]: ...
+
+        @overload
+        def __get__(
+            self, instance: object, owner: Any
+        ) -> WriteOnlyCollection[_T_co]: ...
+
         def __get__(
             self, instance: Optional[object], owner: Any
-        ) -> WriteOnlyCollection[_T]:
-            ...
+        ) -> Union[
+            InstrumentedAttribute[_T_co], WriteOnlyCollection[_T_co]
+        ]: ...
 
-        def __set__(self, instance: Any, value: typing.Collection[_T]) -> None:
-            ...
+        def __set__(
+            self, instance: Any, value: typing.Collection[_T_co]
+        ) -> None: ...

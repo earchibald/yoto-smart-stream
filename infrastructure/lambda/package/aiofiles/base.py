@@ -1,7 +1,18 @@
-"""Various base classes."""
-from types import coroutine
-from collections.abc import Coroutine
 from asyncio import get_running_loop
+from collections.abc import Awaitable
+from contextlib import AbstractAsyncContextManager
+from functools import partial, wraps
+
+
+def wrap(func):
+    @wraps(func)
+    async def run(*args, loop=None, executor=None, **kwargs):
+        if loop is None:
+            loop = get_running_loop()
+        pfunc = partial(func, *args, **kwargs)
+        return await loop.run_in_executor(executor, pfunc)
+
+    return run
 
 
 class AsyncBase:
@@ -23,11 +34,10 @@ class AsyncBase:
 
     async def __anext__(self):
         """Simulate normal file iteration."""
-        line = await self.readline()
-        if line:
+
+        if line := await self.readline():
             return line
-        else:
-            raise StopAsyncIteration
+        raise StopAsyncIteration
 
 
 class AsyncIndirectBase(AsyncBase):
@@ -45,66 +55,22 @@ class AsyncIndirectBase(AsyncBase):
         pass  # discard writes
 
 
-class _ContextManager(Coroutine):
+class AiofilesContextManager(Awaitable, AbstractAsyncContextManager):
+    """An adjusted async context manager for aiofiles."""
+
     __slots__ = ("_coro", "_obj")
 
     def __init__(self, coro):
         self._coro = coro
         self._obj = None
 
-    def send(self, value):
-        return self._coro.send(value)
-
-    def throw(self, typ, val=None, tb=None):
-        if val is None:
-            return self._coro.throw(typ)
-        elif tb is None:
-            return self._coro.throw(typ, val)
-        else:
-            return self._coro.throw(typ, val, tb)
-
-    def close(self):
-        return self._coro.close()
-
-    @property
-    def gi_frame(self):
-        return self._coro.gi_frame
-
-    @property
-    def gi_running(self):
-        return self._coro.gi_running
-
-    @property
-    def gi_code(self):
-        return self._coro.gi_code
-
-    def __next__(self):
-        return self.send(None)
-
-    @coroutine
-    def __iter__(self):
-        resp = yield from self._coro
-        return resp
-
     def __await__(self):
-        resp = yield from self._coro
-        return resp
-
-    async def __anext__(self):
-        resp = await self._coro
-        return resp
-
-    async def __aenter__(self):
-        self._obj = await self._coro
+        if self._obj is None:
+            self._obj = yield from self._coro.__await__()
         return self._obj
 
-    async def __aexit__(self, exc_type, exc, tb):
-        self._obj.close()
-        self._obj = None
-
-
-class AiofilesContextManager(_ContextManager):
-    """An adjusted async context manager for aiofiles."""
+    async def __aenter__(self):
+        return await self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await get_running_loop().run_in_executor(

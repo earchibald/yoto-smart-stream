@@ -13,7 +13,7 @@
 #
 # See the README file for information on usage and redistribution.
 #
-
+from __future__ import annotations
 
 import re
 
@@ -33,9 +33,11 @@ class ImtImageFile(ImageFile.ImageFile):
     format = "IMT"
     format_description = "IM Tools"
 
-    def _open(self):
+    def _open(self) -> None:
         # Quick rejection: if there's not a LF among the first
         # 100 bytes, this is (probably) not a text header.
+
+        assert self.fp is not None
 
         buffer = self.fp.read(100)
         if b"\n" not in buffer:
@@ -53,14 +55,14 @@ class ImtImageFile(ImageFile.ImageFile):
             if not s:
                 break
 
-            if s == b"\x0C":
+            if s == b"\x0c":
                 # image data begins
                 self.tile = [
-                    (
+                    ImageFile._Tile(
                         "raw",
                         (0, 0) + self.size,
                         self.fp.tell() - len(buffer),
-                        (self.mode, 0, 1),
+                        self.mode,
                     )
                 ]
 
@@ -89,7 +91,7 @@ class ImtImageFile(ImageFile.ImageFile):
                     ysize = int(v)
                     self._size = xsize, ysize
                 elif k == b"pixel" and v == b"n8":
-                    self.mode = "L"
+                    self._mode = "L"
 
 
 #

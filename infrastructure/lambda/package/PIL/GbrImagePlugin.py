@@ -23,12 +23,13 @@
 # Version 2 files are saved by GIMP v2.8 (at least)
 # Version 3 files have a format specifier of 18 for 16bit floats in
 #   the color depth field. This is currently unsupported by Pillow.
+from __future__ import annotations
 
 from . import Image, ImageFile
 from ._binary import i32be as i32
 
 
-def _accept(prefix):
+def _accept(prefix: bytes) -> bool:
     return len(prefix) >= 8 and i32(prefix, 0) >= 20 and i32(prefix, 4) in (1, 2)
 
 
@@ -40,7 +41,8 @@ class GbrImageFile(ImageFile.ImageFile):
     format = "GBR"
     format_description = "GIMP brush file"
 
-    def _open(self):
+    def _open(self) -> None:
+        assert self.fp is not None
         header_size = i32(self.fp.read(4))
         if header_size < 20:
             msg = "not a GIMP brush"
@@ -53,7 +55,7 @@ class GbrImageFile(ImageFile.ImageFile):
         width = i32(self.fp.read(4))
         height = i32(self.fp.read(4))
         color_depth = i32(self.fp.read(4))
-        if width <= 0 or height <= 0:
+        if width == 0 or height == 0:
             msg = "not a GIMP brush"
             raise SyntaxError(msg)
         if color_depth not in (1, 4):
@@ -70,16 +72,14 @@ class GbrImageFile(ImageFile.ImageFile):
                 raise SyntaxError(msg)
             self.info["spacing"] = i32(self.fp.read(4))
 
-        comment = self.fp.read(comment_length)[:-1]
+        self.info["comment"] = self.fp.read(comment_length)[:-1]
 
         if color_depth == 1:
-            self.mode = "L"
+            self._mode = "L"
         else:
-            self.mode = "RGBA"
+            self._mode = "RGBA"
 
         self._size = width, height
-
-        self.info["comment"] = comment
 
         # Image might not be small
         Image._decompression_bomb_check(self.size)
@@ -87,8 +87,9 @@ class GbrImageFile(ImageFile.ImageFile):
         # Data is an uncompressed block of w * h * bytes/pixel
         self._data_size = width * height * color_depth
 
-    def load(self):
-        if not self.im:
+    def load(self) -> Image.core.PixelAccess | None:
+        if self._im is None:
+            assert self.fp is not None
             self.im = Image.core.new(self.mode, self.size)
             self.frombytes(self.fp.read(self._data_size))
         return Image.Image.load(self)

@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import json
-import sys
-import typing
 from base64 import b64decode, b64encode
+from typing import Literal
 
 import itsdangerous
 from itsdangerous.exc import BadSignature
@@ -10,22 +11,18 @@ from starlette.datastructures import MutableHeaders, Secret
 from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-if sys.version_info >= (3, 8):  # pragma: no cover
-    from typing import Literal
-else:  # pragma: no cover
-    from typing_extensions import Literal
-
 
 class SessionMiddleware:
     def __init__(
         self,
         app: ASGIApp,
-        secret_key: typing.Union[str, Secret],
+        secret_key: str | Secret,
         session_cookie: str = "session",
-        max_age: typing.Optional[int] = 14 * 24 * 60 * 60,  # 14 days, in seconds
+        max_age: int | None = 14 * 24 * 60 * 60,  # 14 days, in seconds
         path: str = "/",
         same_site: Literal["lax", "strict", "none"] = "lax",
         https_only: bool = False,
+        domain: str | None = None,
     ) -> None:
         self.app = app
         self.signer = itsdangerous.TimestampSigner(str(secret_key))
@@ -35,6 +32,8 @@ class SessionMiddleware:
         self.security_flags = "httponly; samesite=" + same_site
         if https_only:  # Secure flag can be used with HTTPS only
             self.security_flags += "; secure"
+        if domain is not None:
+            self.security_flags += f"; domain={domain}"
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):  # pragma: no cover
@@ -62,7 +61,7 @@ class SessionMiddleware:
                     data = b64encode(json.dumps(scope["session"]).encode("utf-8"))
                     data = self.signer.sign(data)
                     headers = MutableHeaders(scope=message)
-                    header_value = "{session_cookie}={data}; path={path}; {max_age}{security_flags}".format(  # noqa E501
+                    header_value = "{session_cookie}={data}; path={path}; {max_age}{security_flags}".format(
                         session_cookie=self.session_cookie,
                         data=data.decode("utf-8"),
                         path=self.path,
@@ -73,7 +72,7 @@ class SessionMiddleware:
                 elif not initial_session_was_empty:
                     # The session has been cleared.
                     headers = MutableHeaders(scope=message)
-                    header_value = "{session_cookie}={data}; path={path}; {expires}{security_flags}".format(  # noqa E501
+                    header_value = "{session_cookie}={data}; path={path}; {expires}{security_flags}".format(
                         session_cookie=self.session_cookie,
                         data="null",
                         path=self.path,

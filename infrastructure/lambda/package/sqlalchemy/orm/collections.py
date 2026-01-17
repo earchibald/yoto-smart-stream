@@ -1,5 +1,5 @@
 # orm/collections.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -21,6 +21,8 @@ provided.  One is a bundle of generic decorators that map function arguments
 and return values to events::
 
   from sqlalchemy.orm.collections import collection
+
+
   class MyClass:
       # ...
 
@@ -31,7 +33,6 @@ and return values to events::
       @collection.removes_return()
       def pop(self):
           return self.data.pop()
-
 
 The second approach is a bundle of targeted decorators that wrap appropriate
 append and remove notifiers around the mutation methods present in the
@@ -73,10 +74,11 @@ generally not needed.  Odds are, the extension method will delegate to a
 method that's already instrumented.  For example::
 
   class QueueIsh(list):
-     def push(self, item):
-         self.append(item)
-     def shift(self):
-         return self.pop(0)
+      def push(self, item):
+          self.append(item)
+
+      def shift(self):
+          return self.pop(0)
 
 There's no need to decorate these methods.  ``append`` and ``pop`` are already
 instrumented as part of the ``list`` interface.  Decorating them would fire
@@ -148,10 +150,12 @@ __all__ = [
     "keyfunc_mapping",
     "column_keyed_dict",
     "attribute_keyed_dict",
-    "column_keyed_dict",
-    "attribute_keyed_dict",
-    "MappedCollection",
     "KeyFuncDict",
+    # old names in < 2.0
+    "mapped_collection",
+    "column_mapped_collection",
+    "attribute_mapped_collection",
+    "MappedCollection",
 ]
 
 __instrumentation_mutex = threading.Lock()
@@ -167,8 +171,7 @@ _FN = TypeVar("_FN", bound="Callable[..., Any]")
 
 
 class _CollectionConverterProtocol(Protocol):
-    def __call__(self, collection: _COL) -> _COL:
-        ...
+    def __call__(self, collection: _COL) -> _COL: ...
 
 
 class _AdaptedCollectionProtocol(Protocol):
@@ -194,8 +197,9 @@ class collection:
     The recipe decorators all require parens, even those that take no
     arguments::
 
-        @collection.adds('entity')
+        @collection.adds("entity")
         def insert(self, position, entity): ...
+
 
         @collection.removes_return()
         def popitem(self): ...
@@ -216,10 +220,12 @@ class collection:
             @collection.appender
             def add(self, append): ...
 
+
             # or, equivalently
             @collection.appender
             @collection.adds(1)
             def add(self, append): ...
+
 
             # for mapping type, an 'append' may kick out a previous value
             # that occupies that slot.  consider d['a'] = 'foo'- any previous
@@ -260,10 +266,11 @@ class collection:
             @collection.remover
             def zap(self, entity): ...
 
+
             # or, equivalently
             @collection.remover
             @collection.removes_return()
-            def zap(self, ): ...
+            def zap(self): ...
 
         If the value to remove is not present in the collection, you may
         raise an exception or return None to ignore the error.
@@ -352,7 +359,7 @@ class collection:
         return fn
 
     @staticmethod
-    def adds(arg):
+    def adds(arg: int) -> Callable[[_FN], _FN]:
         """Mark the method as adding an entity to the collection.
 
         Adds "add to collection" handling to the method.  The decorator
@@ -363,7 +370,8 @@ class collection:
             @collection.adds(1)
             def push(self, item): ...
 
-            @collection.adds('entity')
+
+            @collection.adds("entity")
             def do_stuff(self, thing, entity=None): ...
 
         """
@@ -548,9 +556,9 @@ class CollectionAdapter:
             self.empty
         ), "This collection adapter is not in the 'empty' state"
         self.empty = False
-        self.owner_state.dict[
-            self._key
-        ] = self.owner_state._empty_collections.pop(self._key)
+        self.owner_state.dict[self._key] = (
+            self.owner_state._empty_collections.pop(self._key)
+        )
 
     def _refuse_empty(self) -> NoReturn:
         raise sa_exc.InvalidRequestError(
@@ -620,6 +628,28 @@ class CollectionAdapter:
     def __bool__(self):
         return True
 
+    def _fire_append_wo_mutation_event_bulk(
+        self, items, initiator=None, key=NO_KEY
+    ):
+        if not items:
+            return
+
+        if initiator is not False:
+            if self.invalidated:
+                self._warn_invalidated()
+
+            if self.empty:
+                self._reset_empty()
+
+            for item in items:
+                self.attr.fire_append_wo_mutation_event(
+                    self.owner_state,
+                    self.owner_state.dict,
+                    item,
+                    initiator,
+                    key,
+                )
+
     def fire_append_wo_mutation_event(self, item, initiator=None, key=NO_KEY):
         """Notify that a entity is entering the collection but is already
         present.
@@ -667,6 +697,26 @@ class CollectionAdapter:
             )
         else:
             return item
+
+    def _fire_remove_event_bulk(self, items, initiator=None, key=NO_KEY):
+        if not items:
+            return
+
+        if initiator is not False:
+            if self.invalidated:
+                self._warn_invalidated()
+
+            if self.empty:
+                self._reset_empty()
+
+            for item in items:
+                self.attr.fire_remove_event(
+                    self.owner_state,
+                    self.owner_state.dict,
+                    item,
+                    initiator,
+                    key,
+                )
 
     def fire_remove_event(self, item, initiator=None, key=NO_KEY):
         """Notify that a entity has been removed from the collection.
@@ -763,8 +813,10 @@ def bulk_replace(values, existing_adapter, new_adapter, initiator=None):
             appender(member, _sa_initiator=False)
 
     if existing_adapter:
-        for member in removals:
-            existing_adapter.fire_remove_event(member, initiator=initiator)
+        existing_adapter._fire_append_wo_mutation_event_bulk(
+            constants, initiator=initiator
+        )
+        existing_adapter._fire_remove_event_bulk(removals, initiator=initiator)
 
 
 def prepare_instrumentation(
@@ -796,7 +848,6 @@ def prepare_instrumentation(
 
     # Did factory callable return a builtin?
     if cls in __canned_instrumentation:
-
         # if so, just convert.
         # in previous major releases, this codepath wasn't working and was
         # not covered by tests.   prior to that it supplied a "wrapper"
@@ -1511,14 +1562,14 @@ class InstrumentedDict(Dict[_KT, _VT]):
     """An instrumented version of the built-in dict."""
 
 
-__canned_instrumentation: util.immutabledict[
-    Any, _CollectionFactoryType
-] = util.immutabledict(
-    {
-        list: InstrumentedList,
-        set: InstrumentedSet,
-        dict: InstrumentedDict,
-    }
+__canned_instrumentation: util.immutabledict[Any, _CollectionFactoryType] = (
+    util.immutabledict(
+        {
+            list: InstrumentedList,
+            set: InstrumentedSet,
+            dict: InstrumentedDict,
+        }
+    )
 )
 
 __interfaces: util.immutabledict[
@@ -1548,7 +1599,6 @@ __interfaces: util.immutabledict[
 
 
 def __go(lcls):
-
     global keyfunc_mapping, mapped_collection
     global column_keyed_dict, column_mapped_collection
     global MappedCollection, KeyFuncDict

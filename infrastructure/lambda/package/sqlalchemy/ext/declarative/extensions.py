@@ -1,5 +1,5 @@
 # ext/declarative/extensions.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -11,9 +11,15 @@
 from __future__ import annotations
 
 import collections
+import contextlib
+from typing import Any
 from typing import Callable
 from typing import TYPE_CHECKING
+from typing import Union
 
+from ... import exc as sa_exc
+from ...engine import Connection
+from ...engine import Engine
 from ...orm import exc as orm_exc
 from ...orm import relationships
 from ...orm.base import _mapper_or_none
@@ -44,23 +50,26 @@ class ConcreteBase:
 
         from sqlalchemy.ext.declarative import ConcreteBase
 
+
         class Employee(ConcreteBase, Base):
-            __tablename__ = 'employee'
+            __tablename__ = "employee"
             employee_id = Column(Integer, primary_key=True)
             name = Column(String(50))
             __mapper_args__ = {
-                            'polymorphic_identity':'employee',
-                            'concrete':True}
+                "polymorphic_identity": "employee",
+                "concrete": True,
+            }
+
 
         class Manager(Employee):
-            __tablename__ = 'manager'
+            __tablename__ = "manager"
             employee_id = Column(Integer, primary_key=True)
             name = Column(String(50))
             manager_data = Column(String(40))
             __mapper_args__ = {
-                            'polymorphic_identity':'manager',
-                            'concrete':True}
-
+                "polymorphic_identity": "manager",
+                "concrete": True,
+            }
 
     The name of the discriminator column used by :func:`.polymorphic_union`
     defaults to the name ``type``.  To suit the use case of a mapping where an
@@ -69,7 +78,7 @@ class ConcreteBase:
     ``_concrete_discriminator_name`` attribute::
 
         class Employee(ConcreteBase, Base):
-            _concrete_discriminator_name = '_concrete_discriminator'
+            _concrete_discriminator_name = "_concrete_discriminator"
 
     .. versionadded:: 1.3.19 Added the ``_concrete_discriminator_name``
        attribute to :class:`_declarative.ConcreteBase` so that the
@@ -162,22 +171,26 @@ class AbstractConcreteBase(ConcreteBase):
         from sqlalchemy.orm import DeclarativeBase
         from sqlalchemy.ext.declarative import AbstractConcreteBase
 
+
         class Base(DeclarativeBase):
             pass
+
 
         class Employee(AbstractConcreteBase, Base):
             pass
 
+
         class Manager(Employee):
-            __tablename__ = 'manager'
+            __tablename__ = "manager"
             employee_id = Column(Integer, primary_key=True)
             name = Column(String(50))
             manager_data = Column(String(40))
 
             __mapper_args__ = {
-                'polymorphic_identity':'manager',
-                'concrete':True
+                "polymorphic_identity": "manager",
+                "concrete": True,
             }
+
 
         Base.registry.configure()
 
@@ -194,9 +207,11 @@ class AbstractConcreteBase(ConcreteBase):
 
         from sqlalchemy.ext.declarative import AbstractConcreteBase
 
+
         class Company(Base):
-            __tablename__ = 'company'
+            __tablename__ = "company"
             id = Column(Integer, primary_key=True)
+
 
         class Employee(AbstractConcreteBase, Base):
             strict_attrs = True
@@ -205,31 +220,31 @@ class AbstractConcreteBase(ConcreteBase):
 
             @declared_attr
             def company_id(cls):
-                return Column(ForeignKey('company.id'))
+                return Column(ForeignKey("company.id"))
 
             @declared_attr
             def company(cls):
                 return relationship("Company")
 
+
         class Manager(Employee):
-            __tablename__ = 'manager'
+            __tablename__ = "manager"
 
             name = Column(String(50))
             manager_data = Column(String(40))
 
             __mapper_args__ = {
-                'polymorphic_identity':'manager',
-                'concrete':True
+                "polymorphic_identity": "manager",
+                "concrete": True,
             }
+
 
         Base.registry.configure()
 
     When we make use of our mappings however, both ``Manager`` and
     ``Employee`` will have an independently usable ``.company`` attribute::
 
-        session.execute(
-            select(Employee).filter(Employee.company.has(id=5))
-        )
+        session.execute(select(Employee).filter(Employee.company.has(id=5)))
 
     :param strict_attrs: when specified on the base class, "strict" attribute
      mode is enabled which attempts to limit ORM mapped attributes on the
@@ -324,7 +339,6 @@ class AbstractConcreteBase(ConcreteBase):
                 for sup_ in scls.__mro__[1:]:
                     sup_sm = _mapper_or_none(sup_)
                     if sup_sm:
-
                         sm._set_concrete_base(sup_sm)
                         break
 
@@ -361,10 +375,12 @@ class DeferredReflection:
 
         from sqlalchemy.ext.declarative import declarative_base
         from sqlalchemy.ext.declarative import DeferredReflection
+
         Base = declarative_base()
 
+
         class MyClass(DeferredReflection, Base):
-            __tablename__ = 'mytable'
+            __tablename__ = "mytable"
 
     Above, ``MyClass`` is not yet mapped.   After a series of
     classes have been defined in the above fashion, all tables
@@ -386,17 +402,22 @@ class DeferredReflection:
         class ReflectedOne(DeferredReflection, Base):
             __abstract__ = True
 
+
         class ReflectedTwo(DeferredReflection, Base):
             __abstract__ = True
 
+
         class MyClass(ReflectedOne):
-            __tablename__ = 'mytable'
+            __tablename__ = "mytable"
+
 
         class MyOtherClass(ReflectedOne):
-            __tablename__ = 'myothertable'
+            __tablename__ = "myothertable"
+
 
         class YetAnotherClass(ReflectedTwo):
-            __tablename__ = 'yetanothertable'
+            __tablename__ = "yetanothertable"
+
 
         # ... etc.
 
@@ -414,9 +435,25 @@ class DeferredReflection:
     """
 
     @classmethod
-    def prepare(cls, engine):
-        """Reflect all :class:`_schema.Table` objects for all current
-        :class:`.DeferredReflection` subclasses"""
+    def prepare(
+        cls, bind: Union[Engine, Connection], **reflect_kw: Any
+    ) -> None:
+        r"""Reflect all :class:`_schema.Table` objects for all current
+        :class:`.DeferredReflection` subclasses
+
+        :param bind: :class:`_engine.Engine` or :class:`_engine.Connection`
+         instance
+
+         ..versionchanged:: 2.0.16 a :class:`_engine.Connection` is also
+         accepted.
+
+        :param \**reflect_kw: additional keyword arguments passed to
+         :meth:`_schema.MetaData.reflect`, such as
+         :paramref:`_schema.MetaData.reflect.views`.
+
+         .. versionadded:: 2.0.16
+
+        """
 
         to_map = _DeferredMapperConfig.classes_for_base(cls)
 
@@ -425,14 +462,24 @@ class DeferredReflection:
         # first collect the primary __table__ for each class into a
         # collection of metadata/schemaname -> table names
         for thingy in to_map:
-
             if thingy.local_table is not None:
                 metadata_to_table[
                     (thingy.local_table.metadata, thingy.local_table.schema)
                 ].add(thingy.local_table.name)
 
         # then reflect all those tables into their metadatas
-        with engine.connect() as conn:
+
+        if isinstance(bind, Connection):
+            conn = bind
+            ctx = contextlib.nullcontext(enter_result=conn)
+        elif isinstance(bind, Engine):
+            ctx = bind.connect()
+        else:
+            raise sa_exc.ArgumentError(
+                f"Expected Engine or Connection, got {bind!r}"
+            )
+
+        with ctx as conn:
             for (metadata, schema), table_names in metadata_to_table.items():
                 metadata.reflect(
                     conn,
@@ -440,6 +487,7 @@ class DeferredReflection:
                     schema=schema,
                     extend_existing=True,
                     autoload_replace=False,
+                    **reflect_kw,
                 )
 
             metadata_to_table.clear()
@@ -453,12 +501,10 @@ class DeferredReflection:
                 metadata = mapper.class_.metadata
 
                 for rel in mapper._props.values():
-
                     if (
                         isinstance(rel, relationships.RelationshipProperty)
                         and rel._init_args.secondary._is_populated()
                     ):
-
                         secondary_arg = rel._init_args.secondary
 
                         if isinstance(secondary_arg.argument, Table):

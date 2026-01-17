@@ -1,3 +1,9 @@
+# testing/suite/test_sequence.py
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# <see AUTHORS file>
+#
+# This module is part of SQLAlchemy and is released under
+# the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: ignore-errors
 
 from .. import config
@@ -18,7 +24,7 @@ from ... import testing
 
 class SequenceTest(fixtures.TablesTest):
     __requires__ = ("sequences",)
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     run_create_tables = "each"
 
@@ -120,7 +126,6 @@ class SequenceTest(fixtures.TablesTest):
     @testing.combinations((True,), (False,), argnames="implicit_returning")
     @testing.requires.schemas
     def test_insert_roundtrip_translate(self, connection, implicit_returning):
-
         seq_no_returning = Table(
             "seq_no_returning_sch",
             MetaData(),
@@ -158,7 +163,7 @@ class SequenceTest(fixtures.TablesTest):
 
 class SequenceCompilerTest(testing.AssertsCompiledSQL, fixtures.TestBase):
     __requires__ = ("sequences",)
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     def test_literal_binds_inline_compile(self, connection):
         table = Table(
@@ -187,7 +192,7 @@ class HasSequenceTest(fixtures.TablesTest):
     run_deletes = None
 
     __requires__ = ("sequences",)
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -303,7 +308,7 @@ class HasSequenceTest(fixtures.TablesTest):
 
 class HasSequenceTestEmpty(fixtures.TestBase):
     __requires__ = ("sequences",)
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     def test_get_sequence_names_no_sequence(self, connection):
         eq_(

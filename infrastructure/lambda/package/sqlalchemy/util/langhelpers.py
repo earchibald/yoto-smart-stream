@@ -1,5 +1,5 @@
 # util/langhelpers.py
-# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -15,7 +15,6 @@ from __future__ import annotations
 import collections
 import enum
 from functools import update_wrapper
-import hashlib
 import inspect
 import itertools
 import operator
@@ -61,7 +60,85 @@ _HP = TypeVar("_HP", bound="hybridproperty[Any]")
 _HM = TypeVar("_HM", bound="hybridmethod[Any]")
 
 
-if compat.py310:
+if compat.py314:
+    # vendor a minimal form of get_annotations per
+    # https://github.com/python/cpython/issues/133684#issuecomment-2863841891
+
+    from annotationlib import call_annotate_function  # type: ignore[import-not-found,unused-ignore]  # noqa: E501
+    from annotationlib import Format
+
+    def _get_and_call_annotate(obj, format):  # noqa: A002
+        annotate = getattr(obj, "__annotate__", None)
+        if annotate is not None:
+            ann = call_annotate_function(annotate, format, owner=obj)
+            if not isinstance(ann, dict):
+                raise ValueError(f"{obj!r}.__annotate__ returned a non-dict")
+            return ann
+        return None
+
+    # this is ported from py3.13.0a7
+    _BASE_GET_ANNOTATIONS = type.__dict__["__annotations__"].__get__
+
+    def _get_dunder_annotations(obj):
+        if isinstance(obj, type):
+            try:
+                ann = _BASE_GET_ANNOTATIONS(obj)
+            except AttributeError:
+                # For static types, the descriptor raises AttributeError.
+                return {}
+        else:
+            ann = getattr(obj, "__annotations__", None)
+            if ann is None:
+                return {}
+
+        if not isinstance(ann, dict):
+            raise ValueError(
+                f"{obj!r}.__annotations__ is neither a dict nor None"
+            )
+        return dict(ann)
+
+    def _vendored_get_annotations(
+        obj: Any, *, format: Format  # noqa: A002
+    ) -> Mapping[str, Any]:
+        """A sparse implementation of annotationlib.get_annotations()"""
+
+        try:
+            ann = _get_dunder_annotations(obj)
+        except Exception:
+            pass
+        else:
+            if ann is not None:
+                return dict(ann)
+
+        # But if __annotations__ threw a NameError, we try calling __annotate__
+        ann = _get_and_call_annotate(obj, format)
+        if ann is None:
+            # If that didn't work either, we have a very weird object:
+            # evaluating
+            # __annotations__ threw NameError and there is no __annotate__.
+            # In that case,
+            # we fall back to trying __annotations__ again.
+            ann = _get_dunder_annotations(obj)
+
+        if ann is None:
+            if isinstance(obj, type) or callable(obj):
+                return {}
+            raise TypeError(f"{obj!r} does not have annotations")
+
+        if not ann:
+            return {}
+
+        return dict(ann)
+
+    def get_annotations(obj: Any) -> Mapping[str, Any]:
+        # FORWARDREF has the effect of giving us ForwardRefs and not
+        # actually trying to evaluate the annotations.  We need this so
+        # that the annotations act as much like
+        # "from __future__ import annotations" as possible, which is going
+        # away in future python as a separate mode
+        return _vendored_get_annotations(obj, format=Format.FORWARDREF)
+
+elif compat.py310:
 
     def get_annotations(obj: Any) -> Mapping[str, Any]:
         return inspect.get_annotations(obj)
@@ -87,9 +164,9 @@ else:
 
 def md5_hex(x: Any) -> str:
     x = x.encode("utf-8")
-    m = hashlib.md5()
+    m = compat.md5_not_for_security()
     m.update(x)
-    return m.hexdigest()
+    return cast(str, m.hexdigest())
 
 
 class safe_reraise:
@@ -175,10 +252,11 @@ def string_or_unprintable(element: Any) -> str:
             return "unprintable element %r" % element
 
 
-def clsname_as_plain_name(cls: Type[Any]) -> str:
-    return " ".join(
-        n.lower() for n in re.findall(r"([A-Z][a-z]+|SQL)", cls.__name__)
-    )
+def clsname_as_plain_name(
+    cls: Type[Any], use_name: Optional[str] = None
+) -> str:
+    name = use_name or cls.__name__
+    return " ".join(n.lower() for n in re.findall(r"([A-Z][a-z]+|SQL)", name))
 
 
 def method_is_overridden(
@@ -250,10 +328,30 @@ def decorator(target: Callable[..., Any]) -> Callable[[_Fn], _Fn]:
         if not inspect.isfunction(fn) and not inspect.ismethod(fn):
             raise Exception("not a decoratable function")
 
-        spec = compat.inspect_getfullargspec(fn)
-        env: Dict[str, Any] = {}
+        # Python 3.14 defer creating __annotations__ until its used.
+        # We do not want to create __annotations__ now.
+        annofunc = getattr(fn, "__annotate__", None)
+        if annofunc is not None:
+            fn.__annotate__ = None  # type: ignore[union-attr]
+            try:
+                spec = compat.inspect_getfullargspec(fn)
+            finally:
+                fn.__annotate__ = annofunc  # type: ignore[union-attr]
+        else:
+            spec = compat.inspect_getfullargspec(fn)
 
-        spec = _update_argspec_defaults_into_env(spec, env)
+        # Do not generate code for annotations.
+        # update_wrapper() copies the annotation from fn to decorated.
+        # We use dummy defaults for code generation to avoid having
+        # copy of large globals for compiling.
+        # We copy __defaults__ and __kwdefaults__ from fn to decorated.
+        empty_defaults = (None,) * len(spec.defaults or ())
+        empty_kwdefaults = dict.fromkeys(spec.kwonlydefaults or ())
+        spec = spec._replace(
+            annotations={},
+            defaults=empty_defaults,
+            kwonlydefaults=empty_kwdefaults,
+        )
 
         names = (
             tuple(cast("Tuple[str, ...]", spec[0]))
@@ -266,6 +364,13 @@ def decorator(target: Callable[..., Any]) -> Callable[[_Fn], _Fn]:
         metadata.update(format_argspec_plus(spec, grouped=False))
         metadata["name"] = fn.__name__
 
+        if inspect.iscoroutinefunction(fn):
+            metadata["prefix"] = "async "
+            metadata["target_prefix"] = "await "
+        else:
+            metadata["prefix"] = ""
+            metadata["target_prefix"] = ""
+
         # look for __ positional arguments.  This is a convention in
         # SQLAlchemy that arguments should be passed positionally
         # rather than as keyword
@@ -277,52 +382,35 @@ def decorator(target: Callable[..., Any]) -> Callable[[_Fn], _Fn]:
         if "__" in repr(spec[0]):
             code = (
                 """\
-def %(name)s%(grouped_args)s:
-    return %(target)s(%(fn)s, %(apply_pos)s)
+%(prefix)sdef %(name)s%(grouped_args)s:
+    return %(target_prefix)s%(target)s(%(fn)s, %(apply_pos)s)
 """
                 % metadata
             )
         else:
             code = (
                 """\
-def %(name)s%(grouped_args)s:
-    return %(target)s(%(fn)s, %(apply_kw)s)
+%(prefix)sdef %(name)s%(grouped_args)s:
+    return %(target_prefix)s%(target)s(%(fn)s, %(apply_kw)s)
 """
                 % metadata
             )
-        env.update({targ_name: target, fn_name: fn, "__name__": fn.__module__})
+
+        env: Dict[str, Any] = {
+            targ_name: target,
+            fn_name: fn,
+            "__name__": fn.__module__,
+        }
 
         decorated = cast(
             types.FunctionType,
             _exec_code_in_env(code, env, fn.__name__),
         )
-        decorated.__defaults__ = getattr(fn, "__func__", fn).__defaults__
+        decorated.__defaults__ = fn.__defaults__
+        decorated.__kwdefaults__ = fn.__kwdefaults__  # type: ignore
+        return update_wrapper(decorated, fn)  # type: ignore[return-value]
 
-        decorated.__wrapped__ = fn  # type: ignore
-        return cast(_Fn, update_wrapper(decorated, fn))
-
-    return update_wrapper(decorate, target)
-
-
-def _update_argspec_defaults_into_env(spec, env):
-    """given a FullArgSpec, convert defaults to be symbol names in an env."""
-
-    if spec.defaults:
-        new_defaults = []
-        i = 0
-        for arg in spec.defaults:
-            if type(arg).__module__ not in ("builtins", "__builtin__"):
-                name = "x%d" % i
-                env[name] = arg
-                new_defaults.append(name)
-                i += 1
-            else:
-                new_defaults.append(arg)
-        elem = list(spec)
-        elem[3] = tuple(new_defaults)
-        return compat.FullArgSpec(*elem)
-    else:
-        return spec
+    return update_wrapper(decorate, target)  # type: ignore[return-value]
 
 
 def _exec_code_in_env(
@@ -375,6 +463,9 @@ class PluginLoader:
 
         self.impls[name] = load
 
+    def deregister(self, name: str) -> None:
+        del self.impls[name]
+
 
 def _inspect_func_args(fn):
     try:
@@ -402,15 +493,13 @@ def get_cls_kwargs(
     *,
     _set: Optional[Set[str]] = None,
     raiseerr: Literal[True] = ...,
-) -> Set[str]:
-    ...
+) -> Set[str]: ...
 
 
 @overload
 def get_cls_kwargs(
     cls: type, *, _set: Optional[Set[str]] = None, raiseerr: bool = False
-) -> Optional[Set[str]]:
-    ...
+) -> Optional[Set[str]]: ...
 
 
 def get_cls_kwargs(
@@ -523,12 +612,10 @@ def get_callable_argspec(
             fn.__init__, no_self=no_self, _is_init=True
         )
     elif hasattr(fn, "__func__"):
-        return compat.inspect_getfullargspec(fn.__func__)  # type: ignore[attr-defined] # noqa: E501
+        return compat.inspect_getfullargspec(fn.__func__)
     elif hasattr(fn, "__call__"):
-        if inspect.ismethod(fn.__call__):  # type: ignore [operator]
-            return get_callable_argspec(
-                fn.__call__, no_self=no_self  # type: ignore [operator]
-            )
+        if inspect.ismethod(fn.__call__):
+            return get_callable_argspec(fn.__call__, no_self=no_self)
         else:
             raise TypeError("Can't inspect callable: %s" % fn)
     else:
@@ -656,7 +743,9 @@ def format_argspec_init(method, grouped=True):
     """format_argspec_plus with considerations for typical __init__ methods
 
     Wraps format_argspec_plus with error handling strategies for typical
-    __init__ cases::
+    __init__ cases:
+
+    .. sourcecode:: text
 
       object.__init__ -> (self)
       other unreflectable (usually C) -> (self, *args, **kwargs)
@@ -690,6 +779,7 @@ def create_proxy_methods(
     classmethods: Sequence[str] = (),
     methods: Sequence[str] = (),
     attributes: Sequence[str] = (),
+    use_intermediate_variable: Sequence[str] = (),
 ) -> Callable[[_T], _T]:
     """A class decorator indicating attributes should refer to a proxy
     class.
@@ -710,7 +800,9 @@ def create_proxy_methods(
 def getargspec_init(method):
     """inspect.getargspec with considerations for typical __init__ methods
 
-    Wraps inspect.getargspec with error handling for typical __init__ cases::
+    Wraps inspect.getargspec with error handling for typical __init__ cases:
+
+    .. sourcecode:: text
 
       object.__init__ -> (self)
       other unreflectable (usually C) -> (self, *args, **kwargs)
@@ -1079,28 +1171,24 @@ class generic_fn_descriptor(Generic[_T_co]):
     __name__: str
 
     def __init__(self, fget: Callable[..., _T_co], doc: Optional[str] = None):
-        self.fget = fget  # type: ignore[assignment]
+        self.fget = fget
         self.__doc__ = doc or fget.__doc__
         self.__name__ = fget.__name__
 
     @overload
-    def __get__(self: _GFD, obj: None, cls: Any) -> _GFD:
-        ...
+    def __get__(self: _GFD, obj: None, cls: Any) -> _GFD: ...
 
     @overload
-    def __get__(self, obj: object, cls: Any) -> _T_co:
-        ...
+    def __get__(self, obj: object, cls: Any) -> _T_co: ...
 
     def __get__(self: _GFD, obj: Any, cls: Any) -> Union[_GFD, _T_co]:
         raise NotImplementedError()
 
     if TYPE_CHECKING:
 
-        def __set__(self, instance: Any, value: Any) -> None:
-            ...
+        def __set__(self, instance: Any, value: Any) -> None: ...
 
-        def __delete__(self, instance: Any) -> None:
-            ...
+        def __delete__(self, instance: Any) -> None: ...
 
     def _reset(self, obj: Any) -> None:
         raise NotImplementedError()
@@ -1158,7 +1246,6 @@ class _memoized_property(generic_fn_descriptor[_T_co]):
 # additional issues, RO properties:
 # https://github.com/python/mypy/issues/12440
 if TYPE_CHECKING:
-
     # allow memoized and non-memoized to be freely mixed by having them
     # be the same class
     memoized_property = generic_fn_descriptor
@@ -1235,18 +1322,15 @@ class HasMemoized:
         __name__: str
 
         def __init__(self, fget: Callable[..., _T], doc: Optional[str] = None):
-            # https://github.com/python/mypy/issues/708
-            self.fget = fget  # type: ignore
+            self.fget = fget
             self.__doc__ = doc or fget.__doc__
             self.__name__ = fget.__name__
 
         @overload
-        def __get__(self: _MA, obj: None, cls: Any) -> _MA:
-            ...
+        def __get__(self: _MA, obj: None, cls: Any) -> _MA: ...
 
         @overload
-        def __get__(self, obj: Any, cls: Any) -> _T:
-            ...
+        def __get__(self, obj: Any, cls: Any) -> _T: ...
 
         def __get__(self, obj, cls):
             if obj is None:
@@ -1290,6 +1374,9 @@ class MemoizedSlots:
     This allows the functionality of memoized_property and
     memoized_instancemethod to be available to a class using __slots__.
 
+    The memoized get is not threadsafe under freethreading and the
+    creator method may in extremely rare cases be called more than once.
+
     """
 
     __slots__ = ()
@@ -1310,20 +1397,20 @@ class MemoizedSlots:
             setattr(self, key, value)
             return value
         elif hasattr(self.__class__, f"_memoized_method_{key}"):
-            fn = getattr(self, f"_memoized_method_{key}")
+            meth = getattr(self, f"_memoized_method_{key}")
 
             def oneshot(*args, **kw):
-                result = fn(*args, **kw)
+                result = meth(*args, **kw)
 
                 def memo(*a, **kw):
                     return result
 
-                memo.__name__ = fn.__name__
-                memo.__doc__ = fn.__doc__
+                memo.__name__ = meth.__name__
+                memo.__doc__ = meth.__doc__
                 setattr(self, key, memo)
                 return result
 
-            oneshot.__doc__ = fn.__doc__
+            oneshot.__doc__ = meth.__doc__
             return oneshot
         else:
             return self._fallback_getattr(key)
@@ -1474,7 +1561,7 @@ def assert_arg_type(
         if isinstance(argtype, tuple):
             raise exc.ArgumentError(
                 "Argument '%s' is expected to be one of type %s, got '%s'"
-                % (name, " or ".join("'%s'" % a for a in argtype), type(arg))  # type: ignore  # noqa: E501
+                % (name, " or ".join("'%s'" % a for a in argtype), type(arg))
             )
         else:
             raise exc.ArgumentError(
@@ -1525,7 +1612,7 @@ class classproperty(property):
         self.__doc__ = fget.__doc__
 
     def __get__(self, obj: Any, cls: Optional[type] = None) -> Any:
-        return self.fget(cls)  # type: ignore
+        return self.fget(cls)
 
 
 class hybridproperty(Generic[_T]):
@@ -1592,9 +1679,9 @@ class hybridmethod(Generic[_T]):
 class symbol(int):
     """A constant symbol.
 
-    >>> symbol('foo') is symbol('foo')
+    >>> symbol("foo") is symbol("foo")
     True
-    >>> symbol('foo')
+    >>> symbol("foo")
     <symbol 'foo>
 
     A slight refinement of the MAGICCOOKIE=object() pattern.  The primary
@@ -1634,7 +1721,7 @@ class symbol(int):
             else:
                 if canonical and canonical != sym:
                     raise TypeError(
-                        f"Can't replace canonical symbol for {name} "
+                        f"Can't replace canonical symbol for {name!r} "
                         f"with new int value {canonical}"
                     )
             return sym
@@ -1660,6 +1747,8 @@ class _IntFlagMeta(type):
         items: List[symbol]
         cls._items = items = []
         for k, v in dict_.items():
+            if re.match(r"^__.*__$", k):
+                continue
             if isinstance(v, int):
                 sym = symbol(k, canonical=v)
             elif not k.startswith("_"):
@@ -1847,7 +1936,6 @@ def _warnings_warn(
     category: Optional[Type[Warning]] = None,
     stacklevel: int = 2,
 ) -> None:
-
     # adjust the given stacklevel to be outside of SQLAlchemy
     try:
         frame = sys._getframe(stacklevel)
@@ -1954,10 +2042,13 @@ NoneType = type(None)
 
 
 def attrsetter(attrname):
-    code = "def set(obj, value):" "    obj.%s = value" % attrname
+    code = "def set(obj, value):    obj.%s = value" % attrname
     env = locals().copy()
     exec(code, env)
     return env["set"]
+
+
+_dunders = re.compile("^__.+__$")
 
 
 class TypingOnly:
@@ -1970,15 +2061,9 @@ class TypingOnly:
 
     def __init_subclass__(cls) -> None:
         if TypingOnly in cls.__bases__:
-            remaining = set(cls.__dict__).difference(
-                {
-                    "__module__",
-                    "__doc__",
-                    "__slots__",
-                    "__orig_bases__",
-                    "__annotations__",
-                }
-            )
+            remaining = {
+                name for name in cls.__dict__ if not _dunders.match(name)
+            }
             if remaining:
                 raise AssertionError(
                     f"Class {cls} directly inherits TypingOnly but has "
@@ -2211,3 +2296,11 @@ def has_compiled_ext(raise_=False):
         )
     else:
         return False
+
+
+class _Missing(enum.Enum):
+    Missing = enum.auto()
+
+
+Missing = _Missing.Missing
+MissingOr = Union[_T, Literal[_Missing.Missing]]

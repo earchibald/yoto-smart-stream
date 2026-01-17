@@ -1,17 +1,23 @@
 from __future__ import annotations
 
+__all__ = (
+    "EventLoopToken",
+    "RunvarToken",
+    "RunVar",
+    "checkpoint",
+    "checkpoint_if_cancelled",
+    "cancel_shielded_checkpoint",
+    "current_token",
+)
+
 import enum
-import sys
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar, overload
+from types import TracebackType
+from typing import Any, Generic, Literal, TypeVar, final, overload
 from weakref import WeakKeyDictionary
 
-from ._core._eventloop import get_asynclib
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
+from ._core._eventloop import get_async_backend
+from .abc import AsyncBackend
 
 T = TypeVar("T")
 D = TypeVar("D")
@@ -26,11 +32,10 @@ async def checkpoint() -> None:
         await checkpoint_if_cancelled()
         await cancel_shielded_checkpoint()
 
-
     .. versionadded:: 3.0
 
     """
-    await get_asynclib().checkpoint()
+    await get_async_backend().checkpoint()
 
 
 async def checkpoint_if_cancelled() -> None:
@@ -42,7 +47,7 @@ async def checkpoint_if_cancelled() -> None:
     .. versionadded:: 3.0
 
     """
-    await get_asynclib().checkpoint_if_cancelled()
+    await get_async_backend().checkpoint_if_cancelled()
 
 
 async def cancel_shielded_checkpoint() -> None:
@@ -54,26 +59,42 @@ async def cancel_shielded_checkpoint() -> None:
         with CancelScope(shield=True):
             await checkpoint()
 
-
     .. versionadded:: 3.0
 
     """
-    await get_asynclib().cancel_shielded_checkpoint()
+    await get_async_backend().cancel_shielded_checkpoint()
 
 
-def current_token() -> object:
-    """Return a backend specific token object that can be used to get back to the event loop."""
-    return get_asynclib().current_token()
+@final
+@dataclass(frozen=True, repr=False)
+class EventLoopToken:
+    """
+    An opaque object that holds a reference to an event loop.
+
+    .. versionadded:: 4.11.0
+    """
+
+    backend_class: type[AsyncBackend]
+    native_token: object
 
 
-_run_vars: WeakKeyDictionary[Any, dict[str, Any]] = WeakKeyDictionary()
-_token_wrappers: dict[Any, _TokenWrapper] = {}
+def current_token() -> EventLoopToken:
+    """
+    Return a token object that can be used to call code in the current event loop from
+    another thread.
+
+    :raises NoEventLoopError: if no supported asynchronous event loop is running in the
+        current thread
+
+    .. versionadded:: 4.11.0
+
+    """
+    backend_class = get_async_backend()
+    raw_token = backend_class.current_token()
+    return EventLoopToken(backend_class, raw_token)
 
 
-@dataclass(frozen=True)
-class _TokenWrapper:
-    __slots__ = "_token", "__weakref__"
-    _token: object
+_run_vars: WeakKeyDictionary[object, dict[RunVar[Any], Any]] = WeakKeyDictionary()
 
 
 class _NoValueSet(enum.Enum):
@@ -88,55 +109,56 @@ class RunvarToken(Generic[T]):
         self._value: T | Literal[_NoValueSet.NO_VALUE_SET] = value
         self._redeemed = False
 
+    def __enter__(self) -> RunvarToken[T]:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self._var.reset(self)
+
 
 class RunVar(Generic[T]):
     """
     Like a :class:`~contextvars.ContextVar`, except scoped to the running event loop.
+
+    Can be used as a context manager, Just like :class:`~contextvars.ContextVar`, that
+    will reset the variable to its previous value when the context block is exited.
     """
 
     __slots__ = "_name", "_default"
 
     NO_VALUE_SET: Literal[_NoValueSet.NO_VALUE_SET] = _NoValueSet.NO_VALUE_SET
 
-    _token_wrappers: set[_TokenWrapper] = set()
-
     def __init__(
-        self,
-        name: str,
-        default: T | Literal[_NoValueSet.NO_VALUE_SET] = NO_VALUE_SET,
+        self, name: str, default: T | Literal[_NoValueSet.NO_VALUE_SET] = NO_VALUE_SET
     ):
         self._name = name
         self._default = default
 
     @property
-    def _current_vars(self) -> dict[str, T]:
-        token = current_token()
-        while True:
-            try:
-                return _run_vars[token]
-            except TypeError:
-                # Happens when token isn't weak referable (TrioToken).
-                # This workaround does mean that some memory will leak on Trio until the problem
-                # is fixed on their end.
-                token = _TokenWrapper(token)
-                self._token_wrappers.add(token)
-            except KeyError:
-                run_vars = _run_vars[token] = {}
-                return run_vars
+    def _current_vars(self) -> dict[RunVar[T], T]:
+        native_token = current_token().native_token
+        try:
+            return _run_vars[native_token]
+        except KeyError:
+            run_vars = _run_vars[native_token] = {}
+            return run_vars
 
     @overload
-    def get(self, default: D) -> T | D:
-        ...
+    def get(self, default: D) -> T | D: ...
 
     @overload
-    def get(self) -> T:
-        ...
+    def get(self) -> T: ...
 
     def get(
         self, default: D | Literal[_NoValueSet.NO_VALUE_SET] = NO_VALUE_SET
     ) -> T | D:
         try:
-            return self._current_vars[self._name]
+            return self._current_vars[self]
         except KeyError:
             if default is not RunVar.NO_VALUE_SET:
                 return default
@@ -149,8 +171,8 @@ class RunVar(Generic[T]):
 
     def set(self, value: T) -> RunvarToken[T]:
         current_vars = self._current_vars
-        token = RunvarToken(self, current_vars.get(self._name, RunVar.NO_VALUE_SET))
-        current_vars[self._name] = value
+        token = RunvarToken(self, current_vars.get(self, RunVar.NO_VALUE_SET))
+        current_vars[self] = value
         return token
 
     def reset(self, token: RunvarToken[T]) -> None:
@@ -162,11 +184,11 @@ class RunVar(Generic[T]):
 
         if token._value is _NoValueSet.NO_VALUE_SET:
             try:
-                del self._current_vars[self._name]
+                del self._current_vars[self]
             except KeyError:
                 pass
         else:
-            self._current_vars[self._name] = token._value
+            self._current_vars[self] = token._value
 
         token._redeemed = True
 

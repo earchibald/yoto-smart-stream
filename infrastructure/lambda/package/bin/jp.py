@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3.12
+#!/Users/earchibald/mambaforge/envs/quo/bin/python3.10
 
 import sys
 import json
