@@ -36,7 +36,7 @@ Yoto Smart Stream is a FastAPI-based web service that provides:
 - **Backend**: Python 3.9+ with FastAPI (async/await)
 - **Yoto API Client**: yoto_api library (https://github.com/cdnninja/yoto_api)
 - **MQTT**: Real-time device events via AWS IoT Core (through yoto_api)
-- **Database**: SQLite with persistent storage
+- **Database**: DynamoDB in AWS deployments; SQLite for local development only
 - **Audio Processing**: pydub with FFmpeg, optional Whisper transcription
 - **Deployment**: AWS Lambda + API Gateway (CloudFront optional in prod)
 
@@ -122,6 +122,12 @@ OAuth authorization flow is required for Yoto device access:
 - Async request handling
 - Route modules: cards, players, library, admin, auth
 - Dependency injection for YotoClient and database
+
+**Persistence (AWS-first)**:
+- DynamoDB table `yoto-smart-stream-{env}` with composite keys (`PK`, `SK`)
+- Users stored as `PK=USER#{username}`, `SK=PROFILE`; audio metadata as `PK=AUDIO#{filename}`, `SK=METADATA`
+- Set `DYNAMODB_TABLE` (CDK injects) to activate; `AWS_REGION`/`AWS_DEFAULT_REGION` picked up automatically
+- SQLite remains for local-only dev; Lambda runs fully on DynamoDB
 
 ### Audio Streaming Architecture
 

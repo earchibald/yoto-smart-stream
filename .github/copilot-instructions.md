@@ -2,6 +2,7 @@
 
 ## RULES
 - Follow the instructions in this file when generating code or suggestions.
+- ALWAYS FOLLOW THE [STANDARD WORKFLOW](#standard-workflow) outlined below.
 - If there are conflicting instructions between this file and any other documentation, prioritize the instructions in this file.
 - If you are unsure about any instruction, ask for clarification before proceeding.
 - ALWAYS and ONLY test against AWS services and never against local mocks or emulators.
@@ -32,12 +33,13 @@ source cdk_venv/bin/activate
      - MINOR for backward-compatible functionality
      - PATCH for backward-compatible bug fixes
      - +BUILD for build metadata. Release versions will omit this.
-
 1. Perform a **targeted** commit with a descriptive message.
 1. Push changes to the appropriate branch.
 1. Deploy to AWS using the established deployment process and the `cdk` commands below.
     a. If `cdk` is not installed, install it via `npm install -g aws-cdk`.
 1. Test thoroughly in the AWS environment. Ensure that we are seeing the current deployed version from step 7 in the web UI footer.
+  1. Always use the Playwright MCP for web UI testing. If the Playwright MCP is not available. **DO NOT** proceed with web UI testing until it is available. **DO NOT** use pytest, or python-driven tests for web UI testing.
+  1. It is OK to use curl for API endpoint testing.
 1. If there are errors, return to step 1. Otherwise, proceed to step 13.
 1. Once tests pass, report with a one-line summary of the fix or feature added and the deployed endpoint details (if applicable).
 1. Once the task is successfully completed, proceed to the "Locally-Maintained Skills" section.

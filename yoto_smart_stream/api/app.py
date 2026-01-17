@@ -9,6 +9,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+import os
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,55 +81,70 @@ async def lifespan(app: FastAPI):
     """
     settings = get_settings()
 
-    # Initialize database
-    logger.info("Initializing database...")
-    logger.info(f"Database URL: {settings.database_url}")
-    init_db()
-    
-    # Create default admin user if it doesn't exist
-    from ..auth import get_password_hash
-    from ..database import SessionLocal
-    from ..models import User
-    
-    db = SessionLocal()
-    try:
-        # Count existing users
-        user_count = db.query(User).count()
-        logger.info(f"Current user count in database: {user_count}")
+    use_dynamo = bool(settings.dynamodb_table or os.environ.get("DYNAMODB_TABLE"))
+
+    if use_dynamo:
+        logger.info("Initializing DynamoDB store...")
+        from ..auth import get_password_hash
+        from ..storage.dynamodb_store import get_store
+
+        store = get_store(settings.dynamodb_table, region_name=settings.dynamodb_region)
+        admin = store.ensure_admin_user(
+            hashed_password=get_password_hash("yoto"),
+            email="eugenearchibald@gmail.com",
+        )
+        logger.info("✓ DynamoDB admin bootstrap complete")
+    elif settings.database_url:
+        logger.info("Initializing database...")
+        logger.info(f"Database URL: {settings.database_url}")
+        init_db()
         
-        admin_user = db.query(User).filter(User.username == "admin").first()
-        if not admin_user:
-            try:
-                # Hash password with error details
-                logger.info("Hashing default password...")
-                hashed = get_password_hash("yoto")
-                logger.info(f"Password hash generated successfully (length: {len(hashed)} bytes)")
-                
-                admin_user = User(
-                    username="admin",
-                    email="eugenearchibald@gmail.com",
-                    hashed_password=hashed,
-                    is_active=True,
-                    is_admin=True
-                )
-                logger.info("User object created, committing to database...")
-                db.add(admin_user)
-                db.commit()
-                logger.info("✓ Default admin user created (username: admin, password: yoto)")
-            except Exception as hash_err:
-                logger.error(f"Error during user creation: {hash_err}")
-                import traceback
-                logger.error(traceback.format_exc())
-                db.rollback()
-                raise
-        else:
-            logger.info(f"✓ Admin user already exists (id: {admin_user.id}, active: {admin_user.is_active})")
-    except Exception as e:
-        logger.error(f"Failed to create admin user: {e}")
-        logger.error(f"Database URL was: {settings.database_url}")
-        db.rollback()
-    finally:
-        db.close()
+        # Create default admin user if it doesn't exist
+        from ..auth import get_password_hash
+        from ..database import SessionLocal
+        from ..models import User
+        
+        db = SessionLocal()
+        try:
+            # Count existing users
+            user_count = db.query(User).count()
+            logger.info(f"Current user count in database: {user_count}")
+            
+            admin_user = db.query(User).filter(User.username == "admin").first()
+            if not admin_user:
+                try:
+                    # Hash password with error details
+                    logger.info("Hashing default password...")
+                    hashed = get_password_hash("yoto")
+                    logger.info(f"Password hash generated successfully (length: {len(hashed)} bytes)")
+                    
+                    admin_user = User(
+                        username="admin",
+                        email="eugenearchibald@gmail.com",
+                        hashed_password=hashed,
+                        is_active=True,
+                        is_admin=True
+                    )
+                    logger.info("User object created, committing to database...")
+                    db.add(admin_user)
+                    db.commit()
+                    logger.info("✓ Default admin user created (username: admin, password: yoto)")
+                except Exception as hash_err:
+                    logger.error(f"Error during user creation: {hash_err}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    db.rollback()
+                    raise
+            else:
+                logger.info(f"✓ Admin user already exists (id: {admin_user.id}, active: {admin_user.is_active})")
+        except Exception as e:
+            logger.error(f"Failed to create admin user: {e}")
+            logger.error(f"Database URL was: {settings.database_url}")
+            db.rollback()
+        finally:
+            db.close()
+    else:
+        logger.info("Skipping database initialization and admin bootstrap (database_url not configured)")
 
     # Wait for Railway shared variables to initialize if configured
     # This helps when Railway shared variables take time to load at startup

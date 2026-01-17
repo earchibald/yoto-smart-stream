@@ -7,12 +7,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 from ...config import get_settings
 from ...core import YotoClient
-from ...database import get_db
-from ...models import User
+from ...storage.dynamodb_store import DynamoStore, UserRecord, get_store
 from ..dependencies import get_yoto_client, set_yoto_client
 
 logger = logging.getLogger(__name__)
@@ -20,10 +18,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def get_store_dep() -> DynamoStore:
+    settings = get_settings()
+    return get_store(settings.dynamodb_table, region_name=settings.dynamodb_region)
+
+
 def get_current_user_optional(
     session_token: Optional[str] = Cookie(None, alias="session"),
-    db: Session = Depends(get_db)
-) -> Optional[User]:
+    store: DynamoStore = Depends(get_store_dep)
+) -> Optional[UserRecord]:
     """
     Get current user from session cookie (optional, doesn't raise error if not authenticated).
     
@@ -47,7 +50,7 @@ def get_current_user_optional(
     if not username:
         return None
     
-    user = db.query(User).filter(User.username == username).first()
+    user = store.get_user(username)
     if not user or not user.is_active:
         return None
     
@@ -189,8 +192,8 @@ async def start_auth_flow():
 @router.post("/auth/poll", response_model=AuthPollResponse)
 async def poll_auth_status(
     poll_request: AuthPollRequest,
-    db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional)
+    store: DynamoStore = Depends(get_store_dep),
+    current_user: Optional[UserRecord] = Depends(get_current_user_optional)
 ):
     """
     Poll for authentication completion.
@@ -250,15 +253,15 @@ async def poll_auth_status(
             # Save tokens to database for the current user
             if current_user:
                 try:
-                    current_user.yoto_access_token = client.manager.token.access_token
-                    current_user.yoto_refresh_token = client.manager.token.refresh_token
-                    if hasattr(client.manager.token, 'expires_at'):
-                        current_user.yoto_token_expires_at = client.manager.token.expires_at
-                    db.commit()
-                    logger.info(f"Yoto tokens saved to database for user: {current_user.username}")
+                    store.set_user_tokens(
+                        username=current_user.username,
+                        access_token=client.manager.token.access_token,
+                        refresh_token=client.manager.token.refresh_token,
+                        expires_at=getattr(client.manager.token, "expires_at", None),
+                    )
+                    logger.info(f"Yoto tokens saved to DynamoDB for user: {current_user.username}")
                 except Exception as e:
-                    logger.error(f"Failed to save tokens to database: {e}")
-                    db.rollback()
+                    logger.error(f"Failed to save tokens to DynamoDB: {e}")
         else:
             logger.error("No refresh token available after authentication!")
 

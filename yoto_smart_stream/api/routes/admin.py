@@ -6,12 +6,11 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy.orm import Session
 
 from ...auth import get_password_hash
 from ...auth_cognito import get_cognito_auth
-from ...database import get_db
-from ...models import User
+from ...config import get_settings
+from ...storage.dynamodb_store import DynamoStore, UserRecord, get_store
 from .user_auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -68,7 +67,12 @@ class UpdateUserResponse(BaseModel):
     user: Optional[UserResponse] = None
 
 
-def require_admin(user: User = Depends(get_current_user)) -> User:
+def get_store_dep() -> DynamoStore:
+    settings = get_settings()
+    return get_store(settings.dynamodb_table, region_name=settings.dynamodb_region)
+
+
+def require_admin(user: UserRecord = Depends(get_current_user)) -> UserRecord:
     """
     Dependency that requires admin authentication.
     
@@ -96,8 +100,8 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
 
 @router.get("/admin/users", response_model=List[UserResponse])
 async def list_users(
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db)
+    admin: UserRecord = Depends(require_admin),
+    store: DynamoStore = Depends(get_store_dep)
 ):
     """
     List all users (admin only).
@@ -111,11 +115,11 @@ async def list_users(
     """
     logger.info(f"Admin {admin.username} listing all users")
     
-    users = db.query(User).all()
+    users = store.list_users()
     
     return [
         UserResponse(
-            id=user.id,
+            id=user.user_id,
             username=user.username,
             email=user.email,
             is_active=user.is_active,
@@ -129,8 +133,8 @@ async def list_users(
 @router.post("/admin/users", response_model=CreateUserResponse)
 async def create_user(
     user_data: CreateUserRequest,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db)
+    admin: UserRecord = Depends(require_admin),
+    store: DynamoStore = Depends(get_store_dep)
 ):
     """
     Create a new user (admin only).
@@ -170,7 +174,7 @@ async def create_user(
             logger.info(f"✓ User created in Cognito: {user_data.username}")
     
     # Check if username already exists in local database
-    existing_user = db.query(User).filter(User.username == user_data.username).first()
+    existing_user = store.get_user(user_data.username)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -181,35 +185,29 @@ async def create_user(
     hashed_password = get_password_hash(user_data.password)
     
     # Create new user (non-admin by default)
-    new_user = User(
-        username=user_data.username,
-        email=user_data.email,
-        hashed_password=hashed_password,
-        is_active=True,
-        is_admin=False  # New users are not admins
-    )
-    
     try:
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        
-        logger.info(f"✓ User created successfully: {new_user.username} (id: {new_user.id})")
-        
+        created = store.create_user(
+            username=user_data.username,
+            hashed_password=hashed_password,
+            email=user_data.email,
+            is_admin=False,
+        )
+
+        logger.info(f"✓ User created successfully: {created.username} (id: {created.user_id})")
+
         return CreateUserResponse(
             success=True,
-            message=f"User '{new_user.username}' created successfully",
+            message=f"User '{created.username}' created successfully",
             user=UserResponse(
-                id=new_user.id,
-                username=new_user.username,
-                email=new_user.email,
-                is_active=new_user.is_active,
-                is_admin=new_user.is_admin,
-                created_at=new_user.created_at.isoformat()
+                id=created.user_id,
+                username=created.username,
+                email=created.email,
+                is_active=created.is_active,
+                is_admin=created.is_admin,
+                created_at=created.created_at.isoformat()
             )
         )
     except Exception as e:
-        db.rollback()
         logger.error(f"Failed to create user: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -221,8 +219,8 @@ async def create_user(
 async def update_user(
     user_id: int,
     update_data: UpdateUserRequest,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db)
+    admin: UserRecord = Depends(require_admin),
+    store: DynamoStore = Depends(get_store_dep)
 ):
     """
     Update an existing user's email and/or password (admin only).
@@ -249,7 +247,7 @@ async def update_user(
         )
     
     # Get the user
-    user = db.query(User).filter(User.id == user_id).first()
+    user = store.get_user_by_id(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -277,27 +275,34 @@ async def update_user(
             user.hashed_password = get_password_hash(update_data.password)
             logger.info(f"Updated password for user {user.username}")
         
-        db.commit()
-        db.refresh(user)
-        
-        logger.info(f"✓ User updated successfully: {user.username} (id: {user.id})")
-        
-        return UpdateUserResponse(
-            success=True,
-            message=f"User '{user.username}' updated successfully",
-            user=UserResponse(
-                id=user.id,
-                username=user.username,
-                email=user.email,
-                is_active=user.is_active,
-                is_admin=user.is_admin,
-                created_at=user.created_at.isoformat()
+        try:
+            hashed_password = get_password_hash(update_data.password) if update_data.password else None
+            updated = store.update_user(user_id, email=update_data.email, hashed_password=hashed_password)
+            if not updated:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User with id {user_id} not found"
+                )
+
+            logger.info(f"✓ User updated successfully: {updated.username} (id: {updated.user_id})")
+
+            return UpdateUserResponse(
+                success=True,
+                message=f"User '{updated.username}' updated successfully",
+                user=UserResponse(
+                    id=updated.user_id,
+                    username=updated.username,
+                    email=updated.email,
+                    is_active=updated.is_active,
+                    is_admin=updated.is_admin,
+                    created_at=updated.created_at.isoformat()
+                )
             )
-        )
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to update user: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update user: {str(e)}"
-        )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to update user: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to update user: {str(e)}"
+            )

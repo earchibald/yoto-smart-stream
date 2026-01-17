@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = "Yoto Smart Stream"
-    app_version: str = "0.3.1"
+    app_version: str = "0.3.2+dynamodb"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
     log_full_streams_requests: bool = Field(
@@ -110,6 +110,7 @@ class Settings(BaseSettings):
 
     # Storage settings
     audio_files_dir: Path = Field(default=Path("audio_files"), description="Audio files directory")
+    s3_audio_bucket: Optional[str] = Field(default=None, description="S3 bucket name for audio files")
     
     @field_validator("audio_files_dir", mode="before")
     @classmethod
@@ -122,11 +123,11 @@ class Settings(BaseSettings):
         """
         # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
         railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
-        
+        lambda_env = os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+
         if railway_env:
             # On Railway, use persistent volume at /data/audio_files
             data_dir = Path("/data/audio_files")
-            # Try to create directory if it doesn't exist
             try:
                 data_dir.mkdir(parents=True, exist_ok=True)
             except (PermissionError, OSError) as e:
@@ -134,14 +135,41 @@ class Settings(BaseSettings):
                     f"Could not create {data_dir} during validation (expected in tests): {e}"
                 )
             return data_dir
-        
+
+        if lambda_env:
+            # On Lambda we avoid persisting under the read-only root
+            # Use /tmp for transient cache if needed
+            return Path("/tmp/audio_files")
+
         # Local development - use provided value or default
         if v and str(v) != "audio_files":
             return v if isinstance(v, Path) else Path(v)
         return Path("audio_files")
-    database_url: str = Field(
+    database_url: Optional[str] = Field(
         default="sqlite:///./yoto_smart_stream.db", description="Database connection URL"
     )
+    dynamodb_table: Optional[str] = Field(
+        default=None, description="DynamoDB table name for persistence"
+    )
+    dynamodb_region: Optional[str] = Field(
+        default=None, description="AWS region for DynamoDB operations"
+    )
+    
+    @field_validator("dynamodb_table", mode="before")
+    @classmethod
+    def get_dynamodb_table(cls, v):
+        env_value = os.environ.get("DYNAMODB_TABLE")
+        if env_value:
+            return env_value
+        return v
+    
+    @field_validator("dynamodb_region", mode="before")
+    @classmethod
+    def get_dynamodb_region(cls, v):
+        env_region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+        if env_region:
+            return env_region
+        return v
     
     @field_validator("database_url", mode="before")
     @classmethod
@@ -151,23 +179,24 @@ class Settings(BaseSettings):
         
         Uses /data directory for Railway deployments (persistent volume) with
         environment-specific database names to avoid conflicts between environments.
-        Falls back to local path for development.
+        Falls back to local path for development. If DYNAMODB_TABLE is provided,
+        disable SQLAlchemy by returning None so Lambda avoids SQLite.
         """
+        # Prefer DynamoDB when table is configured
+        if os.environ.get("DYNAMODB_TABLE"):
+            return None
+        
         # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
         railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
         
         if railway_env:
-            # On Railway, use persistent volume at /data with environment-specific name
-            # This prevents different environments from sharing the same database
             data_dir = Path("/data")
-            # Try to create directory if it doesn't exist
             try:
                 data_dir.mkdir(parents=True, exist_ok=True)
             except (PermissionError, OSError) as e:
                 logger.debug(
                     f"Could not create {data_dir} during validation (expected in tests): {e}"
                 )
-            # Use environment name in database filename (e.g., yoto_smart_stream_pr-56.db)
             db_filename = f"yoto_smart_stream_{railway_env}.db"
             return f"sqlite:///{data_dir}/{db_filename}"
         
@@ -218,7 +247,13 @@ class Settings(BaseSettings):
     def __init__(self, **kwargs):
         """Initialize settings and create required directories."""
         super().__init__(**kwargs)
-        self.audio_files_dir.mkdir(exist_ok=True)
+        # Avoid creating directories on Lambda where primary storage is S3
+        is_lambda = os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None
+        try:
+            if not is_lambda:
+                self.audio_files_dir.mkdir(exist_ok=True)
+        except Exception as e:
+            logger.warning(f"Could not create audio_files_dir {self.audio_files_dir}: {e}")
 
 
 # Global settings instance

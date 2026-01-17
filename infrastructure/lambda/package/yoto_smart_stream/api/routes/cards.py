@@ -4,17 +4,19 @@ import asyncio
 import logging
 import os
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from gtts import gTTS
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
+from ...utils.s3 import s3_enabled, object_exists, stream_object, upload_file
 from ..dependencies import get_yoto_client
 from ...database import get_db
 from ...models import User
@@ -128,41 +130,67 @@ async def list_audio_files(user: User = Depends(require_auth), db: Session = Dep
     """
     settings = get_settings()
     audio_files = []
-    
-    # Define static file names
     static_files = {f"{i}.mp3" for i in range(1, 11)}
 
-    for audio_path in settings.audio_files_dir.glob("*.mp3"):
+    if s3_enabled(settings):
         try:
-            # Get duration in seconds using pydub
-            audio = AudioSegment.from_mp3(str(audio_path))
-            duration_seconds = int(len(audio) / 1000)  # Convert milliseconds to seconds
+            import boto3
+            s3 = boto3.client("s3")
+            resp = s3.list_objects_v2(Bucket=settings.s3_audio_bucket)
+            for obj in resp.get("Contents", []):
+                key = obj.get("Key")
+                if not key or not key.lower().endswith(".mp3"):
+                    continue
+
+                # Get transcript info from database
+                from ...core.audio_db import get_audio_file_by_filename
+                audio_record = get_audio_file_by_filename(db, key)
+
+                transcript_info = {
+                    "status": audio_record.transcript_status if audio_record else "pending",
+                    "has_transcript": bool(audio_record and audio_record.transcript),
+                }
+
+                audio_files.append(
+                    {
+                        "filename": key,
+                        "size": obj.get("Size", 0),
+                        "duration": 0,  # Duration unavailable without downloading
+                        "url": f"/api/audio/{key}",
+                        "is_static": key in static_files,
+                        "transcript": transcript_info,
+                    }
+                )
         except Exception as e:
-            logger.warning(f"Could not read duration for {audio_path.name}: {e}")
-            duration_seconds = 0
-        
-        # Check if this is a static file
-        is_static = audio_path.name in static_files
-        
-        # Get transcript info from database
-        from ...core.audio_db import get_audio_file_by_filename
-        audio_record = get_audio_file_by_filename(db, audio_path.name)
-        
-        transcript_info = {
-            "status": audio_record.transcript_status if audio_record else "pending",
-            "has_transcript": bool(audio_record and audio_record.transcript),
-        }
-        
-        audio_files.append(
-            {
-                "filename": audio_path.name,
-                "size": audio_path.stat().st_size,
-                "duration": duration_seconds,
-                "url": f"/api/audio/{audio_path.name}",
-                "is_static": is_static,
-                "transcript": transcript_info,
+            logger.error(f"Failed to list S3 audio files: {e}")
+    else:
+        for audio_path in settings.audio_files_dir.glob("*.mp3"):
+            try:
+                audio = AudioSegment.from_mp3(str(audio_path))
+                duration_seconds = int(len(audio) / 1000)
+            except Exception as e:
+                logger.warning(f"Could not read duration for {audio_path.name}: {e}")
+                duration_seconds = 0
+
+            is_static = audio_path.name in static_files
+            from ...core.audio_db import get_audio_file_by_filename
+            audio_record = get_audio_file_by_filename(db, audio_path.name)
+
+            transcript_info = {
+                "status": audio_record.transcript_status if audio_record else "pending",
+                "has_transcript": bool(audio_record and audio_record.transcript),
             }
-        )
+
+            audio_files.append(
+                {
+                    "filename": audio_path.name,
+                    "size": audio_path.stat().st_size,
+                    "duration": duration_seconds,
+                    "url": f"/api/audio/{audio_path.name}",
+                    "is_static": is_static,
+                    "transcript": transcript_info,
+                }
+            )
 
     return {"files": audio_files, "count": len(audio_files)}
 
@@ -208,14 +236,21 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
 
     # Create final filename with .mp3 extension
     final_filename = f"{sanitized_filename}.mp3"
-    output_path = settings.audio_files_dir / final_filename
-
-    # Check if file already exists
-    if output_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"File '{final_filename}' already exists. Please choose a different name."
-        )
+    use_s3 = s3_enabled(settings)
+    if use_s3:
+        if object_exists(settings.s3_audio_bucket, final_filename):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"File '{final_filename}' already exists in S3. Please choose a different name."
+            )
+        output_path = Path(tempfile.mktemp(suffix=".mp3"))
+    else:
+        output_path = settings.audio_files_dir / final_filename
+        if output_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"File '{final_filename}' already exists. Please choose a different name."
+            )
 
     logger.info(f"Generating TTS audio for: {final_filename}")
 
@@ -246,14 +281,14 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
 
             file_size = output_path.stat().st_size
             duration_seconds = int(len(audio) / 1000)
+
+            if use_s3:
+                upload_file(settings.s3_audio_bucket, final_filename, str(output_path))
             
             logger.info(f"✓ TTS audio generated: {final_filename} ({file_size} bytes, {duration_seconds}s)")
             
-            # Create database record with the source text as transcript
             from ...core.audio_db import get_or_create_audio_file, update_transcript
-            
             audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
-            # Store the original text as the transcript since we already have it
             update_transcript(db, final_filename, request.text, "completed", None)
 
             return {
@@ -270,6 +305,8 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
             # Clean up temporary file
             if os.path.exists(temp_path):
                 os.remove(temp_path)
+            if use_s3 and os.path.exists(output_path):
+                os.remove(output_path)
 
     except Exception as e:
         logger.error(f"Failed to generate TTS audio: {e}", exc_info=True)
@@ -325,14 +362,21 @@ async def upload_audio(
     
     # Create final filename with .mp3 extension
     final_filename = f"{sanitized_filename}.mp3"
-    output_path = settings.audio_files_dir / final_filename
-    
-    # Check if file already exists
-    if output_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"File '{final_filename}' already exists. Please choose a different name."
-        )
+    use_s3 = s3_enabled(settings)
+    if use_s3:
+        if object_exists(settings.s3_audio_bucket, final_filename):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"File '{final_filename}' already exists in S3. Please choose a different name."
+            )
+        output_path = Path(tempfile.mktemp(suffix=".mp3"))
+    else:
+        output_path = settings.audio_files_dir / final_filename
+        if output_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"File '{final_filename}' already exists. Please choose a different name."
+            )
     
     logger.info(f"Uploading audio file: {final_filename} (original: {file.filename})")
     
@@ -369,11 +413,12 @@ async def upload_audio(
         file_size = output_path.stat().st_size
         duration_seconds = int(len(audio) / 1000)
         
+        if use_s3:
+            upload_file(settings.s3_audio_bucket, final_filename, str(output_path))
+
         logger.info(f"✓ Audio uploaded and converted: {final_filename} ({file_size} bytes, {duration_seconds}s)")
         
-        # Create database record
         from ...core.audio_db import get_or_create_audio_file, update_transcript
-
         audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
 
         if settings.transcription_enabled:
@@ -421,6 +466,8 @@ async def upload_audio(
         # Clean up temporary file
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+        if use_s3 and output_path and os.path.exists(output_path):
+            os.remove(output_path)
 
 
 @router.get("/audio/search")
@@ -437,26 +484,43 @@ async def search_audio_files(q: str = "", user: User = Depends(require_auth), db
     audio_files = []
     query = q.lower().strip()
 
-    # Collect all audio files
-    for audio_path in settings.audio_files_dir.glob("*.mp3"):
+    if s3_enabled(settings):
         try:
-            # Get duration using pydub
-            audio = AudioSegment.from_mp3(str(audio_path))
-            duration_seconds = int(len(audio) / 1000)
+            import boto3
+            s3 = boto3.client("s3")
+            resp = s3.list_objects_v2(Bucket=settings.s3_audio_bucket)
+            for obj in resp.get("Contents", []):
+                key = obj.get("Key")
+                if not key or not key.lower().endswith(".mp3"):
+                    continue
+                audio_record = get_audio_file_by_filename(db, key)
+                transcript = audio_record.transcript if audio_record else None
+                audio_files.append({
+                    "filename": key,
+                    "size": obj.get("Size", 0),
+                    "duration": 0,
+                    "transcript": transcript,
+                })
         except Exception as e:
-            logger.warning(f"Could not read duration for {audio_path.name}: {e}")
-            duration_seconds = 0
+            logger.error(f"Failed to search S3 audio files: {e}")
+    else:
+        for audio_path in settings.audio_files_dir.glob("*.mp3"):
+            try:
+                audio = AudioSegment.from_mp3(str(audio_path))
+                duration_seconds = int(len(audio) / 1000)
+            except Exception as e:
+                logger.warning(f"Could not read duration for {audio_path.name}: {e}")
+                duration_seconds = 0
 
-        # Get transcript/metadata from database
-        audio_record = get_audio_file_by_filename(db, audio_path.name)
-        transcript = audio_record.transcript if audio_record else None
+            audio_record = get_audio_file_by_filename(db, audio_path.name)
+            transcript = audio_record.transcript if audio_record else None
 
-        audio_files.append({
-            "filename": audio_path.name,
-            "size": audio_path.stat().st_size,
-            "duration": duration_seconds,
-            "transcript": transcript,
-        })
+            audio_files.append({
+                "filename": audio_path.name,
+                "size": audio_path.stat().st_size,
+                "duration": duration_seconds,
+                "transcript": transcript,
+            })
 
     # Simple fuzzy search: match by filename or transcript
     if query:
@@ -497,15 +561,32 @@ async def stream_audio(filename: str):
         Audio file with proper headers for streaming
     """
     settings = get_settings()
+
+    # Determine media type from extension
+    media_type = "audio/mpeg" if filename.endswith(".mp3") else "audio/aac"
+
+    if s3_enabled(settings):
+        if not object_exists(settings.s3_audio_bucket, filename):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Audio file not found: {filename}",
+            )
+
+        return StreamingResponse(
+            stream_object(settings.s3_audio_bucket, filename, 64 * 1024),
+            media_type=media_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600",
+            },
+        )
+
     audio_path = settings.audio_files_dir / filename
 
     if not audio_path.exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file not found: {filename}"
         )
-
-    # Determine media type from extension
-    media_type = "audio/mpeg" if filename.endswith(".mp3") else "audio/aac"
 
     return FileResponse(
         audio_path,
@@ -546,13 +627,20 @@ async def create_streaming_card(request: CreateCardRequest, user: User = Depends
     manager = client.get_manager()
 
     # Verify audio file exists
-    audio_path = settings.audio_files_dir / request.audio_filename
-    if not audio_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Audio file not found: {request.audio_filename}. "
-            f"Add it to {settings.audio_files_dir}/",
-        )
+    if s3_enabled(settings):
+        if not object_exists(settings.s3_audio_bucket, request.audio_filename):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Audio file not found: {request.audio_filename} in S3 bucket {settings.s3_audio_bucket}.",
+            )
+    else:
+        audio_path = settings.audio_files_dir / request.audio_filename
+        if not audio_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Audio file not found: {request.audio_filename}. "
+                f"Add it to {settings.audio_files_dir}/",
+            )
 
     # Check PUBLIC_URL is configured
     if not settings.public_url:

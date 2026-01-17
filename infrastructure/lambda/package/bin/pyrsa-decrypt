@@ -1,8 +1,7 @@
-#!/Users/earchibald/mambaforge/envs/quo/bin/python3.10
-# -*- coding: utf-8 -*-
-import re
+#!/Users/earchibald/work/yoto-smart-stream/cdk_venv/bin/python
 import sys
 from rsa.cli import decrypt
 if __name__ == '__main__':
-    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+    if sys.argv[0].endswith('.exe'):
+        sys.argv[0] = sys.argv[0][:-4]
     sys.exit(decrypt())

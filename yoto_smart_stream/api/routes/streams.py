@@ -1,6 +1,7 @@
 """Dynamic audio streaming endpoints with queue management."""
 
 import logging
+import os
 from typing import List, Optional
 from datetime import datetime
 
@@ -11,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
+from ...utils.s3 import s3_enabled, object_exists, stream_object
 from ...database import get_db
 from ...models import User
 from .user_auth import require_auth
@@ -23,6 +25,12 @@ logger = logging.getLogger(__name__)
 
 # Constants
 STREAM_CHUNK_SIZE = 64 * 1024  # 64KB chunks for streaming
+
+
+async def _async_wrap_generator(generator):
+    """Wrap a sync generator so it can be awaited in async contexts."""
+    for item in generator:
+        yield item
 
 
 # Helper functions
@@ -140,10 +148,15 @@ async def add_files_to_queue(stream_name: str, request: AddFilesRequest, user: U
 
     # Verify all files exist before adding any
     missing_files = []
+    use_s3 = s3_enabled(settings)
     for filename in request.files:
-        audio_path = settings.audio_files_dir / filename
-        if not audio_path.exists():
-            missing_files.append(filename)
+        if use_s3:
+            if not object_exists(settings.s3_audio_bucket, filename):
+                missing_files.append(filename)
+        else:
+            audio_path = settings.audio_files_dir / filename
+            if not audio_path.exists():
+                missing_files.append(filename)
 
     if missing_files:
         raise HTTPException(
@@ -694,17 +707,36 @@ async def generate_sequential_stream(queue_files: List[str], audio_files_dir, pl
         # Default to sequential for unknown modes
         files_to_stream = queue_files
     
+    use_s3 = s3_enabled()
+    s3_bucket = os.environ.get("S3_AUDIO_BUCKET") if use_s3 else None
+
     for filename in files_to_stream:
+        if use_s3:
+            if not s3_bucket:
+                logger.error("S3 bucket not configured; skipping stream")
+                continue
+            if not object_exists(s3_bucket, filename):
+                logger.warning(f"S3 object not found during streaming: {filename}, skipping")
+                continue
+
+            logger.info(f"Streaming file from S3: {filename} (mode: {play_mode})")
+            try:
+                async for chunk in _async_wrap_generator(stream_object(s3_bucket, filename, STREAM_CHUNK_SIZE)):
+                    if not chunk:
+                        break
+                    yield chunk
+            except Exception as e:
+                logger.error(f"Error streaming S3 file {filename}: {e}")
+            continue
+
         audio_path = audio_files_dir / filename
         if not audio_path.exists():
             logger.warning(f"File not found during streaming: {filename}, skipping")
             continue
 
         logger.info(f"Streaming file: {filename} (mode: {play_mode})")
-        
         try:
             with open(audio_path, "rb") as f:
-                # Read and yield in chunks
                 while True:
                     chunk = f.read(STREAM_CHUNK_SIZE)
                     if not chunk:
@@ -712,7 +744,6 @@ async def generate_sequential_stream(queue_files: List[str], audio_files_dir, pl
                     yield chunk
         except Exception as e:
             logger.error(f"Error streaming file {filename}: {e}")
-            # Continue to next file instead of breaking the stream
 
 
 @router.get("/streams/{stream_name}/stream.mp3")

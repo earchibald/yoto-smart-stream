@@ -1,5 +1,12 @@
 # Asset Delivery & Error Handling Fixes - Summary
 
+## Update (2026-01-17) - DynamoDB Persistence Migration
+- Swapped SQLite persistence for DynamoDB when `DYNAMODB_TABLE` is set (Lambda/CDK injects).
+- Added Dynamo-backed user/auth flows (login, admin CRUD, OAuth token storage) and audio metadata/transcript tracking.
+- App startup now bootstraps admin user in DynamoDB; config picks up `DYNAMODB_TABLE`/`AWS_REGION` automatically.
+- Background transcription tasks updated to write transcript status/results into DynamoDB.
+- Follow-up: deploy to `dev`, validate OAuth + S3 flows, and run regression checks.
+
 **Date**: January 17, 2026  
 **Environment**: `dev` (AWS CDK)  
 **Status**: ✅ Deployed and Verified  

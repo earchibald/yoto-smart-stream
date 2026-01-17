@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = "Yoto Smart Stream"
-    app_version: str = "0.2.8"
+    app_version: str = "0.3.1"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
     log_full_streams_requests: bool = Field(
@@ -110,6 +110,7 @@ class Settings(BaseSettings):
 
     # Storage settings
     audio_files_dir: Path = Field(default=Path("audio_files"), description="Audio files directory")
+    s3_audio_bucket: Optional[str] = Field(default=None, description="S3 bucket name for audio files")
     
     @field_validator("audio_files_dir", mode="before")
     @classmethod
@@ -122,11 +123,11 @@ class Settings(BaseSettings):
         """
         # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
         railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
-        
+        lambda_env = os.environ.get("AWS_LAMBDA_FUNCTION_NAME")
+
         if railway_env:
             # On Railway, use persistent volume at /data/audio_files
             data_dir = Path("/data/audio_files")
-            # Try to create directory if it doesn't exist
             try:
                 data_dir.mkdir(parents=True, exist_ok=True)
             except (PermissionError, OSError) as e:
@@ -134,7 +135,12 @@ class Settings(BaseSettings):
                     f"Could not create {data_dir} during validation (expected in tests): {e}"
                 )
             return data_dir
-        
+
+        if lambda_env:
+            # On Lambda we avoid persisting under the read-only root
+            # Use /tmp for transient cache if needed
+            return Path("/tmp/audio_files")
+
         # Local development - use provided value or default
         if v and str(v) != "audio_files":
             return v if isinstance(v, Path) else Path(v)
@@ -218,7 +224,13 @@ class Settings(BaseSettings):
     def __init__(self, **kwargs):
         """Initialize settings and create required directories."""
         super().__init__(**kwargs)
-        self.audio_files_dir.mkdir(exist_ok=True)
+        # Avoid creating directories on Lambda where primary storage is S3
+        is_lambda = os.environ.get("AWS_LAMBDA_FUNCTION_NAME") is not None
+        try:
+            if not is_lambda:
+                self.audio_files_dir.mkdir(exist_ok=True)
+        except Exception as e:
+            logger.warning(f"Could not create audio_files_dir {self.audio_files_dir}: {e}")
 
 
 # Global settings instance

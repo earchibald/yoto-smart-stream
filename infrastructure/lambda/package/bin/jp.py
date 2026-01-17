@@ -1,4 +1,4 @@
-#!/Users/earchibald/mambaforge/envs/quo/bin/python3.10
+#!/Users/earchibald/work/yoto-smart-stream/cdk_venv/bin/python
 
 import sys
 import json

@@ -4,20 +4,23 @@ import asyncio
 import logging
 import os
 import tempfile
+from pathlib import Path
 from typing import Optional
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from gtts import gTTS
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
+from ...utils.s3 import s3_enabled, object_exists, stream_object, upload_file
 from ..dependencies import get_yoto_client
 from ...database import get_db
 from ...models import User
+from ...storage.dynamodb_store import get_store
 from .user_auth import require_auth
 
 router = APIRouter()
@@ -25,7 +28,13 @@ logger = logging.getLogger(__name__)
 
 
 # Background task for transcription
-def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
+def transcribe_audio_background(
+    filename: str,
+    audio_path: str,
+    db_url: Optional[str],
+    dynamodb_table: Optional[str] = None,
+    dynamodb_region: Optional[str] = None,
+):
     """
     Background task to transcribe audio file.
     
@@ -40,18 +49,32 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
     from ...config import get_settings
     from ...core.audio_db import update_transcript, get_audio_file_by_filename
     from ...core.transcription import get_transcription_service
-    
-    # Create a new database session for this background task
-    engine = create_engine(db_url, connect_args={"check_same_thread": False} if "sqlite" in db_url else {})
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-    
+
+    persistence = None
+    db_session = None
+
+    # Prefer DynamoDB when configured
+    if dynamodb_table:
+        try:
+            persistence = get_store(dynamodb_table, region_name=dynamodb_region)
+        except Exception as exc:
+            logger.error(f"Failed to initialize DynamoDB store for transcription: {exc}")
+    elif db_url:
+        engine = create_engine(db_url, connect_args={"check_same_thread": False} if "sqlite" in db_url else {})
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db_session = SessionLocal()
+        persistence = db_session
+
+    if persistence is None:
+        logger.error("No persistence backend available for transcription task")
+        return
+
     try:
         settings = get_settings()
         if not settings.transcription_enabled:
             logger.info(f"Transcription disabled; skipping background transcription for {filename}")
             update_transcript(
-                db,
+                persistence,
                 filename,
                 None,
                 "disabled",
@@ -62,10 +85,10 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
         logger.info(f"Starting background transcription for {filename}")
         
         # Update status to processing
-        update_transcript(db, filename, None, "processing", None)
+        update_transcript(persistence, filename, None, "processing", None)
         
         # Check if still processing (could have been cancelled)
-        audio_record = get_audio_file_by_filename(db, filename)
+        audio_record = get_audio_file_by_filename(persistence, filename)
         if audio_record and audio_record.transcript_status != "processing":
             logger.info(f"Transcription was cancelled for {filename}")
             return
@@ -75,25 +98,25 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
         transcript_text, error_msg = transcription_service.transcribe_audio(Path(audio_path))
         
         # Check again before saving (in case cancelled during transcription)
-        audio_record = get_audio_file_by_filename(db, filename)
+        audio_record = get_audio_file_by_filename(persistence, filename)
         if audio_record and audio_record.transcript_status != "processing":
             logger.info(f"Transcription was cancelled for {filename} during processing")
             return
         
         if transcript_text:
-            update_transcript(db, filename, transcript_text, "completed", None)
+            update_transcript(persistence, filename, transcript_text, "completed", None)
             logger.info(f"✓ Background transcription completed for {filename}")
         else:
-            update_transcript(db, filename, None, "error", error_msg)
+            update_transcript(persistence, filename, None, "error", error_msg)
             logger.warning(f"Background transcription failed for {filename}: {error_msg}")
     except Exception as e:
         logger.error(f"Background transcription error for {filename}: {e}", exc_info=True)
-        # Only update to error if still processing
-        audio_record = get_audio_file_by_filename(db, filename)
+        audio_record = get_audio_file_by_filename(persistence, filename)
         if audio_record and audio_record.transcript_status == "processing":
-            update_transcript(db, filename, None, "error", str(e))
+            update_transcript(persistence, filename, None, "error", str(e))
     finally:
-        db.close()
+        if db_session:
+            db_session.close()
 
 
 # Request/Response models
@@ -128,41 +151,67 @@ async def list_audio_files(user: User = Depends(require_auth), db: Session = Dep
     """
     settings = get_settings()
     audio_files = []
-    
-    # Define static file names
     static_files = {f"{i}.mp3" for i in range(1, 11)}
 
-    for audio_path in settings.audio_files_dir.glob("*.mp3"):
+    if s3_enabled(settings):
         try:
-            # Get duration in seconds using pydub
-            audio = AudioSegment.from_mp3(str(audio_path))
-            duration_seconds = int(len(audio) / 1000)  # Convert milliseconds to seconds
+            import boto3
+            s3 = boto3.client("s3")
+            resp = s3.list_objects_v2(Bucket=settings.s3_audio_bucket)
+            for obj in resp.get("Contents", []):
+                key = obj.get("Key")
+                if not key or not key.lower().endswith(".mp3"):
+                    continue
+
+                # Get transcript info from database
+                from ...core.audio_db import get_audio_file_by_filename
+                audio_record = get_audio_file_by_filename(db, key)
+
+                transcript_info = {
+                    "status": audio_record.transcript_status if audio_record else "pending",
+                    "has_transcript": bool(audio_record and audio_record.transcript),
+                }
+
+                audio_files.append(
+                    {
+                        "filename": key,
+                        "size": obj.get("Size", 0),
+                        "duration": 0,  # Duration unavailable without downloading
+                        "url": f"/api/audio/{key}",
+                        "is_static": key in static_files,
+                        "transcript": transcript_info,
+                    }
+                )
         except Exception as e:
-            logger.warning(f"Could not read duration for {audio_path.name}: {e}")
-            duration_seconds = 0
-        
-        # Check if this is a static file
-        is_static = audio_path.name in static_files
-        
-        # Get transcript info from database
-        from ...core.audio_db import get_audio_file_by_filename
-        audio_record = get_audio_file_by_filename(db, audio_path.name)
-        
-        transcript_info = {
-            "status": audio_record.transcript_status if audio_record else "pending",
-            "has_transcript": bool(audio_record and audio_record.transcript),
-        }
-        
-        audio_files.append(
-            {
-                "filename": audio_path.name,
-                "size": audio_path.stat().st_size,
-                "duration": duration_seconds,
-                "url": f"/api/audio/{audio_path.name}",
-                "is_static": is_static,
-                "transcript": transcript_info,
+            logger.error(f"Failed to list S3 audio files: {e}")
+    else:
+        for audio_path in settings.audio_files_dir.glob("*.mp3"):
+            try:
+                audio = AudioSegment.from_mp3(str(audio_path))
+                duration_seconds = int(len(audio) / 1000)
+            except Exception as e:
+                logger.warning(f"Could not read duration for {audio_path.name}: {e}")
+                duration_seconds = 0
+
+            is_static = audio_path.name in static_files
+            from ...core.audio_db import get_audio_file_by_filename
+            audio_record = get_audio_file_by_filename(db, audio_path.name)
+
+            transcript_info = {
+                "status": audio_record.transcript_status if audio_record else "pending",
+                "has_transcript": bool(audio_record and audio_record.transcript),
             }
-        )
+
+            audio_files.append(
+                {
+                    "filename": audio_path.name,
+                    "size": audio_path.stat().st_size,
+                    "duration": duration_seconds,
+                    "url": f"/api/audio/{audio_path.name}",
+                    "is_static": is_static,
+                    "transcript": transcript_info,
+                }
+            )
 
     return {"files": audio_files, "count": len(audio_files)}
 
@@ -208,14 +257,21 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
 
     # Create final filename with .mp3 extension
     final_filename = f"{sanitized_filename}.mp3"
-    output_path = settings.audio_files_dir / final_filename
-
-    # Check if file already exists
-    if output_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"File '{final_filename}' already exists. Please choose a different name."
-        )
+    use_s3 = s3_enabled(settings)
+    if use_s3:
+        if object_exists(settings.s3_audio_bucket, final_filename):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"File '{final_filename}' already exists in S3. Please choose a different name."
+            )
+        output_path = Path(tempfile.mktemp(suffix=".mp3"))
+    else:
+        output_path = settings.audio_files_dir / final_filename
+        if output_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"File '{final_filename}' already exists. Please choose a different name."
+            )
 
     logger.info(f"Generating TTS audio for: {final_filename}")
 
@@ -246,14 +302,14 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
 
             file_size = output_path.stat().st_size
             duration_seconds = int(len(audio) / 1000)
+
+            if use_s3:
+                upload_file(settings.s3_audio_bucket, final_filename, str(output_path))
             
             logger.info(f"✓ TTS audio generated: {final_filename} ({file_size} bytes, {duration_seconds}s)")
             
-            # Create database record with the source text as transcript
             from ...core.audio_db import get_or_create_audio_file, update_transcript
-            
             audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
-            # Store the original text as the transcript since we already have it
             update_transcript(db, final_filename, request.text, "completed", None)
 
             return {
@@ -270,6 +326,8 @@ async def generate_tts_audio(request: GenerateTTSRequest, user: User = Depends(r
             # Clean up temporary file
             if os.path.exists(temp_path):
                 os.remove(temp_path)
+            if use_s3 and os.path.exists(output_path):
+                os.remove(output_path)
 
     except Exception as e:
         logger.error(f"Failed to generate TTS audio: {e}", exc_info=True)
@@ -325,14 +383,21 @@ async def upload_audio(
     
     # Create final filename with .mp3 extension
     final_filename = f"{sanitized_filename}.mp3"
-    output_path = settings.audio_files_dir / final_filename
-    
-    # Check if file already exists
-    if output_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"File '{final_filename}' already exists. Please choose a different name."
-        )
+    use_s3 = s3_enabled(settings)
+    if use_s3:
+        if object_exists(settings.s3_audio_bucket, final_filename):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"File '{final_filename}' already exists in S3. Please choose a different name."
+            )
+        output_path = Path(tempfile.mktemp(suffix=".mp3"))
+    else:
+        output_path = settings.audio_files_dir / final_filename
+        if output_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"File '{final_filename}' already exists. Please choose a different name."
+            )
     
     logger.info(f"Uploading audio file: {final_filename} (original: {file.filename})")
     
@@ -369,11 +434,12 @@ async def upload_audio(
         file_size = output_path.stat().st_size
         duration_seconds = int(len(audio) / 1000)
         
+        if use_s3:
+            upload_file(settings.s3_audio_bucket, final_filename, str(output_path))
+
         logger.info(f"✓ Audio uploaded and converted: {final_filename} ({file_size} bytes, {duration_seconds}s)")
         
-        # Create database record
         from ...core.audio_db import get_or_create_audio_file, update_transcript
-
         audio_record = get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
 
         if settings.transcription_enabled:
@@ -387,7 +453,9 @@ async def upload_audio(
                     transcribe_audio_background,
                     final_filename,
                     str(output_path),
-                    settings.database_url
+                    settings.database_url,
+                    settings.dynamodb_table,
+                    settings.dynamodb_region,
                 )
                 logger.info(f"Scheduled background transcription for {final_filename}")
         else:
@@ -421,6 +489,8 @@ async def upload_audio(
         # Clean up temporary file
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+        if use_s3 and output_path and os.path.exists(output_path):
+            os.remove(output_path)
 
 
 @router.get("/audio/search")
@@ -437,26 +507,43 @@ async def search_audio_files(q: str = "", user: User = Depends(require_auth), db
     audio_files = []
     query = q.lower().strip()
 
-    # Collect all audio files
-    for audio_path in settings.audio_files_dir.glob("*.mp3"):
+    if s3_enabled(settings):
         try:
-            # Get duration using pydub
-            audio = AudioSegment.from_mp3(str(audio_path))
-            duration_seconds = int(len(audio) / 1000)
+            import boto3
+            s3 = boto3.client("s3")
+            resp = s3.list_objects_v2(Bucket=settings.s3_audio_bucket)
+            for obj in resp.get("Contents", []):
+                key = obj.get("Key")
+                if not key or not key.lower().endswith(".mp3"):
+                    continue
+                audio_record = get_audio_file_by_filename(db, key)
+                transcript = audio_record.transcript if audio_record else None
+                audio_files.append({
+                    "filename": key,
+                    "size": obj.get("Size", 0),
+                    "duration": 0,
+                    "transcript": transcript,
+                })
         except Exception as e:
-            logger.warning(f"Could not read duration for {audio_path.name}: {e}")
-            duration_seconds = 0
+            logger.error(f"Failed to search S3 audio files: {e}")
+    else:
+        for audio_path in settings.audio_files_dir.glob("*.mp3"):
+            try:
+                audio = AudioSegment.from_mp3(str(audio_path))
+                duration_seconds = int(len(audio) / 1000)
+            except Exception as e:
+                logger.warning(f"Could not read duration for {audio_path.name}: {e}")
+                duration_seconds = 0
 
-        # Get transcript/metadata from database
-        audio_record = get_audio_file_by_filename(db, audio_path.name)
-        transcript = audio_record.transcript if audio_record else None
+            audio_record = get_audio_file_by_filename(db, audio_path.name)
+            transcript = audio_record.transcript if audio_record else None
 
-        audio_files.append({
-            "filename": audio_path.name,
-            "size": audio_path.stat().st_size,
-            "duration": duration_seconds,
-            "transcript": transcript,
-        })
+            audio_files.append({
+                "filename": audio_path.name,
+                "size": audio_path.stat().st_size,
+                "duration": duration_seconds,
+                "transcript": transcript,
+            })
 
     # Simple fuzzy search: match by filename or transcript
     if query:
@@ -497,15 +584,32 @@ async def stream_audio(filename: str):
         Audio file with proper headers for streaming
     """
     settings = get_settings()
+
+    # Determine media type from extension
+    media_type = "audio/mpeg" if filename.endswith(".mp3") else "audio/aac"
+
+    if s3_enabled(settings):
+        if not object_exists(settings.s3_audio_bucket, filename):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Audio file not found: {filename}",
+            )
+
+        return StreamingResponse(
+            stream_object(settings.s3_audio_bucket, filename, 64 * 1024),
+            media_type=media_type,
+            headers={
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600",
+            },
+        )
+
     audio_path = settings.audio_files_dir / filename
 
     if not audio_path.exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file not found: {filename}"
         )
-
-    # Determine media type from extension
-    media_type = "audio/mpeg" if filename.endswith(".mp3") else "audio/aac"
 
     return FileResponse(
         audio_path,
@@ -546,13 +650,20 @@ async def create_streaming_card(request: CreateCardRequest, user: User = Depends
     manager = client.get_manager()
 
     # Verify audio file exists
-    audio_path = settings.audio_files_dir / request.audio_filename
-    if not audio_path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Audio file not found: {request.audio_filename}. "
-            f"Add it to {settings.audio_files_dir}/",
-        )
+    if s3_enabled(settings):
+        if not object_exists(settings.s3_audio_bucket, request.audio_filename):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Audio file not found: {request.audio_filename} in S3 bucket {settings.s3_audio_bucket}.",
+            )
+    else:
+        audio_path = settings.audio_files_dir / request.audio_filename
+        if not audio_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Audio file not found: {request.audio_filename}. "
+                f"Add it to {settings.audio_files_dir}/",
+            )
 
     # Check PUBLIC_URL is configured
     if not settings.public_url:
