@@ -282,24 +282,10 @@ async def poll_auth_status(
             else:
                 logger.error("No refresh token available after authentication!")
 
-            # After saving, reload the client from secrets to ensure it's authenticated
-            # This handles the case where the same Lambda container stays warm after OAuth
-            try:
-                logger.info("Reloading client from persisted tokens to ensure authenticated state...")
-                # Reset the global client and let dependencies recreate it from Secrets Manager
-                from ..dependencies import _yoto_client
-                import yoto_smart_stream.api.dependencies as deps
-                deps._yoto_client = None
-                
-                # Recreate client with fresh auth
-                client = get_yoto_client()
-                if client:
-                    client.authenticate()
-                    client.set_authenticated(True)
-                    set_yoto_client(client)
-                    logger.info("✓ Client reloaded and authenticated")
-            except Exception as reload_error:
-                logger.warning(f"Could not reload client after auth: {reload_error}, but tokens are saved")
+            # Persist the authenticated client globally so subsequent requests use it
+            logger.info("Setting authenticated client globally for future requests...")
+            set_yoto_client(client)
+            logger.info("✓ Authenticated client persisted")
             
             # Update player status
             try:
