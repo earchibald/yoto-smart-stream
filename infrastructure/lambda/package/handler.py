@@ -16,9 +16,6 @@ from mangum import Mangum
 try:
     from yoto_smart_stream.api.app import create_app
     from yoto_smart_stream.database import init_db
-    from yoto_smart_stream.database import SessionLocal
-    from yoto_smart_stream.models import User
-    from yoto_smart_stream.auth import get_password_hash
     import logging
     
     # Configure logging first
@@ -30,45 +27,14 @@ try:
     logger.info("Initializing database for Lambda...")
     init_db()
     print("Lambda: Database initialized")
+    logger.info("Lambda: Database initialized successfully")
     
-    # Create default admin user if doesn't exist  
-    db = SessionLocal()
-    try:
-        print("Lambda: Checking for admin user...")
-        admin_user = db.query(User).filter(User.username == "admin").first()
-        if not admin_user:
-            print("Lambda: Creating admin user...")
-            hashed = get_password_hash("yoto")
-            admin_user = User(
-                username="admin",
-                email="admin@yoto-smart-stream.local",
-                hashed_password=hashed,
-                is_active=True,
-                is_admin=True
-            )
-            db.add(admin_user)
-            db.commit()
-            db.refresh(admin_user)
-            print(f"Lambda: ✓ Default admin user created (id: {admin_user.id})")
-            logger.info("✓ Default admin user created in Lambda")
-        else:
-            print(f"Lambda: Admin user already exists (id: {admin_user.id})")
-            logger.info(f"Admin user already exists (id: {admin_user.id})")
-    except Exception as e:
-        print(f"Lambda: ERROR creating default admin user: {e}")
-        logger.error(f"Error creating default admin user: {e}")
-        import traceback
-        print(traceback.format_exc())
-        db.rollback()
-    finally:
-        db.close()
-    
-    # Create FastAPI app
+    # Create FastAPI app (admin user bootstrap happens in app lifespan)
     app = create_app()
     
     # Wrap with Mangum for Lambda
-    # lifespan="off" disables startup/shutdown events which don't work well in Lambda
-    handler = Mangum(app, lifespan="off")
+    # lifespan="auto" enables startup/shutdown events for proper initialization
+    handler = Mangum(app, lifespan="auto")
     
 except ImportError as import_error:
     # Fallback handler for deployment testing
@@ -80,7 +46,11 @@ except ImportError as import_error:
         }
 except Exception as general_error:
     # Catch any other errors during import
+    import traceback
     error_msg = str(general_error)
+    error_trace = traceback.format_exc()
+    print(f"Lambda ERROR during initialization: {error_msg}")
+    print(error_trace)
     def handler(event, context):
         return {
             "statusCode": 500,

@@ -223,45 +223,34 @@ async def poll_auth_status(
         # If we get here, authentication succeeded
         client.set_authenticated(True)
 
-        # Save refresh token to file (for backward compatibility)
+        # Save tokens to Secrets Manager (primary storage)
         if client.manager.token and client.manager.token.refresh_token:
-            # Save to AWS Secrets Manager on Lambda
-            if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-                try:
-                    import boto3
-                    sm_client = boto3.client("secretsmanager", region_name="us-east-1")
-                    secret_data = {
-                        "refresh_token": client.manager.token.refresh_token,
-                        "access_token": client.manager.token.access_token or "",
-                        "expires_at": str(client.manager.token.expires_at) if hasattr(client.manager.token, 'expires_at') else ""
-                    }
-                    sm_client.put_secret_value(
-                        SecretId="yoto-oauth-token",
-                        SecretString=json.dumps(secret_data)
-                    )
-                    logger.info("Yoto OAuth tokens saved to AWS Secrets Manager")
-                except Exception as e:
-                    logger.error(f"Failed to save tokens to Secrets Manager: {e}")
+            try:
+                from ...storage.secrets_manager import save_yoto_tokens, YotoTokens
+                
+                tokens = YotoTokens(
+                    access_token=client.manager.token.access_token or "",
+                    refresh_token=client.manager.token.refresh_token,
+                    expires_at=getattr(client.manager.token, "expires_at", None)
+                )
+                save_yoto_tokens(tokens)
+                logger.info("✓ Yoto OAuth tokens saved to Secrets Manager")
+            except Exception as e:
+                logger.error(f"Failed to save tokens to Secrets Manager: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to save OAuth tokens: {str(e)}"
+                )
             
-            # Also save to file for local development
-            token_file = settings.yoto_refresh_token_file
-            # Ensure parent directory exists (e.g., /data on Railway)
-            token_file.parent.mkdir(parents=True, exist_ok=True)
-            token_file.write_text(client.manager.token.refresh_token)
-            logger.info(f"Refresh token saved to {token_file}")
-            
-            # Save tokens to database for the current user
-            if current_user:
+            # Also save to file for local development (fallback)
+            if not os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
                 try:
-                    store.set_user_tokens(
-                        username=current_user.username,
-                        access_token=client.manager.token.access_token,
-                        refresh_token=client.manager.token.refresh_token,
-                        expires_at=getattr(client.manager.token, "expires_at", None),
-                    )
-                    logger.info(f"Yoto tokens saved to DynamoDB for user: {current_user.username}")
+                    token_file = settings.yoto_refresh_token_file
+                    token_file.parent.mkdir(parents=True, exist_ok=True)
+                    token_file.write_text(client.manager.token.refresh_token)
+                    logger.info(f"Refresh token also saved to local file: {token_file}")
                 except Exception as e:
-                    logger.error(f"Failed to save tokens to DynamoDB: {e}")
+                    logger.warning(f"Could not save token to local file: {e}")
         else:
             logger.error("No refresh token available after authentication!")
 

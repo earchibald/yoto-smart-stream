@@ -310,6 +310,21 @@ class YotoSmartStreamStack(Stack):
         self.audio_bucket.grant_read_write(role)
         self.ui_bucket.grant_read(role)
         
+        # Grant Secrets Manager permissions for OAuth tokens
+        role.add_to_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "secretsmanager:GetSecretValue",
+                    "secretsmanager:PutSecretValue",
+                    "secretsmanager:CreateSecret",
+                    "secretsmanager:DeleteSecret",
+                ],
+                resources=[
+                    f"arn:aws:secretsmanager:{self.region}:{self.account}:secret:yoto-smart-stream-{self.env_name}/*"
+                ],
+            )
+        )
+        
         # Grant Polly permissions for TTS
         role.add_to_policy(
             iam.PolicyStatement(
