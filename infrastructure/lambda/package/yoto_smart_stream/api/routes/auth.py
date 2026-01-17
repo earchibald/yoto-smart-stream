@@ -204,7 +204,12 @@ async def poll_auth_status(
         Current authentication status
     """
     settings = get_settings()
-    client = get_yoto_client()
+    
+    # Try to get the Yoto client, handling the case where it isn't initialized yet
+    try:
+        client = get_yoto_client()
+    except RuntimeError:
+        client = None
 
     if not client or not client.manager:
         return AuthPollResponse(
@@ -225,6 +230,9 @@ async def poll_auth_status(
         if poll_status == "success":
             # Authentication succeeded
             client.set_authenticated(True)
+            
+            # Ensure the client is saved to the global state for use by other endpoints
+            set_yoto_client(client)
 
             # Save refresh token using Secrets Manager (AWS Lambda) or file (local dev)
             if client.manager.token and client.manager.token.refresh_token:

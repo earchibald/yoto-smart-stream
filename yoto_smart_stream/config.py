@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = "Yoto Smart Stream"
-    app_version: str = "0.2.4"
+    app_version: str = "0.2.5"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
     log_full_streams_requests: bool = Field(
