@@ -82,7 +82,7 @@ def _get_secret_from_extension(secret_name: str) -> Optional[dict]:
             response_data = json.loads(response.read().decode("utf-8"))
             
             if "SecretString" in response_data:
-                logger.debug(f"✓ Loaded secret from Lambda Extension: {secret_name}")
+                logger.info(f"✓ Loaded secret from Lambda Extension (HTTP caching): {secret_name}")
                 return json.loads(response_data["SecretString"])
             
             logger.warning(f"No SecretString in extension response for {secret_name}")
@@ -114,7 +114,7 @@ def _get_secret_from_boto3(secret_name: str) -> Optional[dict]:
         response = client.get_secret_value(SecretId=secret_name)
         
         if "SecretString" in response:
-            logger.debug(f"✓ Loaded secret from boto3: {secret_name}")
+            logger.info(f"✓ Loaded secret from boto3 (no extension available): {secret_name}")
             return json.loads(response["SecretString"])
         
         logger.warning(f"No SecretString in boto3 response for {secret_name}")
