@@ -359,25 +359,9 @@ class YotoSmartStreamStack(Stack):
             log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,
         )
         
-        # Add ffmpeg Lambda layer for audio processing
-        # Using static build from https://johnvansickle.com/ffmpeg/
-        try:
-            ffmpeg_layer = lambda_.LayerVersion(
-                self,
-                "FfmpegLayer",
-                code=lambda_.Code.from_asset("../lambda-layers/ffmpeg"),
-                compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
-                description="FFmpeg static binaries for audio processing",
-            )
-            function.add_layers(ffmpeg_layer)
-            
-            # Update PATH to include ffmpeg binaries
-            function.add_environment("PATH", "/opt/bin:/usr/local/bin:/usr/bin:/bin")
-            
-            CfnOutput(self, "FfmpegLayerArn", value=ffmpeg_layer.layer_version_arn)
-        except Exception as e:
-            print(f"Warning: Could not add ffmpeg layer: {e}")
-            print("Audio recording features requiring ffmpeg/ffprobe will not work")
+        # FFmpeg Lambda layer removed - exceeds Lambda size limit (250MB)
+        # Audio recording/conversion features will not work
+        # Workaround: Upload pre-recorded MP3 files directly
 
         CfnOutput(self, "LambdaFunctionArn", value=function.function_arn)
         return function
