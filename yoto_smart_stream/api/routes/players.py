@@ -406,46 +406,46 @@ async def list_players(user: User = Depends(require_auth)):
     - Battery level (if available)
     """
     try:
-         client = get_yoto_client()
-     except RuntimeError as e:
-         logger.error(f"Failed to get Yoto client: {e}")
-         raise HTTPException(
-             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-             detail=f"Yoto client not initialized. Please authenticate first: {str(e)}",
-         ) from e
+        client = get_yoto_client()
+    except RuntimeError as e:
+        logger.error(f"Failed to get Yoto client: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Yoto client not initialized. Please authenticate first: {str(e)}",
+        ) from e
 
-     # Ensure we have a fresh, authenticated client before making API calls
-     try:
-         client.ensure_authenticated()
-     except Exception as e:
-         error_str = str(e).lower()
-         logger.info(f"Client authentication check failed: {e}")
-         raise HTTPException(
-             status_code=status.HTTP_401_UNAUTHORIZED,
-             detail="Not authenticated with Yoto API. Please connect your Yoto account."
-         )
+    # Ensure we have a fresh, authenticated client before making API calls
+    try:
+        client.ensure_authenticated()
+    except Exception as e:
+        error_str = str(e).lower()
+        logger.info(f"Client authentication check failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated with Yoto API. Please connect your Yoto account."
+        )
 
-     try:
-         # Refresh player status
-         try:
-             client.update_player_status()
-         except FileNotFoundError as e:
-             logger.info(f"Players requested without Yoto auth: {e}")
-             raise HTTPException(
-                 status_code=status.HTTP_401_UNAUTHORIZED,
-                 detail="Not authenticated with Yoto API. Please connect your Yoto account."
-             )
-         except Exception as e:
-             # Catch AuthenticationError and other auth-related exceptions
-             error_str = str(e).lower()
-             if "authentication" in error_str or "refresh token" in error_str or "unauthorized" in error_str:
-                 logger.info(f"Players requested with invalid/expired auth: {e}")
-                 raise HTTPException(
-                     status_code=status.HTTP_401_UNAUTHORIZED,
-                     detail="Not authenticated with Yoto API. Please connect your Yoto account."
-                 )
-             # Re-raise other exceptions to be caught by the outer except
-             raise
+    try:
+        # Refresh player status
+        try:
+            client.update_player_status()
+        except FileNotFoundError as e:
+            logger.info(f"Players requested without Yoto auth: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated with Yoto API. Please connect your Yoto account."
+            )
+        except Exception as e:
+            # Catch AuthenticationError and other auth-related exceptions
+            error_str = str(e).lower()
+            if "authentication" in error_str or "refresh token" in error_str or "unauthorized" in error_str:
+                logger.info(f"Players requested with invalid/expired auth: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated with Yoto API. Please connect your Yoto account."
+                )
+            # Re-raise other exceptions to be caught by the outer except
+            raise
 
         # Update library to get card metadata
         try:
