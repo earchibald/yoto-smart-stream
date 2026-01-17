@@ -1,25 +1,13 @@
 # orm/evaluator.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: ignore-errors
 
-"""Evaluation functions used **INTERNALLY** by ORM DML use cases.
-
-
-This module is **private, for internal use by SQLAlchemy**.
-
-.. versionchanged:: 2.0.4 renamed ``EvaluatorCompiler`` to
-   ``_EvaluatorCompiler``.
-
-"""
-
 
 from __future__ import annotations
-
-from typing import Type
 
 from . import exc as orm_exc
 from .base import LoaderCallableStatus
@@ -28,10 +16,8 @@ from .. import exc
 from .. import inspect
 from ..sql import and_
 from ..sql import operators
-from ..sql.sqltypes import Concatenable
 from ..sql.sqltypes import Integer
 from ..sql.sqltypes import Numeric
-from ..util import warn_deprecated
 
 
 class UnevaluatableError(exc.InvalidRequestError):
@@ -58,7 +44,7 @@ _NO_OBJECT = _NoObject()
 _EXPIRED_OBJECT = _ExpiredObject()
 
 
-class _EvaluatorCompiler:
+class EvaluatorCompiler:
     def __init__(self, target_cls=None):
         self.target_cls = target_cls
 
@@ -312,16 +298,6 @@ class _EvaluatorCompiler:
     def visit_concat_op_binary_op(
         self, operator, eval_left, eval_right, clause
     ):
-
-        if not issubclass(
-            clause.left.type._type_affinity, Concatenable
-        ) or not issubclass(clause.right.type._type_affinity, Concatenable):
-            raise UnevaluatableError(
-                f"Cannot evaluate concatenate operator "
-                f'"{operator.__name__}" for '
-                f"datatypes {clause.left.type}, {clause.right.type}"
-            )
-
         return self._straight_evaluate(
             lambda a, b: a + b, eval_left, eval_right, clause
         )
@@ -364,16 +340,3 @@ class _EvaluatorCompiler:
         else:
             val = clause.value
         return lambda obj: val
-
-
-def __getattr__(name: str) -> Type[_EvaluatorCompiler]:
-    if name == "EvaluatorCompiler":
-        warn_deprecated(
-            "Direct use of 'EvaluatorCompiler' is not supported, and this "
-            "name will be removed in a future release.  "
-            "'_EvaluatorCompiler' is for internal use only",
-            "2.0",
-        )
-        return _EvaluatorCompiler
-    else:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

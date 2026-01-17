@@ -8,6 +8,7 @@ from .retry import Retry
 from .ssl_ import (
     ALPN_PROTOCOLS,
     IS_PYOPENSSL,
+    IS_SECURETRANSPORT,
     SSLContext,
     assert_fingerprint,
     create_urllib3_context,
@@ -21,6 +22,7 @@ from .wait import wait_for_read, wait_for_write
 
 __all__ = (
     "IS_PYOPENSSL",
+    "IS_SECURETRANSPORT",
     "SSLContext",
     "ALPN_PROTOCOLS",
     "Retry",

@@ -12,13 +12,10 @@
 # language governing permissions and limitations under the License.
 import logging
 import time
-from functools import partial
 
 import jmespath
 
-from botocore.context import with_current_context
 from botocore.docs.docstring import WaiterDocstring
-from botocore.useragent import register_feature_id
 from botocore.utils import get_service_module_name
 
 from . import xform_name
@@ -67,7 +64,8 @@ def create_waiter_with_client(waiter_name, waiter_model, client):
 
     # Rename the waiter class based on the type of waiter.
     waiter_class_name = str(
-        f'{get_service_module_name(client.meta.service_model)}.Waiter.{waiter_name}'
+        '%s.Waiter.%s'
+        % (get_service_module_name(client.meta.service_model), waiter_name)
     )
 
     # Create the new waiter class
@@ -129,8 +127,8 @@ class WaiterModel:
             raise WaiterConfigError(
                 error_msg=(
                     "Unsupported waiter version, supported version "
-                    f"must be: {self.SUPPORTED_VERSION}, but version "
-                    f"of waiter config is: {version}"
+                    "must be: %s, but version of waiter config "
+                    "is: %s" % (self.SUPPORTED_VERSION, version)
                 )
             )
 
@@ -138,7 +136,7 @@ class WaiterModel:
         try:
             single_waiter_config = self._waiter_config[waiter_name]
         except KeyError:
-            raise ValueError(f"Waiter does not exist: {waiter_name}")
+            raise ValueError("Waiter does not exist: %s" % waiter_name)
         return SingleWaiterConfig(single_waiter_config)
 
 
@@ -180,23 +178,28 @@ class AcceptorConfig:
     @property
     def explanation(self):
         if self.matcher == 'path':
-            return f'For expression "{self.argument}" we matched expected path: "{self.expected}"'
+            return 'For expression "{}" we matched expected path: "{}"'.format(
+                self.argument,
+                self.expected,
+            )
         elif self.matcher == 'pathAll':
             return (
-                f'For expression "{self.argument}" all members matched '
-                f'expected path: "{self.expected}"'
+                'For expression "%s" all members matched excepted path: "%s"'
+                % (self.argument, self.expected)
             )
         elif self.matcher == 'pathAny':
             return (
-                f'For expression "{self.argument}" we matched expected '
-                f'path: "{self.expected}" at least once'
+                'For expression "%s" we matched expected path: "%s" at least once'
+                % (self.argument, self.expected)
             )
         elif self.matcher == 'status':
-            return f'Matched expected HTTP status code: {self.expected}'
+            return 'Matched expected HTTP status code: %s' % self.expected
         elif self.matcher == 'error':
-            return f'Matched expected service error code: {self.expected}'
+            return 'Matched expected service error code: %s' % self.expected
         else:
-            return f'No explanation for unknown waiter type: "{self.matcher}"'
+            return (
+                'No explanation for unknown waiter type: "%s"' % self.matcher
+            )
 
     def _create_matcher_func(self):
         # An acceptor function is a callable that takes a single value.  The
@@ -219,7 +222,7 @@ class AcceptorConfig:
             return self._create_error_matcher()
         else:
             raise WaiterConfigError(
-                error_msg=f"Unknown acceptor: {self.matcher}"
+                error_msg="Unknown acceptor: %s" % self.matcher
             )
 
     def _create_path_matcher(self):
@@ -299,15 +302,7 @@ class AcceptorConfig:
             # response.  So response is still a dictionary, and in the case
             # of an error response will contain the "Error" and
             # "ResponseMetadata" key.
-            # When expected is True, accept any error code.
-            # When expected is False, check if any errors were encountered.
-            # Otherwise, check for a specific AWS error code.
-            if expected is True:
-                return "Error" in response and "Code" in response["Error"]
-            elif expected is False:
-                return "Error" not in response
-            else:
-                return response.get("Error", {}).get("Code", "") == expected
+            return response.get("Error", {}).get("Code", "") == expected
 
         return acceptor_matches
 
@@ -334,7 +329,6 @@ class Waiter:
         self.name = name
         self.config = config
 
-    @with_current_context(partial(register_feature_id, 'WAITER'))
     def wait(self, **kwargs):
         acceptors = list(self.config.acceptors)
         current_state = 'waiting'
@@ -362,7 +356,8 @@ class Waiter:
                     # can just handle here by raising an exception.
                     raise WaiterError(
                         name=self.name,
-                        reason='An error occurred ({}): {}'.format(
+                        reason='An error occurred (%s): %s'
+                        % (
                             response['Error'].get('Code', 'Unknown'),
                             response['Error'].get('Message', 'Unknown'),
                         ),
@@ -370,11 +365,13 @@ class Waiter:
                     )
             if current_state == 'success':
                 logger.debug(
-                    "Waiting complete, waiter matched the success state."
+                    "Waiting complete, waiter matched the " "success state."
                 )
                 return
             if current_state == 'failure':
-                reason = f'Waiter encountered a terminal failure state: {acceptor.explanation}'
+                reason = 'Waiter encountered a terminal failure state: %s' % (
+                    acceptor.explanation
+                )
                 raise WaiterError(
                     name=self.name,
                     reason=reason,
@@ -385,8 +382,8 @@ class Waiter:
                     reason = 'Max attempts exceeded'
                 else:
                     reason = (
-                        f'Max attempts exceeded. Previously accepted state: '
-                        f'{acceptor.explanation}'
+                        'Max attempts exceeded. Previously accepted state: %s'
+                        % (acceptor.explanation)
                     )
                 raise WaiterError(
                     name=self.name,

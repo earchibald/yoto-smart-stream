@@ -38,10 +38,7 @@ from botocore import (
     translate,
     waiter,
 )
-from botocore.compat import (
-    HAS_CRT,  # noqa: F401
-    MutableMapping,
-)
+from botocore.compat import HAS_CRT, MutableMapping
 from botocore.configprovider import (
     BOTOCORE_DEFAUT_SESSION_VARIABLES,
     ConfigChainFactory,
@@ -51,7 +48,6 @@ from botocore.configprovider import (
     SmartDefaultsConfigStoreFactory,
     create_botocore_default_config_mapping,
 )
-from botocore.context import get_context, with_current_context
 from botocore.errorfactory import ClientExceptionsFactory
 from botocore.exceptions import (
     ConfigNotFound,
@@ -68,14 +64,16 @@ from botocore.hooks import (
 from botocore.loaders import create_loader
 from botocore.model import ServiceModel
 from botocore.parsers import ResponseParserFactory
-from botocore.plugin import get_botocore_plugins, load_client_plugins
 from botocore.regions import EndpointResolver
-from botocore.useragent import UserAgentString, register_feature_id
+from botocore.useragent import UserAgentString
 from botocore.utils import (
     EVENT_ALIASES,
     IMDSRegionProvider,
     validate_region_name,
 )
+
+from botocore.compat import HAS_CRT  # noqa
+
 
 logger = logging.getLogger(__name__)
 
@@ -481,9 +479,7 @@ class Session:
         """
         self._client_config = client_config
 
-    def set_credentials(
-        self, access_key, secret_key, token=None, account_id=None
-    ):
+    def set_credentials(self, access_key, secret_key, token=None):
         """
         Manually create credentials for this session.  If you would
         prefer to use botocore without a config file, environment variables,
@@ -499,12 +495,9 @@ class Session:
         :type token: str
         :param token: An option session token used by STS session
             credentials.
-
-        :type account_id: str
-        :param account_id: An optional account ID part of the credentials.
         """
         self._credentials = botocore.credentials.Credentials(
-            access_key, secret_key, token, account_id=account_id
+            access_key, secret_key, token
         )
 
     def get_credentials(self):
@@ -522,7 +515,7 @@ class Session:
             ).load_credentials()
         return self._credentials
 
-    def get_auth_token(self, **kwargs):
+    def get_auth_token(self):
         """
         Return the :class:`botocore.tokens.AuthToken` object associated with
         this session. If the authorization token has not yet been loaded, this
@@ -530,15 +523,8 @@ class Session:
         return the cached authorization token.
 
         """
-        provider = self._components.get_component('token_provider')
-
-        signing_name = kwargs.get('signing_name')
-        if signing_name is not None:
-            auth_token = provider.load_token(signing_name=signing_name)
-            if auth_token is not None:
-                return auth_token
-
         if self._auth_token is None:
+            provider = self._components.get_component('token_provider')
             self._auth_token = provider.load_token()
         return self._auth_token
 
@@ -571,11 +557,11 @@ class Session:
             f'{platform.system()}/{platform.release()}'
         )
         if HAS_CRT:
-            base += f' awscrt/{self._get_crt_version()}'
+            base += ' awscrt/%s' % self._get_crt_version()
         if os.environ.get('AWS_EXECUTION_ENV') is not None:
-            base += ' exec-env/{}'.format(os.environ.get('AWS_EXECUTION_ENV'))
+            base += ' exec-env/%s' % os.environ.get('AWS_EXECUTION_ENV')
         if self.user_agent_extra:
-            base += f' {self.user_agent_extra}'
+            base += ' %s' % self.user_agent_extra
 
         return base
 
@@ -629,7 +615,7 @@ class Session:
         )
         service_id = EVENT_ALIASES.get(service_name, service_name)
         self._events.emit(
-            f'service-data-loaded.{service_id}',
+            'service-data-loaded.%s' % service_id,
             service_data=service_data,
             service_name=service_name,
             session=self,
@@ -817,9 +803,9 @@ class Session:
         except ValueError:
             if name in ['endpoint_resolver', 'exceptions_factory']:
                 warnings.warn(
-                    f'Fetching the {name} component with the get_component() '
+                    'Fetching the %s component with the get_component() '
                     'method is deprecated as the component has always been '
-                    'considered an internal interface of botocore',
+                    'considered an internal interface of botocore' % name,
                     DeprecationWarning,
                 )
                 return self._internal_components.get_component(name)
@@ -843,7 +829,6 @@ class Session:
     def lazy_register_component(self, name, component):
         self._components.lazy_register_component(name, component)
 
-    @with_current_context()
     def create_client(
         self,
         service_name,
@@ -856,7 +841,6 @@ class Session:
         aws_secret_access_key=None,
         aws_session_token=None,
         config=None,
-        aws_account_id=None,
     ):
         """Create a botocore client.
 
@@ -923,10 +907,6 @@ class Session:
             the client will be the result of calling ``merge()`` on the
             default config with the config provided to this call.
 
-        :type aws_account_id: string
-        :param aws_account_id: The account id to use when creating
-            the client.  Same semantics as aws_access_key_id above.
-
         :rtype: botocore.client.BaseClient
         :return: A botocore client instance
 
@@ -965,7 +945,6 @@ class Session:
                 access_key=aws_access_key_id,
                 secret_key=aws_secret_access_key,
                 token=aws_session_token,
-                account_id=aws_account_id,
             )
         elif self._missing_cred_vars(aws_access_key_id, aws_secret_access_key):
             raise PartialCredentialsError(
@@ -975,17 +954,7 @@ class Session:
                 ),
             )
         else:
-            if ignored_credentials := self._get_ignored_credentials(
-                aws_session_token, aws_account_id
-            ):
-                logger.debug(
-                    "Ignoring the following credential-related values which were set without "
-                    "an access key id and secret key on the session or client: %s",
-                    ignored_credentials,
-                )
             credentials = self.get_credentials()
-        if getattr(credentials, 'method', None) == 'explicit':
-            register_feature_id('CREDENTIALS_CODE')
         auth_token = self.get_auth_token()
         endpoint_resolver = self._get_internal_component('endpoint_resolver')
         exceptions_factory = self._get_internal_component('exceptions_factory')
@@ -1013,8 +982,6 @@ class Session:
             config_store=config_store,
         )
 
-        user_agent_creator.set_client_features(get_context().features)
-
         client_creator = botocore.client.ClientCreator(
             loader,
             endpoint_resolver,
@@ -1026,7 +993,6 @@ class Session:
             exceptions_factory,
             config_store,
             user_agent_creator=user_agent_creator,
-            auth_token_resolver=self.get_auth_token,
         )
         client = client_creator.create_client(
             service_name=service_name,
@@ -1043,7 +1009,6 @@ class Session:
         monitor = self._get_internal_component('monitor')
         if monitor is not None:
             monitor.register(client.meta.events)
-        self._register_client_plugins(client)
         return client
 
     def _resolve_region_name(self, region_name, config):
@@ -1161,32 +1126,6 @@ class Session:
             pass
         return results
 
-    def _get_ignored_credentials(self, aws_session_token, aws_account_id):
-        credential_inputs = []
-        if aws_session_token:
-            credential_inputs.append('aws_session_token')
-        if aws_account_id:
-            credential_inputs.append('aws_account_id')
-        return ', '.join(credential_inputs) if credential_inputs else None
-
-    def _register_client_plugins(self, client):
-        plugins_list = get_botocore_plugins()
-        if plugins_list == "DISABLED" or not plugins_list:
-            return
-
-        client_plugins = {}
-        for plugin in plugins_list.split(','):
-            try:
-                name, module = [part.strip() for part in plugin.split('=')]
-                client_plugins[name] = module
-            except ValueError:
-                logger.warning(
-                    "Invalid plugin format: %s. Expected 'name=module'", plugin
-                )
-
-        if client_plugins:
-            load_client_plugins(client, client_plugins)
-
 
 class ComponentLocator:
     """Service locator for session components."""
@@ -1214,7 +1153,7 @@ class ComponentLocator:
         try:
             return self._components[name]
         except KeyError:
-            raise ValueError(f"Unknown component: {name}")
+            raise ValueError("Unknown component: %s" % name)
 
     def register_component(self, name, component):
         self._components[name] = component

@@ -1,14 +1,7 @@
-# cyextension/collections.pyx
-# Copyright (C) 2005-2024 the SQLAlchemy authors and contributors
-# <see AUTHORS file>
-#
-# This module is part of SQLAlchemy and is released under
-# the MIT License: https://www.opensource.org/licenses/mit-license.php
-cimport cython
-from cpython.long cimport PyLong_FromLongLong
+from cpython.dict cimport PyDict_Merge, PyDict_Update
+from cpython.long cimport PyLong_FromLong
 from cpython.set cimport PySet_Add
 
-from collections.abc import Collection
 from itertools import filterfalse
 
 cdef bint add_not_present(set seen, object item, hashfunc):
@@ -45,13 +38,12 @@ cdef class OrderedSet(set):
         else:
             self._list = []
 
-    cpdef OrderedSet copy(self):
+    cdef OrderedSet _copy(self):
         cdef OrderedSet cp = OrderedSet.__new__(OrderedSet)
         cp._list = list(self._list)
         set.update(cp, cp._list)
         return cp
 
-    @cython.final
     cdef OrderedSet _from_list(self, list new_list):
         cdef OrderedSet new = OrderedSet.__new__(OrderedSet)
         new._list = new_list
@@ -67,14 +59,6 @@ cdef class OrderedSet(set):
         # set.remove will raise if element is not in self
         set.remove(self, element)
         self._list.remove(element)
-
-    def pop(self):
-        try:
-            value = self._list.pop()
-        except IndexError:
-            raise KeyError("pop from an empty set") from None
-        set.remove(self, value)
-        return value
 
     def insert(self, Py_ssize_t pos, element):
         if element not in self:
@@ -104,52 +88,52 @@ cdef class OrderedSet(set):
 
     __str__ = __repr__
 
-    def update(self, *iterables):
-        for iterable in iterables:
-            for e in iterable:
-                if e not in self:
-                    self._list.append(e)
-                    set.add(self, e)
-
-    def __ior__(self, iterable):
-        self.update(iterable)
+    def update(self, iterable):
+        for e in iterable:
+            if e not in self:
+                self._list.append(e)
+                set.add(self, e)
         return self
 
+    def __ior__(self, iterable):
+        return self.update(iterable)
+
     def union(self, *other):
-        result = self.copy()
-        result.update(*other)
+        result = self._copy()
+        for o in other:
+            result.update(o)
         return result
 
     def __or__(self, other):
         return self.union(other)
 
+    cdef set _to_set(self, other):
+        cdef set other_set
+        if isinstance(other, set):
+            other_set = <set> other
+        else:
+            other_set = set(other)
+        return other_set
+
     def intersection(self, *other):
-        cdef set other_set = set.intersection(self, *other)
+        cdef other_set = set.intersection(self, *other)
         return self._from_list([a for a in self._list if a in other_set])
 
     def __and__(self, other):
         return self.intersection(other)
 
     def symmetric_difference(self, other):
-        cdef set other_set
-        if isinstance(other, set):
-            other_set = <set> other
-            collection = other_set
-        elif isinstance(other, Collection):
-            collection = other
-            other_set = set(other)
-        else:
-            collection = list(other)
-            other_set = set(collection)
+        cdef set other_set = self._to_set(other)
         result = self._from_list([a for a in self._list if a not in other_set])
-        result.update(a for a in collection if a not in self)
+        # use other here to keep the order
+        result.update(a for a in other if a not in self)
         return result
 
     def __xor__(self, other):
         return self.symmetric_difference(other)
 
     def difference(self, *other):
-        cdef set other_set = set.difference(self, *other)
+        cdef other_set = set.difference(self, *other)
         return self._from_list([a for a in self._list if a in other_set])
 
     def __sub__(self, other):
@@ -163,11 +147,10 @@ cdef class OrderedSet(set):
         self.intersection_update(other)
         return self
 
-    cpdef symmetric_difference_update(self, other):
-        collection = other if isinstance(other, Collection) else list(other)
-        set.symmetric_difference_update(self, collection)
+    def symmetric_difference_update(self, other):
+        set.symmetric_difference_update(self, other)
         self._list = [a for a in self._list if a in self]
-        self._list += [a for a in collection if a in self]
+        self._list += [a for a in other if a in self]
 
     def __ixor__(self, other):
         self.symmetric_difference_update(other)
@@ -182,12 +165,13 @@ cdef class OrderedSet(set):
         return self
 
 cdef object cy_id(object item):
-    return PyLong_FromLongLong(<long long> (<void *>item))
+    return PyLong_FromLong(<long> (<void *>item))
 
 # NOTE: cython 0.x will call __add__, __sub__, etc with the parameter swapped
 # instead of the __rmeth__, so they need to check that also self is of the
 # correct type. This is fixed in cython 3.x. See:
 # https://docs.cython.org/en/latest/src/userguide/special_methods.html#arithmetic-methods
+
 cdef class IdentitySet:
     """A set that considers only object id() for uniqueness.
 
@@ -312,7 +296,7 @@ cdef class IdentitySet:
         self.update(other)
         return self
 
-    cpdef IdentitySet difference(self, iterable):
+    cpdef difference(self, iterable):
         cdef IdentitySet result = self.__new__(self.__class__)
         if isinstance(iterable, self.__class__):
             other = (<IdentitySet>iterable)._members
@@ -336,7 +320,7 @@ cdef class IdentitySet:
         self.difference_update(other)
         return self
 
-    cpdef IdentitySet intersection(self, iterable):
+    cpdef intersection(self, iterable):
         cdef IdentitySet result = self.__new__(self.__class__)
         if isinstance(iterable, self.__class__):
             other = (<IdentitySet>iterable)._members
@@ -360,7 +344,7 @@ cdef class IdentitySet:
         self.intersection_update(other)
         return self
 
-    cpdef IdentitySet symmetric_difference(self, iterable):
+    cpdef symmetric_difference(self, iterable):
         cdef IdentitySet result = self.__new__(self.__class__)
         cdef dict other
         if isinstance(iterable, self.__class__):
@@ -388,7 +372,7 @@ cdef class IdentitySet:
         self.symmetric_difference(other)
         return self
 
-    cpdef IdentitySet copy(self):
+    cpdef copy(self):
         cdef IdentitySet cp = self.__new__(self.__class__)
         cp._members = self._members.copy()
         return cp

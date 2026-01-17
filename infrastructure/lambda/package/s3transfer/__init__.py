@@ -123,7 +123,6 @@ transfer.  For example:
 
 
 """
-
 import concurrent.futures
 import functools
 import logging
@@ -134,10 +133,9 @@ import random
 import socket
 import string
 import threading
-from logging import NullHandler
 
 from botocore.compat import six  # noqa: F401
-from botocore.exceptions import IncompleteReadError, ResponseStreamingError
+from botocore.exceptions import IncompleteReadError
 from botocore.vendored.requests.packages.urllib3.exceptions import (
     ReadTimeoutError,
 )
@@ -146,7 +144,12 @@ import s3transfer.compat
 from s3transfer.exceptions import RetriesExceededError, S3UploadFailedError
 
 __author__ = 'Amazon Web Services'
-__version__ = '0.16.0'
+__version__ = '0.6.2'
+
+
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
 
 
 logger = logging.getLogger(__name__)
@@ -509,7 +512,7 @@ class ShutdownQueue(queue.Queue):
         with self._shutdown_lock:
             if self._shutdown:
                 raise QueueShutdownError(
-                    "Cannot put item to queue when queue has been shutdown."
+                    "Cannot put item to queue when " "queue has been shutdown."
                 )
         return queue.Queue.put(self, item)
 
@@ -621,7 +624,6 @@ class MultipartDownloader:
                     OSError,
                     ReadTimeoutError,
                     IncompleteReadError,
-                    ResponseStreamingError,
                 ) as e:
                     logger.debug(
                         "Retrying exception caught (%s), "
@@ -679,6 +681,7 @@ class TransferConfig:
 
 
 class S3Transfer:
+
     ALLOWED_DOWNLOAD_ARGS = [
         'VersionId',
         'SSECustomerAlgorithm',
@@ -713,22 +716,12 @@ class S3Transfer:
 
     def __init__(self, client, config=None, osutil=None):
         self._client = client
-        self._client.meta.events.register(
-            'before-call.s3.*', self._update_checksum_context
-        )
         if config is None:
             config = TransferConfig()
         self._config = config
         if osutil is None:
             osutil = OSUtils()
         self._osutil = osutil
-
-    def _update_checksum_context(self, params, **kwargs):
-        request_context = params.get("context", {})
-        checksum_context = request_context.get("checksum", {})
-        if "request_algorithm" in checksum_context:
-            # Force request checksum algorithm in the header if specified.
-            checksum_context["request_algorithm"]["in"] = "header"
 
     def upload_file(
         self, filename, bucket, key, callback=None, extra_args=None
@@ -796,7 +789,8 @@ class S3Transfer:
             )
         except Exception:
             logger.debug(
-                "Exception caught in download_file, removing partial file: %s",
+                "Exception caught in download_file, removing partial "
+                "file: %s",
                 temp_filename,
                 exc_info=True,
             )
@@ -819,8 +813,8 @@ class S3Transfer:
         for kwarg in actual:
             if kwarg not in allowed:
                 raise ValueError(
-                    f"Invalid extra_args key '{kwarg}', "
-                    f"must be one of: {', '.join(allowed)}"
+                    "Invalid extra_args key '%s', "
+                    "must be one of: %s" % (kwarg, ', '.join(allowed))
                 )
 
     def _ranged_download(
@@ -847,7 +841,6 @@ class S3Transfer:
                 OSError,
                 ReadTimeoutError,
                 IncompleteReadError,
-                ResponseStreamingError,
             ) as e:
                 # TODO: we need a way to reset the callback if the
                 # download failed.

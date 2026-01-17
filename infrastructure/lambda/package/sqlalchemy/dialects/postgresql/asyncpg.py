@@ -1,5 +1,5 @@
-# dialects/postgresql/asyncpg.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors <see AUTHORS
+# postgresql/asyncpg.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors <see AUTHORS
 # file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -23,10 +23,18 @@ This dialect should normally be used only with the
 :func:`_asyncio.create_async_engine` engine creation function::
 
     from sqlalchemy.ext.asyncio import create_async_engine
+    engine = create_async_engine("postgresql+asyncpg://user:pass@hostname/dbname")
 
-    engine = create_async_engine(
-        "postgresql+asyncpg://user:pass@hostname/dbname"
-    )
+The dialect can also be run as a "synchronous" dialect within the
+:func:`_sa.create_engine` function, which will pass "await" calls into
+an ad-hoc event loop.  This mode of operation is of **limited use**
+and is for special testing scenarios only.  The mode can be enabled by
+adding the SQLAlchemy-specific flag ``async_fallback`` to the URL
+in conjunction with :func:`_sa.create_engine`::
+
+    # for testing purposes only; do not use in production!
+    engine = create_engine("postgresql+asyncpg://user:pass@hostname/dbname?async_fallback=true")
+
 
 .. versionadded:: 1.4
 
@@ -39,29 +47,6 @@ This dialect should normally be used only with the
     ``json_deserializer`` when creating the engine with
     :func:`create_engine` or :func:`create_async_engine`.
 
-.. _asyncpg_multihost:
-
-Multihost Connections
---------------------------
-
-The asyncpg dialect features support for multiple fallback hosts in the
-same way as that of the psycopg2 and psycopg dialects.  The
-syntax is the same,
-using ``host=<host>:<port>`` combinations as additional query string arguments;
-however, there is no default port, so all hosts must have a complete port number
-present, otherwise an exception is raised::
-
-    engine = create_async_engine(
-        "postgresql+asyncpg://user:password@/dbname?host=HostA:5432&host=HostB:5432&host=HostC:5432"
-    )
-
-For complete background on this syntax, see :ref:`psycopg2_multi_host`.
-
-.. versionadded:: 2.0.18
-
-.. seealso::
-
-    :ref:`psycopg2_multi_host`
 
 .. _asyncpg_prepared_statement_cache:
 
@@ -81,15 +66,11 @@ asyncpg dialect, therefore is handled as a DBAPI argument, not a dialect
 argument)::
 
 
-    engine = create_async_engine(
-        "postgresql+asyncpg://user:pass@hostname/dbname?prepared_statement_cache_size=500"
-    )
+    engine = create_async_engine("postgresql+asyncpg://user:pass@hostname/dbname?prepared_statement_cache_size=500")
 
 To disable the prepared statement cache, use a value of zero::
 
-    engine = create_async_engine(
-        "postgresql+asyncpg://user:pass@hostname/dbname?prepared_statement_cache_size=0"
-    )
+    engine = create_async_engine("postgresql+asyncpg://user:pass@hostname/dbname?prepared_statement_cache_size=0")
 
 .. versionadded:: 1.4.0b2 Added ``prepared_statement_cache_size`` for asyncpg.
 
@@ -117,44 +98,6 @@ To disable the prepared statement cache, use a value of zero::
    stale, nor can it retry the statement as the PostgreSQL transaction is
    invalidated when these errors occur.
 
-.. _asyncpg_prepared_statement_name:
-
-Prepared Statement Name with PGBouncer
---------------------------------------
-
-By default, asyncpg enumerates prepared statements in numeric order, which
-can lead to errors if a name has already been taken for another prepared
-statement. This issue can arise if your application uses database proxies
-such as PgBouncer to handle connections. One possible workaround is to
-use dynamic prepared statement names, which asyncpg now supports through
-an optional ``name`` value for the statement name. This allows you to
-generate your own unique names that won't conflict with existing ones.
-To achieve this, you can provide a function that will be called every time
-a prepared statement is prepared::
-
-    from uuid import uuid4
-
-    engine = create_async_engine(
-        "postgresql+asyncpg://user:pass@somepgbouncer/dbname",
-        poolclass=NullPool,
-        connect_args={
-            "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__",
-        },
-    )
-
-.. seealso::
-
-   https://github.com/MagicStack/asyncpg/issues/837
-
-   https://github.com/sqlalchemy/sqlalchemy/issues/6467
-
-.. warning:: When using PGBouncer, to prevent a buildup of useless prepared statements in
-   your application, it's important to use the :class:`.NullPool` pool
-   class, and to configure PgBouncer to use `DISCARD <https://www.postgresql.org/docs/current/sql-discard.html>`_
-   when returning connections.  The DISCARD command is used to release resources held by the db connection,
-   including prepared statements. Without proper setup, prepared statements can
-   accumulate quickly and cause performance issues.
-
 Disabling the PostgreSQL JIT to improve ENUM datatype handling
 ---------------------------------------------------------------
 
@@ -178,15 +121,16 @@ client using this setting passed to :func:`_asyncio.create_async_engine`::
 
 from __future__ import annotations
 
-from collections import deque
+import collections
 import decimal
 import json as _py_json
 import re
 import time
+from typing import cast
+from typing import TYPE_CHECKING
 
 from . import json
 from . import ranges
-from .array import ARRAY as PGARRAY
 from .base import _DECIMAL_TYPES
 from .base import _FLOAT_TYPES
 from .base import _INT_TYPES
@@ -199,13 +143,9 @@ from .base import PGExecutionContext
 from .base import PGIdentifierPreparer
 from .base import REGCLASS
 from .base import REGCONFIG
-from .types import BIT
-from .types import BYTEA
-from .types import CITEXT
 from ... import exc
 from ... import pool
 from ... import util
-from ...connectors.asyncio import AsyncAdapt_terminate
 from ...engine import AdaptedConnection
 from ...engine import processors
 from ...sql import sqltypes
@@ -213,9 +153,8 @@ from ...util.concurrency import asyncio
 from ...util.concurrency import await_fallback
 from ...util.concurrency import await_only
 
-
-class AsyncpgARRAY(PGARRAY):
-    render_bind_cast = True
+if TYPE_CHECKING:
+    from typing import Iterable
 
 
 class AsyncpgString(sqltypes.String):
@@ -227,14 +166,6 @@ class AsyncpgREGCONFIG(REGCONFIG):
 
 
 class AsyncpgTime(sqltypes.Time):
-    render_bind_cast = True
-
-
-class AsyncpgBit(BIT):
-    render_bind_cast = True
-
-
-class AsyncpgByteA(BYTEA):
     render_bind_cast = True
 
 
@@ -255,6 +186,7 @@ class AsyncPgInterval(INTERVAL):
 
     @classmethod
     def adapt_emulated_to_native(cls, interval, **kw):
+
         return AsyncPgInterval(precision=interval.second_precision)
 
 
@@ -266,20 +198,20 @@ class AsyncpgInteger(sqltypes.Integer):
     render_bind_cast = True
 
 
-class AsyncpgSmallInteger(sqltypes.SmallInteger):
-    render_bind_cast = True
-
-
 class AsyncpgBigInteger(sqltypes.BigInteger):
     render_bind_cast = True
 
 
 class AsyncpgJSON(json.JSON):
+    render_bind_cast = True
+
     def result_processor(self, dialect, coltype):
         return None
 
 
 class AsyncpgJSONB(json.JSONB):
+    render_bind_cast = True
+
     def result_processor(self, dialect, coltype):
         return None
 
@@ -347,7 +279,7 @@ class AsyncpgNumeric(sqltypes.Numeric):
                 )
 
 
-class AsyncpgFloat(AsyncpgNumeric, sqltypes.Float):
+class AsyncpgFloat(AsyncpgNumeric):
     __visit_name__ = "float"
     render_bind_cast = True
 
@@ -364,7 +296,7 @@ class AsyncpgCHAR(sqltypes.CHAR):
     render_bind_cast = True
 
 
-class _AsyncpgRange(ranges.AbstractSingleRangeImpl):
+class _AsyncpgRange(ranges.AbstractRangeImpl):
     def bind_processor(self, dialect):
         asyncpg_Range = dialect.dbapi.asyncpg.Range
 
@@ -418,7 +350,10 @@ class _AsyncpgMultiRange(ranges.AbstractMultiRangeImpl):
                     )
                 return value
 
-            return [to_range(element) for element in value]
+            return [
+                to_range(element)
+                for element in cast("Iterable[ranges.Range]", value)
+            ]
 
         return to_range
 
@@ -437,7 +372,7 @@ class _AsyncpgMultiRange(ranges.AbstractMultiRangeImpl):
                 return rvalue
 
             if value is not None:
-                value = ranges.MultiRange(to_range(elem) for elem in value)
+                value = [to_range(elem) for elem in value]
 
             return value
 
@@ -491,23 +426,19 @@ class AsyncAdapt_asyncpg_cursor:
     )
 
     server_side = False
-    _awaitable_cursor_close: bool = False
 
     def __init__(self, adapt_connection):
         self._adapt_connection = adapt_connection
         self._connection = adapt_connection._connection
-        self._rows = deque()
+        self._rows = []
         self._cursor = None
         self.description = None
         self.arraysize = 1
         self.rowcount = -1
         self._invalidate_schema_cache_asof = 0
 
-    async def _async_soft_close(self) -> None:
-        return
-
     def close(self):
-        self._rows.clear()
+        self._rows[:] = []
 
     def _handle_exception(self, error):
         self._adapt_connection._handle_exception(error)
@@ -516,6 +447,7 @@ class AsyncAdapt_asyncpg_cursor:
         adapt_connection = self._adapt_connection
 
         async with adapt_connection._execute_mutex:
+
             if not adapt_connection._started:
                 await adapt_connection._start_transaction()
 
@@ -547,12 +479,11 @@ class AsyncAdapt_asyncpg_cursor:
                     self._cursor = await prepared_stmt.cursor(*parameters)
                     self.rowcount = -1
                 else:
-                    self._rows = deque(await prepared_stmt.fetch(*parameters))
+                    self._rows = await prepared_stmt.fetch(*parameters)
                     status = prepared_stmt.get_statusmsg()
 
                     reg = re.match(
-                        r"(?:SELECT|UPDATE|DELETE|INSERT \d+) (\d+)",
-                        status or "",
+                        r"(?:SELECT|UPDATE|DELETE|INSERT \d+) (\d+)", status
                     )
                     if reg:
                         self.rowcount = int(reg.group(1))
@@ -565,7 +496,6 @@ class AsyncAdapt_asyncpg_cursor:
     async def _executemany(self, operation, seq_of_parameters):
         adapt_connection = self._adapt_connection
 
-        self.description = None
         async with adapt_connection._execute_mutex:
             await adapt_connection._check_type_cache_invalidation(
                 self._invalidate_schema_cache_asof
@@ -596,11 +526,11 @@ class AsyncAdapt_asyncpg_cursor:
 
     def __iter__(self):
         while self._rows:
-            yield self._rows.popleft()
+            yield self._rows.pop(0)
 
     def fetchone(self):
         if self._rows:
-            return self._rows.popleft()
+            return self._rows.pop(0)
         else:
             return None
 
@@ -608,36 +538,40 @@ class AsyncAdapt_asyncpg_cursor:
         if size is None:
             size = self.arraysize
 
-        rr = self._rows
-        return [rr.popleft() for _ in range(min(size, len(rr)))]
+        retval = self._rows[0:size]
+        self._rows[:] = self._rows[size:]
+        return retval
 
     def fetchall(self):
-        retval = list(self._rows)
-        self._rows.clear()
+        retval = self._rows[:]
+        self._rows[:] = []
         return retval
 
 
 class AsyncAdapt_asyncpg_ss_cursor(AsyncAdapt_asyncpg_cursor):
+
     server_side = True
     __slots__ = ("_rowbuffer",)
 
     def __init__(self, adapt_connection):
         super().__init__(adapt_connection)
-        self._rowbuffer = deque()
+        self._rowbuffer = None
 
     def close(self):
         self._cursor = None
-        self._rowbuffer.clear()
+        self._rowbuffer = None
 
     def _buffer_rows(self):
-        assert self._cursor is not None
         new_rows = self._adapt_connection.await_(self._cursor.fetch(50))
-        self._rowbuffer.extend(new_rows)
+        self._rowbuffer = collections.deque(new_rows)
 
     def __aiter__(self):
         return self
 
     async def __anext__(self):
+        if not self._rowbuffer:
+            self._buffer_rows()
+
         while True:
             while self._rowbuffer:
                 yield self._rowbuffer.popleft()
@@ -660,19 +594,21 @@ class AsyncAdapt_asyncpg_ss_cursor(AsyncAdapt_asyncpg_cursor):
         if not self._rowbuffer:
             self._buffer_rows()
 
-        assert self._cursor is not None
-        rb = self._rowbuffer
-        lb = len(rb)
+        buf = list(self._rowbuffer)
+        lb = len(buf)
         if size > lb:
-            rb.extend(
+            buf.extend(
                 self._adapt_connection.await_(self._cursor.fetch(size - lb))
             )
 
-        return [rb.popleft() for _ in range(min(size, len(rb)))]
+        result = buf[0:size]
+        self._rowbuffer = collections.deque(buf[size:])
+        return result
 
     def fetchall(self):
-        ret = list(self._rowbuffer)
-        ret.extend(self._adapt_connection.await_(self._all()))
+        ret = list(self._rowbuffer) + list(
+            self._adapt_connection.await_(self._all())
+        )
         self._rowbuffer.clear()
         return ret
 
@@ -696,7 +632,7 @@ class AsyncAdapt_asyncpg_ss_cursor(AsyncAdapt_asyncpg_cursor):
         )
 
 
-class AsyncAdapt_asyncpg_connection(AsyncAdapt_terminate, AdaptedConnection):
+class AsyncAdapt_asyncpg_connection(AdaptedConnection):
     __slots__ = (
         "dbapi",
         "isolation_level",
@@ -706,23 +642,16 @@ class AsyncAdapt_asyncpg_connection(AsyncAdapt_terminate, AdaptedConnection):
         "_transaction",
         "_started",
         "_prepared_statement_cache",
-        "_prepared_statement_name_func",
         "_invalidate_schema_cache_asof",
         "_execute_mutex",
     )
 
     await_ = staticmethod(await_only)
 
-    def __init__(
-        self,
-        dbapi,
-        connection,
-        prepared_statement_cache_size=100,
-        prepared_statement_name_func=None,
-    ):
+    def __init__(self, dbapi, connection, prepared_statement_cache_size=100):
         self.dbapi = dbapi
         self._connection = connection
-        self.isolation_level = self._isolation_setting = None
+        self.isolation_level = self._isolation_setting = "read_committed"
         self.readonly = False
         self.deferrable = False
         self._transaction = None
@@ -737,11 +666,6 @@ class AsyncAdapt_asyncpg_connection(AsyncAdapt_terminate, AdaptedConnection):
         else:
             self._prepared_statement_cache = None
 
-        if prepared_statement_name_func:
-            self._prepared_statement_name_func = prepared_statement_name_func
-        else:
-            self._prepared_statement_name_func = self._default_name_func
-
     async def _check_type_cache_invalidation(self, invalidate_timestamp):
         if invalidate_timestamp > self._invalidate_schema_cache_asof:
             await self._connection.reload_schema_state()
@@ -752,9 +676,7 @@ class AsyncAdapt_asyncpg_connection(AsyncAdapt_terminate, AdaptedConnection):
 
         cache = self._prepared_statement_cache
         if cache is None:
-            prepared_stmt = await self._connection.prepare(
-                operation, name=self._prepared_statement_name_func()
-            )
+            prepared_stmt = await self._connection.prepare(operation)
             attributes = prepared_stmt.get_attributes()
             return prepared_stmt, attributes
 
@@ -770,9 +692,7 @@ class AsyncAdapt_asyncpg_connection(AsyncAdapt_terminate, AdaptedConnection):
             if cached_timestamp > invalidate_timestamp:
                 return prepared_stmt, attributes
 
-        prepared_stmt = await self._connection.prepare(
-            operation, name=self._prepared_statement_name_func()
-        )
+        prepared_stmt = await self._connection.prepare(operation)
         attributes = prepared_stmt.get_attributes()
         cache[operation] = (prepared_stmt, attributes, time.time())
 
@@ -791,9 +711,9 @@ class AsyncAdapt_asyncpg_connection(AsyncAdapt_terminate, AdaptedConnection):
                     translated_error = exception_mapping[super_](
                         "%s: %s" % (type(error), error)
                     )
-                    translated_error.pgcode = translated_error.sqlstate = (
-                        getattr(error, "sqlstate", None)
-                    )
+                    translated_error.pgcode = (
+                        translated_error.sqlstate
+                    ) = getattr(error, "sqlstate", None)
                     raise translated_error from error
             else:
                 raise error
@@ -813,22 +733,9 @@ class AsyncAdapt_asyncpg_connection(AsyncAdapt_terminate, AdaptedConnection):
 
     def ping(self):
         try:
-            _ = self.await_(self._async_ping())
+            _ = self.await_(self._connection.fetchrow(";"))
         except Exception as error:
             self._handle_exception(error)
-
-    async def _async_ping(self):
-        if self._transaction is None and self.isolation_level != "autocommit":
-            # create a tranasction explicitly to support pgbouncer
-            # transaction mode.   See #10226
-            tr = self._connection.transaction()
-            await tr.start()
-            try:
-                await self._connection.fetchrow(";")
-            finally:
-                await tr.rollback()
-        else:
-            await self._connection.fetchrow(";")
 
     def set_isolation_level(self, level):
         if self._started:
@@ -857,68 +764,33 @@ class AsyncAdapt_asyncpg_connection(AsyncAdapt_terminate, AdaptedConnection):
         else:
             return AsyncAdapt_asyncpg_cursor(self)
 
-    async def _rollback_and_discard(self):
-        try:
-            await self._transaction.rollback()
-        finally:
-            # if asyncpg .rollback() was actually called, then whether or
-            # not it raised or succeeded, the transation is done, discard it
-            self._transaction = None
-            self._started = False
-
-    async def _commit_and_discard(self):
-        try:
-            await self._transaction.commit()
-        finally:
-            # if asyncpg .commit() was actually called, then whether or
-            # not it raised or succeeded, the transation is done, discard it
-            self._transaction = None
-            self._started = False
-
     def rollback(self):
         if self._started:
             try:
-                self.await_(self._rollback_and_discard())
+                self.await_(self._transaction.rollback())
+            except Exception as error:
+                self._handle_exception(error)
+            finally:
                 self._transaction = None
                 self._started = False
-            except Exception as error:
-                # don't dereference asyncpg transaction if we didn't
-                # actually try to call rollback() on it
-                self._handle_exception(error)
 
     def commit(self):
         if self._started:
             try:
-                self.await_(self._commit_and_discard())
+                self.await_(self._transaction.commit())
+            except Exception as error:
+                self._handle_exception(error)
+            finally:
                 self._transaction = None
                 self._started = False
-            except Exception as error:
-                # don't dereference asyncpg transaction if we didn't
-                # actually try to call commit() on it
-                self._handle_exception(error)
 
     def close(self):
         self.rollback()
 
         self.await_(self._connection.close())
 
-    def _terminate_handled_exceptions(self):
-        return super()._terminate_handled_exceptions() + (
-            self.dbapi.asyncpg.PostgresError,
-        )
-
-    async def _terminate_graceful_close(self) -> None:
-        # timeout added in asyncpg 0.14.0 December 2017
-        await self._connection.close(timeout=2)
-        self._started = False
-
-    def _terminate_force_close(self) -> None:
+    def terminate(self):
         self._connection.terminate()
-        self._started = False
-
-    @staticmethod
-    def _default_name_func():
-        return None
 
 
 class AsyncAdaptFallback_asyncpg_connection(AsyncAdapt_asyncpg_connection):
@@ -934,27 +806,20 @@ class AsyncAdapt_asyncpg_dbapi:
 
     def connect(self, *arg, **kw):
         async_fallback = kw.pop("async_fallback", False)
-        creator_fn = kw.pop("async_creator_fn", self.asyncpg.connect)
         prepared_statement_cache_size = kw.pop(
             "prepared_statement_cache_size", 100
         )
-        prepared_statement_name_func = kw.pop(
-            "prepared_statement_name_func", None
-        )
-
         if util.asbool(async_fallback):
             return AsyncAdaptFallback_asyncpg_connection(
                 self,
-                await_fallback(creator_fn(*arg, **kw)),
+                await_fallback(self.asyncpg.connect(*arg, **kw)),
                 prepared_statement_cache_size=prepared_statement_cache_size,
-                prepared_statement_name_func=prepared_statement_name_func,
             )
         else:
             return AsyncAdapt_asyncpg_connection(
                 self,
-                await_only(creator_fn(*arg, **kw)),
+                await_only(self.asyncpg.connect(*arg, **kw)),
                 prepared_statement_cache_size=prepared_statement_cache_size,
-                prepared_statement_name_func=prepared_statement_name_func,
             )
 
     class Error(Exception):
@@ -1039,9 +904,6 @@ class PGDialect_asyncpg(PGDialect):
         PGDialect.colspecs,
         {
             sqltypes.String: AsyncpgString,
-            sqltypes.ARRAY: AsyncpgARRAY,
-            BIT: AsyncpgBit,
-            CITEXT: CITEXT,
             REGCONFIG: AsyncpgREGCONFIG,
             sqltypes.Time: AsyncpgTime,
             sqltypes.Date: AsyncpgDate,
@@ -1050,12 +912,10 @@ class PGDialect_asyncpg(PGDialect):
             INTERVAL: AsyncPgInterval,
             sqltypes.Boolean: AsyncpgBoolean,
             sqltypes.Integer: AsyncpgInteger,
-            sqltypes.SmallInteger: AsyncpgSmallInteger,
             sqltypes.BigInteger: AsyncpgBigInteger,
             sqltypes.Numeric: AsyncpgNumeric,
             sqltypes.Float: AsyncpgFloat,
             sqltypes.JSON: AsyncpgJSON,
-            sqltypes.LargeBinary: AsyncpgByteA,
             json.JSONB: AsyncpgJSONB,
             sqltypes.JSON.JSONPathType: AsyncpgJSONPathType,
             sqltypes.JSON.JSONIndexType: AsyncpgJSONIndexType,
@@ -1065,7 +925,7 @@ class PGDialect_asyncpg(PGDialect):
             OID: AsyncpgOID,
             REGCLASS: AsyncpgREGCLASS,
             sqltypes.CHAR: AsyncpgCHAR,
-            ranges.AbstractSingleRange: _AsyncpgRange,
+            ranges.AbstractRange: _AsyncpgRange,
             ranges.AbstractMultiRange: _AsyncpgMultiRange,
         },
     )
@@ -1108,9 +968,6 @@ class PGDialect_asyncpg(PGDialect):
     def set_isolation_level(self, dbapi_connection, level):
         dbapi_connection.set_isolation_level(self._isolation_lookup[level])
 
-    def detect_autocommit_setting(self, dbapi_conn) -> bool:
-        return bool(dbapi_conn.autocommit)
-
     def set_readonly(self, connection, value):
         connection.readonly = value
 
@@ -1128,40 +985,26 @@ class PGDialect_asyncpg(PGDialect):
 
     def create_connect_args(self, url):
         opts = url.translate_connect_args(username="user")
-        multihosts, multiports = self._split_multihost_from_url(url)
 
         opts.update(url.query)
-
-        if multihosts:
-            assert multiports
-            if len(multihosts) == 1:
-                opts["host"] = multihosts[0]
-                if multiports[0] is not None:
-                    opts["port"] = multiports[0]
-            elif not all(multihosts):
-                raise exc.ArgumentError(
-                    "All hosts are required to be present"
-                    " for asyncpg multiple host URL"
-                )
-            elif not all(multiports):
-                raise exc.ArgumentError(
-                    "All ports are required to be present"
-                    " for asyncpg multiple host URL"
-                )
-            else:
-                opts["host"] = list(multihosts)
-                opts["port"] = list(multiports)
-        else:
-            util.coerce_kw_type(opts, "port", int)
         util.coerce_kw_type(opts, "prepared_statement_cache_size", int)
+        util.coerce_kw_type(opts, "port", int)
         return ([], opts)
 
     def do_ping(self, dbapi_connection):
-        dbapi_connection.ping()
-        return True
+        try:
+            dbapi_connection.ping()
+        except self.dbapi.Error as err:
+            if self.is_disconnect(err, dbapi_connection, None):
+                return False
+            else:
+                raise
+        else:
+            return True
 
     @classmethod
     def get_pool_class(cls, url):
+
         async_fallback = url.query.get("async_fallback", False)
 
         if util.asbool(async_fallback):
@@ -1234,25 +1077,6 @@ class PGDialect_asyncpg(PGDialect):
             format="binary",
         )
 
-    async def _disable_asyncpg_inet_codecs(self, conn):
-        asyncpg_connection = conn._connection
-
-        await asyncpg_connection.set_type_codec(
-            "inet",
-            encoder=lambda s: s,
-            decoder=lambda s: s,
-            schema="pg_catalog",
-            format="text",
-        )
-
-        await asyncpg_connection.set_type_codec(
-            "cidr",
-            encoder=lambda s: s,
-            decoder=lambda s: s,
-            schema="pg_catalog",
-            format="text",
-        )
-
     def on_connect(self):
         """on_connect for asyncpg
 
@@ -1269,9 +1093,6 @@ class PGDialect_asyncpg(PGDialect):
         def connect(conn):
             conn.await_(self.setup_asyncpg_json_codec(conn))
             conn.await_(self.setup_asyncpg_jsonb_codec(conn))
-
-            if self._native_inet_types is False:
-                conn.await_(self._disable_asyncpg_inet_codecs(conn))
             if super_connect is not None:
                 super_connect(conn)
 

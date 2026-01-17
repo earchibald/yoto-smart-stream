@@ -91,7 +91,9 @@ class ResourceDocumenter(BaseDocumenter):
     def _add_description(self, section):
         official_service_name = get_official_service_name(self._service_model)
         section.write(
-            f'A resource representing an {official_service_name} {self._resource_name}'
+            'A resource representing an {} {}'.format(
+                official_service_name, self._resource_name
+            )
         )
 
     def _add_example(self, section, identifier_names):
@@ -101,12 +103,19 @@ class ResourceDocumenter(BaseDocumenter):
         section.style.new_line()
         section.style.new_line()
         section.write(
-            f'{self._service_name} = boto3.resource(\'{self._service_name}\')'
+            '{} = boto3.resource(\'{}\')'.format(
+                self._service_name, self._service_name
+            )
         )
         section.style.new_line()
         example_values = get_identifier_values_for_example(identifier_names)
         section.write(
-            f'{xform_name(self._resource_name)} = {self._service_name}.{self._resource_name}({example_values})'
+            '{} = {}.{}({})'.format(
+                xform_name(self._resource_name),
+                self._service_name,
+                self._resource_name,
+                example_values,
+            )
         )
         section.style.end_codeblock()
 
@@ -246,6 +255,7 @@ class ResourceDocumenter(BaseDocumenter):
                 intro_link='references_intro',
             )
             self.member_map['references'] = reference_list
+            self._add_overview_of_member_type(section, 'references')
         for reference in references:
             reference_list.append(reference.name)
             # Create a new DocumentStructure for each reference and add contents.

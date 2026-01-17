@@ -1,5 +1,5 @@
 # orm/attributes.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -24,7 +24,6 @@ from typing import Callable
 from typing import cast
 from typing import ClassVar
 from typing import Dict
-from typing import Iterable
 from typing import List
 from typing import NamedTuple
 from typing import Optional
@@ -45,7 +44,6 @@ from .base import ATTR_EMPTY
 from .base import ATTR_WAS_SET
 from .base import CALLABLES_OK
 from .base import DEFERRED_HISTORY_LOAD
-from .base import INCLUDE_PENDING_MUTATIONS  # noqa
 from .base import INIT_OK
 from .base import instance_dict as instance_dict
 from .base import instance_state as instance_state
@@ -86,11 +84,7 @@ from ..sql import cache_key
 from ..sql import coercions
 from ..sql import roles
 from ..sql import visitors
-from ..sql.cache_key import HasCacheKey
-from ..sql.visitors import _TraverseInternalsType
-from ..sql.visitors import InternalTraversal
 from ..util.typing import Literal
-from ..util.typing import Self
 from ..util.typing import TypeGuard
 
 if TYPE_CHECKING:
@@ -120,25 +114,28 @@ if TYPE_CHECKING:
 
 
 _T = TypeVar("_T")
-_T_co = TypeVar("_T_co", bound=Any, covariant=True)
 
 
 _AllPendingType = Sequence[
     Tuple[Optional["InstanceState[Any]"], Optional[object]]
 ]
 
+SelfQueryableAttribute = TypeVar(
+    "SelfQueryableAttribute", bound="QueryableAttribute[Any]"
+)
 
 _UNKNOWN_ATTR_KEY = object()
 
 
 @inspection._self_inspects
 class QueryableAttribute(
-    _DeclarativeMapped[_T_co],
-    SQLORMExpression[_T_co],
+    _DeclarativeMapped[_T],
+    SQLORMExpression[_T],
     interfaces.InspectionAttr,
-    interfaces.PropComparator[_T_co],
+    interfaces.PropComparator[_T],
     roles.JoinTargetRole,
     roles.OnClauseRole,
+    roles.DDLConstraintColumnRole,
     sql_base.Immutable,
     cache_key.SlotsMemoizedHasCacheKey,
     util.MemoizedSlots,
@@ -179,13 +176,13 @@ class QueryableAttribute(
 
     is_attribute = True
 
-    dispatch: dispatcher[QueryableAttribute[_T_co]]
+    dispatch: dispatcher[QueryableAttribute[_T]]
 
     class_: _ExternalEntityType[Any]
     key: str
     parententity: _InternalEntityType[Any]
     impl: AttributeImpl
-    comparator: interfaces.PropComparator[_T_co]
+    comparator: interfaces.PropComparator[_T]
     _of_type: Optional[_InternalEntityType[Any]]
     _extra_criteria: Tuple[ColumnElement[bool], ...]
     _doc: Optional[str]
@@ -199,7 +196,7 @@ class QueryableAttribute(
         class_: _ExternalEntityType[_O],
         key: str,
         parententity: _InternalEntityType[_O],
-        comparator: interfaces.PropComparator[_T_co],
+        comparator: interfaces.PropComparator[_T],
         impl: Optional[AttributeImpl] = None,
         of_type: Optional[_InternalEntityType[Any]] = None,
         extra_criteria: Tuple[ColumnElement[bool], ...] = (),
@@ -315,7 +312,7 @@ class QueryableAttribute(
 
     """
 
-    expression: ColumnElement[_T_co]
+    expression: ColumnElement[_T]
     """The SQL expression object represented by this
     :class:`.QueryableAttribute`.
 
@@ -332,16 +329,13 @@ class QueryableAttribute(
         # non-string keys.
         # ideally Proxy() would have a separate set of methods to deal
         # with this case.
-        entity_namespace = self._entity_namespace
-        assert isinstance(entity_namespace, HasCacheKey)
-
-        if self.key is _UNKNOWN_ATTR_KEY:
-            annotations = {"entity_namespace": entity_namespace}
+        if self.key is _UNKNOWN_ATTR_KEY:  # type: ignore[comparison-overlap]
+            annotations = {"entity_namespace": self._entity_namespace}
         else:
             annotations = {
                 "proxy_key": self.key,
                 "proxy_owner": self._parententity,
-                "entity_namespace": entity_namespace,
+                "entity_namespace": self._entity_namespace,
             }
 
         ce = self.comparator.__clause_element__()
@@ -377,7 +371,7 @@ class QueryableAttribute(
     def _annotations(self) -> _AnnotationDict:
         return self.__clause_element__()._annotations
 
-    def __clause_element__(self) -> ColumnElement[_T_co]:
+    def __clause_element__(self) -> ColumnElement[_T]:
         return self.expression
 
     @property
@@ -391,7 +385,9 @@ class QueryableAttribute(
 
         return self.comparator._bulk_update_tuples(value)
 
-    def adapt_to_entity(self, adapt_to_entity: AliasedInsp[Any]) -> Self:
+    def adapt_to_entity(
+        self: SelfQueryableAttribute, adapt_to_entity: AliasedInsp[Any]
+    ) -> SelfQueryableAttribute:
         assert not self._of_type
         return self.__class__(
             adapt_to_entity.entity,
@@ -401,7 +397,7 @@ class QueryableAttribute(
             parententity=adapt_to_entity,
         )
 
-    def of_type(self, entity: _EntityType[_T]) -> QueryableAttribute[_T]:
+    def of_type(self, entity: _EntityType[Any]) -> QueryableAttribute[_T]:
         return QueryableAttribute(
             self.class_,
             self.key,
@@ -414,7 +410,7 @@ class QueryableAttribute(
 
     def and_(
         self, *clauses: _ColumnExpressionArgument[bool]
-    ) -> QueryableAttribute[bool]:
+    ) -> interfaces.PropComparator[bool]:
         if TYPE_CHECKING:
             assert isinstance(self.comparator, RelationshipProperty.Comparator)
 
@@ -444,26 +440,23 @@ class QueryableAttribute(
             extra_criteria=self._extra_criteria,
         )
 
-    def label(self, name: Optional[str]) -> Label[_T_co]:
+    def label(self, name: Optional[str]) -> Label[_T]:
         return self.__clause_element__().label(name)
 
     def operate(
         self, op: OperatorType, *other: Any, **kwargs: Any
     ) -> ColumnElement[Any]:
-        return op(self.comparator, *other, **kwargs)  # type: ignore[no-any-return]  # noqa: E501
+        return op(self.comparator, *other, **kwargs)  # type: ignore[return-value]  # noqa: E501
 
     def reverse_operate(
         self, op: OperatorType, other: Any, **kwargs: Any
     ) -> ColumnElement[Any]:
-        return op(other, self.comparator, **kwargs)  # type: ignore[no-any-return]  # noqa: E501
+        return op(other, self.comparator, **kwargs)  # type: ignore[return-value]  # noqa: E501
 
     def hasparent(
         self, state: InstanceState[Any], optimistic: bool = False
     ) -> bool:
         return self.impl.hasparent(state, optimistic=optimistic) is not False
-
-    def _column_strategy_attrs(self) -> Sequence[QueryableAttribute[Any]]:
-        return (self,)
 
     def __getattr__(self, key: str) -> Any:
         try:
@@ -506,7 +499,7 @@ def _queryable_attribute_unreduce(
         return getattr(entity, key)
 
 
-class InstrumentedAttribute(QueryableAttribute[_T_co]):
+class InstrumentedAttribute(QueryableAttribute[_T]):
     """Class bound instrumented attribute which adds basic
     :term:`descriptor` methods.
 
@@ -524,16 +517,16 @@ class InstrumentedAttribute(QueryableAttribute[_T_co]):
     # InstrumentedAttribute, while still keeping classlevel
     # __doc__ correct
 
-    @util.rw_hybridproperty
-    def __doc__(self) -> Optional[str]:
+    @util.rw_hybridproperty  # type: ignore
+    def __doc__(self) -> Optional[str]:  # type: ignore
         return self._doc
 
     @__doc__.setter  # type: ignore
-    def __doc__(self, value: Optional[str]) -> None:
+    def __doc__(self, value: Optional[str]) -> None:  # type: ignore
         self._doc = value
 
     @__doc__.classlevel  # type: ignore
-    def __doc__(cls) -> Optional[str]:
+    def __doc__(cls) -> Optional[str]:  # type: ignore
         return super().__doc__
 
     def __set__(self, instance: object, value: Any) -> None:
@@ -545,16 +538,16 @@ class InstrumentedAttribute(QueryableAttribute[_T_co]):
         self.impl.delete(instance_state(instance), instance_dict(instance))
 
     @overload
-    def __get__(
-        self, instance: None, owner: Any
-    ) -> InstrumentedAttribute[_T_co]: ...
+    def __get__(self, instance: None, owner: Any) -> InstrumentedAttribute[_T]:
+        ...
 
     @overload
-    def __get__(self, instance: object, owner: Any) -> _T_co: ...
+    def __get__(self, instance: object, owner: Any) -> _T:
+        ...
 
     def __get__(
         self, instance: Optional[object], owner: Any
-    ) -> Union[InstrumentedAttribute[_T_co], _T_co]:
+    ) -> Union[InstrumentedAttribute[_T], _T]:
         if instance is None:
             return self
 
@@ -570,20 +563,12 @@ class InstrumentedAttribute(QueryableAttribute[_T_co]):
 
 
 @dataclasses.dataclass(frozen=True)
-class AdHocHasEntityNamespace(HasCacheKey):
-    _traverse_internals: ClassVar[_TraverseInternalsType] = [
-        ("_entity_namespace", InternalTraversal.dp_has_cache_key),
-    ]
-
+class AdHocHasEntityNamespace:
     # py37 compat, no slots=True on dataclass
-    __slots__ = ("_entity_namespace",)
-    _entity_namespace: _InternalEntityType[Any]
+    __slots__ = ("entity_namespace",)
+    entity_namespace: _ExternalEntityType[Any]
     is_mapper: ClassVar[bool] = False
     is_aliased_class: ClassVar[bool] = False
-
-    @property
-    def entity_namespace(self):
-        return self._entity_namespace.entity_namespace
 
 
 def create_proxied_attribute(
@@ -598,7 +583,7 @@ def create_proxied_attribute(
     # TODO: can move this to descriptor_props if the need for this
     # function is removed from ext/hybrid.py
 
-    class Proxy(QueryableAttribute[_T_co]):
+    class Proxy(QueryableAttribute[Any]):
         """Presents the :class:`.QueryableAttribute` interface as a
         proxy on top of a Python descriptor / :class:`.PropComparator`
         combination.
@@ -613,13 +598,13 @@ def create_proxied_attribute(
 
         def __init__(
             self,
-            class_: _ExternalEntityType[Any],
-            key: str,
-            descriptor: Any,
-            comparator: interfaces.PropComparator[_T_co],
-            adapt_to_entity: Optional[AliasedInsp[Any]] = None,
-            doc: Optional[str] = None,
-            original_property: Optional[QueryableAttribute[_T_co]] = None,
+            class_,
+            key,
+            descriptor,
+            comparator,
+            adapt_to_entity=None,
+            doc=None,
+            original_property=None,
         ):
             self.class_ = class_
             self.key = key
@@ -630,12 +615,12 @@ def create_proxied_attribute(
             self._doc = self.__doc__ = doc
 
         @property
-        def _parententity(self):  # type: ignore[override]
-            return inspection.inspect(self.class_, raiseerr=False)
+        def _parententity(self):
+            return inspection.inspect(self.class_)
 
         @property
-        def parent(self):  # type: ignore[override]
-            return inspection.inspect(self.class_, raiseerr=False)
+        def parent(self):
+            return inspection.inspect(self.class_)
 
         _is_internal_proxy = True
 
@@ -643,13 +628,6 @@ def create_proxied_attribute(
             ("key", visitors.ExtendedInternalTraversal.dp_string),
             ("_parententity", visitors.ExtendedInternalTraversal.dp_multi),
         ]
-
-        def _column_strategy_attrs(self) -> Sequence[QueryableAttribute[Any]]:
-            prop = self.original_property
-            if prop is None:
-                return ()
-            else:
-                return prop._column_strategy_attrs()
 
         @property
         def _impl_uses_objects(self):
@@ -665,7 +643,7 @@ def create_proxied_attribute(
             else:
                 # used by hybrid attributes which try to remain
                 # agnostic of any ORM concepts like mappers
-                return AdHocHasEntityNamespace(self._parententity)
+                return AdHocHasEntityNamespace(self.class_)
 
         @property
         def property(self):
@@ -801,7 +779,7 @@ class AttributeEventToken:
 
     __slots__ = "impl", "op", "parent_token"
 
-    def __init__(self, attribute_impl: AttributeImpl, op: util.symbol):
+    def __init__(self, attribute_impl, op):
         self.impl = attribute_impl
         self.op = op
         self.parent_token = self.impl.parent_token
@@ -844,7 +822,7 @@ class AttributeImpl:
         self,
         class_: _ExternalEntityType[_O],
         key: str,
-        callable_: Optional[_LoaderCallable],
+        callable_: _LoaderCallable,
         dispatch: _Dispatch[QueryableAttribute[Any]],
         trackparent: bool = False,
         compare_function: Optional[Callable[..., bool]] = None,
@@ -1003,6 +981,7 @@ class AttributeImpl:
                     last_parent is not False
                     and last_parent.key != parent_state.key
                 ):
+
                     if last_parent.obj() is None:
                         raise orm_exc.StaleDataError(
                             "Removing state %s from parent "
@@ -1382,6 +1361,7 @@ class ScalarObjectAttributeImpl(ScalarAttributeImpl):
         else:
             original = state.committed_state.get(self.key, _NO_HISTORY)
             if original is PASSIVE_NO_RESULT:
+
                 loader_passive = passive | (
                     PASSIVE_ONLY_PERSISTENT
                     | NO_AUTOFLUSH
@@ -1429,6 +1409,7 @@ class ScalarObjectAttributeImpl(ScalarAttributeImpl):
                 and original is not NO_VALUE
                 and original is not current
             ):
+
                 ret.append((instance_state(original), original))
         return ret
 
@@ -1548,7 +1529,8 @@ class HasCollectionAdapter:
         dict_: _InstanceDict,
         user_data: Literal[None] = ...,
         passive: Literal[PassiveFlag.PASSIVE_OFF] = ...,
-    ) -> CollectionAdapter: ...
+    ) -> CollectionAdapter:
+        ...
 
     @overload
     def get_collection(
@@ -1557,7 +1539,8 @@ class HasCollectionAdapter:
         dict_: _InstanceDict,
         user_data: _AdaptedCollectionProtocol = ...,
         passive: PassiveFlag = ...,
-    ) -> CollectionAdapter: ...
+    ) -> CollectionAdapter:
+        ...
 
     @overload
     def get_collection(
@@ -1568,7 +1551,8 @@ class HasCollectionAdapter:
         passive: PassiveFlag = ...,
     ) -> Union[
         Literal[LoaderCallableStatus.PASSIVE_NO_RESULT], CollectionAdapter
-    ]: ...
+    ]:
+        ...
 
     def get_collection(
         self,
@@ -1599,7 +1583,8 @@ if TYPE_CHECKING:
 
     def _is_collection_attribute_impl(
         impl: AttributeImpl,
-    ) -> TypeGuard[CollectionAttributeImpl]: ...
+    ) -> TypeGuard[CollectionAttributeImpl]:
+        ...
 
 else:
     _is_collection_attribute_impl = operator.attrgetter("collection")
@@ -1687,22 +1672,9 @@ class CollectionAttributeImpl(HasCollectionAdapter, AttributeImpl):
         passive: PassiveFlag = PASSIVE_OFF,
     ) -> History:
         current = self.get(state, dict_, passive=passive)
-
         if current is PASSIVE_NO_RESULT:
-            if (
-                passive & PassiveFlag.INCLUDE_PENDING_MUTATIONS
-                and self.key in state._pending_mutations
-            ):
-                pending = state._pending_mutations[self.key]
-                return pending.merge_with_history(HISTORY_BLANK)
-            else:
-                return HISTORY_BLANK
+            return HISTORY_BLANK
         else:
-            if passive & PassiveFlag.INCLUDE_PENDING_MUTATIONS:
-                # this collection is loaded / present.  should not be any
-                # pending mutations
-                assert self.key not in state._pending_mutations
-
             return History.from_collection(self, state, current)
 
     def get_all_pending(
@@ -1847,6 +1819,7 @@ class CollectionAttributeImpl(HasCollectionAdapter, AttributeImpl):
     def _initialize_collection(
         self, state: InstanceState[Any]
     ) -> Tuple[CollectionAdapter, _AdaptedCollectionProtocol]:
+
         adapter, collection = state.manager.initialize_collection(
             self.key, state, self.collection_factory
         )
@@ -1947,7 +1920,7 @@ class CollectionAttributeImpl(HasCollectionAdapter, AttributeImpl):
                         and "None"
                         or iterable.__class__.__name__
                     )
-                    wanted = self._duck_typed_as.__name__
+                    wanted = self._duck_typed_as.__name__  # type: ignore
                     raise TypeError(
                         "Incompatible collection type: %s is not %s-like"
                         % (given, wanted)
@@ -2055,7 +2028,8 @@ class CollectionAttributeImpl(HasCollectionAdapter, AttributeImpl):
         dict_: _InstanceDict,
         user_data: Literal[None] = ...,
         passive: Literal[PassiveFlag.PASSIVE_OFF] = ...,
-    ) -> CollectionAdapter: ...
+    ) -> CollectionAdapter:
+        ...
 
     @overload
     def get_collection(
@@ -2064,7 +2038,8 @@ class CollectionAttributeImpl(HasCollectionAdapter, AttributeImpl):
         dict_: _InstanceDict,
         user_data: _AdaptedCollectionProtocol = ...,
         passive: PassiveFlag = ...,
-    ) -> CollectionAdapter: ...
+    ) -> CollectionAdapter:
+        ...
 
     @overload
     def get_collection(
@@ -2075,7 +2050,8 @@ class CollectionAttributeImpl(HasCollectionAdapter, AttributeImpl):
         passive: PassiveFlag = PASSIVE_OFF,
     ) -> Union[
         Literal[LoaderCallableStatus.PASSIVE_NO_RESULT], CollectionAdapter
-    ]: ...
+    ]:
+        ...
 
     def get_collection(
         self,
@@ -2270,6 +2246,7 @@ def backref_listeners(
                 initiator is not check_remove_token
                 and initiator is not check_replace_token
             ):
+
                 if not check_for_dupes_on_remove or not util.has_dupes(
                     # when this event is called, the item is usually
                     # present in the list, except for a pop() operation.
@@ -2378,13 +2355,6 @@ class History(NamedTuple):
         """Return True if this :class:`.History` has changes."""
 
         return bool(self.added or self.deleted)
-
-    def _merge(self, added: Iterable[Any], deleted: Iterable[Any]) -> History:
-        return History(
-            list(self.added) + list(added),
-            self.unchanged,
-            list(self.deleted) + list(deleted),
-        )
 
     def as_state(self) -> History:
         return History(
@@ -2499,6 +2469,7 @@ class History(NamedTuple):
         elif original is _NO_HISTORY:
             return cls((), list(current), ())
         else:
+
             current_states = [
                 ((c is not None) and instance_state(c) or None, c)
                 for c in current
@@ -2602,6 +2573,7 @@ def register_attribute_impl(
     backref: Optional[str] = None,
     **kw: Any,
 ) -> QueryableAttribute[Any]:
+
     manager = manager_of_class(class_)
     if uselist:
         factory = kw.pop("typecallable", None)
@@ -2621,7 +2593,7 @@ def register_attribute_impl(
         # TODO: this appears to be the WriteOnlyAttributeImpl /
         # DynamicAttributeImpl constructor which is hardcoded
         impl = cast("Type[WriteOnlyAttributeImpl]", impl_class)(
-            class_, key, dispatch, **kw
+            class_, key, typecallable, dispatch, **kw
         )
     elif uselist:
         impl = CollectionAttributeImpl(
@@ -2673,7 +2645,7 @@ def init_collection(obj: object, key: str) -> CollectionAdapter:
     This function is used to provide direct access to collection internals
     for a previously unloaded attribute.  e.g.::
 
-        collection_adapter = init_collection(someobject, "elements")
+        collection_adapter = init_collection(someobject, 'elements')
         for elem in values:
             collection_adapter.append_without_event(elem)
 
@@ -2717,7 +2689,7 @@ def init_state_collection(
     return adapter
 
 
-def set_committed_value(instance: object, key: str, value: Any) -> None:
+def set_committed_value(instance, key, value):
     """Set the value of an attribute with no history events.
 
     Cancels any previous history present.  The value should be

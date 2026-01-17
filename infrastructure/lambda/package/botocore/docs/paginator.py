@@ -223,7 +223,9 @@ def document_paginate_method(
 
     paginate_description = (
         'Creates an iterator that will paginate through responses '
-        f'from :py:meth:`{get_service_module_name(service_model)}.Client.{xform_name(paginator_name)}`.'
+        'from :py:meth:`{}.Client.{}`.'.format(
+            get_service_module_name(service_model), xform_name(paginator_name)
+        )
     )
 
     document_model_driven_method(

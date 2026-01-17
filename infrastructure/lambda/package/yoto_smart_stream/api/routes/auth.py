@@ -1,9 +1,9 @@
 """Authentication endpoints for Yoto account login."""
 
+import json
 import logging
 import os
 from typing import Optional
-from datetime import datetime
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -204,12 +204,7 @@ async def poll_auth_status(
         Current authentication status
     """
     settings = get_settings()
-    
-    # Try to get the Yoto client, handling the case where it isn't initialized yet
-    try:
-        client = get_yoto_client()
-    except RuntimeError:
-        client = None
+    client = get_yoto_client()
 
     if not client or not client.manager:
         return AuthPollResponse(
@@ -219,139 +214,89 @@ async def poll_auth_status(
         )
 
     try:
-        logger.info(f"Polling auth status for device_code: {poll_request.device_code[:10]}...")
-        
-        # Use single-attempt polling (non-blocking, suitable for Lambda/serverless)
-        # The frontend will poll this endpoint repeatedly until success
-        poll_status = client.poll_device_code_single_attempt(poll_request.device_code)
-        
-        logger.info(f"Poll status result: {poll_status}")
-        
-        if poll_status == "success":
-            # Authentication succeeded
-            client.set_authenticated(True)
+        # Try to complete the device code flow
+        client.manager.device_code_flow_complete()
 
-            # Save refresh token using Secrets Manager (AWS Lambda) or file (local dev)
-            if client.manager.token and client.manager.token.refresh_token:
-                # Use 'default' as user_id for single-tenant application
-                # This ensures tokens can be loaded on startup without knowing the user
-                user_id = "default"
-                
-                # On Lambda, use Secrets Manager for persistent storage
-                if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-                    try:
-                        from ...utils.token_storage import TokenStorage
-                        token_storage = TokenStorage()
-                        
-                        # Extract token data
-                        access_token = client.manager.token.access_token if client.manager.token.access_token else None
-                        expires_at = None
-                        if hasattr(client.manager.token, 'expires_at') and client.manager.token.expires_at:
-                            expires_at = client.manager.token.expires_at if isinstance(client.manager.token.expires_at, datetime) else None
-                        
-                        # Save to Secrets Manager
-                        token_storage.save_token(
-                            user_id=user_id,
-                            refresh_token=client.manager.token.refresh_token,
-                            access_token=access_token,
-                            expires_at=expires_at
-                        )
-                        logger.info(f"Yoto OAuth tokens saved to Secrets Manager for user: {user_id}")
-                    except Exception as e:
-                        logger.error(f"Failed to save tokens to Secrets Manager: {e}")
-                        # Don't fail authentication, continue
-                else:
-                    # Local development: use file storage
-                    token_file = settings.yoto_refresh_token_file
-                    token_file.parent.mkdir(parents=True, exist_ok=True)
-                    token_file.write_text(client.manager.token.refresh_token)
-                    logger.info(f"Refresh token saved to {token_file}")
-                
-                # Also save tokens to database for backward compatibility
-                if current_user:
-                    try:
-                        current_user.yoto_access_token = client.manager.token.access_token
-                        current_user.yoto_refresh_token = client.manager.token.refresh_token
-                        if hasattr(client.manager.token, 'expires_at'):
-                            current_user.yoto_token_expires_at = client.manager.token.expires_at
-                        db.commit()
-                        logger.info(f"Yoto tokens also saved to database for user: {current_user.username}")
-                    except Exception as e:
-                        logger.error(f"Failed to save tokens to database: {e}")
-                        db.rollback()
-            else:
-                logger.error("No refresh token available after authentication!")
+        # If we get here, authentication succeeded
+        client.set_authenticated(True)
 
-            # After saving, reload the client from secrets to ensure it's authenticated
-            # This handles the case where the same Lambda container stays warm after OAuth
-            try:
-                logger.info("Reloading client from persisted tokens to ensure authenticated state...")
-                # Reset the global client and let dependencies recreate it from Secrets Manager
-                from ..dependencies import _yoto_client
-                import yoto_smart_stream.api.dependencies as deps
-                deps._yoto_client = None
-                
-                # Recreate client with fresh auth
-                client = get_yoto_client()
-                if client:
-                    client.authenticate()
-                    client.set_authenticated(True)
-                    set_yoto_client(client)
-                    logger.info("✓ Client reloaded and authenticated")
-            except Exception as reload_error:
-                logger.warning(f"Could not reload client after auth: {reload_error}, but tokens are saved")
+        # Save refresh token to file (for backward compatibility)
+        if client.manager.token and client.manager.token.refresh_token:
+            # Save to AWS Secrets Manager on Lambda
+            if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+                try:
+                    import boto3
+                    sm_client = boto3.client("secretsmanager", region_name="us-east-1")
+                    secret_data = {
+                        "refresh_token": client.manager.token.refresh_token,
+                        "access_token": client.manager.token.access_token or "",
+                        "expires_at": str(client.manager.token.expires_at) if hasattr(client.manager.token, 'expires_at') else ""
+                    }
+                    sm_client.put_secret_value(
+                        SecretId="yoto-oauth-token",
+                        SecretString=json.dumps(secret_data)
+                    )
+                    logger.info("Yoto OAuth tokens saved to AWS Secrets Manager")
+                except Exception as e:
+                    logger.error(f"Failed to save tokens to Secrets Manager: {e}")
             
-            # Update player status
-            try:
-                client.update_player_status()
-            except Exception as e:
-                logger.warning(f"Failed to update player status: {e}")
+            # Also save to file for local development
+            token_file = settings.yoto_refresh_token_file
+            # Ensure parent directory exists (e.g., /data on Railway)
+            token_file.parent.mkdir(parents=True, exist_ok=True)
+            token_file.write_text(client.manager.token.refresh_token)
+            logger.info(f"Refresh token saved to {token_file}")
+            
+            # Save tokens to database for the current user
+            if current_user:
+                try:
+                    current_user.yoto_access_token = client.manager.token.access_token
+                    current_user.yoto_refresh_token = client.manager.token.refresh_token
+                    if hasattr(client.manager.token, 'expires_at'):
+                        current_user.yoto_token_expires_at = client.manager.token.expires_at
+                    db.commit()
+                    logger.info(f"Yoto tokens saved to database for user: {current_user.username}")
+                except Exception as e:
+                    logger.error(f"Failed to save tokens to database: {e}")
+                    db.rollback()
+        else:
+            logger.error("No refresh token available after authentication!")
 
-            logger.info("Authentication successful!")
+        # Update player status
+        try:
+            client.update_player_status()
+        except Exception as e:
+            logger.warning(f"Failed to update player status: {e}")
 
-            return AuthPollResponse(
-                status="success",
-                message="Successfully authenticated with Yoto API",
-                authenticated=True
-            )
-        
-        elif poll_status == "pending":
+        logger.info("Authentication successful!")
+
+        return AuthPollResponse(
+            status="success",
+            message="Successfully authenticated with Yoto API",
+            authenticated=True
+        )
+
+    except Exception as e:
+        error_msg = str(e).lower()
+
+        # Check for common error types
+        if "authorization_pending" in error_msg or "pending" in error_msg:
             return AuthPollResponse(
                 status="pending",
                 message="Waiting for user to authorize...",
                 authenticated=False
             )
-        
-        elif poll_status == "expired":
-            return AuthPollResponse(
-                status="expired",
-                message="Authentication expired. Please start again.",
-                authenticated=False
-            )
-        
-        else:
-            # Unknown status
-            return AuthPollResponse(
-                status="error",
-                message=f"Unknown status: {poll_status}",
-                authenticated=False
-            )
-
-    except Exception as e:
-        error_msg = str(e).lower()
-        logger.error(f"Auth poll error: {e}", exc_info=True)
-        
-        # Try to provide helpful error messages
-        if "expired" in error_msg or "token expired" in error_msg:
+        elif "expired_token" in error_msg or "token expired" in error_msg or "code expired" in error_msg:
             return AuthPollResponse(
                 status="expired",
                 message="Authentication expired. Please start again.",
                 authenticated=False
             )
         else:
+            logger.warning(f"Auth poll error: {e}")
             return AuthPollResponse(
-                status="error",
-                message=f"Authentication error: {str(e)}",
+                status="pending",
+                message="Waiting for authorization...",
                 authenticated=False
             )
 
@@ -371,17 +316,6 @@ async def logout():
         if token_file.exists():
             token_file.unlink()
             logger.info("Refresh token removed")
-
-        # Remove token from Secrets Manager if running in Lambda
-        try:
-            import os
-            if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-                from ...utils.token_storage import TokenStorage
-                token_storage = TokenStorage()
-                token_storage.delete_token(user_id="default")
-                logger.info("Scheduled deletion of refresh token in Secrets Manager")
-        except Exception as se:
-            logger.warning(f"Failed to delete token from Secrets Manager: {se}")
 
         # Clear client authentication using public method
         client = get_yoto_client()

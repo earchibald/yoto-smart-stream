@@ -1,6 +1,5 @@
-from typing import Annotated, Any, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
-from annotated_doc import Doc
 from fastapi.exceptions import HTTPException
 from fastapi.openapi.models import OAuth2 as OAuth2Model
 from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
@@ -8,7 +7,10 @@ from fastapi.param_functions import Form
 from fastapi.security.base import SecurityBase
 from fastapi.security.utils import get_authorization_scheme_param
 from starlette.requests import Request
-from starlette.status import HTTP_401_UNAUTHORIZED
+from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
+
+# TODO: import from typing when deprecating Python 3.9
+from typing_extensions import Annotated, Doc  # type: ignore [attr-defined]
 
 
 class OAuth2PasswordRequestForm:
@@ -50,9 +52,9 @@ class OAuth2PasswordRequestForm:
     ```
 
     Note that for OAuth2 the scope `items:read` is a single scope in an opaque string.
-    You could have custom internal logic to separate it by colon characters (`:`) or
+    You could have custom internal logic to separate it by colon caracters (`:`) or
     similar, and get the two parts `items` and `read`. Many applications do that to
-    group and organize permissions, you could do it as well in your application, just
+    group and organize permisions, you could do it as well in your application, just
     know that that it is application specific, it's not part of the specification.
     """
 
@@ -61,7 +63,7 @@ class OAuth2PasswordRequestForm:
         *,
         grant_type: Annotated[
             Union[str, None],
-            Form(pattern="^password$"),
+            Form(pattern="password"),
             Doc(
                 """
                 The OAuth2 spec says it is required and MUST be the fixed string
@@ -83,11 +85,11 @@ class OAuth2PasswordRequestForm:
         ],
         password: Annotated[
             str,
-            Form(json_schema_extra={"format": "password"}),
+            Form(),
             Doc(
                 """
                 `password` string. The OAuth2 spec requires the exact field name
-                `password`.
+                `password".
                 """
             ),
         ],
@@ -128,7 +130,7 @@ class OAuth2PasswordRequestForm:
         ] = None,
         client_secret: Annotated[
             Union[str, None],
-            Form(json_schema_extra={"format": "password"}),
+            Form(),
             Doc(
                 """
                 If there's a `client_password` (and a `client_id`), they can be sent
@@ -192,9 +194,9 @@ class OAuth2PasswordRequestFormStrict(OAuth2PasswordRequestForm):
     ```
 
     Note that for OAuth2 the scope `items:read` is a single scope in an opaque string.
-    You could have custom internal logic to separate it by colon characters (`:`) or
+    You could have custom internal logic to separate it by colon caracters (`:`) or
     similar, and get the two parts `items` and `read`. Many applications do that to
-    group and organize permissions, you could do it as well in your application, just
+    group and organize permisions, you could do it as well in your application, just
     know that that it is application specific, it's not part of the specification.
 
 
@@ -215,7 +217,7 @@ class OAuth2PasswordRequestFormStrict(OAuth2PasswordRequestForm):
         self,
         grant_type: Annotated[
             str,
-            Form(pattern="^password$"),
+            Form(pattern="password"),
             Doc(
                 """
                 The OAuth2 spec says it is required and MUST be the fixed string
@@ -241,7 +243,7 @@ class OAuth2PasswordRequestFormStrict(OAuth2PasswordRequestForm):
             Doc(
                 """
                 `password` string. The OAuth2 spec requires the exact field name
-                `password`.
+                `password".
                 """
             ),
         ],
@@ -320,7 +322,7 @@ class OAuth2(SecurityBase):
         self,
         *,
         flows: Annotated[
-            Union[OAuthFlowsModel, dict[str, dict[str, Any]]],
+            Union[OAuthFlowsModel, Dict[str, Dict[str, Any]]],
             Doc(
                 """
                 The dictionary of OAuth2 flows.
@@ -351,7 +353,7 @@ class OAuth2(SecurityBase):
             bool,
             Doc(
                 """
-                By default, if no HTTP Authorization header is provided, required for
+                By default, if no HTTP Auhtorization header is provided, required for
                 OAuth2 authentication, it will automatically cancel the request and
                 send the client an error.
 
@@ -374,33 +376,13 @@ class OAuth2(SecurityBase):
         self.scheme_name = scheme_name or self.__class__.__name__
         self.auto_error = auto_error
 
-    def make_not_authenticated_error(self) -> HTTPException:
-        """
-        The OAuth 2 specification doesn't define the challenge that should be used,
-        because a `Bearer` token is not really the only option to authenticate.
-
-        But declaring any other authentication challenge would be application-specific
-        as it's not defined in the specification.
-
-        For practical reasons, this method uses the `Bearer` challenge by default, as
-        it's probably the most common one.
-
-        If you are implementing an OAuth2 authentication scheme other than the provided
-        ones in FastAPI (based on bearer tokens), you might want to override this.
-
-        Ref: https://datatracker.ietf.org/doc/html/rfc6749
-        """
-        return HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
     async def __call__(self, request: Request) -> Optional[str]:
         authorization = request.headers.get("Authorization")
         if not authorization:
             if self.auto_error:
-                raise self.make_not_authenticated_error()
+                raise HTTPException(
+                    status_code=HTTP_403_FORBIDDEN, detail="Not authenticated"
+                )
             else:
                 return None
         return authorization
@@ -437,7 +419,7 @@ class OAuth2PasswordBearer(OAuth2):
             ),
         ] = None,
         scopes: Annotated[
-            Optional[dict[str, str]],
+            Optional[Dict[str, str]],
             Doc(
                 """
                 The OAuth2 scopes that would be required by the *path operations* that
@@ -459,7 +441,7 @@ class OAuth2PasswordBearer(OAuth2):
             bool,
             Doc(
                 """
-                By default, if no HTTP Authorization header is provided, required for
+                By default, if no HTTP Auhtorization header is provided, required for
                 OAuth2 authentication, it will automatically cancel the request and
                 send the client an error.
 
@@ -475,26 +457,11 @@ class OAuth2PasswordBearer(OAuth2):
                 """
             ),
         ] = True,
-        refreshUrl: Annotated[
-            Optional[str],
-            Doc(
-                """
-                The URL to refresh the token and obtain a new one.
-                """
-            ),
-        ] = None,
     ):
         if not scopes:
             scopes = {}
         flows = OAuthFlowsModel(
-            password=cast(
-                Any,
-                {
-                    "tokenUrl": tokenUrl,
-                    "refreshUrl": refreshUrl,
-                    "scopes": scopes,
-                },
-            )
+            password=cast(Any, {"tokenUrl": tokenUrl, "scopes": scopes})
         )
         super().__init__(
             flows=flows,
@@ -508,7 +475,11 @@ class OAuth2PasswordBearer(OAuth2):
         scheme, param = get_authorization_scheme_param(authorization)
         if not authorization or scheme.lower() != "bearer":
             if self.auto_error:
-                raise self.make_not_authenticated_error()
+                raise HTTPException(
+                    status_code=HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             else:
                 return None
         return param
@@ -550,7 +521,7 @@ class OAuth2AuthorizationCodeBearer(OAuth2):
             ),
         ] = None,
         scopes: Annotated[
-            Optional[dict[str, str]],
+            Optional[Dict[str, str]],
             Doc(
                 """
                 The OAuth2 scopes that would be required by the *path operations* that
@@ -572,7 +543,7 @@ class OAuth2AuthorizationCodeBearer(OAuth2):
             bool,
             Doc(
                 """
-                By default, if no HTTP Authorization header is provided, required for
+                By default, if no HTTP Auhtorization header is provided, required for
                 OAuth2 authentication, it will automatically cancel the request and
                 send the client an error.
 
@@ -614,7 +585,11 @@ class OAuth2AuthorizationCodeBearer(OAuth2):
         scheme, param = get_authorization_scheme_param(authorization)
         if not authorization or scheme.lower() != "bearer":
             if self.auto_error:
-                raise self.make_not_authenticated_error()
+                raise HTTPException(
+                    status_code=HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             else:
                 return None  # pragma: nocover
         return param
@@ -636,7 +611,7 @@ class SecurityScopes:
     def __init__(
         self,
         scopes: Annotated[
-            Optional[list[str]],
+            Optional[List[str]],
             Doc(
                 """
                 This will be filled by FastAPI.
@@ -645,13 +620,15 @@ class SecurityScopes:
         ] = None,
     ):
         self.scopes: Annotated[
-            list[str],
+            List[str],
             Doc(
                 """
                 The list of all the scopes required by dependencies.
                 """
             ),
-        ] = scopes or []
+        ] = (
+            scopes or []
+        )
         self.scope_str: Annotated[
             str,
             Doc(

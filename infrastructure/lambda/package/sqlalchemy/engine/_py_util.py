@@ -1,9 +1,3 @@
-# engine/_py_util.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
-# <see AUTHORS file>
-#
-# This module is part of SQLAlchemy and is released under
-# the MIT License: https://www.opensource.org/licenses/mit-license.php
 from __future__ import annotations
 
 import typing
@@ -32,9 +26,9 @@ def _distill_params_20(
     # Assume list is more likely than tuple
     elif isinstance(params, list) or isinstance(params, tuple):
         # collections_abc.MutableSequence): # avoid abc.__instancecheck__
-        if params and not isinstance(params[0], Mapping):
+        if params and not isinstance(params[0], (tuple, Mapping)):
             raise exc.ArgumentError(
-                "List argument must consist only of dictionaries"
+                "List argument must consist only of tuples or dictionaries"
             )
 
         return params

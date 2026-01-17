@@ -20,18 +20,17 @@
 #
 # See the README file for information on usage and redistribution.
 #
-from __future__ import annotations
+
 
 import os
 import struct
-from typing import IO
 
 from . import Image, ImageFile
 from ._binary import i16be as i16
 from ._binary import o8
 
 
-def _accept(prefix: bytes) -> bool:
+def _accept(prefix):
     return len(prefix) >= 2 and i16(prefix) == 474
 
 
@@ -53,10 +52,8 @@ class SgiImageFile(ImageFile.ImageFile):
     format = "SGI"
     format_description = "SGI Image File Format"
 
-    def _open(self) -> None:
+    def _open(self):
         # HEAD
-        assert self.fp is not None
-
         headlen = 512
         s = self.fp.read(headlen)
 
@@ -82,15 +79,22 @@ class SgiImageFile(ImageFile.ImageFile):
         # zsize : channels count
         zsize = i16(s, 10)
 
+        # layout
+        layout = bpc, dimension, zsize
+
         # determine mode from bits/zsize
+        rawmode = ""
         try:
-            rawmode = MODES[(bpc, dimension, zsize)]
+            rawmode = MODES[layout]
         except KeyError:
+            pass
+
+        if rawmode == "":
             msg = "Unsupported SGI image mode"
             raise ValueError(msg)
 
         self._size = xsize, ysize
-        self._mode = rawmode.split(";")[0]
+        self.mode = rawmode.split(";")[0]
         if self.mode == "RGB":
             self.custom_mimetype = "image/rgb"
 
@@ -102,33 +106,24 @@ class SgiImageFile(ImageFile.ImageFile):
             pagesize = xsize * ysize * bpc
             if bpc == 2:
                 self.tile = [
-                    ImageFile._Tile(
-                        "SGI16",
-                        (0, 0) + self.size,
-                        headlen,
-                        (self.mode, 0, orientation),
-                    )
+                    ("SGI16", (0, 0) + self.size, headlen, (self.mode, 0, orientation))
                 ]
             else:
                 self.tile = []
                 offset = headlen
                 for layer in self.mode:
                     self.tile.append(
-                        ImageFile._Tile(
-                            "raw", (0, 0) + self.size, offset, (layer, 0, orientation)
-                        )
+                        ("raw", (0, 0) + self.size, offset, (layer, 0, orientation))
                     )
                     offset += pagesize
         elif compression == 1:
             self.tile = [
-                ImageFile._Tile(
-                    "sgi_rle", (0, 0) + self.size, headlen, (rawmode, orientation, bpc)
-                )
+                ("sgi_rle", (0, 0) + self.size, headlen, (rawmode, orientation, bpc))
             ]
 
 
-def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
-    if im.mode not in {"RGB", "RGBA", "L"}:
+def _save(im, fp, filename):
+    if im.mode != "RGB" and im.mode != "RGBA" and im.mode != "L":
         msg = "Unsupported SGI image mode"
         raise ValueError(msg)
 
@@ -149,15 +144,24 @@ def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
     # Run-Length Encoding Compression - Unsupported at this time
     rle = 0
 
+    # Number of dimensions (x,y,z)
+    dim = 3
     # X Dimension = width / Y Dimension = height
     x, y = im.size
+    if im.mode == "L" and y == 1:
+        dim = 1
+    elif im.mode == "L":
+        dim = 2
     # Z Dimension: Number of channels
     z = len(im.mode)
-    # Number of dimensions (x,y,z)
-    if im.mode == "L":
-        dimension = 1 if y == 1 else 2
-    else:
-        dimension = 3
+
+    if dim == 1 or dim == 2:
+        z = 1
+
+    # assert we've got the right number of bands.
+    if len(im.getbands()) != z:
+        msg = f"incorrect number of bands in SGI write: {z} vs {len(im.getbands())}"
+        raise ValueError(msg)
 
     # Minimum Byte value
     pinmin = 0
@@ -165,14 +169,13 @@ def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
     pinmax = 255
     # Image name (79 characters max, truncated below in write)
     img_name = os.path.splitext(os.path.basename(filename))[0]
-    if isinstance(img_name, str):
-        img_name = img_name.encode("ascii", "ignore")
+    img_name = img_name.encode("ascii", "ignore")
     # Standard representation of pixel in the file
     colormap = 0
     fp.write(struct.pack(">h", magic_number))
     fp.write(o8(rle))
     fp.write(o8(bpc))
-    fp.write(struct.pack(">H", dimension))
+    fp.write(struct.pack(">H", dim))
     fp.write(struct.pack(">H", x))
     fp.write(struct.pack(">H", y))
     fp.write(struct.pack(">H", z))
@@ -198,10 +201,7 @@ def _save(im: Image.Image, fp: IO[bytes], filename: str | bytes) -> None:
 class SGI16Decoder(ImageFile.PyDecoder):
     _pulls_fd = True
 
-    def decode(self, buffer: bytes | Image.SupportsArrayInterface) -> tuple[int, int]:
-        assert self.fd is not None
-        assert self.im is not None
-
+    def decode(self, buffer):
         rawmode, stride, orientation = self.args
         pagesize = self.state.xsize * self.state.ysize
         zsize = len(self.mode)

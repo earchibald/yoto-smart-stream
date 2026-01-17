@@ -1,5 +1,5 @@
 # event/attr.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -343,20 +343,11 @@ class _EmptyListener(_InstanceLevelDispatch[_ET]):
         obj = cast("_Dispatch[_ET]", obj)
 
         assert obj._instance_cls is not None
-        existing = getattr(obj, self.name)
-
-        with util.mini_gil:
-            if existing is self or isinstance(existing, _JoinedListener):
-                result = _ListenerCollection(self.parent, obj._instance_cls)
-            else:
-                # this codepath is an extremely rare race condition
-                # that has been observed in test_pool.py->test_timeout_race
-                # with freethreaded.
-                assert isinstance(existing, _ListenerCollection)
-                return existing
-
-            if existing is self:
-                setattr(obj, self.name, result)
+        result = _ListenerCollection(self.parent, obj._instance_cls)
+        if getattr(obj, self.name) is self:
+            setattr(obj, self.name, result)
+        else:
+            assert isinstance(getattr(obj, self.name), _JoinedListener)
         return result
 
     def _needs_modify(self, *args: Any, **kw: Any) -> NoReturn:
@@ -400,54 +391,37 @@ class _EmptyListener(_InstanceLevelDispatch[_ET]):
 
 
 class _MutexProtocol(Protocol):
-    def __enter__(self) -> bool: ...
+    def __enter__(self) -> bool:
+        ...
 
     def __exit__(
         self,
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
-    ) -> Optional[bool]: ...
+    ) -> Optional[bool]:
+        ...
 
 
 class _CompoundListener(_InstanceLevelDispatch[_ET]):
-    __slots__ = (
-        "_exec_once_mutex",
-        "_exec_once",
-        "_exec_w_sync_once",
-        "_is_asyncio",
-    )
+    __slots__ = "_exec_once_mutex", "_exec_once", "_exec_w_sync_once"
 
-    _exec_once_mutex: Optional[_MutexProtocol]
+    _exec_once_mutex: _MutexProtocol
     parent_listeners: Collection[_ListenerFnType]
     listeners: Collection[_ListenerFnType]
     _exec_once: bool
     _exec_w_sync_once: bool
 
-    def __init__(self, *arg: Any, **kw: Any):
-        super().__init__(*arg, **kw)
-        self._is_asyncio = False
-
     def _set_asyncio(self) -> None:
-        self._is_asyncio = True
+        self._exec_once_mutex = AsyncAdaptedLock()
 
-    def _get_exec_once_mutex(self) -> _MutexProtocol:
-        with util.mini_gil:
-            if self._exec_once_mutex is not None:
-                return self._exec_once_mutex
-
-            if self._is_asyncio:
-                mutex = AsyncAdaptedLock()
-            else:
-                mutex = threading.Lock()  # type: ignore[assignment]
-            self._exec_once_mutex = mutex
-
-            return mutex
+    def _memoized_attr__exec_once_mutex(self) -> _MutexProtocol:
+        return threading.Lock()
 
     def _exec_once_impl(
         self, retry_on_exception: bool, *args: Any, **kw: Any
     ) -> None:
-        with self._get_exec_once_mutex():
+        with self._exec_once_mutex:
             if not self._exec_once:
                 try:
                     self(*args, **kw)
@@ -488,15 +462,13 @@ class _CompoundListener(_InstanceLevelDispatch[_ET]):
         raised an exception.
 
         If _exec_w_sync_on_first_run was already called and didn't raise an
-        exception, then a mutex is not used.  It's not guaranteed
-        the mutex won't be used more than once in the case of very rare
-        race conditions.
+        exception, then a mutex is not used.
 
         .. versionadded:: 1.4.11
 
         """
         if not self._exec_w_sync_once:
-            with self._get_exec_once_mutex():
+            with self._exec_once_mutex:
                 try:
                     self(*args, **kw)
                 except:
@@ -553,12 +525,10 @@ class _ListenerCollection(_CompoundListener[_ET]):
     propagate: Set[_ListenerFnType]
 
     def __init__(self, parent: _ClsLevelDispatch[_ET], target_cls: Type[_ET]):
-        super().__init__()
         if target_cls not in parent._clslevel:
             parent.update_subclass(target_cls)
         self._exec_once = False
         self._exec_w_sync_once = False
-        self._exec_once_mutex = None
         self.parent_listeners = parent._clslevel[target_cls]
         self.parent = parent
         self.name = parent.name
@@ -593,9 +563,6 @@ class _ListenerCollection(_CompoundListener[_ET]):
         ]
 
         existing_listeners.extend(other_listeners)
-
-        if other._is_asyncio:
-            self._set_asyncio()
 
         to_associate = other.propagate.union(other_listeners)
         registry._stored_in_collection_multi(self, other, to_associate)
@@ -636,8 +603,6 @@ class _JoinedListener(_CompoundListener[_ET]):
         local: _EmptyListener[_ET],
     ):
         self._exec_once = False
-        self._exec_w_sync_once = False
-        self._exec_once_mutex = None
         self.parent_dispatch = parent_dispatch
         self.name = name
         self.local = local

@@ -1,5 +1,5 @@
-# exc.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# sqlalchemy/exc.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -51,15 +51,17 @@ class HasDescriptionCode:
             self.code = code
         super().__init__(*arg, **kw)
 
-    _what_are_we = "error"
-
     def _code_str(self) -> str:
         if not self.code:
             return ""
         else:
             return (
-                f"(Background on this {self._what_are_we} at: "
-                f"https://sqlalche.me/e/{_version_token}/{self.code})"
+                "(Background on this error at: "
+                "https://sqlalche.me/e/%s/%s)"
+                % (
+                    _version_token,
+                    self.code,
+                )
             )
 
     def __str__(self) -> str:
@@ -135,6 +137,8 @@ class DuplicateColumnError(ArgumentError):
 class ObjectNotExecutableError(ArgumentError):
     """Raised when an object is passed to .execute() that can't be
     executed as SQL.
+
+    .. versionadded:: 1.1
 
     """
 
@@ -432,16 +436,14 @@ class DontWrapMixin:
 
         from sqlalchemy.exc import DontWrapMixin
 
-
         class MyCustomException(Exception, DontWrapMixin):
             pass
-
 
         class MySpecialType(TypeDecorator):
             impl = String
 
             def process_bind_param(self, value, dialect):
-                if value == "invalid":
+                if value == 'invalid':
                     raise MyCustomException("invalid!")
 
     """
@@ -573,7 +575,8 @@ class DBAPIError(StatementError):
         connection_invalidated: bool = False,
         dialect: Optional[Dialect] = None,
         ismulti: Optional[bool] = None,
-    ) -> StatementError: ...
+    ) -> StatementError:
+        ...
 
     @overload
     @classmethod
@@ -587,7 +590,8 @@ class DBAPIError(StatementError):
         connection_invalidated: bool = False,
         dialect: Optional[Dialect] = None,
         ismulti: Optional[bool] = None,
-    ) -> DontWrapMixin: ...
+    ) -> DontWrapMixin:
+        ...
 
     @overload
     @classmethod
@@ -601,7 +605,8 @@ class DBAPIError(StatementError):
         connection_invalidated: bool = False,
         dialect: Optional[Dialect] = None,
         ismulti: Optional[bool] = None,
-    ) -> BaseException: ...
+    ) -> BaseException:
+        ...
 
     @classmethod
     def instance(
@@ -828,5 +833,3 @@ class SAPendingDeprecationWarning(PendingDeprecationWarning):
 
 class SAWarning(HasDescriptionCode, RuntimeWarning):
     """Issued at runtime."""
-
-    _what_are_we = "warning"

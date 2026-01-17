@@ -1,13 +1,12 @@
-# dialects/mysql/expression.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
+# mypy: ignore-errors
 
-from __future__ import annotations
 
-from typing import Any
+import typing
 
 from ... import exc
 from ... import util
@@ -17,10 +16,12 @@ from ...sql import operators
 from ...sql import roles
 from ...sql.base import _generative
 from ...sql.base import Generative
-from ...util.typing import Self
 
 
-class match(Generative, elements.BinaryExpression[Any]):
+Selfmatch = typing.TypeVar("Selfmatch", bound="match")
+
+
+class match(Generative, elements.BinaryExpression):
     """Produce a ``MATCH (X, Y) AGAINST ('TEXT')`` clause.
 
     E.g.::
@@ -40,9 +41,7 @@ class match(Generative, elements.BinaryExpression[Any]):
             .order_by(desc(match_expr))
         )
 
-    Would produce SQL resembling:
-
-    .. sourcecode:: sql
+    Would produce SQL resembling::
 
         SELECT id, firstname, lastname
         FROM user
@@ -75,9 +74,8 @@ class match(Generative, elements.BinaryExpression[Any]):
     __visit_name__ = "mysql_match"
 
     inherit_cache = True
-    modifiers: util.immutabledict[str, Any]
 
-    def __init__(self, *cols: elements.ColumnElement[Any], **kw: Any):
+    def __init__(self, *cols, **kw):
         if not cols:
             raise exc.ArgumentError("columns are required")
 
@@ -112,7 +110,7 @@ class match(Generative, elements.BinaryExpression[Any]):
         super().__init__(left, against, operators.match_op, modifiers=flags)
 
     @_generative
-    def in_boolean_mode(self) -> Self:
+    def in_boolean_mode(self: Selfmatch) -> Selfmatch:
         """Apply the "IN BOOLEAN MODE" modifier to the MATCH expression.
 
         :return: a new :class:`_mysql.match` instance with modifications
@@ -123,7 +121,7 @@ class match(Generative, elements.BinaryExpression[Any]):
         return self
 
     @_generative
-    def in_natural_language_mode(self) -> Self:
+    def in_natural_language_mode(self: Selfmatch) -> Selfmatch:
         """Apply the "IN NATURAL LANGUAGE MODE" modifier to the MATCH
         expression.
 
@@ -135,7 +133,7 @@ class match(Generative, elements.BinaryExpression[Any]):
         return self
 
     @_generative
-    def with_query_expansion(self) -> Self:
+    def with_query_expansion(self: Selfmatch) -> Selfmatch:
         """Apply the "WITH QUERY EXPANSION" modifier to the MATCH expression.
 
         :return: a new :class:`_mysql.match` instance with modifications

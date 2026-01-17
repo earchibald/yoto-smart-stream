@@ -1,5 +1,5 @@
 # sql/_elements_constructors.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -10,6 +10,7 @@ from __future__ import annotations
 import typing
 from typing import Any
 from typing import Callable
+from typing import Iterable
 from typing import Mapping
 from typing import Optional
 from typing import overload
@@ -39,7 +40,6 @@ from .elements import Null
 from .elements import Over
 from .elements import TextClause
 from .elements import True_
-from .elements import TryCast
 from .elements import Tuple
 from .elements import TypeCoerce
 from .elements import UnaryExpression
@@ -48,7 +48,6 @@ from .functions import FunctionElement
 from ..util.typing import Literal
 
 if typing.TYPE_CHECKING:
-    from ._typing import _ByArgument
     from ._typing import _ColumnExpressionArgument
     from ._typing import _ColumnExpressionOrLiteralArgument
     from ._typing import _ColumnExpressionOrStrLabelArgument
@@ -125,8 +124,11 @@ def and_(  # type: ignore[empty-body]
         from sqlalchemy import and_
 
         stmt = select(users_table).where(
-            and_(users_table.c.name == "wendy", users_table.c.enrolled == True)
-        )
+                        and_(
+                            users_table.c.name == 'wendy',
+                            users_table.c.enrolled == True
+                        )
+                    )
 
     The :func:`.and_` conjunction is also available using the
     Python ``&`` operator (though note that compound expressions
@@ -134,8 +136,9 @@ def and_(  # type: ignore[empty-body]
     operator precedence behavior)::
 
         stmt = select(users_table).where(
-            (users_table.c.name == "wendy") & (users_table.c.enrolled == True)
-        )
+                        (users_table.c.name == 'wendy') &
+                        (users_table.c.enrolled == True)
+                    )
 
     The :func:`.and_` operation is also implicit in some cases;
     the :meth:`_expression.Select.where`
@@ -143,11 +146,9 @@ def and_(  # type: ignore[empty-body]
     times against a statement, which will have the effect of each
     clause being combined using :func:`.and_`::
 
-        stmt = (
-            select(users_table)
-            .where(users_table.c.name == "wendy")
-            .where(users_table.c.enrolled == True)
-        )
+        stmt = select(users_table).\
+                where(users_table.c.name == 'wendy').\
+                where(users_table.c.enrolled == True)
 
     The :func:`.and_` construct must be given at least one positional
     argument in order to be valid; a :func:`.and_` construct with no
@@ -157,7 +158,6 @@ def and_(  # type: ignore[empty-body]
     specified::
 
         from sqlalchemy import true
-
         criteria = and_(true(), *expressions)
 
     The above expression will compile to SQL as the expression ``true``
@@ -182,64 +182,6 @@ def and_(  # type: ignore[empty-body]
 if not TYPE_CHECKING:
     # handle deprecated case which allows zero-arguments
     def and_(*clauses):  # noqa: F811
-        r"""Produce a conjunction of expressions joined by ``AND``.
-
-        E.g.::
-
-            from sqlalchemy import and_
-
-            stmt = select(users_table).where(
-                and_(users_table.c.name == "wendy", users_table.c.enrolled == True)
-            )
-
-        The :func:`.and_` conjunction is also available using the
-        Python ``&`` operator (though note that compound expressions
-        need to be parenthesized in order to function with Python
-        operator precedence behavior)::
-
-            stmt = select(users_table).where(
-                (users_table.c.name == "wendy") & (users_table.c.enrolled == True)
-            )
-
-        The :func:`.and_` operation is also implicit in some cases;
-        the :meth:`_expression.Select.where`
-        method for example can be invoked multiple
-        times against a statement, which will have the effect of each
-        clause being combined using :func:`.and_`::
-
-            stmt = (
-                select(users_table)
-                .where(users_table.c.name == "wendy")
-                .where(users_table.c.enrolled == True)
-            )
-
-        The :func:`.and_` construct must be given at least one positional
-        argument in order to be valid; a :func:`.and_` construct with no
-        arguments is ambiguous.   To produce an "empty" or dynamically
-        generated :func:`.and_`  expression, from a given list of expressions,
-        a "default" element of :func:`_sql.true` (or just ``True``) should be
-        specified::
-
-            from sqlalchemy import true
-
-            criteria = and_(true(), *expressions)
-
-        The above expression will compile to SQL as the expression ``true``
-        or ``1 = 1``, depending on backend, if no other expressions are
-        present.  If expressions are present, then the :func:`_sql.true` value
-        is ignored as it does not affect the outcome of an AND expression that
-        has other elements.
-
-        .. deprecated:: 1.4  The :func:`.and_` element now requires that at
-          least one argument is passed; creating the :func:`.and_` construct
-          with no arguments is deprecated, and will emit a deprecation warning
-          while continuing to produce a blank SQL string.
-
-        .. seealso::
-
-            :func:`.or_`
-
-        """  # noqa: E501
         return BooleanClauseList.and_(*clauses)
 
 
@@ -305,12 +247,9 @@ def asc(
     e.g.::
 
         from sqlalchemy import asc
-
         stmt = select(users_table).order_by(asc(users_table.c.name))
 
-    will produce SQL as:
-
-    .. sourcecode:: sql
+    will produce SQL as::
 
         SELECT id, name FROM user ORDER BY name ASC
 
@@ -347,11 +286,9 @@ def collate(
 
     e.g.::
 
-        collate(mycolumn, "utf8_bin")
+        collate(mycolumn, 'utf8_bin')
 
-    produces:
-
-    .. sourcecode:: sql
+    produces::
 
         mycolumn COLLATE utf8_bin
 
@@ -376,12 +313,9 @@ def between(
     E.g.::
 
         from sqlalchemy import between
-
         stmt = select(users_table).where(between(users_table.c.id, 5, 7))
 
-    Would produce SQL resembling:
-
-    .. sourcecode:: sql
+    Would produce SQL resembling::
 
         SELECT id, name FROM user WHERE id BETWEEN :id_1 AND :id_2
 
@@ -418,6 +352,8 @@ def between(
     :param symmetric: if True, will render " BETWEEN SYMMETRIC ". Note
      that not all databases support this syntax.
 
+     .. versionadded:: 0.9.5
+
     .. seealso::
 
         :meth:`_expression.ColumnElement.between`
@@ -442,12 +378,16 @@ def outparam(
     return BindParameter(key, None, type_=type_, unique=False, isoutparam=True)
 
 
+# mypy insists that BinaryExpression and _HasClauseElement protocol overlap.
+# they do not.  at all.  bug in mypy?
 @overload
-def not_(clause: BinaryExpression[_T]) -> BinaryExpression[_T]: ...
+def not_(clause: BinaryExpression[_T]) -> BinaryExpression[_T]:  # type: ignore
+    ...
 
 
 @overload
-def not_(clause: _ColumnExpressionArgument[_T]) -> ColumnElement[_T]: ...
+def not_(clause: _ColumnExpressionArgument[_T]) -> ColumnElement[_T]:
+    ...
 
 
 def not_(clause: _ColumnExpressionArgument[_T]) -> ColumnElement[_T]:
@@ -499,13 +439,10 @@ def bindparam(
 
         from sqlalchemy import bindparam
 
-        stmt = select(users_table).where(
-            users_table.c.name == bindparam("username")
-        )
+        stmt = select(users_table).\
+                    where(users_table.c.name == bindparam('username'))
 
-    The above statement, when rendered, will produce SQL similar to:
-
-    .. sourcecode:: sql
+    The above statement, when rendered, will produce SQL similar to::
 
         SELECT id, name FROM user WHERE name = :username
 
@@ -513,25 +450,22 @@ def bindparam(
     would typically be applied at execution time to a method
     like :meth:`_engine.Connection.execute`::
 
-        result = connection.execute(stmt, {"username": "wendy"})
+        result = connection.execute(stmt, username='wendy')
 
     Explicit use of :func:`.bindparam` is also common when producing
     UPDATE or DELETE statements that are to be invoked multiple times,
     where the WHERE criterion of the statement is to change on each
     invocation, such as::
 
-        stmt = (
-            users_table.update()
-            .where(user_table.c.name == bindparam("username"))
-            .values(fullname=bindparam("fullname"))
-        )
+        stmt = (users_table.update().
+                where(user_table.c.name == bindparam('username')).
+                values(fullname=bindparam('fullname'))
+                )
 
         connection.execute(
-            stmt,
-            [
-                {"username": "wendy", "fullname": "Wendy Smith"},
-                {"username": "jack", "fullname": "Jack Jones"},
-            ],
+            stmt, [{"username": "wendy", "fullname": "Wendy Smith"},
+                   {"username": "jack", "fullname": "Jack Jones"},
+                   ]
         )
 
     SQLAlchemy's Core expression system makes wide use of
@@ -540,7 +474,7 @@ def bindparam(
     coerced into fixed :func:`.bindparam` constructs.  For example, given
     a comparison operation such as::
 
-        expr = users_table.c.name == "Wendy"
+        expr = users_table.c.name == 'Wendy'
 
     The above expression will produce a :class:`.BinaryExpression`
     construct, where the left side is the :class:`_schema.Column` object
@@ -548,11 +482,9 @@ def bindparam(
     :class:`.BindParameter` representing the literal value::
 
         print(repr(expr.right))
-        BindParameter("%(4327771088 name)s", "Wendy", type_=String())
+        BindParameter('%(4327771088 name)s', 'Wendy', type_=String())
 
-    The expression above will render SQL such as:
-
-    .. sourcecode:: sql
+    The expression above will render SQL such as::
 
         user.name = :name_1
 
@@ -561,12 +493,10 @@ def bindparam(
     along where it is later used within statement execution.  If we
     invoke a statement like the following::
 
-        stmt = select(users_table).where(users_table.c.name == "Wendy")
+        stmt = select(users_table).where(users_table.c.name == 'Wendy')
         result = connection.execute(stmt)
 
-    We would see SQL logging output as:
-
-    .. sourcecode:: sql
+    We would see SQL logging output as::
 
         SELECT "user".id, "user".name
         FROM "user"
@@ -584,11 +514,9 @@ def bindparam(
     bound placeholders based on the arguments passed, as in::
 
         stmt = users_table.insert()
-        result = connection.execute(stmt, {"name": "Wendy"})
+        result = connection.execute(stmt, name='Wendy')
 
-    The above will produce SQL output as:
-
-    .. sourcecode:: sql
+    The above will produce SQL output as::
 
         INSERT INTO "user" (name) VALUES (%(name)s)
         {'name': 'Wendy'}
@@ -661,12 +589,12 @@ def bindparam(
     :param quote:
       True if this parameter name requires quoting and is not
       currently known as a SQLAlchemy reserved word; this currently
-      only applies to the Oracle Database backends, where bound names must
+      only applies to the Oracle backend, where bound names must
       sometimes be quoted.
 
     :param isoutparam:
       if True, the parameter should be treated like a stored procedure
-      "OUT" parameter.  This applies to backends such as Oracle Database which
+      "OUT" parameter.  This applies to backends such as Oracle which
       support OUT parameters.
 
     :param expanding:
@@ -752,17 +680,16 @@ def case(
 
         from sqlalchemy import case
 
-        stmt = select(users_table).where(
-            case(
-                (users_table.c.name == "wendy", "W"),
-                (users_table.c.name == "jack", "J"),
-                else_="E",
-            )
-        )
+        stmt = select(users_table).\
+                    where(
+                        case(
+                            (users_table.c.name == 'wendy', 'W'),
+                            (users_table.c.name == 'jack', 'J'),
+                            else_='E'
+                        )
+                    )
 
-    The above statement will produce SQL resembling:
-
-    .. sourcecode:: sql
+    The above statement will produce SQL resembling::
 
         SELECT id, name FROM user
         WHERE CASE
@@ -780,9 +707,14 @@ def case(
     compared against keyed to result expressions.  The statement below is
     equivalent to the preceding statement::
 
-        stmt = select(users_table).where(
-            case({"wendy": "W", "jack": "J"}, value=users_table.c.name, else_="E")
-        )
+        stmt = select(users_table).\
+                    where(
+                        case(
+                            {"wendy": "W", "jack": "J"},
+                            value=users_table.c.name,
+                            else_='E'
+                        )
+                    )
 
     The values which are accepted as result values in
     :paramref:`.case.whens` as well as with :paramref:`.case.else_` are
@@ -797,16 +729,20 @@ def case(
         from sqlalchemy import case, literal_column
 
         case(
-            (orderline.c.qty > 100, literal_column("'greaterthan100'")),
-            (orderline.c.qty > 10, literal_column("'greaterthan10'")),
-            else_=literal_column("'lessthan10'"),
+            (
+                orderline.c.qty > 100,
+                literal_column("'greaterthan100'")
+            ),
+            (
+                orderline.c.qty > 10,
+                literal_column("'greaterthan10'")
+            ),
+            else_=literal_column("'lessthan10'")
         )
 
     The above will render the given constants without using bound
     parameters for the result values (but still for the comparison
-    values), as in:
-
-    .. sourcecode:: sql
+    values), as in::
 
         CASE
             WHEN (orderline.qty > :qty_1) THEN 'greaterthan100'
@@ -821,14 +757,14 @@ def case(
      .. versionchanged:: 1.4 the :func:`_sql.case`
         function now accepts the series of WHEN conditions positionally
 
-     In the first form, it accepts multiple 2-tuples passed as positional
-     arguments; each 2-tuple consists of ``(<sql expression>, <value>)``,
-     where the SQL expression is a boolean expression and "value" is a
-     resulting value, e.g.::
+     In the first form, it accepts a list of 2-tuples; each 2-tuple
+     consists of ``(<sql expression>, <value>)``, where the SQL
+     expression is a boolean expression and "value" is a resulting value,
+     e.g.::
 
         case(
-            (users_table.c.name == "wendy", "W"),
-            (users_table.c.name == "jack", "J"),
+            (users_table.c.name == 'wendy', 'W'),
+            (users_table.c.name == 'jack', 'J')
         )
 
      In the second form, it accepts a Python dictionary of comparison
@@ -836,7 +772,10 @@ def case(
      :paramref:`.case.value` to be present, and values will be compared
      using the ``==`` operator, e.g.::
 
-        case({"wendy": "W", "jack": "J"}, value=users_table.c.name)
+        case(
+            {"wendy": "W", "jack": "J"},
+            value=users_table.c.name
+        )
 
     :param value: An optional SQL expression which will be used as a
       fixed "comparison point" for candidate values within a dictionary
@@ -849,7 +788,7 @@ def case(
       expressions evaluate to true.
 
 
-    """  # noqa: E501
+    """
     return Case(*whens, value=value, else_=else_)
 
 
@@ -867,9 +806,7 @@ def cast(
 
         stmt = select(cast(product_table.c.unit_price, Numeric(10, 4)))
 
-    The above statement will produce SQL resembling:
-
-    .. sourcecode:: sql
+    The above statement will produce SQL resembling::
 
         SELECT CAST(unit_price AS NUMERIC(10, 4)) FROM product
 
@@ -881,6 +818,11 @@ def cast(
     on the expression operator behavior associated with that type,
     as well as the bound-value handling and result-row-handling behavior
     of the type.
+
+    .. versionchanged:: 0.9.0 :func:`.cast` now applies the given type
+       to the expression such that it takes effect on the bound-value,
+       e.g. the Python-to-database direction, in addition to the
+       result handling, e.g. database-to-Python, direction.
 
     An alternative to :func:`.cast` is the :func:`.type_coerce` function.
     This function performs the second task of associating an expression
@@ -899,10 +841,6 @@ def cast(
 
         :ref:`tutorial_casts`
 
-        :func:`.try_cast` - an alternative to CAST that results in
-        NULLs when the cast fails, instead of raising an error.
-        Only supported by some dialects.
-
         :func:`.type_coerce` - an alternative to CAST that coerces the type
         on the Python side only, which is often sufficient to generate the
         correct SQL and data coercion.
@@ -910,49 +848,6 @@ def cast(
 
     """
     return Cast(expression, type_)
-
-
-def try_cast(
-    expression: _ColumnExpressionOrLiteralArgument[Any],
-    type_: _TypeEngineArgument[_T],
-) -> TryCast[_T]:
-    """Produce a ``TRY_CAST`` expression for backends which support it;
-    this is a ``CAST`` which returns NULL for un-castable conversions.
-
-    In SQLAlchemy, this construct is supported **only** by the SQL Server
-    dialect, and will raise a :class:`.CompileError` if used on other
-    included backends.  However, third party backends may also support
-    this construct.
-
-    .. tip:: As :func:`_sql.try_cast` originates from the SQL Server dialect,
-       it's importable both from ``sqlalchemy.`` as well as from
-       ``sqlalchemy.dialects.mssql``.
-
-    :func:`_sql.try_cast` returns an instance of :class:`.TryCast` and
-    generally behaves similarly to the :class:`.Cast` construct;
-    at the SQL level, the difference between ``CAST`` and ``TRY_CAST``
-    is that ``TRY_CAST`` returns NULL for an un-castable expression,
-    such as attempting to cast a string ``"hi"`` to an integer value.
-
-    E.g.::
-
-        from sqlalchemy import select, try_cast, Numeric
-
-        stmt = select(try_cast(product_table.c.unit_price, Numeric(10, 4)))
-
-    The above would render on Microsoft SQL Server as:
-
-    .. sourcecode:: sql
-
-        SELECT TRY_CAST (product_table.unit_price AS NUMERIC(10, 4))
-        FROM product_table
-
-    .. versionadded:: 2.0.14  :func:`.try_cast` has been
-       generalized from the SQL Server dialect into a general use
-       construct that may be supported by additional dialects.
-
-    """
-    return TryCast(expression, type_)
 
 
 def column(
@@ -973,9 +868,7 @@ def column(
         id, name = column("id"), column("name")
         stmt = select(id, name).select_from("user")
 
-    The above statement would produce SQL like:
-
-    .. sourcecode:: sql
+    The above statement would produce SQL like::
 
         SELECT id, name FROM user
 
@@ -1011,14 +904,13 @@ def column(
 
         from sqlalchemy import table, column, select
 
-        user = table(
-            "user",
-            column("id"),
-            column("name"),
-            column("description"),
+        user = table("user",
+                column("id"),
+                column("name"),
+                column("description"),
         )
 
-        stmt = select(user.c.description).where(user.c.name == "wendy")
+        stmt = select(user.c.description).where(user.c.name == 'wendy')
 
     A :func:`_expression.column` / :func:`.table`
     construct like that illustrated
@@ -1026,6 +918,10 @@ def column(
     ad-hoc fashion and is not associated with any
     :class:`_schema.MetaData`, DDL, or events, unlike its
     :class:`_schema.Table` counterpart.
+
+    .. versionchanged:: 1.0.0 :func:`_expression.column` can now
+       be imported from the plain ``sqlalchemy`` namespace like any
+       other SQL element.
 
     :param text: the text of the element.
 
@@ -1065,9 +961,7 @@ def desc(
 
         stmt = select(users_table).order_by(desc(users_table.c.name))
 
-    will produce SQL as:
-
-    .. sourcecode:: sql
+    will produce SQL as::
 
         SELECT id, name FROM user ORDER BY name DESC
 
@@ -1100,26 +994,16 @@ def desc(
 def distinct(expr: _ColumnExpressionArgument[_T]) -> UnaryExpression[_T]:
     """Produce an column-expression-level unary ``DISTINCT`` clause.
 
-    This applies the ``DISTINCT`` keyword to an **individual column
-    expression** (e.g. not the whole statement), and renders **specifically
-    in that column position**; this is used for containment within
-    an aggregate function, as in::
+    This applies the ``DISTINCT`` keyword to an individual column
+    expression, and is typically contained within an aggregate function,
+    as in::
 
         from sqlalchemy import distinct, func
+        stmt = select(func.count(distinct(users_table.c.name)))
 
-        stmt = select(users_table.c.id, func.count(distinct(users_table.c.name)))
+    The above would produce an expression resembling::
 
-    The above would produce an statement resembling:
-
-    .. sourcecode:: sql
-
-        SELECT user.id, count(DISTINCT user.name) FROM user
-
-    .. tip:: The :func:`_sql.distinct` function does **not** apply DISTINCT
-       to the full SELECT statement, instead applying a DISTINCT modifier
-       to **individual column expressions**.  For general ``SELECT DISTINCT``
-       support, use the
-       :meth:`_sql.Select.distinct` method on :class:`_sql.Select`.
+        SELECT COUNT(DISTINCT name) FROM user
 
     The :func:`.distinct` function is also available as a column-level
     method, e.g. :meth:`_expression.ColumnElement.distinct`, as in::
@@ -1142,25 +1026,8 @@ def distinct(expr: _ColumnExpressionArgument[_T]) -> UnaryExpression[_T]:
 
         :data:`.func`
 
-    """  # noqa: E501
-    return UnaryExpression._create_distinct(expr)
-
-
-def bitwise_not(expr: _ColumnExpressionArgument[_T]) -> UnaryExpression[_T]:
-    """Produce a unary bitwise NOT clause, typically via the ``~`` operator.
-
-    Not to be confused with boolean negation :func:`_sql.not_`.
-
-    .. versionadded:: 2.0.2
-
-    .. seealso::
-
-        :ref:`operators_bitwise`
-
-
     """
-
-    return UnaryExpression._create_bitwise_not(expr)
+    return UnaryExpression._create_distinct(expr)
 
 
 def extract(field: str, expr: _ColumnExpressionArgument[Any]) -> Extract:
@@ -1172,9 +1039,6 @@ def extract(field: str, expr: _ColumnExpressionArgument[Any]) -> Extract:
 
     :param field: The field to extract.
 
-     .. warning:: This field is used as a literal SQL string.
-         **DO NOT PASS UNTRUSTED INPUT TO THIS STRING**.
-
     :param expr: A column or Python scalar expression serving as the
       right side of the ``EXTRACT`` expression.
 
@@ -1183,10 +1047,9 @@ def extract(field: str, expr: _ColumnExpressionArgument[Any]) -> Extract:
         from sqlalchemy import extract
         from sqlalchemy import table, column
 
-        logged_table = table(
-            "user",
-            column("id"),
-            column("date_created"),
+        logged_table = table("user",
+                column("id"),
+                column("date_created"),
         )
 
         stmt = select(logged_table.c.id).where(
@@ -1198,9 +1061,9 @@ def extract(field: str, expr: _ColumnExpressionArgument[Any]) -> Extract:
 
     Similarly, one can also select an extracted component::
 
-        stmt = select(extract("YEAR", logged_table.c.date_created)).where(
-            logged_table.c.id == 1
-        )
+        stmt = select(
+            extract("YEAR", logged_table.c.date_created)
+        ).where(logged_table.c.id == 1)
 
     The implementation of ``EXTRACT`` may vary across database backends.
     Users are reminded to consult their database documentation.
@@ -1239,6 +1102,10 @@ def false() -> False_:
         >>> print(select(t.c.x).where(and_(t.c.x > 5, false())))
         {printsql}SELECT x FROM t WHERE false{stop}
 
+    .. versionchanged:: 0.9 :func:`.true` and :func:`.false` feature
+       better integrated behavior within conjunctions and on dialects
+       that don't support true/false constants.
+
     .. seealso::
 
         :func:`.true`
@@ -1259,13 +1126,14 @@ def funcfilter(
     E.g.::
 
         from sqlalchemy import funcfilter
-
-        funcfilter(func.count(1), MyClass.name == "some name")
+        funcfilter(func.count(1), MyClass.name == 'some name')
 
     Would produce "COUNT(1) FILTER (WHERE myclass.name = 'some name')".
 
     This function is also available from the :data:`~.expression.func`
     construct itself via the :meth:`.FunctionElement.filter` method.
+
+    .. versionadded:: 1.0.0
 
     .. seealso::
 
@@ -1317,11 +1185,10 @@ def nulls_first(column: _ColumnExpressionArgument[_T]) -> UnaryExpression[_T]:
 
         from sqlalchemy import desc, nulls_first
 
-        stmt = select(users_table).order_by(nulls_first(desc(users_table.c.name)))
+        stmt = select(users_table).order_by(
+            nulls_first(desc(users_table.c.name)))
 
-    The SQL expression from the above would resemble:
-
-    .. sourcecode:: sql
+    The SQL expression from the above would resemble::
 
         SELECT id, name FROM user ORDER BY name DESC NULLS FIRST
 
@@ -1332,8 +1199,7 @@ def nulls_first(column: _ColumnExpressionArgument[_T]) -> UnaryExpression[_T]:
     function version, as in::
 
         stmt = select(users_table).order_by(
-            users_table.c.name.desc().nulls_first()
-        )
+            users_table.c.name.desc().nulls_first())
 
     .. versionchanged:: 1.4 :func:`.nulls_first` is renamed from
         :func:`.nullsfirst` in previous releases.
@@ -1349,7 +1215,7 @@ def nulls_first(column: _ColumnExpressionArgument[_T]) -> UnaryExpression[_T]:
 
         :meth:`_expression.Select.order_by`
 
-    """  # noqa: E501
+    """
     return UnaryExpression._create_nulls_first(column)
 
 
@@ -1363,11 +1229,10 @@ def nulls_last(column: _ColumnExpressionArgument[_T]) -> UnaryExpression[_T]:
 
         from sqlalchemy import desc, nulls_last
 
-        stmt = select(users_table).order_by(nulls_last(desc(users_table.c.name)))
+        stmt = select(users_table).order_by(
+            nulls_last(desc(users_table.c.name)))
 
-    The SQL expression from the above would resemble:
-
-    .. sourcecode:: sql
+    The SQL expression from the above would resemble::
 
         SELECT id, name FROM user ORDER BY name DESC NULLS LAST
 
@@ -1377,7 +1242,8 @@ def nulls_last(column: _ColumnExpressionArgument[_T]) -> UnaryExpression[_T]:
     rather than as its standalone
     function version, as in::
 
-        stmt = select(users_table).order_by(users_table.c.name.desc().nulls_last())
+        stmt = select(users_table).order_by(
+            users_table.c.name.desc().nulls_last())
 
     .. versionchanged:: 1.4 :func:`.nulls_last` is renamed from
         :func:`.nullslast` in previous releases.
@@ -1393,7 +1259,7 @@ def nulls_last(column: _ColumnExpressionArgument[_T]) -> UnaryExpression[_T]:
 
         :meth:`_expression.Select.order_by`
 
-    """  # noqa: E501
+    """
     return UnaryExpression._create_nulls_last(column)
 
 
@@ -1408,8 +1274,11 @@ def or_(  # type: ignore[empty-body]
         from sqlalchemy import or_
 
         stmt = select(users_table).where(
-            or_(users_table.c.name == "wendy", users_table.c.name == "jack")
-        )
+                        or_(
+                            users_table.c.name == 'wendy',
+                            users_table.c.name == 'jack'
+                        )
+                    )
 
     The :func:`.or_` conjunction is also available using the
     Python ``|`` operator (though note that compound expressions
@@ -1417,8 +1286,9 @@ def or_(  # type: ignore[empty-body]
     operator precedence behavior)::
 
         stmt = select(users_table).where(
-            (users_table.c.name == "wendy") | (users_table.c.name == "jack")
-        )
+                        (users_table.c.name == 'wendy') |
+                        (users_table.c.name == 'jack')
+                    )
 
     The :func:`.or_` construct must be given at least one positional
     argument in order to be valid; a :func:`.or_` construct with no
@@ -1428,7 +1298,6 @@ def or_(  # type: ignore[empty-body]
     specified::
 
         from sqlalchemy import false
-
         or_criteria = or_(false(), *expressions)
 
     The above expression will compile to SQL as the expression ``false``
@@ -1453,62 +1322,25 @@ def or_(  # type: ignore[empty-body]
 if not TYPE_CHECKING:
     # handle deprecated case which allows zero-arguments
     def or_(*clauses):  # noqa: F811
-        """Produce a conjunction of expressions joined by ``OR``.
-
-        E.g.::
-
-            from sqlalchemy import or_
-
-            stmt = select(users_table).where(
-                or_(users_table.c.name == "wendy", users_table.c.name == "jack")
-            )
-
-        The :func:`.or_` conjunction is also available using the
-        Python ``|`` operator (though note that compound expressions
-        need to be parenthesized in order to function with Python
-        operator precedence behavior)::
-
-            stmt = select(users_table).where(
-                (users_table.c.name == "wendy") | (users_table.c.name == "jack")
-            )
-
-        The :func:`.or_` construct must be given at least one positional
-        argument in order to be valid; a :func:`.or_` construct with no
-        arguments is ambiguous.   To produce an "empty" or dynamically
-        generated :func:`.or_`  expression, from a given list of expressions,
-        a "default" element of :func:`_sql.false` (or just ``False``) should be
-        specified::
-
-            from sqlalchemy import false
-
-            or_criteria = or_(false(), *expressions)
-
-        The above expression will compile to SQL as the expression ``false``
-        or ``0 = 1``, depending on backend, if no other expressions are
-        present.  If expressions are present, then the :func:`_sql.false` value
-        is ignored as it does not affect the outcome of an OR expression which
-        has other elements.
-
-        .. deprecated:: 1.4  The :func:`.or_` element now requires that at
-           least one argument is passed; creating the :func:`.or_` construct
-           with no arguments is deprecated, and will emit a deprecation warning
-           while continuing to produce a blank SQL string.
-
-        .. seealso::
-
-            :func:`.and_`
-
-        """  # noqa: E501
         return BooleanClauseList.or_(*clauses)
 
 
 def over(
     element: FunctionElement[_T],
-    partition_by: Optional[_ByArgument] = None,
-    order_by: Optional[_ByArgument] = None,
+    partition_by: Optional[
+        Union[
+            Iterable[_ColumnExpressionArgument[Any]],
+            _ColumnExpressionArgument[Any],
+        ]
+    ] = None,
+    order_by: Optional[
+        Union[
+            Iterable[_ColumnExpressionArgument[Any]],
+            _ColumnExpressionArgument[Any],
+        ]
+    ] = None,
     range_: Optional[typing_Tuple[Optional[int], Optional[int]]] = None,
     rows: Optional[typing_Tuple[Optional[int], Optional[int]]] = None,
-    groups: Optional[typing_Tuple[Optional[int], Optional[int]]] = None,
 ) -> Over[_T]:
     r"""Produce an :class:`.Over` object against a function.
 
@@ -1520,23 +1352,19 @@ def over(
 
         func.row_number().over(order_by=mytable.c.some_column)
 
-    Would produce:
-
-    .. sourcecode:: sql
+    Would produce::
 
         ROW_NUMBER() OVER(ORDER BY some_column)
 
-    Ranges are also possible using the :paramref:`.expression.over.range_`,
-    :paramref:`.expression.over.rows`, and :paramref:`.expression.over.groups`
-    parameters.  These
+    Ranges are also possible using the :paramref:`.expression.over.range_`
+    and :paramref:`.expression.over.rows` parameters.  These
     mutually-exclusive parameters each accept a 2-tuple, which contains
     a combination of integers and None::
 
-        func.row_number().over(order_by=my_table.c.some_column, range_=(None, 0))
+        func.row_number().over(
+            order_by=my_table.c.some_column, range_=(None, 0))
 
-    The above would produce:
-
-    .. sourcecode:: sql
+    The above would produce::
 
         ROW_NUMBER() OVER(ORDER BY some_column
         RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
@@ -1547,23 +1375,22 @@ def over(
 
     * RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING::
 
-        func.row_number().over(order_by="x", range_=(-5, 10))
+        func.row_number().over(order_by='x', range_=(-5, 10))
 
     * ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW::
 
-        func.row_number().over(order_by="x", rows=(None, 0))
+        func.row_number().over(order_by='x', rows=(None, 0))
 
     * RANGE BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING::
 
-        func.row_number().over(order_by="x", range_=(-2, None))
+        func.row_number().over(order_by='x', range_=(-2, None))
 
     * RANGE BETWEEN 1 FOLLOWING AND 3 FOLLOWING::
 
-        func.row_number().over(order_by="x", range_=(1, 3))
+        func.row_number().over(order_by='x', range_=(1, 3))
 
-    * GROUPS BETWEEN 1 FOLLOWING AND 3 FOLLOWING::
+    .. versionadded:: 1.1 support for RANGE / ROWS within a window
 
-        func.row_number().over(order_by="x", groups=(1, 3))
 
     :param element: a :class:`.FunctionElement`, :class:`.WithinGroup`,
      or other compatible construct.
@@ -1576,14 +1403,14 @@ def over(
     :param range\_: optional range clause for the window.  This is a
      tuple value which can contain integer values or ``None``,
      and will render a RANGE BETWEEN PRECEDING / FOLLOWING clause.
+
+     .. versionadded:: 1.1
+
     :param rows: optional rows clause for the window.  This is a tuple
      value which can contain integer values or None, and will render
      a ROWS BETWEEN PRECEDING / FOLLOWING clause.
-    :param groups: optional groups clause for the window.  This is a
-     tuple value which can contain integer values or ``None``,
-     and will render a GROUPS BETWEEN PRECEDING / FOLLOWING clause.
 
-     .. versionadded:: 2.0.40
+     .. versionadded:: 1.1
 
     This function is also available from the :data:`~.expression.func`
     construct itself via the :meth:`.FunctionElement.over` method.
@@ -1596,8 +1423,8 @@ def over(
 
         :func:`_expression.within_group`
 
-    """  # noqa: E501
-    return Over(element, partition_by, order_by, range_, rows, groups)
+    """
+    return Over(element, partition_by, order_by, range_, rows)
 
 
 @_document_text_coercion("text", ":func:`.text`", ":paramref:`.text.text`")
@@ -1627,7 +1454,7 @@ def text(text: str) -> TextClause:
     E.g.::
 
         t = text("SELECT * FROM users WHERE id=:user_id")
-        result = connection.execute(t, {"user_id": 12})
+        result = connection.execute(t, user_id=12)
 
     For SQL statements where a colon is required verbatim, as within
     an inline string, use a backslash to escape::
@@ -1645,11 +1472,9 @@ def text(text: str) -> TextClause:
     method allows
     specification of return columns including names and types::
 
-        t = (
-            text("SELECT * FROM users WHERE id=:user_id")
-            .bindparams(user_id=7)
-            .columns(id=Integer, name=String)
-        )
+        t = text("SELECT * FROM users WHERE id=:user_id").\
+                bindparams(user_id=7).\
+                columns(id=Integer, name=String)
 
         for id, name in connection.execute(t):
             print(id, name)
@@ -1659,7 +1484,7 @@ def text(text: str) -> TextClause:
     such as for the WHERE clause of a SELECT statement::
 
         s = select(users.c.id, users.c.name).where(text("id=:user_id"))
-        result = connection.execute(s, {"user_id": 12})
+        result = connection.execute(s, user_id=12)
 
     :func:`_expression.text` is also used for the construction
     of a full, standalone statement using plain text.
@@ -1711,6 +1536,10 @@ def true() -> True_:
         >>> print(select(t.c.x).where(and_(t.c.x > 5, false())))
         {printsql}SELECT x FROM t WHERE false{stop}
 
+    .. versionchanged:: 0.9 :func:`.true` and :func:`.false` feature
+       better integrated behavior within conjunctions and on dialects
+       that don't support true/false constants.
+
     .. seealso::
 
         :func:`.false`
@@ -1731,7 +1560,9 @@ def tuple_(
 
         from sqlalchemy import tuple_
 
-        tuple_(table.c.col1, table.c.col2).in_([(1, 2), (5, 12), (10, 19)])
+        tuple_(table.c.col1, table.c.col2).in_(
+            [(1, 2), (5, 12), (10, 19)]
+        )
 
     .. versionchanged:: 1.3.6 Added support for SQLite IN tuples.
 
@@ -1781,8 +1612,9 @@ def type_coerce(
     :meth:`_expression.ColumnElement.label`::
 
         stmt = select(
-            type_coerce(log_table.date_string, StringDateTime()).label("date")
+            type_coerce(log_table.date_string, StringDateTime()).label('date')
         )
+
 
     A type that features bound-value handling will also have that behavior
     take effect when literal values or :func:`.bindparam` constructs are
@@ -1844,10 +1676,11 @@ def within_group(
     the :meth:`.FunctionElement.within_group` method, e.g.::
 
         from sqlalchemy import within_group
-
         stmt = select(
             department.c.id,
-            func.percentile_cont(0.5).within_group(department.c.salary.desc()),
+            func.percentile_cont(0.5).within_group(
+                department.c.salary.desc()
+            )
         )
 
     The above statement would produce SQL similar to
@@ -1858,6 +1691,8 @@ def within_group(
      generated by :data:`~.expression.func`.
     :param \*order_by: one or more column elements that will be used
      as the ORDER BY clause of the WITHIN GROUP construct.
+
+    .. versionadded:: 1.1
 
     .. seealso::
 

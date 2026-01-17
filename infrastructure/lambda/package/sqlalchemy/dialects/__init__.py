@@ -1,5 +1,5 @@
 # dialects/__init__.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-from typing import Any
 from typing import Callable
 from typing import Optional
 from typing import Type
@@ -40,7 +39,7 @@ def _auto_fn(name: str) -> Optional[Callable[[], Type[Dialect]]]:
             # hardcoded.   if mysql / mariadb etc were third party dialects
             # they would just publish all the entrypoints, which would actually
             # look much nicer.
-            module: Any = __import__(
+            module = __import__(
                 "sqlalchemy.dialects.mysql.mariadb"
             ).dialects.mysql.mariadb
             return module.loader(driver)  # type: ignore
@@ -52,7 +51,7 @@ def _auto_fn(name: str) -> Optional[Callable[[], Type[Dialect]]]:
 
     if hasattr(module, driver):
         module = getattr(module, driver)
-        return lambda: module.dialect
+        return lambda: module.dialect  # type: ignore
     else:
         return None
 

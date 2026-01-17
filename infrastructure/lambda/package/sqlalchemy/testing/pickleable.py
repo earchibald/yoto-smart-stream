@@ -1,5 +1,5 @@
 # testing/pickleable.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -13,20 +13,20 @@ unpickling.
 
 from __future__ import annotations
 
-from .entities import ComparableEntity
+from . import fixtures
 from ..schema import Column
 from ..types import String
 
 
-class User(ComparableEntity):
+class User(fixtures.ComparableEntity):
     pass
 
 
-class Order(ComparableEntity):
+class Order(fixtures.ComparableEntity):
     pass
 
 
-class Dingaling(ComparableEntity):
+class Dingaling(fixtures.ComparableEntity):
     pass
 
 
@@ -34,20 +34,20 @@ class EmailUser(User):
     pass
 
 
-class Address(ComparableEntity):
+class Address(fixtures.ComparableEntity):
     pass
 
 
 # TODO: these are kind of arbitrary....
-class Child1(ComparableEntity):
+class Child1(fixtures.ComparableEntity):
     pass
 
 
-class Child2(ComparableEntity):
+class Child2(fixtures.ComparableEntity):
     pass
 
 
-class Parent(ComparableEntity):
+class Parent(fixtures.ComparableEntity):
     pass
 
 
@@ -61,7 +61,7 @@ class Mixin:
     email_address = Column(String)
 
 
-class AddressWMixin(Mixin, ComparableEntity):
+class AddressWMixin(Mixin, fixtures.ComparableEntity):
     pass
 
 

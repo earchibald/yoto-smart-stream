@@ -1,5 +1,78 @@
 // Dashboard JavaScript
 
+// Persistent OAuth Log Manager
+// Captures OAuth-related console logs to localStorage for viewing after page reload
+class OAuthLogManager {
+    constructor() {
+        this.storageKey = 'oauth-logs-' + new Date().toISOString().split('T')[0];
+        this.logs = JSON.parse(localStorage.getItem(this.storageKey) || '[]');
+        
+        // Override console methods
+        this.originalLog = console.log;
+        this.originalError = console.error;
+        this.originalWarn = console.warn;
+        this.originalDebug = console.debug;
+        
+        console.log = (...args) => this.logWithCapture('log', args);
+        console.error = (...args) => this.logWithCapture('error', args);
+        console.warn = (...args) => this.logWithCapture('warn', args);
+        console.debug = (...args) => this.logWithCapture('debug', args);
+    }
+    
+    logWithCapture(level, args) {
+        const message = args.map(a => 
+            typeof a === 'object' ? JSON.stringify(a) : String(a)
+        ).join(' ');
+        
+        // Only capture OAuth-related logs
+        if (message.includes('[OAuth]')) {
+            this.logs.push({
+                time: new Date().toLocaleTimeString(),
+                level: level,
+                message: message
+            });
+            localStorage.setItem(this.storageKey, JSON.stringify(this.logs));
+            
+            // Keep only last 50 logs
+            if (this.logs.length > 50) {
+                this.logs = this.logs.slice(-50);
+                localStorage.setItem(this.storageKey, JSON.stringify(this.logs));
+            }
+        }
+        
+        // Call original console method
+        this[`original${level.charAt(0).toUpperCase() + level.slice(1)}`](...args);
+    }
+    
+    // Display stored logs in console
+    displayStoredLogs() {
+        if (this.logs.length > 0) {
+            console.log('%c=== Stored OAuth Logs from Previous Session ===', 'color: blue; font-weight: bold;');
+            this.logs.forEach(log => {
+                const style = log.level === 'error' ? 'color: red;' : 
+                             log.level === 'warn' ? 'color: orange;' : 
+                             'color: green;';
+                console.log(`%c[${log.time}] ${log.message}`, style);
+            });
+            console.log('%c=== End Stored Logs ===', 'color: blue; font-weight: bold;');
+        }
+    }
+    
+    // Clear stored logs
+    clearStoredLogs() {
+        this.logs = [];
+        localStorage.removeItem(this.storageKey);
+    }
+}
+
+// Initialize OAuth log manager
+const oauthLogManager = new OAuthLogManager();
+
+// Display any stored logs from previous session
+window.addEventListener('load', () => {
+    oauthLogManager.displayStoredLogs();
+});
+
 // API base URL
 const API_BASE = '/api';
 
@@ -169,6 +242,7 @@ async function checkAuthStatus() {
 
 // Start authentication flow
 async function startAuth() {
+    console.log('🔐 [OAuth] Connect Yoto Account button clicked - starting OAuth flow');
     const loginButton = document.getElementById('login-button');
     const authWaiting = document.getElementById('auth-waiting');
     const authActions = document.getElementById('auth-actions');
@@ -178,6 +252,7 @@ async function startAuth() {
     loginButton.textContent = 'Starting...';
     
     try {
+        console.log('📡 [OAuth] Calling /auth/start to get device code');
         const response = await fetch(`${API_BASE}/auth/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
@@ -191,6 +266,12 @@ async function startAuth() {
         const data = await response.json();
         deviceCode = data.device_code;
         
+        console.log('✓ [OAuth] Device code received:', {
+            user_code: data.user_code,
+            device_code: data.device_code,
+            verification_uri: data.verification_uri
+        });
+        
         // Update UI with auth details
         document.getElementById('auth-url').href = data.verification_uri_complete || data.verification_uri;
         document.getElementById('auth-url').textContent = data.verification_uri;
@@ -201,11 +282,13 @@ async function startAuth() {
         authActions.style.display = 'none';
         authMessage.textContent = 'Complete the authorization in your browser, then we\'ll automatically connect.';
         
+        console.log('⏳ [OAuth] Waiting for user authorization. User code:', data.user_code);
+        
         // Start polling for completion
         startAuthPolling();
         
     } catch (error) {
-        console.error('Error starting auth:', error);
+        console.error('❌ [OAuth] Error starting auth:', error);
         alert('Failed to start authentication: ' + error.message);
         loginButton.disabled = false;
         loginButton.textContent = '🔑 Connect Yoto Account';
@@ -218,6 +301,8 @@ function startAuthPolling() {
     if (authPollInterval) {
         clearInterval(authPollInterval);
     }
+    
+    console.log('🔄 [OAuth] Starting polling for OAuth authorization (every 3 seconds)');
     
     // Poll every 3 seconds
     authPollInterval = setInterval(async () => {
@@ -234,6 +319,9 @@ function startAuthPolling() {
             
             if (data.status === 'success') {
                 // Authentication successful!
+                console.log('🎉 [OAuth] OAuth Authentication Success! User authorized the application');
+                console.log('✓ [OAuth] Tokens received and stored. Page reloading in 5 seconds...');
+                
                 clearInterval(authPollInterval);
                 authPollInterval = null;
                 
@@ -248,11 +336,13 @@ function startAuthPolling() {
                 
                 // Reload the page after a short delay
                 setTimeout(() => {
+                    console.log('📄 [OAuth] Page reloading now. Check console after reload for OAuth logs from this session!');
                     window.location.reload();
-                }, 2000);
+                }, 5000);
                 
             } else if (data.status === 'expired') {
                 // Token expired
+                console.warn('⏰ [OAuth] Authentication expired - user took too long to authorize');
                 clearInterval(authPollInterval);
                 authPollInterval = null;
                 alert('Authentication expired. Please try again.');
@@ -262,7 +352,7 @@ function startAuthPolling() {
             // Otherwise keep polling (status === 'pending')
             
         } catch (error) {
-            console.error('Error polling auth:', error);
+            console.debug('[OAuth] Polling...', error.message);
             // Continue polling even on errors
         }
     }, 3000);

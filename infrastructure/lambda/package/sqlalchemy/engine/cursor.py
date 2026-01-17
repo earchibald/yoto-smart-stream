@@ -1,9 +1,10 @@
 # engine/cursor.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
+# mypy: allow-untyped-defs, allow-untyped-calls
 
 """Define cursor-specific result set constructs including
 :class:`.CursorResult`."""
@@ -13,19 +14,16 @@ from __future__ import annotations
 
 import collections
 import functools
-import operator
 import typing
 from typing import Any
 from typing import cast
 from typing import ClassVar
-from typing import Deque
 from typing import Dict
-from typing import Iterable
 from typing import Iterator
 from typing import List
-from typing import Mapping
 from typing import NoReturn
 from typing import Optional
+from typing import overload
 from typing import Sequence
 from typing import Tuple
 from typing import TYPE_CHECKING
@@ -52,19 +50,16 @@ from ..sql.compiler import RM_RENDERED_NAME
 from ..sql.compiler import RM_TYPE
 from ..sql.type_api import TypeEngine
 from ..util import compat
-from ..util.typing import Final
 from ..util.typing import Literal
-from ..util.typing import Self
+
+_UNPICKLED = util.symbol("unpickled")
 
 
 if typing.TYPE_CHECKING:
     from .base import Connection
     from .default import DefaultExecutionContext
     from .interfaces import _DBAPICursorDescription
-    from .interfaces import _MutableCoreSingleExecuteParams
-    from .interfaces import CoreExecuteOptionsParameter
     from .interfaces import DBAPICursor
-    from .interfaces import DBAPIType
     from .interfaces import Dialect
     from .interfaces import ExecutionContext
     from .result import _KeyIndexType
@@ -73,64 +68,63 @@ if typing.TYPE_CHECKING:
     from .result import _KeyType
     from .result import _ProcessorsType
     from .result import _TupleGetterType
-    from ..sql.schema import Column
     from ..sql.type_api import _ResultProcessorType
 
 
 _T = TypeVar("_T", bound=Any)
-TupleAny = Tuple[Any, ...]
+
 
 # metadata entry tuple indexes.
 # using raw tuple is faster than namedtuple.
 # these match up to the positions in
 # _CursorKeyMapRecType
-MD_INDEX: Final[Literal[0]] = 0
+MD_INDEX: Literal[0] = 0
 """integer index in cursor.description
 
 """
 
-MD_RESULT_MAP_INDEX: Final[Literal[1]] = 1
+MD_RESULT_MAP_INDEX: Literal[1] = 1
 """integer index in compiled._result_columns"""
 
-MD_OBJECTS: Final[Literal[2]] = 2
+MD_OBJECTS: Literal[2] = 2
 """other string keys and ColumnElement obj that can match.
 
 This comes from compiler.RM_OBJECTS / compiler.ResultColumnsEntry.objects
 
 """
 
-MD_LOOKUP_KEY: Final[Literal[3]] = 3
+MD_LOOKUP_KEY: Literal[3] = 3
 """string key we usually expect for key-based lookup
 
 this comes from compiler.RM_NAME / compiler.ResultColumnsEntry.name
 """
 
 
-MD_RENDERED_NAME: Final[Literal[4]] = 4
+MD_RENDERED_NAME: Literal[4] = 4
 """name that is usually in cursor.description
 
 this comes from compiler.RENDERED_NAME / compiler.ResultColumnsEntry.keyname
 """
 
 
-MD_PROCESSOR: Final[Literal[5]] = 5
+MD_PROCESSOR: Literal[5] = 5
 """callable to process a result value into a row"""
 
-MD_UNTRANSLATED: Final[Literal[6]] = 6
+MD_UNTRANSLATED: Literal[6] = 6
 """raw name from cursor.description"""
 
 
 _CursorKeyMapRecType = Tuple[
     Optional[int],  # MD_INDEX, None means the record is ambiguously named
-    int,  # MD_RESULT_MAP_INDEX, -1 if MD_INDEX is None
-    TupleAny,  # MD_OBJECTS
+    int,  # MD_RESULT_MAP_INDEX
+    List[Any],  # MD_OBJECTS
     str,  # MD_LOOKUP_KEY
     str,  # MD_RENDERED_NAME
-    Optional["_ResultProcessorType[Any]"],  # MD_PROCESSOR
+    Optional["_ResultProcessorType"],  # MD_PROCESSOR
     Optional[str],  # MD_UNTRANSLATED
 ]
 
-_CursorKeyMapType = Mapping["_KeyType", _CursorKeyMapRecType]
+_CursorKeyMapType = Dict["_KeyType", _CursorKeyMapRecType]
 
 # same as _CursorKeyMapRecType except the MD_INDEX value is definitely
 # not None
@@ -140,18 +134,8 @@ _NonAmbigCursorKeyMapRecType = Tuple[
     List[Any],
     str,
     str,
-    Optional["_ResultProcessorType[Any]"],
+    Optional["_ResultProcessorType"],
     str,
-]
-
-_MergeColTuple = Tuple[
-    int,
-    Optional[int],
-    str,
-    TypeEngine[Any],
-    "DBAPIType",
-    Optional[TupleAny],
-    Optional[str],
 ]
 
 
@@ -166,8 +150,7 @@ class CursorResultMetaData(ResultMetaData):
         "_tuplefilter",
         "_translated_indexes",
         "_safe_for_cache",
-        "_unpickled",
-        "_key_to_index",
+        "_unpickled"
         # don't need _unique_filters support here for now.  Can be added
         # if a need arises.
     )
@@ -211,7 +194,6 @@ class CursorResultMetaData(ResultMetaData):
         new_obj._translated_indexes = translated_indexes
         new_obj._safe_for_cache = safe_for_cache
         new_obj._keymap_by_result_column_idx = keymap_by_result_column_idx
-        new_obj._key_to_index = self._make_key_to_index(keymap, MD_INDEX)
         return new_obj
 
     def _remove_processors(self) -> CursorResultMetaData:
@@ -233,20 +215,24 @@ class CursorResultMetaData(ResultMetaData):
     def _splice_horizontally(
         self, other: CursorResultMetaData
     ) -> CursorResultMetaData:
+
         assert not self._tuplefilter
 
-        keymap = dict(self._keymap)
+        keymap = self._keymap.copy()
         offset = len(self._keys)
-
-        for key, value in other._keymap.items():
-            # int index should be None for ambiguous key
-            if value[MD_INDEX] is not None and key not in keymap:
-                md_index = value[MD_INDEX] + offset
-                md_object = value[MD_RESULT_MAP_INDEX] + offset
-            else:
-                md_index = None
-                md_object = -1
-            keymap[key] = (md_index, md_object, *value[2:])
+        keymap.update(
+            {
+                key: (
+                    # int index should be None for ambiguous key
+                    value[0] + offset
+                    if value[0] is not None and key not in keymap
+                    else None,
+                    value[1] + offset,
+                    *value[2:],
+                )
+                for key, value in other._keymap.items()
+            }
+        )
 
         return self._make_new_metadata(
             unpickled=self._unpickled,
@@ -273,7 +259,7 @@ class CursorResultMetaData(ResultMetaData):
         tup = tuplegetter(*indexes)
         new_recs = [(index,) + rec[1:] for index, rec in enumerate(recs)]
 
-        keymap = {rec[MD_LOOKUP_KEY]: rec for rec in new_recs}
+        keymap: _KeyMapType = {rec[MD_LOOKUP_KEY]: rec for rec in new_recs}
         # TODO: need unit test for:
         # result = connection.execute("raw sql, no columns").scalars()
         # without the "or ()" it's failing because MD_OBJECTS is None
@@ -289,7 +275,7 @@ class CursorResultMetaData(ResultMetaData):
             keys=new_keys,
             tuplefilter=tup,
             translated_indexes=indexes,
-            keymap=keymap,  # type: ignore[arg-type]
+            keymap=keymap,
             safe_for_cache=self._safe_for_cache,
             keymap_by_result_column_idx=self._keymap_by_result_column_idx,
         )
@@ -376,11 +362,13 @@ class CursorResultMetaData(ResultMetaData):
             ) = context.result_column_struct
             num_ctx_cols = len(result_columns)
         else:
-            result_columns = cols_are_ordered = (  # type: ignore
+            result_columns = (  # type: ignore
+                cols_are_ordered
+            ) = (
                 num_ctx_cols
-            ) = ad_hoc_textual = loose_column_name_matching = (
-                textual_ordered
-            ) = False
+            ) = (
+                ad_hoc_textual
+            ) = loose_column_name_matching = textual_ordered = False
 
         # merge cursor.description with the column info
         # present in the compiled structure, if any
@@ -412,7 +400,7 @@ class CursorResultMetaData(ResultMetaData):
         # column keys and other names
         if num_ctx_cols:
             # keymap by primary string...
-            by_key: Dict[_KeyType, _CursorKeyMapRecType] = {
+            by_key = {
                 metadata_entry[MD_LOOKUP_KEY]: metadata_entry
                 for metadata_entry in raw
             }
@@ -456,14 +444,10 @@ class CursorResultMetaData(ResultMetaData):
 
                 # then for the dupe keys, put the "ambiguous column"
                 # record into by_key.
-                by_key.update(
-                    {
-                        key: (None, -1, (), key, key, None, None)
-                        for key in dupes
-                    }
-                )
+                by_key.update({key: (None, None, (), key) for key in dupes})
 
             else:
+
                 # no dupes - copy secondary elements from compiled
                 # columns into self._keymap.  this is the most common
                 # codepath for Core / ORM statement executions before the
@@ -503,19 +487,17 @@ class CursorResultMetaData(ResultMetaData):
                 }
             )
 
-        self._key_to_index = self._make_key_to_index(self._keymap, MD_INDEX)
-
     def _merge_cursor_description(
         self,
-        context: DefaultExecutionContext,
-        cursor_description: _DBAPICursorDescription,
-        result_columns: Sequence[ResultColumnsEntry],
-        num_ctx_cols: int,
-        cols_are_ordered: bool,
-        textual_ordered: bool,
-        ad_hoc_textual: bool,
-        loose_column_name_matching: bool,
-    ) -> List[_CursorKeyMapRecType]:
+        context,
+        cursor_description,
+        result_columns,
+        num_ctx_cols,
+        cols_are_ordered,
+        textual_ordered,
+        ad_hoc_textual,
+        loose_column_name_matching,
+    ):
         """Merge a cursor.description with compiled result column information.
 
         There are at least four separate strategies used here, selected
@@ -603,6 +585,7 @@ class CursorResultMetaData(ResultMetaData):
                 for idx, rmap_entry in enumerate(result_columns)
             ]
         else:
+
             # name-based or text-positional cases, where we need
             # to read cursor.description names
 
@@ -645,7 +628,7 @@ class CursorResultMetaData(ResultMetaData):
                         mapped_type, cursor_colname, coltype
                     ),
                     untranslated,
-                )  # type: ignore[misc]
+                )
                 for (
                     idx,
                     ridx,
@@ -657,11 +640,7 @@ class CursorResultMetaData(ResultMetaData):
                 ) in raw_iterator
             ]
 
-    def _colnames_from_description(
-        self,
-        context: DefaultExecutionContext,
-        cursor_description: _DBAPICursorDescription,
-    ) -> Iterator[Tuple[int, str, Optional[str], DBAPIType]]:
+    def _colnames_from_description(self, context, cursor_description):
         """Extract column names and data types from a cursor.description.
 
         Applies unicode decoding, column translation, "normalization",
@@ -693,11 +672,8 @@ class CursorResultMetaData(ResultMetaData):
             yield idx, colname, untranslated, coltype
 
     def _merge_textual_cols_by_position(
-        self,
-        context: DefaultExecutionContext,
-        cursor_description: _DBAPICursorDescription,
-        result_columns: Sequence[ResultColumnsEntry],
-    ) -> Iterator[_MergeColTuple]:
+        self, context, cursor_description, result_columns
+    ):
         num_ctx_cols = len(result_columns)
 
         if num_ctx_cols > len(cursor_description):
@@ -707,7 +683,6 @@ class CursorResultMetaData(ResultMetaData):
                 % (num_ctx_cols, len(cursor_description))
             )
         seen = set()
-
         for (
             idx,
             colname,
@@ -733,11 +708,11 @@ class CursorResultMetaData(ResultMetaData):
 
     def _merge_cols_by_name(
         self,
-        context: DefaultExecutionContext,
-        cursor_description: _DBAPICursorDescription,
-        result_columns: Sequence[ResultColumnsEntry],
-        loose_column_name_matching: bool,
-    ) -> Iterator[_MergeColTuple]:
+        context,
+        cursor_description,
+        result_columns,
+        loose_column_name_matching,
+    ):
         match_map = self._create_description_match_map(
             result_columns, loose_column_name_matching
         )
@@ -772,9 +747,11 @@ class CursorResultMetaData(ResultMetaData):
     @classmethod
     def _create_description_match_map(
         cls,
-        result_columns: Sequence[ResultColumnsEntry],
+        result_columns: List[ResultColumnsEntry],
         loose_column_name_matching: bool = False,
-    ) -> Dict[Union[str, object], Tuple[str, TupleAny, TypeEngine[Any], int]]:
+    ) -> Dict[
+        Union[str, object], Tuple[str, Tuple[Any, ...], TypeEngine[Any], int]
+    ]:
         """when matching cursor.description to a set of names that are present
         in a Compiled object, as is the case with TextualSelect, get all the
         names we expect might match those in cursor.description.
@@ -782,7 +759,7 @@ class CursorResultMetaData(ResultMetaData):
 
         d: Dict[
             Union[str, object],
-            Tuple[str, TupleAny, TypeEngine[Any], int],
+            Tuple[str, Tuple[Any, ...], TypeEngine[Any], int],
         ] = {}
         for ridx, elem in enumerate(result_columns):
             key = elem[RM_RENDERED_NAME]
@@ -809,13 +786,7 @@ class CursorResultMetaData(ResultMetaData):
                     )
         return d
 
-    def _merge_cols_by_none(
-        self,
-        context: DefaultExecutionContext,
-        cursor_description: _DBAPICursorDescription,
-    ) -> Iterator[_MergeColTuple]:
-        self._keys = []
-
+    def _merge_cols_by_none(self, context, cursor_description):
         for (
             idx,
             colname,
@@ -832,36 +803,49 @@ class CursorResultMetaData(ResultMetaData):
                 untranslated,
             )
 
-    if not TYPE_CHECKING:
-
-        def _key_fallback(
-            self, key: Any, err: Optional[Exception], raiseerr: bool = True
-        ) -> Optional[NoReturn]:
-            if raiseerr:
-                if self._unpickled and isinstance(key, elements.ColumnElement):
-                    raise exc.NoSuchColumnError(
-                        "Row was unpickled; lookup by ColumnElement "
-                        "is unsupported"
-                    ) from err
-                else:
-                    raise exc.NoSuchColumnError(
-                        "Could not locate column in row for column '%s'"
-                        % util.string_or_unprintable(key)
-                    ) from err
-            else:
-                return None
-
-    def _raise_for_ambiguous_column_name(
-        self, rec: _KeyMapRecType
+    @overload
+    def _key_fallback(
+        self, key: Any, err: Exception, raiseerr: Literal[True] = ...
     ) -> NoReturn:
+        ...
+
+    @overload
+    def _key_fallback(
+        self, key: Any, err: Exception, raiseerr: Literal[False] = ...
+    ) -> None:
+        ...
+
+    @overload
+    def _key_fallback(
+        self, key: Any, err: Exception, raiseerr: bool = ...
+    ) -> Optional[NoReturn]:
+        ...
+
+    def _key_fallback(
+        self, key: Any, err: Exception, raiseerr: bool = True
+    ) -> Optional[NoReturn]:
+
+        if raiseerr:
+            if self._unpickled and isinstance(key, elements.ColumnElement):
+                raise exc.NoSuchColumnError(
+                    "Row was unpickled; lookup by ColumnElement "
+                    "is unsupported"
+                ) from err
+            else:
+                raise exc.NoSuchColumnError(
+                    "Could not locate column in row for column '%s'"
+                    % util.string_or_unprintable(key)
+                ) from err
+        else:
+            return None
+
+    def _raise_for_ambiguous_column_name(self, rec):
         raise exc.InvalidRequestError(
             "Ambiguous column name '%s' in "
             "result set column descriptions" % rec[MD_LOOKUP_KEY]
         )
 
-    def _index_for_key(
-        self, key: _KeyIndexType, raiseerr: bool = True
-    ) -> Optional[int]:
+    def _index_for_key(self, key: Any, raiseerr: bool = True) -> Optional[int]:
         # TODO: can consider pre-loading ints and negative ints
         # into _keymap - also no coverage here
         if isinstance(key, int):
@@ -880,60 +864,51 @@ class CursorResultMetaData(ResultMetaData):
             self._raise_for_ambiguous_column_name(rec)
         return index
 
-    def _indexes_for_keys(
-        self, keys: Sequence[_KeyIndexType]
-    ) -> Sequence[int]:
+    def _indexes_for_keys(self, keys):
+
         try:
-            return [self._keymap[key][0] for key in keys]  # type: ignore[index,misc]  # noqa: E501
+            return [self._keymap[key][0] for key in keys]
         except KeyError as ke:
             # ensure it raises
             CursorResultMetaData._key_fallback(self, ke.args[0], ke)
 
     def _metadata_for_keys(
-        self, keys: Sequence[_KeyIndexType]
+        self, keys: Sequence[Any]
     ) -> Iterator[_NonAmbigCursorKeyMapRecType]:
         for key in keys:
             if int in key.__class__.__mro__:
-                key = self._keys[key]  # type: ignore[index]
+                key = self._keys[key]
 
             try:
-                rec = self._keymap[key]  # type: ignore[index]
+                rec = self._keymap[key]
             except KeyError as ke:
                 # ensure it raises
                 CursorResultMetaData._key_fallback(self, ke.args[0], ke)
 
-            index = rec[MD_INDEX]
+            index = rec[0]
 
             if index is None:
                 self._raise_for_ambiguous_column_name(rec)
 
             yield cast(_NonAmbigCursorKeyMapRecType, rec)
 
-    def __getstate__(self) -> Dict[str, Any]:
-        # TODO: consider serializing this as SimpleResultMetaData
+    def __getstate__(self):
         return {
             "_keymap": {
-                key: (
-                    rec[MD_INDEX],
-                    rec[MD_RESULT_MAP_INDEX],
-                    [],
-                    key,
-                    rec[MD_RENDERED_NAME],
-                    None,
-                    None,
-                )
+                key: (rec[MD_INDEX], rec[MD_RESULT_MAP_INDEX], _UNPICKLED, key)
                 for key, rec in self._keymap.items()
                 if isinstance(key, (str, int))
             },
             "_keys": self._keys,
             "_translated_indexes": self._translated_indexes,
+            "_tuplefilter": self._tuplefilter,
         }
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state):
         self._processors = [None for _ in range(len(state["_keys"]))]
         self._keymap = state["_keymap"]
+
         self._keymap_by_result_column_idx = None
-        self._key_to_index = self._make_key_to_index(self._keymap, MD_INDEX)
         self._keys = state["_keys"]
         self._unpickled = True
         if state["_translated_indexes"]:
@@ -970,7 +945,7 @@ class ResultFetchStrategy:
     def yield_per(
         self,
         result: CursorResult[Any],
-        dbapi_cursor: DBAPICursor,
+        dbapi_cursor: Optional[DBAPICursor],
         num: int,
     ) -> None:
         return
@@ -1018,47 +993,22 @@ class NoCursorFetchStrategy(ResultFetchStrategy):
 
     __slots__ = ()
 
-    def soft_close(
-        self,
-        result: CursorResult[Any],
-        dbapi_cursor: Optional[DBAPICursor],
-    ) -> None:
+    def soft_close(self, result, dbapi_cursor):
         pass
 
-    def hard_close(
-        self,
-        result: CursorResult[Any],
-        dbapi_cursor: Optional[DBAPICursor],
-    ) -> None:
+    def hard_close(self, result, dbapi_cursor):
         pass
 
-    def fetchone(
-        self,
-        result: CursorResult[Any],
-        dbapi_cursor: DBAPICursor,
-        hard_close: bool = False,
-    ) -> Any:
+    def fetchone(self, result, dbapi_cursor, hard_close=False):
         return self._non_result(result, None)
 
-    def fetchmany(
-        self,
-        result: CursorResult[Any],
-        dbapi_cursor: DBAPICursor,
-        size: Optional[int] = None,
-    ) -> Any:
+    def fetchmany(self, result, dbapi_cursor, size=None):
         return self._non_result(result, [])
 
-    def fetchall(
-        self, result: CursorResult[Any], dbapi_cursor: DBAPICursor
-    ) -> Any:
+    def fetchall(self, result, dbapi_cursor):
         return self._non_result(result, [])
 
-    def _non_result(
-        self,
-        result: CursorResult[Any],
-        default: Any,
-        err: Optional[BaseException] = None,
-    ) -> Any:
+    def _non_result(self, result, default, err=None):
         raise NotImplementedError()
 
 
@@ -1075,12 +1025,7 @@ class NoCursorDQLFetchStrategy(NoCursorFetchStrategy):
 
     __slots__ = ()
 
-    def _non_result(
-        self,
-        result: CursorResult[Any],
-        default: Any,
-        err: Optional[BaseException] = None,
-    ) -> Any:
+    def _non_result(self, result, default, err=None):
         if result.closed:
             raise exc.ResourceClosedError(
                 "This result object is closed."
@@ -1102,15 +1047,10 @@ class NoCursorDMLFetchStrategy(NoCursorFetchStrategy):
 
     __slots__ = ()
 
-    def _non_result(
-        self,
-        result: CursorResult[Any],
-        default: Any,
-        err: Optional[BaseException] = None,
-    ) -> Any:
+    def _non_result(self, result, default, err=None):
         # we only expect to have a _NoResultMetaData() here right now.
         assert not result._metadata.returns_rows
-        result._metadata._we_dont_return_rows(err)  # type: ignore[union-attr]
+        result._metadata._we_dont_return_rows(err)
 
 
 _NO_CURSOR_DML = NoCursorDMLFetchStrategy()
@@ -1147,7 +1087,10 @@ class CursorFetchStrategy(ResultFetchStrategy):
         )
 
     def yield_per(
-        self, result: CursorResult[Any], dbapi_cursor: DBAPICursor, num: int
+        self,
+        result: CursorResult[Any],
+        dbapi_cursor: Optional[DBAPICursor],
+        num: int,
     ) -> None:
         result.cursor_strategy = BufferedRowCursorFetchStrategy(
             dbapi_cursor,
@@ -1223,7 +1166,7 @@ class BufferedRowCursorFetchStrategy(CursorFetchStrategy):
 
             result = conn.execution_options(
                 stream_results=True, max_row_buffer=50
-            ).execute(text("select * from table"))
+                ).execute(text("select * from table"))
 
     .. versionadded:: 1.4 ``max_row_buffer`` may now exceed 1000 rows.
 
@@ -1236,11 +1179,11 @@ class BufferedRowCursorFetchStrategy(CursorFetchStrategy):
 
     def __init__(
         self,
-        dbapi_cursor: DBAPICursor,
-        execution_options: CoreExecuteOptionsParameter,
-        growth_factor: int = 5,
-        initial_buffer: Optional[Deque[Any]] = None,
-    ) -> None:
+        dbapi_cursor,
+        execution_options,
+        growth_factor=5,
+        initial_buffer=None,
+    ):
         self._max_row_buffer = execution_options.get("max_row_buffer", 1000)
 
         if initial_buffer is not None:
@@ -1255,17 +1198,13 @@ class BufferedRowCursorFetchStrategy(CursorFetchStrategy):
             self._bufsize = self._max_row_buffer
 
     @classmethod
-    def create(
-        cls, result: CursorResult[Any]
-    ) -> BufferedRowCursorFetchStrategy:
+    def create(cls, result):
         return BufferedRowCursorFetchStrategy(
             result.cursor,
             result.context.execution_options,
         )
 
-    def _buffer_rows(
-        self, result: CursorResult[Any], dbapi_cursor: DBAPICursor
-    ) -> None:
+    def _buffer_rows(self, result, dbapi_cursor):
         """this is currently used only by fetchone()."""
 
         size = self._bufsize
@@ -1285,30 +1224,19 @@ class BufferedRowCursorFetchStrategy(CursorFetchStrategy):
                 self._max_row_buffer, size * self._growth_factor
             )
 
-    def yield_per(
-        self, result: CursorResult[Any], dbapi_cursor: DBAPICursor, num: int
-    ) -> None:
+    def yield_per(self, result, dbapi_cursor, num):
         self._growth_factor = 0
         self._max_row_buffer = self._bufsize = num
 
-    def soft_close(
-        self, result: CursorResult[Any], dbapi_cursor: Optional[DBAPICursor]
-    ) -> None:
+    def soft_close(self, result, dbapi_cursor):
         self._rowbuffer.clear()
         super().soft_close(result, dbapi_cursor)
 
-    def hard_close(
-        self, result: CursorResult[Any], dbapi_cursor: Optional[DBAPICursor]
-    ) -> None:
+    def hard_close(self, result, dbapi_cursor):
         self._rowbuffer.clear()
         super().hard_close(result, dbapi_cursor)
 
-    def fetchone(
-        self,
-        result: CursorResult[Any],
-        dbapi_cursor: DBAPICursor,
-        hard_close: bool = False,
-    ) -> Any:
+    def fetchone(self, result, dbapi_cursor, hard_close=False):
         if not self._rowbuffer:
             self._buffer_rows(result, dbapi_cursor)
             if not self._rowbuffer:
@@ -1319,18 +1247,12 @@ class BufferedRowCursorFetchStrategy(CursorFetchStrategy):
                 return None
         return self._rowbuffer.popleft()
 
-    def fetchmany(
-        self,
-        result: CursorResult[Any],
-        dbapi_cursor: DBAPICursor,
-        size: Optional[int] = None,
-    ) -> Any:
+    def fetchmany(self, result, dbapi_cursor, size=None):
         if size is None:
             return self.fetchall(result, dbapi_cursor)
 
-        rb = self._rowbuffer
-        lb = len(rb)
-        close = False
+        buf = list(self._rowbuffer)
+        lb = len(buf)
         if size > lb:
             try:
                 new = dbapi_cursor.fetchmany(size - lb)
@@ -1338,19 +1260,15 @@ class BufferedRowCursorFetchStrategy(CursorFetchStrategy):
                 self.handle_exception(result, dbapi_cursor, e)
             else:
                 if not new:
-                    # defer closing since it may clear the row buffer
-                    close = True
+                    result._soft_close()
                 else:
-                    rb.extend(new)
+                    buf.extend(new)
 
-        res = [rb.popleft() for _ in range(min(size, len(rb)))]
-        if close:
-            result._soft_close()
-        return res
+        result = buf[0:size]
+        self._rowbuffer = collections.deque(buf[size:])
+        return result
 
-    def fetchall(
-        self, result: CursorResult[Any], dbapi_cursor: DBAPICursor
-    ) -> Any:
+    def fetchall(self, result, dbapi_cursor):
         try:
             ret = list(self._rowbuffer) + list(dbapi_cursor.fetchall())
             self._rowbuffer.clear()
@@ -1372,65 +1290,44 @@ class FullyBufferedCursorFetchStrategy(CursorFetchStrategy):
     __slots__ = ("_rowbuffer", "alternate_cursor_description")
 
     def __init__(
-        self,
-        dbapi_cursor: Optional[DBAPICursor],
-        alternate_description: Optional[_DBAPICursorDescription] = None,
-        initial_buffer: Optional[Iterable[Any]] = None,
+        self, dbapi_cursor, alternate_description=None, initial_buffer=None
     ):
         self.alternate_cursor_description = alternate_description
         if initial_buffer is not None:
             self._rowbuffer = collections.deque(initial_buffer)
         else:
-            assert dbapi_cursor is not None
             self._rowbuffer = collections.deque(dbapi_cursor.fetchall())
 
-    def yield_per(
-        self, result: CursorResult[Any], dbapi_cursor: DBAPICursor, num: int
-    ) -> Any:
+    def yield_per(self, result, dbapi_cursor, num):
         pass
 
-    def soft_close(
-        self, result: CursorResult[Any], dbapi_cursor: Optional[DBAPICursor]
-    ) -> None:
+    def soft_close(self, result, dbapi_cursor):
         self._rowbuffer.clear()
         super().soft_close(result, dbapi_cursor)
 
-    def hard_close(
-        self, result: CursorResult[Any], dbapi_cursor: Optional[DBAPICursor]
-    ) -> None:
+    def hard_close(self, result, dbapi_cursor):
         self._rowbuffer.clear()
         super().hard_close(result, dbapi_cursor)
 
-    def fetchone(
-        self,
-        result: CursorResult[Any],
-        dbapi_cursor: DBAPICursor,
-        hard_close: bool = False,
-    ) -> Any:
+    def fetchone(self, result, dbapi_cursor, hard_close=False):
         if self._rowbuffer:
             return self._rowbuffer.popleft()
         else:
             result._soft_close(hard=hard_close)
             return None
 
-    def fetchmany(
-        self,
-        result: CursorResult[Any],
-        dbapi_cursor: DBAPICursor,
-        size: Optional[int] = None,
-    ) -> Any:
+    def fetchmany(self, result, dbapi_cursor, size=None):
         if size is None:
             return self.fetchall(result, dbapi_cursor)
 
-        rb = self._rowbuffer
-        rows = [rb.popleft() for _ in range(min(size, len(rb)))]
+        buf = list(self._rowbuffer)
+        rows = buf[0:size]
+        self._rowbuffer = collections.deque(buf[size:])
         if not rows:
             result._soft_close()
         return rows
 
-    def fetchall(
-        self, result: CursorResult[Any], dbapi_cursor: DBAPICursor
-    ) -> Any:
+    def fetchall(self, result, dbapi_cursor):
         ret = self._rowbuffer
         self._rowbuffer = collections.deque()
         result._soft_close()
@@ -1442,41 +1339,34 @@ class _NoResultMetaData(ResultMetaData):
 
     returns_rows = False
 
-    def _we_dont_return_rows(
-        self, err: Optional[BaseException] = None
-    ) -> NoReturn:
+    def _we_dont_return_rows(self, err=None):
         raise exc.ResourceClosedError(
             "This result object does not return rows. "
             "It has been closed automatically."
         ) from err
 
-    def _index_for_key(self, keys: _KeyIndexType, raiseerr: bool) -> NoReturn:
+    def _index_for_key(self, keys, raiseerr):
         self._we_dont_return_rows()
 
-    def _metadata_for_keys(self, keys: Sequence[_KeyIndexType]) -> NoReturn:
+    def _metadata_for_keys(self, key):
         self._we_dont_return_rows()
 
-    def _reduce(self, keys: Sequence[_KeyIndexType]) -> NoReturn:
-        self._we_dont_return_rows()
-
-    @property
-    def _keymap(self) -> NoReturn:  # type: ignore[override]
+    def _reduce(self, keys):
         self._we_dont_return_rows()
 
     @property
-    def _key_to_index(self) -> NoReturn:  # type: ignore[override]
+    def _keymap(self):
         self._we_dont_return_rows()
 
     @property
-    def _processors(self) -> NoReturn:  # type: ignore[override]
-        self._we_dont_return_rows()
-
-    @property
-    def keys(self) -> NoReturn:
+    def keys(self):
         self._we_dont_return_rows()
 
 
 _NO_RESULT_METADATA = _NoResultMetaData()
+
+
+SelfCursorResult = TypeVar("SelfCursorResult", bound="CursorResult[Any]")
 
 
 def null_dml_result() -> IteratorResult[Any]:
@@ -1546,54 +1436,43 @@ class CursorResult(Result[_T]):
             # getter assuming no transformations will be called as this
             # is the most common case
 
-            metadata = self._init_metadata(context, cursor_description)
-
-            _make_row: Any
-            _make_row = functools.partial(
-                Row,
-                metadata,
-                metadata._effective_processors,
-                metadata._key_to_index,
-            )
-
-            if context._num_sentinel_cols:
-                sentinel_filter = operator.itemgetter(
-                    slice(-context._num_sentinel_cols)
-                )
-
-                def _sliced_row(raw_data: Any) -> Any:
-                    return _make_row(sentinel_filter(raw_data))
-
-                sliced_row = _sliced_row
-            else:
-                sliced_row = _make_row
-
             if echo:
                 log = self.context.connection._log_debug
 
-                def _log_row(row: Any) -> Any:
+                def _log_row(row):
                     log("Row %r", sql_util._repr_row(row))
                     return row
 
-                self._row_logging_fn = _log_row
+                self._row_logging_fn = log_row = _log_row
+            else:
+                log_row = None
 
-                def _make_row_2(row: Any) -> Any:
-                    return _log_row(sliced_row(row))
+            metadata = self._init_metadata(context, cursor_description)
+
+            keymap = metadata._keymap
+            processors = metadata._processors
+            process_row = Row
+            key_style = process_row._default_key_style
+            _make_row = functools.partial(
+                process_row, metadata, processors, keymap, key_style
+            )
+            if log_row:
+
+                def _make_row_2(row):
+                    made_row = _make_row(row)
+                    assert log_row is not None
+                    log_row(made_row)
+                    return made_row
 
                 make_row = _make_row_2
             else:
-                make_row = sliced_row  # type: ignore[assignment]
+                make_row = _make_row
             self._set_memoized_attribute("_row_getter", make_row)
 
         else:
-            assert context._num_sentinel_cols == 0
             self._metadata = self._no_result_metadata
 
-    def _init_metadata(
-        self,
-        context: DefaultExecutionContext,
-        cursor_description: _DBAPICursorDescription,
-    ) -> CursorResultMetaData:
+    def _init_metadata(self, context, cursor_description):
 
         if context.compiled:
             compiled = context.compiled
@@ -1625,9 +1504,9 @@ class CursorResult(Result[_T]):
                 )
                 and compiled._result_columns
                 and context.cache_hit is context.dialect.CACHE_HIT
-                and compiled.statement is not context.invoked_statement  # type: ignore[comparison-overlap] # noqa: E501
+                and compiled.statement is not context.invoked_statement
             ):
-                metadata = metadata._adapt_to_context(context)  # type: ignore[assignment] # noqa: E501
+                metadata = metadata._adapt_to_context(context)
 
             self._metadata = metadata
 
@@ -1641,7 +1520,7 @@ class CursorResult(Result[_T]):
             )
         return metadata
 
-    def _soft_close(self, hard: bool = False) -> None:
+    def _soft_close(self, hard=False):
         """Soft close this :class:`_engine.CursorResult`.
 
         This releases all DBAPI cursor resources, but leaves the
@@ -1655,6 +1534,8 @@ class CursorResult(Result[_T]):
 
         This method is **not public**, but is documented in order to clarify
         the "autoclose" process used.
+
+        .. versionadded:: 1.0.0
 
         .. seealso::
 
@@ -1679,7 +1560,7 @@ class CursorResult(Result[_T]):
             self._soft_closed = True
 
     @property
-    def inserted_primary_key_rows(self) -> List[Optional[Any]]:
+    def inserted_primary_key_rows(self):
         """Return the value of
         :attr:`_engine.CursorResult.inserted_primary_key`
         as a row contained within a list; some dialects may support a
@@ -1726,11 +1607,11 @@ class CursorResult(Result[_T]):
         """
         if not self.context.compiled:
             raise exc.InvalidRequestError(
-                "Statement is not a compiled expression construct."
+                "Statement is not a compiled " "expression construct."
             )
         elif not self.context.isinsert:
             raise exc.InvalidRequestError(
-                "Statement is not an insert() expression construct."
+                "Statement is not an insert() " "expression construct."
             )
         elif self.context._is_explicit_returning:
             raise exc.InvalidRequestError(
@@ -1738,10 +1619,10 @@ class CursorResult(Result[_T]):
                 "when returning() "
                 "is used."
             )
-        return self.context.inserted_primary_key_rows  # type: ignore[no-any-return]  # noqa: E501
+        return self.context.inserted_primary_key_rows
 
     @property
-    def inserted_primary_key(self) -> Optional[Any]:
+    def inserted_primary_key(self):
         """Return the primary key for the row just inserted.
 
         The return value is a :class:`_result.Row` object representing
@@ -1786,11 +1667,7 @@ class CursorResult(Result[_T]):
         else:
             return None
 
-    def last_updated_params(
-        self,
-    ) -> Union[
-        List[_MutableCoreSingleExecuteParams], _MutableCoreSingleExecuteParams
-    ]:
+    def last_updated_params(self):
         """Return the collection of updated parameters from this
         execution.
 
@@ -1801,22 +1678,18 @@ class CursorResult(Result[_T]):
         """
         if not self.context.compiled:
             raise exc.InvalidRequestError(
-                "Statement is not a compiled expression construct."
+                "Statement is not a compiled " "expression construct."
             )
         elif not self.context.isupdate:
             raise exc.InvalidRequestError(
-                "Statement is not an update() expression construct."
+                "Statement is not an update() " "expression construct."
             )
         elif self.context.executemany:
             return self.context.compiled_parameters
         else:
             return self.context.compiled_parameters[0]
 
-    def last_inserted_params(
-        self,
-    ) -> Union[
-        List[_MutableCoreSingleExecuteParams], _MutableCoreSingleExecuteParams
-    ]:
+    def last_inserted_params(self):
         """Return the collection of inserted parameters from this
         execution.
 
@@ -1827,11 +1700,11 @@ class CursorResult(Result[_T]):
         """
         if not self.context.compiled:
             raise exc.InvalidRequestError(
-                "Statement is not a compiled expression construct."
+                "Statement is not a compiled " "expression construct."
             )
         elif not self.context.isinsert:
             raise exc.InvalidRequestError(
-                "Statement is not an insert() expression construct."
+                "Statement is not an insert() " "expression construct."
             )
         elif self.context.executemany:
             return self.context.compiled_parameters
@@ -1839,9 +1712,7 @@ class CursorResult(Result[_T]):
             return self.context.compiled_parameters[0]
 
     @property
-    def returned_defaults_rows(
-        self,
-    ) -> Optional[Sequence[Row[Any]]]:
+    def returned_defaults_rows(self):
         """Return a list of rows each containing the values of default
         columns that were fetched using
         the :meth:`.ValuesBase.return_defaults` feature.
@@ -1853,7 +1724,7 @@ class CursorResult(Result[_T]):
         """
         return self.context.returned_default_rows
 
-    def splice_horizontally(self, other: CursorResult[Any]) -> Self:
+    def splice_horizontally(self, other):
         """Return a new :class:`.CursorResult` that "horizontally splices"
         together the rows of this :class:`.CursorResult` with that of another
         :class:`.CursorResult`.
@@ -1870,17 +1741,14 @@ class CursorResult(Result[_T]):
         position in the result.
 
         The expected use case here is so that multiple INSERT..RETURNING
-        statements (which definitely need to be sorted) against different
-        tables can produce a single result that looks like a JOIN of those two
-        tables.
+        statements against different tables can produce a single result
+        that looks like a JOIN of those two tables.
 
         E.g.::
 
             r1 = connection.execute(
-                users.insert().returning(
-                    users.c.user_name, users.c.user_id, sort_by_parameter_order=True
-                ),
-                user_values,
+                users.insert().returning(users.c.user_name, users.c.user_id),
+                user_values
             )
 
             r2 = connection.execute(
@@ -1888,16 +1756,18 @@ class CursorResult(Result[_T]):
                     addresses.c.address_id,
                     addresses.c.address,
                     addresses.c.user_id,
-                    sort_by_parameter_order=True,
                 ),
-                address_values,
+                address_values
             )
 
             rows = r1.splice_horizontally(r2).all()
-            assert rows == [
-                ("john", 1, 1, "foo@bar.com", 1),
-                ("jack", 2, 2, "bar@bat.com", 2),
-            ]
+            assert (
+                rows ==
+                [
+                    ("john", 1, 1, "foo@bar.com", 1),
+                    ("jack", 2, 2, "bar@bat.com", 2),
+                ]
+            )
 
         .. versionadded:: 2.0
 
@@ -1906,7 +1776,7 @@ class CursorResult(Result[_T]):
             :meth:`.CursorResult.splice_vertically`
 
 
-        """  # noqa: E501
+        """
 
         clone = self._generate()
         total_rows = [
@@ -1917,7 +1787,7 @@ class CursorResult(Result[_T]):
             )
         ]
 
-        clone._metadata = clone._metadata._splice_horizontally(other._metadata)  # type: ignore[union-attr, arg-type] # noqa: E501
+        clone._metadata = clone._metadata._splice_horizontally(other._metadata)
 
         clone.cursor_strategy = FullyBufferedCursorFetchStrategy(
             None,
@@ -1926,7 +1796,7 @@ class CursorResult(Result[_T]):
         clone._reset_memoizations()
         return clone
 
-    def splice_vertically(self, other: CursorResult[Any]) -> Self:
+    def splice_vertically(self, other):
         """Return a new :class:`.CursorResult` that "vertically splices",
         i.e. "extends", the rows of this :class:`.CursorResult` with that of
         another :class:`.CursorResult`.
@@ -1958,7 +1828,7 @@ class CursorResult(Result[_T]):
         clone._reset_memoizations()
         return clone
 
-    def _rewind(self, rows: Any) -> Self:
+    def _rewind(self, rows):
         """rewind this result back to the given rowset.
 
         this is used internally for the case where an :class:`.Insert`
@@ -1991,13 +1861,15 @@ class CursorResult(Result[_T]):
         return self
 
     @property
-    def returned_defaults(self) -> Optional[Row[Any]]:
+    def returned_defaults(self):
         """Return the values of default columns that were fetched using
         the :meth:`.ValuesBase.return_defaults` feature.
 
         The value is an instance of :class:`.Row`, or ``None``
         if :meth:`.ValuesBase.return_defaults` was not used or if the
         backend does not support RETURNING.
+
+        .. versionadded:: 0.9.0
 
         .. seealso::
 
@@ -2017,7 +1889,7 @@ class CursorResult(Result[_T]):
         else:
             return None
 
-    def lastrow_has_defaults(self) -> bool:
+    def lastrow_has_defaults(self):
         """Return ``lastrow_has_defaults()`` from the underlying
         :class:`.ExecutionContext`.
 
@@ -2027,7 +1899,7 @@ class CursorResult(Result[_T]):
 
         return self.context.lastrow_has_defaults()
 
-    def postfetch_cols(self) -> Optional[Sequence[Column[Any]]]:
+    def postfetch_cols(self):
         """Return ``postfetch_cols()`` from the underlying
         :class:`.ExecutionContext`.
 
@@ -2041,7 +1913,7 @@ class CursorResult(Result[_T]):
 
         if not self.context.compiled:
             raise exc.InvalidRequestError(
-                "Statement is not a compiled expression construct."
+                "Statement is not a compiled " "expression construct."
             )
         elif not self.context.isinsert and not self.context.isupdate:
             raise exc.InvalidRequestError(
@@ -2050,7 +1922,7 @@ class CursorResult(Result[_T]):
             )
         return self.context.postfetch_cols
 
-    def prefetch_cols(self) -> Optional[Sequence[Column[Any]]]:
+    def prefetch_cols(self):
         """Return ``prefetch_cols()`` from the underlying
         :class:`.ExecutionContext`.
 
@@ -2064,7 +1936,7 @@ class CursorResult(Result[_T]):
 
         if not self.context.compiled:
             raise exc.InvalidRequestError(
-                "Statement is not a compiled expression construct."
+                "Statement is not a compiled " "expression construct."
             )
         elif not self.context.isinsert and not self.context.isupdate:
             raise exc.InvalidRequestError(
@@ -2073,7 +1945,7 @@ class CursorResult(Result[_T]):
             )
         return self.context.prefetch_cols
 
-    def supports_sane_rowcount(self) -> bool:
+    def supports_sane_rowcount(self):
         """Return ``supports_sane_rowcount`` from the dialect.
 
         See :attr:`_engine.CursorResult.rowcount` for background.
@@ -2082,7 +1954,7 @@ class CursorResult(Result[_T]):
 
         return self.dialect.supports_sane_rowcount
 
-    def supports_sane_multi_rowcount(self) -> bool:
+    def supports_sane_multi_rowcount(self):
         """Return ``supports_sane_multi_rowcount`` from the dialect.
 
         See :attr:`_engine.CursorResult.rowcount` for background.
@@ -2095,28 +1967,8 @@ class CursorResult(Result[_T]):
     def rowcount(self) -> int:
         """Return the 'rowcount' for this result.
 
-        The primary purpose of 'rowcount' is to report the number of rows
-        matched by the WHERE criterion of an UPDATE or DELETE statement
-        executed once (i.e. for a single parameter set), which may then be
-        compared to the number of rows expected to be updated or deleted as a
-        means of asserting data integrity.
-
-        This attribute is transferred from the ``cursor.rowcount`` attribute
-        of the DBAPI before the cursor is closed, to support DBAPIs that
-        don't make this value available after cursor close.   Some DBAPIs may
-        offer meaningful values for other kinds of statements, such as INSERT
-        and SELECT statements as well.  In order to retrieve ``cursor.rowcount``
-        for these statements, set the
-        :paramref:`.Connection.execution_options.preserve_rowcount`
-        execution option to True, which will cause the ``cursor.rowcount``
-        value to be unconditionally memoized before any results are returned
-        or the cursor is closed, regardless of statement type.
-
-        For cases where the DBAPI does not support rowcount for a particular
-        kind of statement and/or execution, the returned value will be ``-1``,
-        which is delivered directly from the DBAPI and is part of :pep:`249`.
-        All DBAPIs should support rowcount for single-parameter-set
-        UPDATE and DELETE statements, however.
+        The 'rowcount' reports the number of rows *matched*
+        by the WHERE criterion of an UPDATE or DELETE statement.
 
         .. note::
 
@@ -2125,46 +1977,37 @@ class CursorResult(Result[_T]):
 
            * This attribute returns the number of rows *matched*,
              which is not necessarily the same as the number of rows
-             that were actually *modified*. For example, an UPDATE statement
+             that were actually *modified* - an UPDATE statement, for example,
              may have no net change on a given row if the SET values
              given are the same as those present in the row already.
              Such a row would be matched but not modified.
              On backends that feature both styles, such as MySQL,
-             rowcount is configured to return the match
+             rowcount is configured by default to return the match
              count in all cases.
 
-           * :attr:`_engine.CursorResult.rowcount` in the default case is
-             *only* useful in conjunction with an UPDATE or DELETE statement,
-             and only with a single set of parameters. For other kinds of
-             statements, SQLAlchemy will not attempt to pre-memoize the value
-             unless the
-             :paramref:`.Connection.execution_options.preserve_rowcount`
-             execution option is used.  Note that contrary to :pep:`249`, many
-             DBAPIs do not support rowcount values for statements that are not
-             UPDATE or DELETE, particularly when rows are being returned which
-             are not fully pre-buffered.   DBAPIs that dont support rowcount
-             for a particular kind of statement should return the value ``-1``
-             for such statements.
+           * :attr:`_engine.CursorResult.rowcount`
+             is *only* useful in conjunction
+             with an UPDATE or DELETE statement.  Contrary to what the Python
+             DBAPI says, it does *not* return the
+             number of rows available from the results of a SELECT statement
+             as DBAPIs cannot support this functionality when rows are
+             unbuffered.
 
-           * :attr:`_engine.CursorResult.rowcount` may not be meaningful
-             when executing a single statement with multiple parameter sets
-             (i.e. an :term:`executemany`). Most DBAPIs do not sum "rowcount"
-             values across multiple parameter sets and will return ``-1``
-             when accessed.
+           * :attr:`_engine.CursorResult.rowcount`
+             may not be fully implemented by
+             all dialects.  In particular, most DBAPIs do not support an
+             aggregate rowcount result from an executemany call.
+             The :meth:`_engine.CursorResult.supports_sane_rowcount` and
+             :meth:`_engine.CursorResult.supports_sane_multi_rowcount` methods
+             will report from the dialect if each usage is known to be
+             supported.
 
-           * SQLAlchemy's :ref:`engine_insertmanyvalues` feature does support
-             a correct population of :attr:`_engine.CursorResult.rowcount`
-             when the :paramref:`.Connection.execution_options.preserve_rowcount`
-             execution option is set to True.
-
-           * Statements that use RETURNING may not support rowcount, returning
-             a ``-1`` value instead.
+           * Statements that use RETURNING may not return a correct
+             rowcount.
 
         .. seealso::
 
             :ref:`tutorial_update_delete_rowcount` - in the :ref:`unified_tutorial`
-
-            :paramref:`.Connection.execution_options.preserve_rowcount`
 
         """  # noqa: E501
         try:
@@ -2174,7 +2017,7 @@ class CursorResult(Result[_T]):
             raise  # not called
 
     @property
-    def lastrowid(self) -> int:
+    def lastrowid(self):
         """Return the 'lastrowid' accessor on the DBAPI cursor.
 
         This is a DBAPI specific method and is only functional
@@ -2195,7 +2038,7 @@ class CursorResult(Result[_T]):
             self.cursor_strategy.handle_exception(self, self.cursor, e)
 
     @property
-    def returns_rows(self) -> bool:
+    def returns_rows(self):
         """True if this :class:`_engine.CursorResult` returns zero or more
         rows.
 
@@ -2223,7 +2066,7 @@ class CursorResult(Result[_T]):
         return self._metadata.returns_rows
 
     @property
-    def is_insert(self) -> bool:
+    def is_insert(self):
         """True if this :class:`_engine.CursorResult` is the result
         of a executing an expression language compiled
         :func:`_expression.insert` construct.
@@ -2236,7 +2079,7 @@ class CursorResult(Result[_T]):
         """
         return self.context.isinsert
 
-    def _fetchiter_impl(self) -> Iterator[Any]:
+    def _fetchiter_impl(self):
         fetchone = self.cursor_strategy.fetchone
 
         while True:
@@ -2245,28 +2088,29 @@ class CursorResult(Result[_T]):
                 break
             yield row
 
-    def _fetchone_impl(self, hard_close: bool = False) -> Any:
+    def _fetchone_impl(self, hard_close=False):
         return self.cursor_strategy.fetchone(self, self.cursor, hard_close)
 
-    def _fetchall_impl(self) -> Any:
+    def _fetchall_impl(self):
         return self.cursor_strategy.fetchall(self, self.cursor)
 
-    def _fetchmany_impl(self, size: Optional[int] = None) -> Any:
+    def _fetchmany_impl(self, size=None):
         return self.cursor_strategy.fetchmany(self, self.cursor, size)
 
-    def _raw_row_iterator(self) -> Any:
+    def _raw_row_iterator(self):
         return self._fetchiter_impl()
 
     def merge(self, *others: Result[Any]) -> MergedResult[Any]:
         merged_result = super().merge(*others)
-        if self.context._has_rowcount:
+        setup_rowcounts = self.context._has_rowcount
+        if setup_rowcounts:
             merged_result.rowcount = sum(
                 cast("CursorResult[Any]", result).rowcount
                 for result in (self,) + others
             )
         return merged_result
 
-    def close(self) -> None:
+    def close(self) -> Any:
         """Close this :class:`_engine.CursorResult`.
 
         This closes out the underlying DBAPI cursor corresponding to the
@@ -2289,7 +2133,7 @@ class CursorResult(Result[_T]):
         self._soft_close(hard=True)
 
     @_generative
-    def yield_per(self, num: int) -> Self:
+    def yield_per(self: SelfCursorResult, num: int) -> SelfCursorResult:
         self._yield_per = num
         self.cursor_strategy.yield_per(self, self.cursor, num)
         return self

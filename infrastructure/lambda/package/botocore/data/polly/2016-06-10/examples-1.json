@@ -123,7 +123,7 @@
     "PutLexicon": [
       {
         "input": {
-          "Content": "<Lexicon Content>",
+          "Content": "file://example.pls",
           "Name": "W3C"
         },
         "output": {

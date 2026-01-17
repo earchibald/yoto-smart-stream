@@ -1,9 +1,3 @@
-# testing/plugin/pytestplugin.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
-# <see AUTHORS file>
-#
-# This module is part of SQLAlchemy and is released under
-# the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: ignore-errors
 
 from __future__ import annotations
@@ -16,16 +10,13 @@ import itertools
 import operator
 import os
 import re
-import sys
-from typing import TYPE_CHECKING
 import uuid
 
 import pytest
 
 try:
     # installed by bootstrap.py
-    if not TYPE_CHECKING:
-        import sqla_plugin_base as plugin_base
+    import sqla_plugin_base as plugin_base
 except ImportError:
     # assume we're a package, use traditional import
     from . import plugin_base
@@ -132,42 +123,9 @@ def collect_types_fixture():
         collect_types.stop()
 
 
-def _log_sqlalchemy_info(session):
-    import sqlalchemy
-    from sqlalchemy import __version__
-    from sqlalchemy.util import has_compiled_ext
-    from sqlalchemy.util._has_cy import _CYEXTENSION_MSG
-
-    greet = "sqlalchemy installation"
-    site = "no user site" if sys.flags.no_user_site else "user site loaded"
-    msgs = [
-        f"SQLAlchemy {__version__} ({site})",
-        f"Path: {sqlalchemy.__file__}",
-    ]
-
-    if has_compiled_ext():
-        from sqlalchemy.cyextension import util
-
-        msgs.append(f"compiled extension enabled, e.g. {util.__file__} ")
-    else:
-        msgs.append(f"compiled extension not enabled; {_CYEXTENSION_MSG}")
-
-    pm = session.config.pluginmanager.get_plugin("terminalreporter")
-    if pm:
-        pm.write_sep("=", greet)
-        for m in msgs:
-            pm.write_line(m)
-    else:
-        # fancy pants reporter not found, fallback to plain print
-        print("=" * 25, greet, "=" * 25)
-        for m in msgs:
-            print(m)
-
-
 def pytest_sessionstart(session):
     from sqlalchemy.testing import asyncio
 
-    _log_sqlalchemy_info(session)
     asyncio._assume_async(plugin_base.post_begin)
 
 
@@ -180,12 +138,6 @@ def pytest_sessionfinish(session):
         from pyannotate_runtime import collect_types
 
         collect_types.dump_stats(session.config.option.dump_pyannotate)
-
-
-def pytest_unconfigure(config):
-    from sqlalchemy.testing import asyncio
-
-    asyncio._shutdown()
 
 
 def pytest_collection_finish(session):
@@ -234,6 +186,7 @@ class XDistHooks:
 
 
 def pytest_collection_modifyitems(session, config, items):
+
     # look for all those classes that specify __backend__ and
     # expand them out into per-database test cases.
 
@@ -268,16 +221,16 @@ def pytest_collection_modifyitems(session, config, items):
 
     def setup_test_classes():
         for test_class in test_classes:
+
             # transfer legacy __backend__ and __sparse_backend__ symbols
             # to be markers
+            add_markers = set()
             if getattr(test_class.cls, "__backend__", False) or getattr(
                 test_class.cls, "__only_on__", False
             ):
                 add_markers = {"backend"}
             elif getattr(test_class.cls, "__sparse_backend__", False):
-                add_markers = {"sparse_backend", "backend"}
-            elif getattr(test_class.cls, "__sparse_driver_backend__", False):
-                add_markers = {"sparse_driver_backend", "backend"}
+                add_markers = {"sparse_backend"}
             else:
                 add_markers = frozenset()
 
@@ -290,15 +243,9 @@ def pytest_collection_modifyitems(session, config, items):
             for marker in add_markers:
                 test_class.add_marker(marker)
 
-            sub_tests = list(
-                plugin_base.generate_sub_tests(
-                    test_class.cls, test_class.module, all_markers
-                )
-            )
-            if not sub_tests:
-                rebuilt_items[test_class.cls]
-
-            for sub_cls in sub_tests:
+            for sub_cls in plugin_base.generate_sub_tests(
+                test_class.cls, test_class.module, all_markers
+            ):
                 if sub_cls is not test_class.cls:
                     per_cls_dict = rebuilt_items[test_class.cls]
 
@@ -437,8 +384,6 @@ def _parametrize_cls(module, cls):
 
 _current_class = None
 
-_current_warning_context = None
-
 
 def pytest_runtest_setup(item):
     from sqlalchemy.testing import asyncio
@@ -449,7 +394,7 @@ def pytest_runtest_setup(item):
     # databases, so we run this outside of the pytest fixture system altogether
     # and ensure asyncio greenlet if any engines are async
 
-    global _current_class, _current_warning_context
+    global _current_class
 
     if isinstance(item, pytest.Function) and _current_class is None:
         asyncio._maybe_async_provisioning(
@@ -457,14 +402,6 @@ def pytest_runtest_setup(item):
             item.cls,
         )
         _current_class = item.getparent(pytest.Class)
-
-        if hasattr(_current_class.cls, "__warnings__"):
-            import warnings
-
-            _current_warning_context = warnings.catch_warnings()
-            _current_warning_context.__enter__()
-            for warning_message in _current_class.cls.__warnings__:
-                warnings.filterwarnings("ignore", warning_message)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -482,19 +419,13 @@ def pytest_runtest_teardown(item, nextitem):
     # pytest_runtest_setup since the class has not yet been setup at that
     # time.
     # See https://github.com/pytest-dev/pytest/issues/9343
-
-    global _current_class, _current_report, _current_warning_context
+    global _current_class, _current_report
 
     if _current_class is not None and (
         # last test or a new class
         nextitem is None
         or nextitem.getparent(pytest.Class) is not _current_class
     ):
-
-        if _current_warning_context is not None:
-            _current_warning_context.__exit__(None, None, None)
-            _current_warning_context = None
-
         _current_class = None
 
         try:
@@ -646,6 +577,7 @@ def _pytest_fn_decorator(target):
         return env[fn_name]
 
     def decorate(fn, add_positional_parameters=()):
+
         spec = inspect_getfullargspec(fn)
         if add_positional_parameters:
             spec.args.extend(add_positional_parameters)
@@ -691,17 +623,16 @@ class PytestFixtureFunctions(plugin_base.FixtureFunctions):
 
     def mark_base_test_class(self):
         return pytest.mark.usefixtures(
-            "setup_class_methods",
-            "setup_test_methods",
+            "setup_class_methods", "setup_test_methods"
         )
 
     _combination_id_fns = {
         "i": lambda obj: obj,
         "r": repr,
         "s": str,
-        "n": lambda obj: (
-            obj.__name__ if hasattr(obj, "__name__") else type(obj).__name__
-        ),
+        "n": lambda obj: obj.__name__
+        if hasattr(obj, "__name__")
+        else type(obj).__name__,
     }
 
     def combinations(self, *arg_sets, **kw):
@@ -777,6 +708,7 @@ class PytestFixtureFunctions(plugin_base.FixtureFunctions):
                 )
 
         else:
+
             for arg in arg_sets:
                 if not isinstance(arg, tuple):
                     arg = (arg,)

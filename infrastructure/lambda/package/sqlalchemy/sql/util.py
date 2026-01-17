@@ -1,12 +1,14 @@
 # sql/util.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: https://www.opensource.org/licenses/mit-license.php
 # mypy: allow-untyped-defs, allow-untyped-calls
 
-"""High level utilities which build upon other modules here."""
+"""High level utilities which build upon other modules here.
+
+"""
 from __future__ import annotations
 
 from collections import deque
@@ -52,7 +54,6 @@ from .elements import ColumnElement
 from .elements import Grouping
 from .elements import KeyedColumnElement
 from .elements import Label
-from .elements import NamedColumn
 from .elements import Null
 from .elements import UnaryExpression
 from .schema import Column
@@ -70,8 +71,8 @@ from ..util.typing import Literal
 from ..util.typing import Protocol
 
 if typing.TYPE_CHECKING:
+    from ._typing import _ColumnExpressionArgument
     from ._typing import _EquivalentColumnMap
-    from ._typing import _LimitOffsetType
     from ._typing import _TypeEngineArgument
     from .elements import BinaryExpression
     from .elements import TextClause
@@ -104,7 +105,7 @@ def join_condition(
 
     would produce an expression along the lines of::
 
-        tablea.c.id == tableb.c.tablea_id
+        tablea.c.id==tableb.c.tablea_id
 
     The join is determined based on the foreign key relationships
     between the two selectables.   If there are multiple ways
@@ -266,7 +267,7 @@ def visit_binary_product(
 
     The function is of the form::
 
-        def my_fn(binary, left, right): ...
+        def my_fn(binary, left, right)
 
     For each binary expression located which has a
     comparison operator, the product of "left" and
@@ -275,11 +276,12 @@ def visit_binary_product(
 
     Hence an expression like::
 
-        and_((a + b) == q + func.sum(e + f), j == r)
+        and_(
+            (a + b) == q + func.sum(e + f),
+            j == r
+        )
 
-    would have the traversal:
-
-    .. sourcecode:: text
+    would have the traversal::
 
         a <eq> q
         a <eq> e
@@ -347,9 +349,9 @@ def find_tables(
         ] = _visitors["lateral"] = tables.append
 
     if include_crud:
-        _visitors["insert"] = _visitors["update"] = _visitors["delete"] = (
-            lambda ent: tables.append(ent.table)
-        )
+        _visitors["insert"] = _visitors["update"] = _visitors[
+            "delete"
+        ] = lambda ent: tables.append(ent.table)
 
     if check_columns:
 
@@ -364,7 +366,7 @@ def find_tables(
     return tables
 
 
-def unwrap_order_by(clause: Any) -> Any:
+def unwrap_order_by(clause):
     """Break up an 'order by' expression into individual column-expressions,
     without DESC/ASC/NULLS FIRST/NULLS LAST"""
 
@@ -478,7 +480,7 @@ def surface_selectables(clause):
             stack.append(elem.element)
 
 
-def surface_selectables_only(clause: ClauseElement) -> Iterator[ClauseElement]:
+def surface_selectables_only(clause):
     stack = [clause]
     while stack:
         elem = stack.pop()
@@ -525,7 +527,9 @@ def bind_values(clause):
 
     E.g.::
 
-        >>> expr = and_(table.c.foo == 5, table.c.foo == 7)
+        >>> expr = and_(
+        ...    table.c.foo==5, table.c.foo==7
+        ... )
         >>> bind_values(expr)
         [5, 7]
     """
@@ -708,6 +712,7 @@ class _repr_params(_repr_base):
             return "(%s)" % elements
 
     def _get_batches(self, params: Iterable[Any]) -> Any:
+
         lparams = list(params)
         lenparams = len(lparams)
         if lenparams > self.max_params:
@@ -873,7 +878,8 @@ def reduce_columns(
     columns: Iterable[ColumnElement[Any]],
     *clauses: Optional[ClauseElement],
     **kw: bool,
-) -> Sequence[ColumnElement[Any]]: ...
+) -> Sequence[ColumnElement[Any]]:
+    ...
 
 
 @overload
@@ -881,7 +887,8 @@ def reduce_columns(
     columns: _SelectIterable,
     *clauses: Optional[ClauseElement],
     **kw: bool,
-) -> Sequence[Union[ColumnElement[Any], TextClause]]: ...
+) -> Sequence[Union[ColumnElement[Any], TextClause]]:
+    ...
 
 
 def reduce_columns(
@@ -1036,24 +1043,20 @@ class ClauseAdapter(visitors.ReplacingExternalTraversal):
 
     E.g.::
 
-      table1 = Table(
-          "sometable",
-          metadata,
-          Column("col1", Integer),
-          Column("col2", Integer),
-      )
-      table2 = Table(
-          "someothertable",
-          metadata,
-          Column("col1", Integer),
-          Column("col2", Integer),
-      )
+      table1 = Table('sometable', metadata,
+          Column('col1', Integer),
+          Column('col2', Integer)
+          )
+      table2 = Table('someothertable', metadata,
+          Column('col1', Integer),
+          Column('col2', Integer)
+          )
 
       condition = table1.c.col1 == table2.c.col1
 
     make an alias of table1::
 
-      s = table1.alias("foo")
+      s = table1.alias('foo')
 
     calling ``ClauseAdapter(s).traverse(condition)`` converts
     condition to read::
@@ -1096,7 +1099,8 @@ class ClauseAdapter(visitors.ReplacingExternalTraversal):
     if TYPE_CHECKING:
 
         @overload
-        def traverse(self, obj: Literal[None]) -> None: ...
+        def traverse(self, obj: Literal[None]) -> None:
+            ...
 
         # note this specializes the ReplacingExternalTraversal.traverse()
         # method to state
@@ -1107,15 +1111,18 @@ class ClauseAdapter(visitors.ReplacingExternalTraversal):
         # FromClause but Mypy is not accepting those as compatible with
         # the base ReplacingExternalTraversal
         @overload
-        def traverse(self, obj: _ET) -> _ET: ...
+        def traverse(self, obj: _ET) -> _ET:
+            ...
 
         def traverse(
             self, obj: Optional[ExternallyTraversible]
-        ) -> Optional[ExternallyTraversible]: ...
+        ) -> Optional[ExternallyTraversible]:
+            ...
 
     def _corresponding_column(
         self, col, require_embedded, _seen=util.EMPTY_SET
     ):
+
         newcol = self.selectable.corresponding_column(
             col, require_embedded=require_embedded
         )
@@ -1128,12 +1135,7 @@ class ClauseAdapter(visitors.ReplacingExternalTraversal):
                 )
                 if newcol is not None:
                     return newcol
-
-        if (
-            self.adapt_on_names
-            and newcol is None
-            and isinstance(col, NamedColumn)
-        ):
+        if self.adapt_on_names and newcol is None:
             newcol = self.selectable.exported_columns.get(col.name)
         return newcol
 
@@ -1171,7 +1173,7 @@ class ClauseAdapter(visitors.ReplacingExternalTraversal):
                 # we are an alias of a table and we are not derived from an
                 # alias of a table (which nonetheless may be the same table
                 # as ours) so, same thing
-                return col
+                return col  # type: ignore
             else:
                 # other cases where we are a selectable and the element
                 # is another join or selectable that contains a table which our
@@ -1213,18 +1215,23 @@ class ClauseAdapter(visitors.ReplacingExternalTraversal):
 
 class _ColumnLookup(Protocol):
     @overload
-    def __getitem__(self, key: None) -> None: ...
+    def __getitem__(self, key: None) -> None:
+        ...
 
     @overload
-    def __getitem__(self, key: ColumnClause[Any]) -> ColumnClause[Any]: ...
+    def __getitem__(self, key: ColumnClause[Any]) -> ColumnClause[Any]:
+        ...
 
     @overload
-    def __getitem__(self, key: ColumnElement[Any]) -> ColumnElement[Any]: ...
+    def __getitem__(self, key: ColumnElement[Any]) -> ColumnElement[Any]:
+        ...
 
     @overload
-    def __getitem__(self, key: _ET) -> _ET: ...
+    def __getitem__(self, key: _ET) -> _ET:
+        ...
 
-    def __getitem__(self, key: Any) -> Any: ...
+    def __getitem__(self, key: Any) -> Any:
+        ...
 
 
 class ColumnAdapter(ClauseAdapter):
@@ -1322,10 +1329,12 @@ class ColumnAdapter(ClauseAdapter):
         return ac
 
     @overload
-    def traverse(self, obj: Literal[None]) -> None: ...
+    def traverse(self, obj: Literal[None]) -> None:
+        ...
 
     @overload
-    def traverse(self, obj: _ET) -> _ET: ...
+    def traverse(self, obj: _ET) -> _ET:
+        ...
 
     def traverse(
         self, obj: Optional[ExternallyTraversible]
@@ -1340,7 +1349,8 @@ class ColumnAdapter(ClauseAdapter):
     if TYPE_CHECKING:
 
         @property
-        def visitor_iterator(self) -> Iterator[ColumnAdapter]: ...
+        def visitor_iterator(self) -> Iterator[ColumnAdapter]:
+            ...
 
     adapt_clause = traverse
     adapt_list = ClauseAdapter.copy_and_process
@@ -1401,7 +1411,7 @@ class ColumnAdapter(ClauseAdapter):
 
 
 def _offset_or_limit_clause(
-    element: _LimitOffsetType,
+    element: Union[int, _ColumnExpressionArgument[int]],
     name: Optional[str] = None,
     type_: Optional[_TypeEngineArgument[int]] = None,
 ) -> ColumnElement[int]:
@@ -1417,8 +1427,8 @@ def _offset_or_limit_clause(
 
 
 def _offset_or_limit_clause_asint_if_possible(
-    clause: _LimitOffsetType,
-) -> _LimitOffsetType:
+    clause: Optional[Union[int, _ColumnExpressionArgument[int]]]
+) -> Optional[Union[int, _ColumnExpressionArgument[int]]]:
     """Return the offset or limit clause as a simple integer if possible,
     else return the clause.
 
@@ -1426,15 +1436,15 @@ def _offset_or_limit_clause_asint_if_possible(
     if clause is None:
         return None
     if hasattr(clause, "_limit_offset_value"):
-        value = clause._limit_offset_value
+        value = clause._limit_offset_value  # type: ignore
         return util.asint(value)
     else:
         return clause
 
 
 def _make_slice(
-    limit_clause: _LimitOffsetType,
-    offset_clause: _LimitOffsetType,
+    limit_clause: Optional[Union[int, _ColumnExpressionArgument[int]]],
+    offset_clause: Optional[Union[int, _ColumnExpressionArgument[int]]],
     start: int,
     stop: int,
 ) -> Tuple[Optional[ColumnElement[int]], Optional[ColumnElement[int]]]:
@@ -1475,11 +1485,13 @@ def _make_slice(
             offset_clause = 0
 
         if start != 0:
-            offset_clause = offset_clause + start
+            offset_clause = offset_clause + start  # type: ignore
 
         if offset_clause == 0:
             offset_clause = None
         else:
-            offset_clause = _offset_or_limit_clause(offset_clause)
+            offset_clause = _offset_or_limit_clause(
+                offset_clause  # type: ignore
+            )
 
-    return limit_clause, offset_clause
+    return limit_clause, offset_clause  # type: ignore

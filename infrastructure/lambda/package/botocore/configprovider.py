@@ -13,7 +13,6 @@
 """This module contains the interface for controlling how configuration
 is loaded.
 """
-
 import copy
 import logging
 import os
@@ -51,7 +50,7 @@ logger = logging.getLogger(__name__)
 #: NOTE: Fixing the spelling of this variable would be a breaking change.
 #: Please leave as is.
 BOTOCORE_DEFAUT_SESSION_VARIABLES = {
-    # logical:  config_file, env_var, default_value, conversion_func
+    # logical:  config_file, env_var,        default_value, conversion_func
     'profile': (None, ['AWS_DEFAULT_PROFILE', 'AWS_PROFILE'], None, None),
     'region': ('region', 'AWS_DEFAULT_REGION', None, None),
     'data_path': ('data_path', 'AWS_DATA_PATH', None, None),
@@ -93,12 +92,6 @@ BOTOCORE_DEFAUT_SESSION_VARIABLES = {
         'AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE',
         None,
         None,
-    ),
-    'ec2_metadata_v1_disabled': (
-        'ec2_metadata_v1_disabled',
-        'AWS_EC2_METADATA_V1_DISABLED',
-        False,
-        utils.ensure_boolean,
     ),
     'imds_use_ipv6': (
         'imds_use_ipv6',
@@ -147,7 +140,7 @@ BOTOCORE_DEFAUT_SESSION_VARIABLES = {
     'sts_regional_endpoints': (
         'sts_regional_endpoints',
         'AWS_STS_REGIONAL_ENDPOINTS',
-        'regional',
+        'legacy',
         None,
     ),
     'retry_mode': ('retry_mode', 'AWS_RETRY_MODE', 'legacy', None),
@@ -166,48 +159,6 @@ BOTOCORE_DEFAUT_SESSION_VARIABLES = {
         'disable_request_compression',
         'AWS_DISABLE_REQUEST_COMPRESSION',
         False,
-        utils.ensure_boolean,
-    ),
-    'sigv4a_signing_region_set': (
-        'sigv4a_signing_region_set',
-        'AWS_SIGV4A_SIGNING_REGION_SET',
-        None,
-        None,
-    ),
-    'request_checksum_calculation': (
-        'request_checksum_calculation',
-        'AWS_REQUEST_CHECKSUM_CALCULATION',
-        "when_supported",
-        None,
-    ),
-    'response_checksum_validation': (
-        'response_checksum_validation',
-        'AWS_RESPONSE_CHECKSUM_VALIDATION',
-        "when_supported",
-        None,
-    ),
-    'account_id_endpoint_mode': (
-        'account_id_endpoint_mode',
-        'AWS_ACCOUNT_ID_ENDPOINT_MODE',
-        'preferred',
-        None,
-    ),
-    'disable_host_prefix_injection': (
-        'disable_host_prefix_injection',
-        'AWS_DISABLE_HOST_PREFIX_INJECTION',
-        None,
-        utils.ensure_boolean,
-    ),
-    'auth_scheme_preference': (
-        'auth_scheme_preference',
-        'AWS_AUTH_SCHEME_PREFERENCE',
-        None,
-        None,
-    ),
-    'tcp_keepalive': (
-        'tcp_keepalive',
-        'BOTOCORE_TCP_KEEPALIVE',
-        None,
         utils.ensure_boolean,
     ),
 }
@@ -488,7 +439,7 @@ class ConfigValueStore:
 
     def get_config_variable(self, logical_name):
         """
-        Retrieve the value associated with the specified logical_name
+        Retrieve the value associeated with the specified logical_name
         from the corresponding provider. If no value is found None will
         be returned.
 
@@ -740,7 +691,7 @@ class ChainProvider(BaseProvider):
         return value
 
     def __repr__(self):
-        return '[{}]'.format(', '.join([str(p) for p in self._providers]))
+        return '[%s]' % ', '.join([str(p) for p in self._providers])
 
 
 class InstanceVarProvider(BaseProvider):
@@ -771,7 +722,10 @@ class InstanceVarProvider(BaseProvider):
         return value
 
     def __repr__(self):
-        return f'InstanceVarProvider(instance_var={self._instance_var}, session={self._session})'
+        return 'InstanceVarProvider(instance_var={}, session={})'.format(
+            self._instance_var,
+            self._session,
+        )
 
 
 class ScopedConfigProvider(BaseProvider):
@@ -807,7 +761,10 @@ class ScopedConfigProvider(BaseProvider):
         return scoped_config.get(self._config_var_name)
 
     def __repr__(self):
-        return f'ScopedConfigProvider(config_var_name={self._config_var_name}, session={self._session})'
+        return 'ScopedConfigProvider(config_var_name={}, session={})'.format(
+            self._config_var_name,
+            self._session,
+        )
 
 
 class EnvironmentProvider(BaseProvider):
@@ -915,7 +872,7 @@ class ConstantProvider(BaseProvider):
         return self._value
 
     def __repr__(self):
-        return f'ConstantProvider(value={self._value})'
+        return 'ConstantProvider(value=%s)' % self._value
 
 
 class ConfiguredEndpointProvider(BaseProvider):

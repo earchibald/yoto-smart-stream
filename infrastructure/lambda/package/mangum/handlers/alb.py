@@ -1,9 +1,6 @@
-from __future__ import annotations
-
-from collections.abc import Generator
 from itertools import islice
-from typing import Any
-from urllib.parse import unquote, unquote_plus, urlencode
+from typing import Dict, Generator, List, Tuple
+from urllib.parse import urlencode, unquote, unquote_plus
 
 from mangum.handlers.utils import (
     get_server_and_port,
@@ -12,12 +9,12 @@ from mangum.handlers.utils import (
     maybe_encode_body,
 )
 from mangum.types import (
-    LambdaConfig,
-    LambdaContext,
-    LambdaEvent,
-    QueryParams,
     Response,
     Scope,
+    LambdaConfig,
+    LambdaEvent,
+    LambdaContext,
+    QueryParams,
 )
 
 
@@ -40,9 +37,9 @@ def all_casings(input_string: str) -> Generator[str, None, None]:
                 yield first.upper() + sub_casing
 
 
-def case_mutated_headers(multi_value_headers: dict[str, list[str]]) -> dict[str, str]:
+def case_mutated_headers(multi_value_headers: Dict[str, List[str]]) -> Dict[str, str]:
     """Create str/str key/value headers, with duplicate keys case mutated."""
-    headers: dict[str, str] = {}
+    headers: Dict[str, str] = {}
     for key, values in multi_value_headers.items():
         if len(values) > 0:
             casings = list(islice(all_casings(key), len(values)))
@@ -61,9 +58,9 @@ def encode_query_string_for_alb(params: QueryParams) -> bytes:
         "them. You must decode them in your Lambda function."
     """
     params = {
-        unquote_plus(key): (
-            unquote_plus(value) if isinstance(value, str) else tuple(unquote_plus(element) for element in value)
-        )
+        unquote_plus(key): unquote_plus(value)
+        if isinstance(value, str)
+        else tuple(unquote_plus(element) for element in value)
         for key, value in params.items()
     }
     query_string = urlencode(params, doseq=True).encode()
@@ -71,8 +68,8 @@ def encode_query_string_for_alb(params: QueryParams) -> bytes:
     return query_string
 
 
-def transform_headers(event: LambdaEvent) -> list[tuple[bytes, bytes]]:
-    headers: list[tuple[bytes, bytes]] = []
+def transform_headers(event: LambdaEvent) -> List[Tuple[bytes, bytes]]:
+    headers: List[Tuple[bytes, bytes]] = []
     if "multiValueHeaders" in event:
         for k, v in event["multiValueHeaders"].items():
             for inner_v in v:
@@ -86,10 +83,14 @@ def transform_headers(event: LambdaEvent) -> list[tuple[bytes, bytes]]:
 
 class ALB:
     @classmethod
-    def infer(cls, event: LambdaEvent, context: LambdaContext, config: LambdaConfig) -> bool:
+    def infer(
+        cls, event: LambdaEvent, context: LambdaContext, config: LambdaConfig
+    ) -> bool:
         return "requestContext" in event and "elb" in event["requestContext"]
 
-    def __init__(self, event: LambdaEvent, context: LambdaContext, config: LambdaConfig) -> None:
+    def __init__(
+        self, event: LambdaEvent, context: LambdaContext, config: LambdaConfig
+    ) -> None:
         self.event = event
         self.context = context
         self.config = config
@@ -103,6 +104,7 @@ class ALB:
 
     @property
     def scope(self) -> Scope:
+
         headers = transform_headers(self.event)
         list_headers = [list(x) for x in headers]
         # Unique headers. If there are duplicates, it will use the last defined.
@@ -142,8 +144,8 @@ class ALB:
 
         return scope
 
-    def __call__(self, response: Response) -> dict[str, Any]:
-        multi_value_headers: dict[str, list[str]] = {}
+    def __call__(self, response: Response) -> dict:
+        multi_value_headers: Dict[str, List[str]] = {}
         for key, value in response["headers"]:
             lower_key = key.decode().lower()
             if lower_key not in multi_value_headers:
@@ -165,7 +167,9 @@ class ALB:
         # headers otherwise.
         multi_value_headers_enabled = "multiValueHeaders" in self.scope["aws.event"]
         if multi_value_headers_enabled:
-            out["multiValueHeaders"] = handle_exclude_headers(multi_value_headers, self.config)
+            out["multiValueHeaders"] = handle_exclude_headers(
+                multi_value_headers, self.config
+            )
         else:
             out["headers"] = handle_exclude_headers(finalized_headers, self.config)
 

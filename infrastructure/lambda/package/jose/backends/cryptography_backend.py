@@ -3,6 +3,7 @@ import warnings
 
 from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.bindings.openssl.binding import Binding
 from cryptography.hazmat.primitives import hashes, hmac, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature, encode_dss_signature
@@ -15,19 +16,33 @@ from cryptography.x509 import load_pem_x509_certificate
 
 from ..constants import ALGORITHMS
 from ..exceptions import JWEError, JWKError
-from ..utils import (
-    base64_to_long,
-    base64url_decode,
-    base64url_encode,
-    ensure_binary,
-    is_pem_format,
-    is_ssh_key,
-    long_to_base64,
-)
-from . import get_random_bytes
+from ..utils import base64_to_long, base64url_decode, base64url_encode, ensure_binary, long_to_base64
 from .base import Key
 
 _binding = None
+
+
+def get_random_bytes(num_bytes):
+    """
+    Get random bytes
+
+    Currently, Cryptography returns OS random bytes. If you want OpenSSL
+    generated random bytes, you'll have to switch the RAND engine after
+    initializing the OpenSSL backend
+    Args:
+        num_bytes (int): Number of random bytes to generate and return
+    Returns:
+        bytes: Random bytes
+    """
+    global _binding
+
+    if _binding is None:
+        _binding = Binding()
+
+    buf = _binding.ffi.new("char[]", num_bytes)
+    _binding.lib.RAND_bytes(buf, num_bytes)
+    rand_bytes = _binding.ffi.buffer(buf, num_bytes)[:]
+    return rand_bytes
 
 
 class CryptographyECKey(Key):
@@ -228,8 +243,8 @@ class CryptographyRSAKey(Key):
 
         self.cryptography_backend = cryptography_backend
 
-        # if it conforms to RSAPublicKey or RSAPrivateKey interface
-        if (hasattr(key, "public_bytes") and hasattr(key, "public_numbers")) or hasattr(key, "private_bytes"):
+        # if it conforms to RSAPublicKey interface
+        if hasattr(key, "public_bytes") and hasattr(key, "public_numbers"):
             self.prepared_key = key
             return
 
@@ -424,8 +439,6 @@ class CryptographyAESKey(Key):
         ALGORITHMS.A256KW: None,
     }
 
-    IV_BYTE_LENGTH_MODE_MAP = {"CBC": algorithms.AES.block_size // 8, "GCM": 96 // 8}
-
     def __init__(self, key, algorithm):
         if algorithm not in ALGORITHMS.AES:
             raise JWKError("%s is not a valid AES algorithm" % algorithm)
@@ -455,8 +468,7 @@ class CryptographyAESKey(Key):
     def encrypt(self, plain_text, aad=None):
         plain_text = ensure_binary(plain_text)
         try:
-            iv_byte_length = self.IV_BYTE_LENGTH_MODE_MAP.get(self._mode.name, algorithms.AES.block_size)
-            iv = get_random_bytes(iv_byte_length)
+            iv = get_random_bytes(algorithms.AES.block_size // 8)
             mode = self._mode(iv)
             if mode.name == "GCM":
                 cipher = aead.AESGCM(self._key)
@@ -540,7 +552,14 @@ class CryptographyHMACKey(Key):
         if isinstance(key, str):
             key = key.encode("utf-8")
 
-        if is_pem_format(key) or is_ssh_key(key):
+        invalid_strings = [
+            b"-----BEGIN PUBLIC KEY-----",
+            b"-----BEGIN RSA PUBLIC KEY-----",
+            b"-----BEGIN CERTIFICATE-----",
+            b"ssh-rsa",
+        ]
+
+        if any(string_value in key for string_value in invalid_strings):
             raise JWKError(
                 "The specified key is an asymmetric key or x509 certificate and"
                 " should not be used as an HMAC secret."

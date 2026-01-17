@@ -1,5 +1,5 @@
-# testing/plugin/plugin_base.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# plugin/plugin_base.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -10,11 +10,9 @@
 from __future__ import annotations
 
 import abc
-from argparse import Namespace
 import configparser
 import logging
 import os
-from pathlib import Path
 import re
 import sys
 from typing import Any
@@ -53,7 +51,7 @@ file_config = None
 logging = None
 include_tags = set()
 exclude_tags = set()
-options: Namespace = None  # type: ignore
+options = None
 
 
 def setup_options(make_option):
@@ -90,7 +88,7 @@ def setup_options(make_option):
         action="append",
         type=str,
         dest="dburi",
-        help="Database uri.  Multiple OK, first one is run by default.",
+        help="Database uri.  Multiple OK, " "first one is run by default.",
     )
     make_option(
         "--dbdriver",
@@ -321,10 +319,6 @@ def _log(opt_str, value, parser):
 
 
 def _list_dbs(*args):
-    if file_config is None:
-        # assume the current working directory is the one containing the
-        # setup file
-        read_config(Path.cwd())
     print("Available --db options (use --dburi to override)")
     for macro in sorted(file_config.options("db")):
         print("%20s\t%s" % (macro, file_config.get("db", macro)))
@@ -417,15 +411,16 @@ def _init_symbols(options, file_config):
 @pre
 def _set_disable_asyncio(opt, file_config):
     if opt.disable_asyncio:
+
         asyncio.ENABLE_ASYNCIO = False
 
 
 @post
 def _engine_uri(options, file_config):
+
     from sqlalchemy import testing
     from sqlalchemy.testing import config
     from sqlalchemy.testing import provision
-    from sqlalchemy.engine import url as sa_url
 
     if options.dburi:
         db_urls = list(options.dburi)
@@ -450,18 +445,17 @@ def _engine_uri(options, file_config):
 
     config._current = None
 
-    if options.write_idents and provision.FOLLOWER_IDENT:
-        for db_url in [sa_url.make_url(db_url) for db_url in db_urls]:
+    expanded_urls = list(provision.generate_db_urls(db_urls, extra_drivers))
+
+    for db_url in expanded_urls:
+        log.info("Adding database URL: %s", db_url)
+
+        if options.write_idents and provision.FOLLOWER_IDENT:
             with open(options.write_idents, "a") as file_:
                 file_.write(
                     f"{provision.FOLLOWER_IDENT} "
                     f"{db_url.render_as_string(hide_password=False)}\n"
                 )
-
-    expanded_urls = list(provision.generate_db_urls(db_urls, extra_drivers))
-
-    for db_url in expanded_urls:
-        log.info("Adding database URL: %s", db_url)
 
         cfg = provision.setup_config(
             db_url, options, file_config, provision.FOLLOWER_IDENT
@@ -472,6 +466,7 @@ def _engine_uri(options, file_config):
 
 @post
 def _requirements(options, file_config):
+
     requirement_cls = file_config.get("sqla_testing", "requirement_cls")
     _setup_requirements(requirement_cls)
 
@@ -479,6 +474,9 @@ def _requirements(options, file_config):
 def _setup_requirements(argument):
     from sqlalchemy.testing import config
     from sqlalchemy import testing
+
+    if config.requirements is not None:
+        return
 
     modname, clsname = argument.split(":")
 
@@ -543,16 +541,9 @@ def want_method(cls, fn):
 
 
 def generate_sub_tests(cls, module, markers):
-    if (
-        "backend" in markers
-        or "sparse_backend" in markers
-        or "sparse_driver_backend" in markers
-    ):
+    if "backend" in markers or "sparse_backend" in markers:
         sparse = "sparse_backend" in markers
-        sparse_driver = "sparse_driver_backend" in markers
-        for cfg in _possible_configs_for_cls(
-            cls, sparse=sparse, sparse_driver=sparse_driver
-        ):
+        for cfg in _possible_configs_for_cls(cls, sparse=sparse):
             orig_name = cls.__name__
 
             # we can have special chars in these names except for the
@@ -588,8 +579,8 @@ def stop_test_class(cls):
 
 
 def stop_test_class_outside_fixtures(cls):
-    provision.stop_test_class_outside_fixtures(config, config.db, cls)
     engines.testing_reaper.stop_test_class_outside_fixtures()
+    provision.stop_test_class_outside_fixtures(config, config.db, cls)
     try:
         if not options.low_connections:
             assertions.global_cleanup_assertions()
@@ -617,6 +608,7 @@ def _setup_engine(cls):
 
 
 def before_test(test, test_module_name, test_class, test_name):
+
     # format looks like:
     # "test.aaa_profiling.test_compiler.CompileTest.test_update_whereclause"
 
@@ -636,9 +628,7 @@ def after_test_fixtures(test):
     engines.testing_reaper.after_test_outside_fixtures(test)
 
 
-def _possible_configs_for_cls(
-    cls, reasons=None, sparse=False, sparse_driver=False
-):
+def _possible_configs_for_cls(cls, reasons=None, sparse=False):
     all_configs = set(config.Config.all_configs())
 
     if cls.__unsupported_on__:
@@ -669,12 +659,6 @@ def _possible_configs_for_cls(
                         reasons.extend(skip_reasons)
                     break
 
-                warnings = check.matching_warnings(config_obj)
-                if warnings:
-                    cls.__warnings__ = getattr(
-                        cls, "__warnings__", ()
-                    ) + tuple(warnings)
-
     if hasattr(cls, "__prefer_requires__"):
         non_preferred = set()
         requirements = config.requirements
@@ -692,54 +676,20 @@ def _possible_configs_for_cls(
         # sorted so we get the same backend each time selecting the highest
         # server version info.
         per_dialect = {}
-
-        sorted_all_configs = reversed(
+        for cfg in reversed(
             sorted(
                 all_configs,
                 key=lambda cfg: (
-                    "z" if cfg.is_default_dialect else "a",
                     cfg.db.name,
                     cfg.db.driver,
                     cfg.db.dialect.server_version_info,
-                    cfg.db.dialect.is_async,
                 ),
             )
-        )
-
-        for cfg in sorted_all_configs:
+        ):
             db = cfg.db.name
             if db not in per_dialect:
                 per_dialect[db] = cfg
         return per_dialect.values()
-    elif sparse_driver:
-        # a more liberal form of "sparse" that will select for one driver,
-        # but still return for multiple database servers
-
-        dbs = {}
-
-        sorted_all_configs = list(
-            reversed(
-                sorted(
-                    all_configs,
-                    key=lambda cfg: (
-                        cfg.db.name,
-                        cfg.db.driver,
-                        cfg.db.dialect.server_version_info,
-                        cfg.db.dialect.is_async,
-                    ),
-                )
-            )
-        )
-
-        for cfg in sorted_all_configs:
-            key = (cfg.db.name, cfg.db.dialect.server_version_info)
-            if key in dbs and dbs[key].is_default_dialect:
-                continue
-            else:
-                dbs[key] = cfg
-
-        chosen_cfgs = set(dbs.values())
-        return [cfg for cfg in sorted_all_configs if cfg in chosen_cfgs]
 
     return all_configs
 

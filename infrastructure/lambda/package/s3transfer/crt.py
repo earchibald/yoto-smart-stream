@@ -11,21 +11,13 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 import logging
-import re
 import threading
-from collections import namedtuple
 from io import BytesIO
 
 import awscrt.http
-import awscrt.s3
 import botocore.awsrequest
 import botocore.session
-from awscrt.auth import (
-    AwsCredentials,
-    AwsCredentialsProvider,
-    AwsSigningAlgorithm,
-    AwsSigningConfig,
-)
+from awscrt.auth import AwsCredentials, AwsCredentialsProvider
 from awscrt.io import (
     ClientBootstrap,
     ClientTlsContext,
@@ -38,55 +30,44 @@ from botocore import UNSIGNED
 from botocore.compat import urlsplit
 from botocore.config import Config
 from botocore.exceptions import NoCredentialsError
-from botocore.utils import ArnParser, InvalidArnException
 
-from s3transfer.constants import FULL_OBJECT_CHECKSUM_ARGS, MB
+from s3transfer.constants import GB, MB
 from s3transfer.exceptions import TransferNotDoneError
 from s3transfer.futures import BaseTransferFuture, BaseTransferMeta
-from s3transfer.manager import TransferManager
-from s3transfer.utils import (
-    CallArgs,
-    OSUtils,
-    create_nested_client,
-    get_callbacks,
-    is_s3express_bucket,
-)
+from s3transfer.utils import CallArgs, OSUtils, get_callbacks
 
 logger = logging.getLogger(__name__)
 
-CRT_S3_PROCESS_LOCK = None
 
+class CRTCredentialProviderAdapter:
+    def __init__(self, botocore_credential_provider):
+        self._botocore_credential_provider = botocore_credential_provider
+        self._loaded_credentials = None
+        self._lock = threading.Lock()
 
-def acquire_crt_s3_process_lock(name):
-    # Currently, the CRT S3 client performs best when there is only one
-    # instance of it running on a host. This lock allows an application to
-    # signal across processes whether there is another process of the same
-    # application using the CRT S3 client and prevent spawning more than one
-    # CRT S3 clients running on the system for that application.
-    #
-    # NOTE: When acquiring the CRT process lock, the lock automatically is
-    # released when the lock object is garbage collected. So, the CRT process
-    # lock is set as a global so that it is not unintentionally garbage
-    # collected/released if reference of the lock is lost.
-    global CRT_S3_PROCESS_LOCK
-    if CRT_S3_PROCESS_LOCK is None:
-        crt_lock = awscrt.s3.CrossProcessLock(name)
-        try:
-            crt_lock.acquire()
-        except RuntimeError:
-            # If there is another process that is holding the lock, the CRT
-            # returns a RuntimeError. We return None here to signal that our
-            # current process was not able to acquire the lock.
-            return None
-        CRT_S3_PROCESS_LOCK = crt_lock
-    return CRT_S3_PROCESS_LOCK
+    def __call__(self):
+        credentials = self._get_credentials().get_frozen_credentials()
+        return AwsCredentials(
+            credentials.access_key, credentials.secret_key, credentials.token
+        )
+
+    def _get_credentials(self):
+        with self._lock:
+            if self._loaded_credentials is None:
+                loaded_creds = (
+                    self._botocore_credential_provider.load_credentials()
+                )
+                if loaded_creds is None:
+                    raise NoCredentialsError()
+                self._loaded_credentials = loaded_creds
+            return self._loaded_credentials
 
 
 def create_s3_crt_client(
     region,
-    crt_credentials_provider=None,
+    botocore_credential_provider=None,
     num_threads=None,
-    target_throughput=None,
+    target_throughput=5 * GB / 8,
     part_size=8 * MB,
     use_ssl=True,
     verify=None,
@@ -95,24 +76,18 @@ def create_s3_crt_client(
     :type region: str
     :param region: The region used for signing
 
-    :type crt_credentials_provider:
-        Optional[awscrt.auth.AwsCredentialsProvider]
-    :param crt_credentials_provider: CRT AWS credentials provider
-        to use to sign requests. If not set, requests will not be signed.
+    :type botocore_credential_provider:
+        Optional[botocore.credentials.CredentialResolver]
+    :param botocore_credential_provider: Provide credentials for CRT
+        to sign the request if not set, the request will not be signed
 
     :type num_threads: Optional[int]
     :param num_threads: Number of worker threads generated. Default
         is the number of processors in the machine.
 
     :type target_throughput: Optional[int]
-    :param target_throughput: Throughput target in bytes per second.
-        By default, CRT will automatically attempt to choose a target
-        throughput that matches the system's maximum network throughput.
-        Currently, if CRT is unable to determine the maximum network
-        throughput, a fallback target throughput of ``1_250_000_000`` bytes
-        per second (which translates to 10 gigabits per second, or 1.16
-        gibibytes per second) is used. To set a specific target
-        throughput, set a value for this parameter.
+    :param target_throughput: Throughput target in Bytes.
+        Default is 0.625 GB/s (which translates to 5 Gb/s).
 
     :type part_size: Optional[int]
     :param part_size: Size, in Bytes, of parts that files will be downloaded
@@ -134,9 +109,11 @@ def create_s3_crt_client(
             use. Specify this argument if you want to use a custom CA cert
             bundle instead of the default one on your system.
     """
+
     event_loop_group = EventLoopGroup(num_threads)
     host_resolver = DefaultHostResolver(event_loop_group)
     bootstrap = ClientBootstrap(event_loop_group, host_resolver)
+    provider = None
     tls_connection_options = None
 
     tls_mode = (
@@ -152,61 +129,28 @@ def create_s3_crt_client(
             tls_ctx_options.verify_peer = False
         client_tls_option = ClientTlsContext(tls_ctx_options)
         tls_connection_options = client_tls_option.new_connection_options()
-    target_gbps = _get_crt_throughput_target_gbps(
-        provided_throughput_target_bytes=target_throughput
-    )
+    if botocore_credential_provider:
+        credentails_provider_adapter = CRTCredentialProviderAdapter(
+            botocore_credential_provider
+        )
+        provider = AwsCredentialsProvider.new_delegate(
+            credentails_provider_adapter
+        )
+
+    target_gbps = target_throughput * 8 / GB
     return S3Client(
         bootstrap=bootstrap,
         region=region,
-        credential_provider=crt_credentials_provider,
+        credential_provider=provider,
         part_size=part_size,
         tls_mode=tls_mode,
         tls_connection_options=tls_connection_options,
         throughput_target_gbps=target_gbps,
-        enable_s3express=True,
     )
 
 
-def _get_crt_throughput_target_gbps(provided_throughput_target_bytes=None):
-    if provided_throughput_target_bytes is None:
-        target_gbps = awscrt.s3.get_recommended_throughput_target_gbps()
-        logger.debug(
-            'Recommended CRT throughput target in gbps: %s', target_gbps
-        )
-        if target_gbps is None:
-            target_gbps = 10.0
-    else:
-        # NOTE: The GB constant in s3transfer is technically a gibibyte. The
-        # GB constant is not used here because the CRT interprets gigabits
-        # for networking as a base power of 10
-        # (i.e. 1000 ** 3 instead of 1024 ** 3).
-        target_gbps = provided_throughput_target_bytes * 8 / 1_000_000_000
-    logger.debug('Using CRT throughput target in gbps: %s', target_gbps)
-    return target_gbps
-
-
-def _has_minimum_crt_version(minimum_version):
-    crt_version_str = awscrt.__version__
-    try:
-        crt_version_ints = map(int, crt_version_str.split("."))
-        crt_version_tuple = tuple(crt_version_ints)
-    except (TypeError, ValueError):
-        return False
-    return crt_version_tuple >= minimum_version
-
-
 class CRTTransferManager:
-    ALLOWED_DOWNLOAD_ARGS = TransferManager.ALLOWED_DOWNLOAD_ARGS
-    ALLOWED_UPLOAD_ARGS = TransferManager.ALLOWED_UPLOAD_ARGS
-    ALLOWED_DELETE_ARGS = TransferManager.ALLOWED_DELETE_ARGS
-
-    VALIDATE_SUPPORTED_BUCKET_VALUES = True
-
-    _UNSUPPORTED_BUCKET_PATTERNS = TransferManager._UNSUPPORTED_BUCKET_PATTERNS
-
-    def __init__(
-        self, crt_s3_client, crt_request_serializer, osutil=None, config=None
-    ):
+    def __init__(self, crt_s3_client, crt_request_serializer, osutil=None):
         """A transfer manager interface for Amazon S3 on CRT s3 client.
 
         :type crt_s3_client: awscrt.s3.S3Client
@@ -220,21 +164,12 @@ class CRTTransferManager:
         :type osutil: s3transfer.utils.OSUtils
         :param osutil: OSUtils object to use for os-related behavior when
             using with transfer manager.
-
-        :type config: s3transfer.manager.TransferConfig
-        :param config: The transfer configuration to be used when
-            making CRT S3 client requests.
         """
         if osutil is None:
             self._osutil = OSUtils()
         self._crt_s3_client = crt_s3_client
         self._s3_args_creator = S3ClientArgsCreator(
-            crt_request_serializer,
-            self._osutil,
-            config,
-        )
-        self._crt_exception_translator = (
-            crt_request_serializer.translate_crt_exception
+            crt_request_serializer, self._osutil
         )
         self._future_coordinators = []
         self._semaphore = threading.Semaphore(128)  # not configurable
@@ -257,8 +192,6 @@ class CRTTransferManager:
             extra_args = {}
         if subscribers is None:
             subscribers = {}
-        self._validate_all_known_args(extra_args, self.ALLOWED_DOWNLOAD_ARGS)
-        self._validate_if_bucket_supported(bucket)
         callargs = CallArgs(
             bucket=bucket,
             key=key,
@@ -273,9 +206,6 @@ class CRTTransferManager:
             extra_args = {}
         if subscribers is None:
             subscribers = {}
-        self._validate_all_known_args(extra_args, self.ALLOWED_UPLOAD_ARGS)
-        self._validate_if_bucket_supported(bucket)
-        self._validate_checksum_algorithm_supported(extra_args)
         callargs = CallArgs(
             bucket=bucket,
             key=key,
@@ -290,8 +220,6 @@ class CRTTransferManager:
             extra_args = {}
         if subscribers is None:
             subscribers = {}
-        self._validate_all_known_args(extra_args, self.ALLOWED_DELETE_ARGS)
-        self._validate_if_bucket_supported(bucket)
         callargs = CallArgs(
             bucket=bucket,
             key=key,
@@ -302,38 +230,6 @@ class CRTTransferManager:
 
     def shutdown(self, cancel=False):
         self._shutdown(cancel)
-
-    def _validate_if_bucket_supported(self, bucket):
-        # s3 high level operations don't support some resources
-        # (eg. S3 Object Lambda) only direct API calls are available
-        # for such resources
-        if self.VALIDATE_SUPPORTED_BUCKET_VALUES:
-            for resource, pattern in self._UNSUPPORTED_BUCKET_PATTERNS.items():
-                match = pattern.match(bucket)
-                if match:
-                    raise ValueError(
-                        f'TransferManager methods do not support {resource} '
-                        'resource. Use direct client calls instead.'
-                    )
-
-    def _validate_all_known_args(self, actual, allowed):
-        for kwarg in actual:
-            if kwarg not in allowed:
-                raise ValueError(
-                    f"Invalid extra_args key '{kwarg}', "
-                    f"must be one of: {', '.join(allowed)}"
-                )
-
-    def _validate_checksum_algorithm_supported(self, extra_args):
-        checksum_algorithm = extra_args.get('ChecksumAlgorithm')
-        if checksum_algorithm is None:
-            return
-        supported_algorithms = list(awscrt.s3.S3ChecksumAlgorithm.__members__)
-        if checksum_algorithm.upper() not in supported_algorithms:
-            raise ValueError(
-                f'ChecksumAlgorithm: {checksum_algorithm} not supported. '
-                f'Supported algorithms are: {supported_algorithms}'
-            )
 
     def _cancel_transfers(self):
         for coordinator in self._future_coordinators:
@@ -366,10 +262,7 @@ class CRTTransferManager:
 
     def _submit_transfer(self, request_type, call_args):
         on_done_after_calls = [self._release_semaphore]
-        coordinator = CRTTransferCoordinator(
-            transfer_id=self._id_counter,
-            exception_translator=self._crt_exception_translator,
-        )
+        coordinator = CRTTransferCoordinator(transfer_id=self._id_counter)
         components = {
             'meta': CRTTransferMeta(self._id_counter, call_args),
             'coordinator': coordinator,
@@ -480,9 +373,6 @@ class BaseCRTRequestSerializer:
         """
         raise NotImplementedError('serialize_http_request()')
 
-    def translate_crt_exception(self, exception):
-        raise NotImplementedError('translate_crt_exception()')
-
 
 class BotocoreCRTRequestSerializer(BaseCRTRequestSerializer):
     def __init__(self, session, client_kwargs=None):
@@ -501,7 +391,7 @@ class BotocoreCRTRequestSerializer(BaseCRTRequestSerializer):
         if client_kwargs is None:
             client_kwargs = {}
         self._resolve_client_config(session, client_kwargs)
-        self._client = create_nested_client(session, **client_kwargs)
+        self._client = session.create_client(**client_kwargs)
         self._client.meta.events.register(
             'request-created.s3.*', self._capture_http_request
         )
@@ -510,9 +400,6 @@ class BotocoreCRTRequestSerializer(BaseCRTRequestSerializer):
         )
         self._client.meta.events.register(
             'before-send.s3.*', self._make_fake_http_response
-        )
-        self._client.meta.events.register(
-            'before-call.s3.*', self._remove_checksum_context
         )
 
     def _resolve_client_config(self, session, client_kwargs):
@@ -541,12 +428,19 @@ class BotocoreCRTRequestSerializer(BaseCRTRequestSerializer):
                 headers_list.append((name, str(value, 'utf-8')))
 
         crt_headers = awscrt.http.HttpHeaders(headers_list)
+        # CRT requires body (if it exists) to be an I/O stream.
+        crt_body_stream = None
+        if aws_request.body:
+            if hasattr(aws_request.body, 'seek'):
+                crt_body_stream = aws_request.body
+            else:
+                crt_body_stream = BytesIO(aws_request.body)
 
         crt_request = awscrt.http.HttpRequest(
             method=aws_request.method,
             path=crt_path,
             headers=crt_headers,
-            body_stream=aws_request.body,
+            body_stream=crt_body_stream,
         )
         return crt_request
 
@@ -559,25 +453,6 @@ class BotocoreCRTRequestSerializer(BaseCRTRequestSerializer):
             crt_request.headers.set("host", url_parts.netloc)
         if crt_request.headers.get('Content-MD5') is not None:
             crt_request.headers.remove("Content-MD5")
-
-        # In general, the CRT S3 client expects a content length header. It
-        # only expects a missing content length header if the body is not
-        # seekable. However, botocore does not set the content length header
-        # for GetObject API requests and so we set the content length to zero
-        # to meet the CRT S3 client's expectation that the content length
-        # header is set even if there is no body.
-        if crt_request.headers.get('Content-Length') is None:
-            if botocore_http_request.body is None:
-                crt_request.headers.add('Content-Length', "0")
-
-        # Botocore sets the Transfer-Encoding header when it cannot determine
-        # the content length of the request body (e.g. it's not seekable).
-        # However, CRT does not support this header, but it supports
-        # non-seekable bodies. So we remove this header to not cause issues
-        # in the downstream CRT S3 request.
-        if crt_request.headers.get('Transfer-Encoding') is not None:
-            crt_request.headers.remove('Transfer-Encoding')
-
         return crt_request
 
     def _capture_http_request(self, request, **kwargs):
@@ -609,45 +484,6 @@ class BotocoreCRTRequestSerializer(BaseCRTRequestSerializer):
         crt_request = self._convert_to_crt_http_request(botocore_http_request)
         return crt_request
 
-    def translate_crt_exception(self, exception):
-        if isinstance(exception, awscrt.s3.S3ResponseError):
-            return self._translate_crt_s3_response_error(exception)
-        else:
-            return None
-
-    def _translate_crt_s3_response_error(self, s3_response_error):
-        status_code = s3_response_error.status_code
-        if status_code < 301:
-            # Botocore's exception parsing only
-            # runs on status codes >= 301
-            return None
-
-        headers = {k: v for k, v in s3_response_error.headers}
-        operation_name = s3_response_error.operation_name
-        if operation_name is not None:
-            service_model = self._client.meta.service_model
-            shape = service_model.operation_model(operation_name).output_shape
-        else:
-            shape = None
-
-        response_dict = {
-            'headers': botocore.awsrequest.HeadersDict(headers),
-            'status_code': status_code,
-            'body': s3_response_error.body,
-        }
-        parsed_response = self._client._response_parser.parse(
-            response_dict, shape=shape
-        )
-
-        error_code = parsed_response.get("Error", {}).get("Code")
-        error_class = self._client.exceptions.from_code(error_code)
-        return error_class(parsed_response, operation_name=operation_name)
-
-    def _remove_checksum_context(self, params, **kwargs):
-        request_context = params.get("context", {})
-        if "checksum" in request_context:
-            del request_context["checksum"]
-
 
 class FakeRawResponse(BytesIO):
     def stream(self, amt=1024, decode_content=None):
@@ -658,33 +494,11 @@ class FakeRawResponse(BytesIO):
             yield chunk
 
 
-class BotocoreCRTCredentialsWrapper:
-    def __init__(self, resolved_botocore_credentials):
-        self._resolved_credentials = resolved_botocore_credentials
-
-    def __call__(self):
-        credentials = self._get_credentials().get_frozen_credentials()
-        return AwsCredentials(
-            credentials.access_key, credentials.secret_key, credentials.token
-        )
-
-    def to_crt_credentials_provider(self):
-        return AwsCredentialsProvider.new_delegate(self)
-
-    def _get_credentials(self):
-        if self._resolved_credentials is None:
-            raise NoCredentialsError()
-        return self._resolved_credentials
-
-
 class CRTTransferCoordinator:
     """A helper class for managing CRTTransferFuture"""
 
-    def __init__(
-        self, transfer_id=None, s3_request=None, exception_translator=None
-    ):
+    def __init__(self, transfer_id=None, s3_request=None):
         self.transfer_id = transfer_id
-        self._exception_translator = exception_translator
         self._s3_request = s3_request
         self._lock = threading.Lock()
         self._exception = None
@@ -717,28 +531,11 @@ class CRTTransferCoordinator:
             self._crt_future.result(timeout)
         except KeyboardInterrupt:
             self.cancel()
-            self._crt_future.result(timeout)
             raise
-        except Exception as e:
-            self.handle_exception(e)
         finally:
             if self._s3_request:
                 self._s3_request = None
-
-    def handle_exception(self, exc):
-        translated_exc = None
-        if self._exception_translator:
-            try:
-                translated_exc = self._exception_translator(exc)
-            except Exception as e:
-                # Bail out if we hit an issue translating
-                # and raise the original error.
-                logger.debug("Unable to translate exception.", exc_info=e)
-                pass
-        if translated_exc is not None:
-            raise translated_exc from exc
-        else:
-            raise exc
+            self._crt_future.result(timeout)
 
     def done(self):
         if self._crt_future is None:
@@ -750,89 +547,46 @@ class CRTTransferCoordinator:
         self._crt_future = self._s3_request.finished_future
 
 
-CRTConfigParameter = namedtuple('CRTConfigParameter', ['name', 'min_version'])
-
-
 class S3ClientArgsCreator:
-    _CRT_ARG_TO_CONFIG_PARAM = {
-        'max_active_connections_override': CRTConfigParameter(
-            'max_request_concurrency', (0, 29, 0)
-        ),
-    }
-
-    def __init__(self, crt_request_serializer, os_utils, config=None):
+    def __init__(self, crt_request_serializer, os_utils):
         self._request_serializer = crt_request_serializer
         self._os_utils = os_utils
-        self._config = config
-
-    def _get_crt_transfer_config_options(self, request_type):
-        crt_config = {
-            'part_size': self._config.multipart_chunksize,
-            'max_active_connections_override': self._config.max_request_concurrency,
-        }
-
-        if (
-            self._config.get_deep_attr('multipart_chunksize')
-            is self._config.UNSET_DEFAULT
-        ):
-            # Let CRT dynamically calculate part size.
-            crt_config['part_size'] = None
-        if (
-            self._config.get_deep_attr('max_request_concurrency')
-            is self._config.UNSET_DEFAULT
-        ):
-            crt_config['max_active_connections_override'] = None
-
-        if hasattr(self, f'_get_crt_options_{request_type}'):
-            crt_config.update(
-                getattr(self, f'_get_crt_options_{request_type}')()
-            )
-        self._remove_param_if_not_min_crt_version(crt_config)
-        return crt_config
-
-    def _get_crt_options_put_object(self):
-        return {'multipart_upload_threshold': self._config.multipart_threshold}
-
-    def _remove_param_if_not_min_crt_version(self, crt_config):
-        to_remove = []
-        for request_arg in crt_config:
-            if request_arg not in self._CRT_ARG_TO_CONFIG_PARAM:
-                continue
-            param = self._CRT_ARG_TO_CONFIG_PARAM[request_arg]
-            if _has_minimum_crt_version(param.min_version):
-                continue
-            # Only log the warning if user attempted to explicitly
-            # use the transfer config parameter.
-            if (
-                self._config.get_deep_attr(param.name)
-                is not self._config.UNSET_DEFAULT
-            ):
-                min_ver_str = '.'.join(str(i) for i in param.min_version)
-                logger.warning(
-                    f'Transfer config parameter {param.name} '
-                    f'requires minimum CRT version: {min_ver_str}. '
-                    f'{param.name} will not be used in the request.'
-                )
-            to_remove.append(request_arg)
-        for request_arg in to_remove:
-            del crt_config[request_arg]
 
     def get_make_request_args(
         self, request_type, call_args, coordinator, future, on_done_after_calls
     ):
-        request_args_handler = getattr(
-            self,
-            f'_get_make_request_args_{request_type}',
-            self._default_get_make_request_args,
+        recv_filepath = None
+        send_filepath = None
+        s3_meta_request_type = getattr(
+            S3RequestType, request_type.upper(), S3RequestType.DEFAULT
         )
-        return request_args_handler(
-            request_type=request_type,
-            call_args=call_args,
-            coordinator=coordinator,
-            future=future,
-            on_done_before_calls=[],
-            on_done_after_calls=on_done_after_calls,
+        on_done_before_calls = []
+        if s3_meta_request_type == S3RequestType.GET_OBJECT:
+            final_filepath = call_args.fileobj
+            recv_filepath = self._os_utils.get_temp_filename(final_filepath)
+            file_ondone_call = RenameTempFileHandler(
+                coordinator, final_filepath, recv_filepath, self._os_utils
+            )
+            on_done_before_calls.append(file_ondone_call)
+        elif s3_meta_request_type == S3RequestType.PUT_OBJECT:
+            send_filepath = call_args.fileobj
+            data_len = self._os_utils.get_file_size(send_filepath)
+            call_args.extra_args["ContentLength"] = data_len
+
+        crt_request = self._request_serializer.serialize_http_request(
+            request_type, future
         )
+
+        return {
+            'request': crt_request,
+            'type': s3_meta_request_type,
+            'recv_filepath': recv_filepath,
+            'send_filepath': send_filepath,
+            'on_done': self.get_crt_callback(
+                future, 'done', on_done_before_calls, on_done_after_calls
+            ),
+            'on_progress': self.get_crt_callback(future, 'progress'),
+        }
 
     def get_crt_callback(
         self,
@@ -858,151 +612,6 @@ class S3ClientArgsCreator:
                     callback(*args, **kwargs)
 
         return invoke_all_callbacks
-
-    def _get_make_request_args_put_object(
-        self,
-        request_type,
-        call_args,
-        coordinator,
-        future,
-        on_done_before_calls,
-        on_done_after_calls,
-    ):
-        send_filepath = None
-        if isinstance(call_args.fileobj, str):
-            send_filepath = call_args.fileobj
-            data_len = self._os_utils.get_file_size(send_filepath)
-            call_args.extra_args["ContentLength"] = data_len
-        else:
-            call_args.extra_args["Body"] = call_args.fileobj
-
-        checksum_config = None
-        if not any(
-            checksum_arg in call_args.extra_args
-            for checksum_arg in FULL_OBJECT_CHECKSUM_ARGS
-        ):
-            checksum_algorithm = call_args.extra_args.pop(
-                'ChecksumAlgorithm', 'CRC32'
-            ).upper()
-            checksum_config = awscrt.s3.S3ChecksumConfig(
-                algorithm=awscrt.s3.S3ChecksumAlgorithm[checksum_algorithm],
-                location=awscrt.s3.S3ChecksumLocation.TRAILER,
-            )
-        # Suppress botocore's automatic MD5 calculation by setting an override
-        # value that will get deleted in the BotocoreCRTRequestSerializer.
-        # As part of the CRT S3 request, we request the CRT S3 client to
-        # automatically add trailing checksums to its uploads.
-        call_args.extra_args["ContentMD5"] = "override-to-be-removed"
-
-        make_request_args = self._default_get_make_request_args(
-            request_type=request_type,
-            call_args=call_args,
-            coordinator=coordinator,
-            future=future,
-            on_done_before_calls=on_done_before_calls,
-            on_done_after_calls=on_done_after_calls,
-        )
-        make_request_args['send_filepath'] = send_filepath
-        make_request_args['checksum_config'] = checksum_config
-        if self._config is not None:
-            make_request_args.update(
-                self._get_crt_transfer_config_options(request_type)
-            )
-        return make_request_args
-
-    def _get_make_request_args_get_object(
-        self,
-        request_type,
-        call_args,
-        coordinator,
-        future,
-        on_done_before_calls,
-        on_done_after_calls,
-    ):
-        recv_filepath = None
-        on_body = None
-        checksum_config = awscrt.s3.S3ChecksumConfig(validate_response=True)
-        if isinstance(call_args.fileobj, str):
-            final_filepath = call_args.fileobj
-            recv_filepath = self._os_utils.get_temp_filename(final_filepath)
-            on_done_before_calls.append(
-                RenameTempFileHandler(
-                    coordinator, final_filepath, recv_filepath, self._os_utils
-                )
-            )
-        else:
-            on_body = OnBodyFileObjWriter(call_args.fileobj)
-
-        make_request_args = self._default_get_make_request_args(
-            request_type=request_type,
-            call_args=call_args,
-            coordinator=coordinator,
-            future=future,
-            on_done_before_calls=on_done_before_calls,
-            on_done_after_calls=on_done_after_calls,
-        )
-        make_request_args['recv_filepath'] = recv_filepath
-        make_request_args['on_body'] = on_body
-        make_request_args['checksum_config'] = checksum_config
-        if self._config is not None:
-            make_request_args.update(
-                self._get_crt_transfer_config_options(request_type)
-            )
-        return make_request_args
-
-    def _default_get_make_request_args(
-        self,
-        request_type,
-        call_args,
-        coordinator,
-        future,
-        on_done_before_calls,
-        on_done_after_calls,
-    ):
-        make_request_args = {
-            'request': self._request_serializer.serialize_http_request(
-                request_type, future
-            ),
-            'type': getattr(
-                S3RequestType, request_type.upper(), S3RequestType.DEFAULT
-            ),
-            'on_done': self.get_crt_callback(
-                future, 'done', on_done_before_calls, on_done_after_calls
-            ),
-            'on_progress': self.get_crt_callback(future, 'progress'),
-        }
-
-        # For DEFAULT requests, CRT requires the official S3 operation name.
-        # So transform string like "delete_object" -> "DeleteObject".
-        if make_request_args['type'] == S3RequestType.DEFAULT:
-            make_request_args['operation_name'] = ''.join(
-                x.title() for x in request_type.split('_')
-            )
-
-        arn_handler = _S3ArnParamHandler()
-        if (
-            accesspoint_arn_details := arn_handler.handle_arn(call_args.bucket)
-        ) and accesspoint_arn_details['region'] == "":
-            # Configure our region to `*` to propogate in `x-amz-region-set`
-            # for multi-region support in MRAP accesspoints.
-            # use_double_uri_encode and should_normalize_uri_path are defaulted to be True
-            # But SDK already encoded the URI, and it's for S3, so set both to False
-            make_request_args['signing_config'] = AwsSigningConfig(
-                algorithm=AwsSigningAlgorithm.V4_ASYMMETRIC,
-                region="*",
-                use_double_uri_encode=False,
-                should_normalize_uri_path=False,
-            )
-            call_args.bucket = accesspoint_arn_details['resource_name']
-        elif is_s3express_bucket(call_args.bucket):
-            # use_double_uri_encode and should_normalize_uri_path are defaulted to be True
-            # But SDK already encoded the URI, and it's for S3, so set both to False
-            make_request_args['signing_config'] = AwsSigningConfig(
-                algorithm=AwsSigningAlgorithm.V4_S3EXPRESS,
-                use_double_uri_encode=False,
-                should_normalize_uri_path=False,
-            )
-        return make_request_args
 
 
 class RenameTempFileHandler:
@@ -1033,49 +642,3 @@ class AfterDoneHandler:
 
     def __call__(self, **kwargs):
         self._coordinator.set_done_callbacks_complete()
-
-
-class OnBodyFileObjWriter:
-    def __init__(self, fileobj):
-        self._fileobj = fileobj
-
-    def __call__(self, chunk, **kwargs):
-        self._fileobj.write(chunk)
-
-
-class _S3ArnParamHandler:
-    """Partial port of S3ArnParamHandler from botocore.
-
-    This is used to make a determination on MRAP accesspoints for signing
-    purposes. This should be safe to remove once we properly integrate auth
-    resolution from Botocore into the CRT transfer integration.
-    """
-
-    _RESOURCE_REGEX = re.compile(
-        r'^(?P<resource_type>accesspoint|outpost)[/:](?P<resource_name>.+)$'
-    )
-
-    def __init__(self):
-        self._arn_parser = ArnParser()
-
-    def handle_arn(self, bucket):
-        arn_details = self._get_arn_details_from_bucket(bucket)
-        if arn_details is None:
-            return
-        if arn_details['resource_type'] == 'accesspoint':
-            return arn_details
-
-    def _get_arn_details_from_bucket(self, bucket):
-        try:
-            arn_details = self._arn_parser.parse_arn(bucket)
-            self._add_resource_type_and_name(arn_details)
-            return arn_details
-        except InvalidArnException:
-            pass
-        return None
-
-    def _add_resource_type_and_name(self, arn_details):
-        match = self._RESOURCE_REGEX.match(arn_details['resource'])
-        if match:
-            arn_details['resource_type'] = match.group('resource_type')
-            arn_details['resource_name'] = match.group('resource_name')

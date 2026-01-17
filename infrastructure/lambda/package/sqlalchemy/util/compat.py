@@ -1,5 +1,5 @@
 # util/compat.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -12,12 +12,10 @@ from __future__ import annotations
 
 import base64
 import dataclasses
-import hashlib
 import inspect
 import operator
 import platform
 import sys
-import sysconfig
 import typing
 from typing import Any
 from typing import Callable
@@ -30,12 +28,8 @@ from typing import Sequence
 from typing import Set
 from typing import Tuple
 from typing import Type
-from typing import TypeVar
 
 
-py314b1 = sys.version_info >= (3, 14, 0, "beta", 1)
-py314 = sys.version_info >= (3, 14)
-py313 = sys.version_info >= (3, 13)
 py312 = sys.version_info >= (3, 12)
 py311 = sys.version_info >= (3, 11)
 py310 = sys.version_info >= (3, 10)
@@ -43,7 +37,6 @@ py39 = sys.version_info >= (3, 9)
 py38 = sys.version_info >= (3, 8)
 pypy = platform.python_implementation() == "PyPy"
 cpython = platform.python_implementation() == "CPython"
-freethreading = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 win32 = sys.platform.startswith("win")
 osx = sys.platform.startswith("darwin")
@@ -54,8 +47,6 @@ has_refcount_gc = bool(cpython)
 
 dottedgetter = operator.attrgetter
 
-_T_co = TypeVar("_T_co", covariant=True)
-
 
 class FullArgSpec(typing.NamedTuple):
     args: List[str]
@@ -63,7 +54,7 @@ class FullArgSpec(typing.NamedTuple):
     varkw: Optional[str]
     defaults: Optional[Tuple[Any, ...]]
     kwonlyargs: List[str]
-    kwonlydefaults: Optional[Dict[str, Any]]
+    kwonlydefaults: Dict[str, Any]
     annotations: Dict[str, Any]
 
 
@@ -105,18 +96,6 @@ def inspect_getfullargspec(func: Callable[..., Any]) -> FullArgSpec:
     )
 
 
-if py39:
-    # python stubs don't have a public type for this. not worth
-    # making a protocol
-    def md5_not_for_security() -> Any:
-        return hashlib.md5(usedforsecurity=False)
-
-else:
-
-    def md5_not_for_security() -> Any:
-        return hashlib.md5()
-
-
 if typing.TYPE_CHECKING or py38:
     from importlib import metadata as importlib_metadata
 else:
@@ -137,6 +116,7 @@ else:
 if py310:
     anext_ = anext
 else:
+
     _NOT_PROVIDED = object()
     from collections.abc import AsyncIterator
 
@@ -158,7 +138,7 @@ else:
 
 def importlib_metadata_get(group):
     ep = importlib_metadata.entry_points()
-    if typing.TYPE_CHECKING or hasattr(ep, "select"):
+    if not typing.TYPE_CHECKING and hasattr(ep, "select"):
         return ep.select(group=group)
     else:
         return ep.get(group, ())
@@ -303,14 +283,3 @@ def local_dataclass_fields(cls: Type[Any]) -> Iterable[dataclasses.Field[Any]]:
         return [f for f in dataclasses.fields(cls) if f not in super_fields]
     else:
         return []
-
-
-if freethreading:
-    import threading
-
-    mini_gil = threading.RLock()
-    """provide a threading.RLock() under python freethreading only"""
-else:
-    import contextlib
-
-    mini_gil = contextlib.nullcontext()  # type: ignore[assignment]

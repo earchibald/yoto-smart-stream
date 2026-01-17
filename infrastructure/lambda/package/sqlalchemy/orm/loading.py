@@ -1,5 +1,5 @@
 # orm/loading.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -37,9 +37,6 @@ from .base import _RAISE_FOR_STATE
 from .base import _SET_DEFERRED_EXPIRED
 from .base import PassiveFlag
 from .context import FromStatement
-from .context import ORMCompileState
-from .context import QueryContext
-from .strategies import SelectInLoader
 from .util import _none_set
 from .util import state_str
 from .. import exc as sa_exc
@@ -58,6 +55,7 @@ from ..util import EMPTY_DICT
 if TYPE_CHECKING:
     from ._typing import _IdentityKeyType
     from .base import LoaderCallableStatus
+    from .context import QueryContext
     from .interfaces import ORMOption
     from .mapper import Mapper
     from .query import Query
@@ -138,68 +136,40 @@ def instances(cursor: CursorResult[Any], context: QueryContext) -> Result[Any]:
             "Can't use the ORM yield_per feature in conjunction with unique()"
         )
 
-    def _not_hashable(datatype, *, legacy=False, uncertain=False):
-        if not legacy:
+    def _not_hashable(datatype):
+        def go(obj):
+            raise sa_exc.InvalidRequestError(
+                "Can't apply uniqueness to row tuple containing value of "
+                "type %r; this datatype produces non-hashable values"
+                % datatype
+            )
 
-            def go(obj):
-                if uncertain:
-                    try:
-                        return hash(obj)
-                    except:
-                        pass
+        return go
 
-                raise sa_exc.InvalidRequestError(
-                    "Can't apply uniqueness to row tuple containing value of "
-                    f"""type {datatype!r}; {
-                        'the values returned appear to be'
-                        if uncertain
-                        else 'this datatype produces'
-                    } non-hashable values"""
-                )
-
-            return go
-        elif not uncertain:
-            return id
-        else:
-            _use_id = False
-
-            def go(obj):
-                nonlocal _use_id
-
-                if not _use_id:
-                    try:
-                        return hash(obj)
-                    except:
-                        pass
-
-                    # in #10459, we considered using a warning here, however
-                    # as legacy query uses result.unique() in all cases, this
-                    # would lead to too many warning cases.
-                    _use_id = True
-
-                return id(obj)
-
-            return go
-
-    unique_filters = [
-        (
+    if context.load_options._legacy_uniquing:
+        unique_filters = [
             _no_unique
             if context.yield_per
-            else (
-                _not_hashable(
-                    ent.column.type,  # type: ignore
-                    legacy=context.load_options._legacy_uniquing,
-                    uncertain=ent._null_column_type,
-                )
-                if (
-                    not ent.use_id_for_hash
-                    and (ent._non_hashable_value or ent._null_column_type)
-                )
-                else id if ent.use_id_for_hash else None
+            else id
+            if (
+                ent.use_id_for_hash
+                or ent._non_hashable_value
+                or ent._null_column_type
             )
-        )
-        for ent in context.compile_state._entities
-    ]
+            else None
+            for ent in context.compile_state._entities
+        ]
+    else:
+        unique_filters = [
+            _no_unique
+            if context.yield_per
+            else _not_hashable(ent.column.type)  # type: ignore
+            if (not ent.use_id_for_hash and ent._non_hashable_value)
+            else id
+            if ent.use_id_for_hash
+            else None
+            for ent in context.compile_state._entities
+        ]
 
     row_metadata = SimpleResultMetaData(
         labels, extra, _unique_filters=unique_filters
@@ -459,6 +429,7 @@ def get_from_identity(
     """
     instance = session.identity_map.get(key)
     if instance is not None:
+
         state = attributes.instance_state(instance)
 
         if mapper.inherits and not state.mapper.isa(mapper):
@@ -498,7 +469,6 @@ def load_on_ident(
     bind_arguments: Mapping[str, Any] = util.EMPTY_DICT,
     execution_options: _ExecuteOptions = util.EMPTY_DICT,
     require_pk_cols: bool = False,
-    is_user_refresh: bool = False,
 ):
     """Load the given identity key from the database."""
     if key is not None:
@@ -520,7 +490,6 @@ def load_on_ident(
         bind_arguments=bind_arguments,
         execution_options=execution_options,
         require_pk_cols=require_pk_cols,
-        is_user_refresh=is_user_refresh,
     )
 
 
@@ -538,14 +507,17 @@ def load_on_pk_identity(
     bind_arguments: Mapping[str, Any] = util.EMPTY_DICT,
     execution_options: _ExecuteOptions = util.EMPTY_DICT,
     require_pk_cols: bool = False,
-    is_user_refresh: bool = False,
 ):
+
     """Load the given primary key identity from the database."""
 
     query = statement
     q = query._clone()
 
     assert not q._is_lambda_element
+
+    # TODO: fix these imports ....
+    from .context import QueryContext, ORMCompileState
 
     if load_options is None:
         load_options = QueryContext.default_load_options
@@ -679,7 +651,6 @@ def load_on_pk_identity(
         only_load_props=only_load_props,
         refresh_state=refresh_state,
         identity_token=identity_token,
-        is_user_refresh=is_user_refresh,
     )
 
     q._compile_options = new_compile_options
@@ -716,8 +687,8 @@ def _set_get_options(
     only_load_props=None,
     refresh_state=None,
     identity_token=None,
-    is_user_refresh=None,
 ):
+
     compile_options = {}
     load_options = {}
     if version_check:
@@ -732,8 +703,6 @@ def _set_get_options(
     if identity_token:
         load_options["_identity_token"] = identity_token
 
-    if is_user_refresh:
-        load_options["_is_user_refresh"] = is_user_refresh
     if load_options:
         load_opt += load_options
     if compile_options:
@@ -754,6 +723,7 @@ def _setup_entity_query(
     polymorphic_discriminator=None,
     **kw,
 ):
+
     if with_polymorphic:
         poly_properties = mapper._iterate_polymorphic_properties(
             with_polymorphic
@@ -774,6 +744,7 @@ def _setup_entity_query(
     for value in poly_properties:
         if only_load_props and value.key not in only_load_props:
             continue
+
         value.setup(
             compile_state,
             query_entity,
@@ -790,6 +761,7 @@ def _setup_entity_query(
         polymorphic_discriminator is not None
         and polymorphic_discriminator is not mapper.polymorphic_on
     ):
+
         if adapter:
             pd = adapter.columns[polymorphic_discriminator]
         else:
@@ -993,17 +965,17 @@ def _instance_processor(
 
     if not refresh_state and _polymorphic_from is not None:
         key = ("loader", path.path)
-
         if key in context.attributes and context.attributes[key].strategy == (
             ("selectinload_polymorphic", True),
         ):
-            option_entities = context.attributes[key].local_opts["entities"]
+            selectin_load_via = mapper._should_selectin_load(
+                context.attributes[key].local_opts["entities"],
+                _polymorphic_from,
+            )
         else:
-            option_entities = None
-        selectin_load_via = mapper._should_selectin_load(
-            option_entities,
-            _polymorphic_from,
-        )
+            selectin_load_via = mapper._should_selectin_load(
+                None, _polymorphic_from
+            )
 
         if selectin_load_via and selectin_load_via is not _polymorphic_from:
             # only_load_props goes w/ refresh_state only, and in a refresh
@@ -1011,38 +983,16 @@ def _instance_processor(
             # loading does not apply
             assert only_load_props is None
 
-            if selectin_load_via.is_mapper:
-                _load_supers = []
-                _endmost_mapper = selectin_load_via
-                while (
-                    _endmost_mapper
-                    and _endmost_mapper is not _polymorphic_from
-                ):
-                    _load_supers.append(_endmost_mapper)
-                    _endmost_mapper = _endmost_mapper.inherits
-            else:
-                _load_supers = [selectin_load_via]
+            callable_ = _load_subclass_via_in(context, path, selectin_load_via)
 
-            for _selectinload_entity in _load_supers:
-                if PostLoad.path_exists(
-                    context, load_path, _selectinload_entity
-                ):
-                    continue
-                callable_ = _load_subclass_via_in(
-                    context,
-                    path,
-                    _selectinload_entity,
-                    _polymorphic_from,
-                    option_entities,
-                )
-                PostLoad.callable_for_path(
-                    context,
-                    load_path,
-                    _selectinload_entity.mapper,
-                    _selectinload_entity,
-                    callable_,
-                    _selectinload_entity,
-                )
+            PostLoad.callable_for_path(
+                context,
+                load_path,
+                selectin_load_via.mapper,
+                selectin_load_via,
+                callable_,
+                selectin_load_via,
+            )
 
     post_load = PostLoad.for_context(context, load_path, only_load_props)
 
@@ -1066,6 +1016,7 @@ def _instance_processor(
         is_not_primary_key = _none_set.intersection
 
     def _instance(row):
+
         # determine the state that we'll be populating
         if refresh_identity_key:
             # fixed state that we're refreshing
@@ -1254,54 +1205,20 @@ def _instance_processor(
     return _instance
 
 
-def _load_subclass_via_in(
-    context, path, entity, polymorphic_from, option_entities
-):
+def _load_subclass_via_in(context, path, entity):
     mapper = entity.mapper
-
-    # TODO: polymorphic_from seems to be a Mapper in all cases.
-    # this is likely not needed, but as we dont have typing in loading.py
-    # yet, err on the safe side
-    polymorphic_from_mapper = polymorphic_from.mapper
-    not_against_basemost = polymorphic_from_mapper.inherits is not None
 
     zero_idx = len(mapper.base_mapper.primary_key) == 1
 
-    if entity.is_aliased_class or not_against_basemost:
-        q, enable_opt, disable_opt = mapper._subclass_load_via_in(
-            entity, polymorphic_from
-        )
+    if entity.is_aliased_class:
+        q, enable_opt, disable_opt = mapper._subclass_load_via_in(entity)
     else:
         q, enable_opt, disable_opt = mapper._subclass_load_via_in_mapper
 
     def do_load(context, path, states, load_only, effective_entity):
-        if not option_entities:
-            # filter out states for those that would have selectinloaded
-            # from another loader
-            # TODO: we are currently ignoring the case where the
-            # "selectin_polymorphic" option is used, as this is much more
-            # complex / specific / very uncommon API use
-            states = [
-                (s, v)
-                for s, v in states
-                if s.mapper._would_selectin_load_only_from_given_mapper(mapper)
-            ]
-
-            if not states:
-                return
-
         orig_query = context.query
 
-        if path.parent:
-            enable_opt_lcl = enable_opt._prepend_path(path)
-            disable_opt_lcl = disable_opt._prepend_path(path)
-        else:
-            enable_opt_lcl = enable_opt
-            disable_opt_lcl = disable_opt
-        options = (
-            (enable_opt_lcl,) + orig_query._with_options + (disable_opt_lcl,)
-        )
-
+        options = (enable_opt,) + orig_query._with_options + (disable_opt,)
         q2 = q.options(*options)
 
         q2._compile_options = context.compile_state.default_compile_options
@@ -1310,18 +1227,15 @@ def _load_subclass_via_in(
         if context.populate_existing:
             q2 = q2.execution_options(populate_existing=True)
 
-        while states:
-            chunk = states[0 : SelectInLoader._chunksize]
-            states = states[SelectInLoader._chunksize :]
-            context.session.execute(
-                q2,
-                dict(
-                    primary_keys=[
-                        state.key[1][0] if zero_idx else state.key[1]
-                        for state, load_attrs in chunk
-                    ]
-                ),
-            ).unique().scalars().all()
+        context.session.execute(
+            q2,
+            dict(
+                primary_keys=[
+                    state.key[1][0] if zero_idx else state.key[1]
+                    for state, load_attrs in states
+                ]
+            ),
+        ).unique().scalars().all()
 
     return do_load
 
@@ -1386,6 +1300,7 @@ def _populate_full(
 def _populate_partial(
     context, row, state, dict_, isnew, load_path, unloaded, populators
 ):
+
     if not isnew:
         if unloaded:
             # extra pass, see #8166
@@ -1421,6 +1336,7 @@ def _populate_partial(
 
 
 def _validate_version_id(mapper, state, dict_, row, getter):
+
     if mapper._get_state_attr_by_column(
         state, dict_, mapper.version_id_col
     ) != getter(row):
@@ -1626,6 +1542,7 @@ def load_scalar_attributes(mapper, state, attribute_names, passive):
         # currently use state.key
         statement = mapper._optimized_get_statement(state, attribute_names)
         if statement is not None:
+
             # undefer() isn't needed here because statement has the
             # columns needed already, this implicitly undefers that column
             stmt = FromStatement(mapper, statement)

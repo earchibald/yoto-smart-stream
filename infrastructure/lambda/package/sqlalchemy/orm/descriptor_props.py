@@ -1,5 +1,5 @@
 # orm/descriptor_props.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -44,7 +44,6 @@ from .interfaces import _MapsColumns
 from .interfaces import MapperProperty
 from .interfaces import PropComparator
 from .util import _none_set
-from .util import de_stringify_annotation
 from .. import event
 from .. import exc as sa_exc
 from .. import schema
@@ -53,10 +52,10 @@ from .. import util
 from ..sql import expression
 from ..sql import operators
 from ..sql.elements import BindParameter
-from ..util.typing import get_args
+from ..util.typing import de_stringify_annotation
 from ..util.typing import is_fwd_ref
 from ..util.typing import is_pep593
-
+from ..util.typing import typing_get_args
 
 if typing.TYPE_CHECKING:
     from ._typing import _InstanceDict
@@ -98,11 +97,6 @@ class DescriptorProperty(MapperProperty[_T]):
     _links_to_entity = False
 
     descriptor: DescriptorReference[Any]
-
-    def _column_strategy_attrs(self) -> Sequence[QueryableAttribute[Any]]:
-        raise NotImplementedError(
-            "This MapperProperty does not implement column loader strategies"
-        )
 
     def get_history(
         self,
@@ -311,12 +305,7 @@ class CompositeProperty(
             dict_ = attributes.instance_dict(instance)
             state = attributes.instance_state(instance)
             attr = state.manager[self.key]
-
-            if attr.dispatch._active_history:
-                previous = fget(instance)
-            else:
-                previous = dict_.get(self.key, LoaderCallableStatus.NO_VALUE)
-
+            previous = dict_.get(self.key, LoaderCallableStatus.NO_VALUE)
             for fn in attr.dispatch.set:
                 value = fn(state, value, previous, attr.impl)
             dict_[self.key] = value
@@ -333,14 +322,7 @@ class CompositeProperty(
         def fdel(instance: Any) -> None:
             state = attributes.instance_state(instance)
             dict_ = attributes.instance_dict(instance)
-            attr = state.manager[self.key]
-
-            if attr.dispatch._active_history:
-                previous = fget(instance)
-                dict_.pop(self.key, None)
-            else:
-                previous = dict_.pop(self.key, LoaderCallableStatus.NO_VALUE)
-
+            previous = dict_.pop(self.key, LoaderCallableStatus.NO_VALUE)
             attr = state.manager[self.key]
             attr.dispatch.remove(state, previous, attr.impl)
             for key in self._attribute_keys:
@@ -370,7 +352,7 @@ class CompositeProperty(
         argument = extracted_mapped_annotation
 
         if is_pep593(argument):
-            argument = get_args(argument)[0]
+            argument = typing_get_args(argument)[0]
 
         if argument and self.composite_class is None:
             if isinstance(argument, str) or is_fwd_ref(
@@ -393,9 +375,7 @@ class CompositeProperty(
             self.composite_class = argument
 
         if is_dataclass(self.composite_class):
-            self._setup_for_dataclass(
-                decl_scan, registry, cls, originating_module, key
-            )
+            self._setup_for_dataclass(registry, cls, originating_module, key)
         else:
             for attr in self.attrs:
                 if (
@@ -427,19 +407,18 @@ class CompositeProperty(
             and self.composite_class not in _composite_getters
         ):
             if self._generated_composite_accessor is not None:
-                _composite_getters[self.composite_class] = (
-                    self._generated_composite_accessor
-                )
+                _composite_getters[
+                    self.composite_class
+                ] = self._generated_composite_accessor
             elif hasattr(self.composite_class, "__composite_values__"):
-                _composite_getters[self.composite_class] = (
-                    lambda obj: obj.__composite_values__()
-                )
+                _composite_getters[
+                    self.composite_class
+                ] = lambda obj: obj.__composite_values__()  # type: ignore
 
     @util.preload_module("sqlalchemy.orm.properties")
     @util.preload_module("sqlalchemy.orm.decl_base")
     def _setup_for_dataclass(
         self,
-        decl_scan: _ClassScanMapperConfig,
         registry: _RegistryType,
         cls: Type[Any],
         originating_module: Optional[str],
@@ -467,7 +446,6 @@ class CompositeProperty(
 
             if isinstance(attr, MappedColumn):
                 attr.declarative_scan_for_composite(
-                    decl_scan,
                     registry,
                     cls,
                     originating_module,
@@ -509,9 +487,6 @@ class CompositeProperty(
             props.append(prop)
         return props
 
-    def _column_strategy_attrs(self) -> Sequence[QueryableAttribute[Any]]:
-        return self._comparable_elements
-
     @util.non_memoized_property
     @util.preload_module("orm.properties")
     def columns(self) -> Sequence[Column[Any]]:
@@ -527,8 +502,8 @@ class CompositeProperty(
         return self
 
     @property
-    def columns_to_assign(self) -> List[Tuple[schema.Column[Any], int]]:
-        return [(c, 0) for c in self.columns if c.table is None]
+    def columns_to_assign(self) -> List[schema.Column[Any]]:
+        return [c for c in self.columns if c.table is None]
 
     @util.preload_module("orm.properties")
     def _setup_arguments_on_columns(self) -> None:
@@ -639,10 +614,6 @@ class CompositeProperty(
             self.parent, "expire", expire_handler, raw=True, propagate=True
         )
 
-        proxy_attr = self.parent.class_manager[self.key]
-        proxy_attr.impl.dispatch = proxy_attr.dispatch  # type: ignore
-        proxy_attr.impl.dispatch._active_history = self.active_history
-
         # TODO: need a deserialize hook here
 
     @util.memoized_property
@@ -652,6 +623,7 @@ class CompositeProperty(
     def _populate_composite_bulk_save_mappings_fn(
         self,
     ) -> Callable[[Dict[str, Any]], None]:
+
         if self._generated_composite_accessor:
             get_values = self._generated_composite_accessor
         else:
@@ -794,9 +766,7 @@ class CompositeProperty(
             elif isinstance(self.prop.composite_class, type) and isinstance(
                 value, self.prop.composite_class
             ):
-                values = self.prop._composite_values_from_instance(
-                    value  # type: ignore[arg-type]
-                )
+                values = self.prop._composite_values_from_instance(value)
             else:
                 raise sa_exc.ArgumentError(
                     "Can't UPDATE composite attribute %s to %r"
@@ -821,16 +791,16 @@ class CompositeProperty(
         def __ne__(self, other: Any) -> ColumnElement[bool]:  # type: ignore[override]  # noqa: E501
             return self._compare(operators.ne, other)
 
-        def __lt__(self, other: Any) -> ColumnElement[bool]:
+        def __lt__(self, other: Any) -> ColumnElement[bool]:  # type: ignore[override]  # noqa: E501
             return self._compare(operators.lt, other)
 
-        def __gt__(self, other: Any) -> ColumnElement[bool]:
+        def __gt__(self, other: Any) -> ColumnElement[bool]:  # type: ignore[override]  # noqa: E501
             return self._compare(operators.gt, other)
 
-        def __le__(self, other: Any) -> ColumnElement[bool]:
+        def __le__(self, other: Any) -> ColumnElement[bool]:  # type: ignore[override]  # noqa: E501
             return self._compare(operators.le, other)
 
-        def __ge__(self, other: Any) -> ColumnElement[bool]:
+        def __ge__(self, other: Any) -> ColumnElement[bool]:  # type: ignore[override]  # noqa: E501
             return self._compare(operators.ge, other)
 
         # what might be interesting would be if we create
@@ -854,8 +824,8 @@ class CompositeProperty(
             ]
             if self._adapt_to_entity:
                 assert self.adapter is not None
-                comparisons = [self.adapter(x) for x in comparisons]
-            return sql.and_(*comparisons)
+                comparisons = [self.adapter(x) for x in comparisons]  # type: ignore  # noqa: E501
+            return sql.and_(*comparisons)  # type: ignore
 
     def __str__(self) -> str:
         return str(self.parent.class_.__name__) + "." + self.key
@@ -900,6 +870,7 @@ class ConcreteInheritedProperty(DescriptorProperty[_T]):
     def _comparator_factory(
         self, mapper: Mapper[Any]
     ) -> Type[PropComparator[_T]]:
+
         comparator_callable = None
 
         for m in self.parent.iterate_to_root():
@@ -1010,9 +981,6 @@ class SynonymProperty(DescriptorProperty[_T]):
                 % (self.parent.class_.__name__, self.name, attr)
             )
         return attr.property
-
-    def _column_strategy_attrs(self) -> Sequence[QueryableAttribute[Any]]:
-        return (getattr(self.parent.class_, self.name),)
 
     def _comparator_factory(self, mapper: Mapper[Any]) -> SQLORMOperations[_T]:
         prop = self._proxied_object

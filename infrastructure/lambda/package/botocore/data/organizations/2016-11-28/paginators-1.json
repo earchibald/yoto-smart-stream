@@ -94,18 +94,6 @@
       "limit_key": "MaxResults",
       "output_token": "NextToken",
       "result_key": "DelegatedServices"
-    },
-    "ListAccountsWithInvalidEffectivePolicy": {
-      "input_token": "NextToken",
-      "limit_key": "MaxResults",
-      "output_token": "NextToken",
-      "result_key": "Accounts"
-    },
-    "ListEffectivePolicyValidationErrors": {
-      "input_token": "NextToken",
-      "limit_key": "MaxResults",
-      "output_token": "NextToken",
-      "result_key": "EffectivePolicyValidationErrors"
     }
   }
 }

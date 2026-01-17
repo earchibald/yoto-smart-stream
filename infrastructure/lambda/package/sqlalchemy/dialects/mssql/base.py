@@ -1,5 +1,5 @@
-# dialects/mssql/base.py
-# Copyright (C) 2005-2025 the SQLAlchemy authors and contributors
+# mssql/base.py
+# Copyright (C) 2005-2023 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -9,6 +9,7 @@
 """
 .. dialect:: mssql
     :name: Microsoft SQL Server
+    :full_support: 2017
     :normal_support: 2012+
     :best_effort: 2005+
 
@@ -39,12 +40,9 @@ considered to be the identity column - unless it is associated with a
     from sqlalchemy import Table, MetaData, Column, Integer
 
     m = MetaData()
-    t = Table(
-        "t",
-        m,
-        Column("id", Integer, primary_key=True),
-        Column("x", Integer),
-    )
+    t = Table('t', m,
+            Column('id', Integer, primary_key=True),
+            Column('x', Integer))
     m.create_all(engine)
 
 The above example will generate DDL as:
@@ -62,12 +60,9 @@ specify ``False`` for the :paramref:`_schema.Column.autoincrement` flag,
 on the first integer primary key column::
 
     m = MetaData()
-    t = Table(
-        "t",
-        m,
-        Column("id", Integer, primary_key=True, autoincrement=False),
-        Column("x", Integer),
-    )
+    t = Table('t', m,
+            Column('id', Integer, primary_key=True, autoincrement=False),
+            Column('x', Integer))
     m.create_all(engine)
 
 To add the ``IDENTITY`` keyword to a non-primary key column, specify
@@ -77,12 +72,9 @@ To add the ``IDENTITY`` keyword to a non-primary key column, specify
 is set to ``False`` on any integer primary key column::
 
     m = MetaData()
-    t = Table(
-        "t",
-        m,
-        Column("id", Integer, primary_key=True, autoincrement=False),
-        Column("x", Integer, autoincrement=True),
-    )
+    t = Table('t', m,
+            Column('id', Integer, primary_key=True, autoincrement=False),
+            Column('x', Integer, autoincrement=True))
     m.create_all(engine)
 
 .. versionchanged::  1.4   Added :class:`_schema.Identity` construct
@@ -145,12 +137,14 @@ parameters passed to the :class:`_schema.Identity` object::
     from sqlalchemy import Table, Integer, Column, Identity
 
     test = Table(
-        "test",
-        metadata,
+        'test', metadata,
         Column(
-            "id", Integer, primary_key=True, Identity(start=100, increment=10)
+            'id',
+            Integer,
+            primary_key=True,
+            Identity(start=100, increment=10)
         ),
-        Column("name", String(20)),
+        Column('name', String(20))
     )
 
 The CREATE TABLE for the above :class:`_schema.Table` object would be:
@@ -160,7 +154,7 @@ The CREATE TABLE for the above :class:`_schema.Table` object would be:
    CREATE TABLE test (
      id INTEGER NOT NULL IDENTITY(100,10) PRIMARY KEY,
      name VARCHAR(20) NULL,
-   )
+     )
 
 .. note::
 
@@ -193,7 +187,6 @@ type deployed to the SQL Server database can be specified as ``Numeric`` using
 
     Base = declarative_base()
 
-
     class TestTable(Base):
         __tablename__ = "test"
         id = Column(
@@ -219,9 +212,8 @@ integer values in Python 3), use :class:`_types.TypeDecorator` as follows::
 
     from sqlalchemy import TypeDecorator
 
-
     class NumericAsInteger(TypeDecorator):
-        "normalize floating point return values into ints"
+        '''normalize floating point return values into ints'''
 
         impl = Numeric(10, 0, asdecimal=False)
         cache_ok = True
@@ -230,7 +222,6 @@ integer values in Python 3), use :class:`_types.TypeDecorator` as follows::
             if value is not None:
                 value = int(value)
             return value
-
 
     class TestTable(Base):
         __tablename__ = "test"
@@ -265,11 +256,13 @@ The process for fetching this value has several variants:
   the feature takes place for both RETURNING and-non RETURNING
   INSERT statements.
 
-  .. versionchanged:: 2.0.10 The :ref:`engine_insertmanyvalues` feature for
-     SQL Server was temporarily disabled for SQLAlchemy version 2.0.9 due to
-     issues with row ordering. As of 2.0.10 the feature is re-enabled, with
-     special case handling for the unit of work's requirement for RETURNING to
-     be ordered.
+* The value of :paramref:`_sa.create_engine.insertmanyvalues_page_size`
+  defaults to 1000, however the ultimate page size for a particular INSERT
+  statement may be limited further, based on an observed limit of
+  2100 bound parameters for a single statement in SQL Server.
+  The page size may also be modified on a per-engine
+  or per-statement basis; see the section
+  :ref:`engine_insertmanyvalues_page_size` for details.
 
 * When RETURNING is not available or has been disabled via
   ``implicit_returning=False``, either the ``scope_identity()`` function or
@@ -280,11 +273,11 @@ The process for fetching this value has several variants:
     fetched in order to receive the value.  Given a table as::
 
         t = Table(
-            "t",
+            't',
             metadata,
-            Column("id", Integer, primary_key=True),
-            Column("x", Integer),
-            implicit_returning=False,
+            Column('id', Integer, primary_key=True),
+            Column('x', Integer),
+            implicit_returning=False
         )
 
     an INSERT will look like:
@@ -310,13 +303,12 @@ statement proceeding, and ``SET IDENTITY_INSERT OFF`` subsequent to the
 execution.  Given this example::
 
     m = MetaData()
-    t = Table(
-        "t", m, Column("id", Integer, primary_key=True), Column("x", Integer)
-    )
+    t = Table('t', m, Column('id', Integer, primary_key=True),
+                    Column('x', Integer))
     m.create_all(engine)
 
     with engine.begin() as conn:
-        conn.execute(t.insert(), {"id": 1, "x": 1}, {"id": 2, "x": 2})
+        conn.execute(t.insert(), {'id': 1, 'x':1}, {'id':2, 'x':2})
 
 The above column will be created with IDENTITY, however the INSERT statement
 we emit is specifying explicit values.  In the echo output we can see
@@ -352,11 +344,7 @@ The :class:`.Sequence` object creates "real" sequences, i.e.,
     >>> from sqlalchemy import Sequence
     >>> from sqlalchemy.schema import CreateSequence
     >>> from sqlalchemy.dialects import mssql
-    >>> print(
-    ...     CreateSequence(Sequence("my_seq", start=1)).compile(
-    ...         dialect=mssql.dialect()
-    ...     )
-    ... )
+    >>> print(CreateSequence(Sequence("my_seq", start=1)).compile(dialect=mssql.dialect()))
     {printsql}CREATE SEQUENCE my_seq START WITH 1
 
 For integer primary key generation, SQL Server's ``IDENTITY`` construct should
@@ -390,11 +378,11 @@ more than one backend without using dialect-specific types.
 To build a SQL Server VARCHAR or NVARCHAR with MAX length, use None::
 
     my_table = Table(
-        "my_table",
-        metadata,
-        Column("my_data", VARCHAR(None)),
-        Column("my_n_data", NVARCHAR(None)),
+        'my_table', metadata,
+        Column('my_data', VARCHAR(None)),
+        Column('my_n_data', NVARCHAR(None))
     )
+
 
 Collation Support
 -----------------
@@ -403,13 +391,10 @@ Character collations are supported by the base string types,
 specified by the string argument "collation"::
 
     from sqlalchemy import VARCHAR
-
-    Column("login", VARCHAR(32, collation="Latin1_General_CI_AS"))
+    Column('login', VARCHAR(32, collation='Latin1_General_CI_AS'))
 
 When such a column is associated with a :class:`_schema.Table`, the
-CREATE TABLE statement for this column will yield:
-
-.. sourcecode:: sql
+CREATE TABLE statement for this column will yield::
 
     login VARCHAR(32) COLLATE Latin1_General_CI_AS NULL
 
@@ -429,9 +414,7 @@ versions when no OFFSET clause is present.  A statement such as::
 
     select(some_table).limit(5)
 
-will render similarly to:
-
-.. sourcecode:: sql
+will render similarly to::
 
     SELECT TOP 5 col1, col2.. FROM table
 
@@ -441,9 +424,7 @@ LIMIT and OFFSET, or just OFFSET alone, will be rendered using the
 
     select(some_table).order_by(some_table.c.col3).limit(5).offset(10)
 
-will render similarly to:
-
-.. sourcecode:: sql
+will render similarly to::
 
     SELECT anon_1.col1, anon_1.col2 FROM (SELECT col1, col2,
     ROW_NUMBER() OVER (ORDER BY col3) AS
@@ -496,13 +477,16 @@ each new connection.
 To set isolation level using :func:`_sa.create_engine`::
 
     engine = create_engine(
-        "mssql+pyodbc://scott:tiger@ms_2008", isolation_level="REPEATABLE READ"
+        "mssql+pyodbc://scott:tiger@ms_2008",
+        isolation_level="REPEATABLE READ"
     )
 
 To set using per-connection execution options::
 
     connection = engine.connect()
-    connection = connection.execution_options(isolation_level="READ COMMITTED")
+    connection = connection.execution_options(
+        isolation_level="READ COMMITTED"
+    )
 
 Valid values for ``isolation_level`` include:
 
@@ -552,6 +536,7 @@ will remain consistent with the state of the transaction::
 
     mssql_engine = create_engine(
         "mssql+pyodbc://scott:tiger^5HHH@mssql2017:1433/test?driver=ODBC+Driver+17+for+SQL+Server",
+
         # disable default reset-on-return scheme
         pool_reset_on_return=None,
     )
@@ -580,17 +565,13 @@ Nullability
 -----------
 MSSQL has support for three levels of column nullability. The default
 nullability allows nulls and is explicit in the CREATE TABLE
-construct:
-
-.. sourcecode:: sql
+construct::
 
     name VARCHAR(20) NULL
 
 If ``nullable=None`` is specified then no specification is made. In
 other words the database's configured default is used. This will
-render:
-
-.. sourcecode:: sql
+render::
 
     name VARCHAR(20)
 
@@ -646,9 +627,8 @@ behavior of this flag is as follows:
 * The flag can be set to either ``True`` or ``False`` when the dialect
   is created, typically via :func:`_sa.create_engine`::
 
-        eng = create_engine(
-            "mssql+pymssql://user:pass@host/db", deprecate_large_types=True
-        )
+        eng = create_engine("mssql+pymssql://user:pass@host/db",
+                        deprecate_large_types=True)
 
 * Complete control over whether the "old" or "new" types are rendered is
   available in all SQLAlchemy versions by using the UPPERCASE type objects
@@ -657,6 +637,8 @@ behavior of this flag is as follows:
   :class:`_mssql.IMAGE`
   will always remain fixed and always output exactly that
   type.
+
+.. versionadded:: 1.0.0
 
 .. _multipart_schema_names:
 
@@ -670,10 +652,9 @@ at once using the :paramref:`_schema.Table.schema` argument of
 :class:`_schema.Table`::
 
     Table(
-        "some_table",
-        metadata,
+        "some_table", metadata,
         Column("q", String(50)),
-        schema="mydatabase.dbo",
+        schema="mydatabase.dbo"
     )
 
 When performing operations such as table or component reflection, a schema
@@ -685,10 +666,9 @@ components will be quoted separately for case sensitive names and other
 special characters.   Given an argument as below::
 
     Table(
-        "some_table",
-        metadata,
+        "some_table", metadata,
         Column("q", String(50)),
-        schema="MyDataBase.dbo",
+        schema="MyDataBase.dbo"
     )
 
 The above schema would be rendered as ``[MyDataBase].dbo``, and also in
@@ -701,21 +681,20 @@ Below, the "owner" will be considered as ``MyDataBase.dbo`` and the
 "database" will be None::
 
     Table(
-        "some_table",
-        metadata,
+        "some_table", metadata,
         Column("q", String(50)),
-        schema="[MyDataBase.dbo]",
+        schema="[MyDataBase.dbo]"
     )
 
 To individually specify both database and owner name with special characters
 or embedded dots, use two sets of brackets::
 
     Table(
-        "some_table",
-        metadata,
+        "some_table", metadata,
         Column("q", String(50)),
-        schema="[MyDataBase.Period].[MyOwner.Dot]",
+        schema="[MyDataBase.Period].[MyOwner.Dot]"
     )
+
 
 .. versionchanged:: 1.2 the SQL Server dialect now treats brackets as
    identifier delimiters splitting the schema into separate database
@@ -731,11 +710,10 @@ schema-qualified table would be auto-aliased when used in a
 SELECT statement; given a table::
 
     account_table = Table(
-        "account",
-        metadata,
-        Column("id", Integer, primary_key=True),
-        Column("info", String(100)),
-        schema="customer_schema",
+        'account', metadata,
+        Column('id', Integer, primary_key=True),
+        Column('info', String(100)),
+        schema="customer_schema"
     )
 
 this legacy mode of rendering would assume that "customer_schema.account"
@@ -754,6 +732,10 @@ no purpose; however in the case that legacy applications rely upon it,
 it is available using the ``legacy_schema_aliasing`` argument to
 :func:`_sa.create_engine` as illustrated above.
 
+.. versionchanged:: 1.1 the ``legacy_schema_aliasing`` flag introduced
+   in version 1.0.5 to allow disabling of legacy mode for schemas now
+   defaults to False.
+
 .. deprecated:: 1.4
 
    The ``legacy_schema_aliasing`` flag is now
@@ -767,8 +749,6 @@ Clustered Index Support
 The MSSQL dialect supports clustered indexes (and primary keys) via the
 ``mssql_clustered`` option.  This option is available to :class:`.Index`,
 :class:`.UniqueConstraint`. and :class:`.PrimaryKeyConstraint`.
-For indexes this option can be combined with the ``mssql_columnstore`` one
-to create a clustered columnstore index.
 
 To generate a clustered index::
 
@@ -778,79 +758,43 @@ which renders the index as ``CREATE CLUSTERED INDEX my_index ON table (x)``.
 
 To generate a clustered primary key use::
 
-    Table(
-        "my_table",
-        metadata,
-        Column("x", ...),
-        Column("y", ...),
-        PrimaryKeyConstraint("x", "y", mssql_clustered=True),
-    )
+    Table('my_table', metadata,
+          Column('x', ...),
+          Column('y', ...),
+          PrimaryKeyConstraint("x", "y", mssql_clustered=True))
 
-which will render the table, for example, as:
+which will render the table, for example, as::
 
-.. sourcecode:: sql
-
-  CREATE TABLE my_table (
-    x INTEGER NOT NULL,
-    y INTEGER NOT NULL,
-    PRIMARY KEY CLUSTERED (x, y)
-  )
+  CREATE TABLE my_table (x INTEGER NOT NULL, y INTEGER NOT NULL,
+                         PRIMARY KEY CLUSTERED (x, y))
 
 Similarly, we can generate a clustered unique constraint using::
 
-    Table(
-        "my_table",
-        metadata,
-        Column("x", ...),
-        Column("y", ...),
-        PrimaryKeyConstraint("x"),
-        UniqueConstraint("y", mssql_clustered=True),
-    )
+    Table('my_table', metadata,
+          Column('x', ...),
+          Column('y', ...),
+          PrimaryKeyConstraint("x"),
+          UniqueConstraint("y", mssql_clustered=True),
+          )
 
 To explicitly request a non-clustered primary key (for example, when
 a separate clustered index is desired), use::
 
-    Table(
-        "my_table",
-        metadata,
-        Column("x", ...),
-        Column("y", ...),
-        PrimaryKeyConstraint("x", "y", mssql_clustered=False),
-    )
+    Table('my_table', metadata,
+          Column('x', ...),
+          Column('y', ...),
+          PrimaryKeyConstraint("x", "y", mssql_clustered=False))
 
-which will render the table, for example, as:
+which will render the table, for example, as::
 
-.. sourcecode:: sql
+  CREATE TABLE my_table (x INTEGER NOT NULL, y INTEGER NOT NULL,
+                         PRIMARY KEY NONCLUSTERED (x, y))
 
-  CREATE TABLE my_table (
-    x INTEGER NOT NULL,
-    y INTEGER NOT NULL,
-    PRIMARY KEY NONCLUSTERED (x, y)
-  )
+.. versionchanged:: 1.1 the ``mssql_clustered`` option now defaults
+   to None, rather than False.  ``mssql_clustered=False`` now explicitly
+   renders the NONCLUSTERED clause, whereas None omits the CLUSTERED
+   clause entirely, allowing SQL Server defaults to take effect.
 
-Columnstore Index Support
--------------------------
-
-The MSSQL dialect supports columnstore indexes via the ``mssql_columnstore``
-option.  This option is available to :class:`.Index`. It be combined with
-the ``mssql_clustered`` option to create a clustered columnstore index.
-
-To generate a columnstore index::
-
-    Index("my_index", table.c.x, mssql_columnstore=True)
-
-which renders the index as ``CREATE COLUMNSTORE INDEX my_index ON table (x)``.
-
-To generate a clustered columnstore index provide no columns::
-
-    idx = Index("my_index", mssql_clustered=True, mssql_columnstore=True)
-    # required to associate the index with the table
-    table.append_constraint(idx)
-
-the above renders the index as
-``CREATE CLUSTERED COLUMNSTORE INDEX my_index ON table``.
-
-.. versionadded:: 2.0.18
 
 MSSQL-Specific Index Options
 -----------------------------
@@ -864,7 +808,7 @@ INCLUDE
 The ``mssql_include`` option renders INCLUDE(colname) for the given string
 names::
 
-    Index("my_index", table.c.x, mssql_include=["y"])
+    Index("my_index", table.c.x, mssql_include=['y'])
 
 would render the index as ``CREATE INDEX my_index ON table (x) INCLUDE (y)``
 
@@ -919,19 +863,18 @@ To disable the usage of OUTPUT INSERTED on a per-table basis,
 specify ``implicit_returning=False`` for each :class:`_schema.Table`
 which has triggers::
 
-    Table(
-        "mytable",
-        metadata,
-        Column("id", Integer, primary_key=True),
+    Table('mytable', metadata,
+        Column('id', Integer, primary_key=True),
         # ...,
-        implicit_returning=False,
+        implicit_returning=False
     )
 
 Declarative form::
 
     class MyClass(Base):
         # ...
-        __table_args__ = {"implicit_returning": False}
+        __table_args__ = {'implicit_returning':False}
+
 
 .. _mssql_rowcount_versioning:
 
@@ -942,20 +885,29 @@ The SQL Server drivers may have limited ability to return the number
 of rows updated from an UPDATE or DELETE statement.
 
 As of this writing, the PyODBC driver is not able to return a rowcount when
-OUTPUT INSERTED is used.    Previous versions of SQLAlchemy therefore had
-limitations for features such as the "ORM Versioning" feature that relies upon
-accurate rowcounts in order to match version numbers with matched rows.
+OUTPUT INSERTED is used.  This impacts the SQLAlchemy ORM's versioning feature
+in many cases where server-side value generators are in use in that while the
+versioning operations can succeed, the ORM cannot always check that an UPDATE
+or DELETE statement matched the number of rows expected, which is how it
+verifies that the version identifier matched.   When this condition occurs, a
+warning will be emitted but the operation will proceed.
 
-SQLAlchemy 2.0 now retrieves the "rowcount" manually for these particular use
-cases based on counting the rows that arrived back within RETURNING; so while
-the driver still has this limitation, the ORM Versioning feature is no longer
-impacted by it. As of SQLAlchemy 2.0.5, ORM versioning has been fully
-re-enabled for the pyodbc driver.
+The use of OUTPUT INSERTED can be disabled by setting the
+:paramref:`_schema.Table.implicit_returning` flag to ``False`` on a particular
+:class:`_schema.Table`, which in declarative looks like::
 
-.. versionchanged:: 2.0.5  ORM versioning support is restored for the pyodbc
-   driver.  Previously, a warning would be emitted during ORM flush that
-   versioning was not supported.
-
+    class MyTable(Base):
+        __tablename__ = 'mytable'
+        id = Column(Integer, primary_key=True)
+        stuff = Column(String(10))
+        timestamp = Column(TIMESTAMP(), default=text('DEFAULT'))
+        __mapper_args__ = {
+            'version_id_col': timestamp,
+            'version_id_generator': False,
+        }
+        __table_args__ = {
+            'implicit_returning': False
+        }
 
 Enabling Snapshot Isolation
 ---------------------------
@@ -965,9 +917,7 @@ isolation mode that locks entire tables, and causes even mildly concurrent
 applications to have long held locks and frequent deadlocks.
 Enabling snapshot isolation for the database as a whole is recommended
 for modern levels of concurrency support.  This is accomplished via the
-following ALTER DATABASE commands executed at the SQL prompt:
-
-.. sourcecode:: sql
+following ALTER DATABASE commands executed at the SQL prompt::
 
     ALTER DATABASE MyDatabase SET ALLOW_SNAPSHOT_ISOLATION ON
 
@@ -1011,11 +961,8 @@ from ...sql import func
 from ...sql import quoted_name
 from ...sql import roles
 from ...sql import sqltypes
-from ...sql import try_cast as try_cast  # noqa: F401
 from ...sql import util as sql_util
 from ...sql._typing import is_sql_compiler
-from ...sql.compiler import InsertmanyvaluesSentinelOpts
-from ...sql.elements import TryCast as TryCast  # noqa: F401
 from ...types import BIGINT
 from ...types import BINARY
 from ...types import CHAR
@@ -1231,28 +1178,13 @@ RESERVED_WORDS = {
 
 
 class REAL(sqltypes.REAL):
-    """the SQL Server REAL datatype."""
+    __visit_name__ = "REAL"
 
     def __init__(self, **kw):
         # REAL is a synonym for FLOAT(24) on SQL server.
         # it is only accepted as the word "REAL" in DDL, the numeric
         # precision value is not allowed to be present
         kw.setdefault("precision", 24)
-        super().__init__(**kw)
-
-
-class DOUBLE_PRECISION(sqltypes.DOUBLE_PRECISION):
-    """the SQL Server DOUBLE PRECISION datatype.
-
-    .. versionadded:: 2.0.11
-
-    """
-
-    def __init__(self, **kw):
-        # DOUBLE PRECISION is a synonym for FLOAT(53) on SQL server.
-        # it is only accepted as the word "DOUBLE PRECISION" in DDL,
-        # the numeric precision value is not allowed to be present
-        kw.setdefault("precision", 53)
         super().__init__(**kw)
 
 
@@ -1382,6 +1314,7 @@ class DATETIMEOFFSET(_DateTimeBase, sqltypes.DateTime):
 class _UnicodeLiteral:
     def literal_processor(self, dialect):
         def process(value):
+
             value = value.replace("'", "''")
 
             if dialect.identifier_preparer._double_percents:
@@ -1436,8 +1369,7 @@ class TIMESTAMP(sqltypes._Binary):
         if self.convert_int:
 
             def process(value):
-                if super_:
-                    value = super_(value)
+                value = super_(value)
                 if value is not None:
                     # https://stackoverflow.com/a/30403242/34549
                     value = int(codecs.encode(value, "hex"), 16)
@@ -1473,6 +1405,7 @@ class ROWVERSION(TIMESTAMP):
 
 
 class NTEXT(sqltypes.UnicodeText):
+
     """MSSQL NTEXT type, for variable-length unicode text up to 2^30
     characters."""
 
@@ -1486,6 +1419,8 @@ class VARBINARY(sqltypes.VARBINARY, sqltypes.LargeBinary):
     type, including "deprecate_large_types" mode where
     either ``VARBINARY(max)`` or IMAGE is rendered, as well as the SQL
     Server ``FILESTREAM`` option.
+
+    .. versionadded:: 1.0.0
 
     .. seealso::
 
@@ -1530,6 +1465,8 @@ class XML(sqltypes.Text):
     any Python-side datatype support.   It also does not currently support
     additional arguments, such as "CONTENT", "DOCUMENT",
     "xml_schema_collection".
+
+    .. versionadded:: 1.1.11
 
     """
 
@@ -1583,22 +1520,28 @@ class MSUUid(sqltypes.Uuid):
         if self.native_uuid:
 
             def process(value):
-                return f"""'{str(value).replace("''", "'")}'"""
+                if value is not None:
+                    value = f"""'{str(value).replace("''", "'")}'"""
+                return value
 
             return process
         else:
             if self.as_uuid:
 
                 def process(value):
-                    return f"""'{value.hex}'"""
+                    if value is not None:
+                        value = f"""'{value.hex}'"""
+                    return value
 
                 return process
             else:
 
                 def process(value):
-                    return f"""'{
-                        value.replace("-", "").replace("'", "''")
-                    }'"""
+                    if value is not None:
+                        value = f"""'{
+                            value.replace("-", "").replace("'", "''")
+                        }'"""
+                    return value
 
                 return process
 
@@ -1609,12 +1552,12 @@ class UNIQUEIDENTIFIER(sqltypes.Uuid[sqltypes._UUID_RETURN]):
     @overload
     def __init__(
         self: UNIQUEIDENTIFIER[_python_UUID], as_uuid: Literal[True] = ...
-    ): ...
+    ):
+        ...
 
     @overload
-    def __init__(
-        self: UNIQUEIDENTIFIER[str], as_uuid: Literal[False] = ...
-    ): ...
+    def __init__(self: UNIQUEIDENTIFIER[str], as_uuid: Literal[False] = ...):
+        ...
 
     def __init__(self, as_uuid: bool = True):
         """Construct a :class:`_mssql.UNIQUEIDENTIFIER` type.
@@ -1635,6 +1578,41 @@ class UNIQUEIDENTIFIER(sqltypes.Uuid[sqltypes._UUID_RETURN]):
 
 class SQL_VARIANT(sqltypes.TypeEngine):
     __visit_name__ = "SQL_VARIANT"
+
+
+def try_cast(*arg, **kw):
+    """Create a TRY_CAST expression.
+
+    :class:`.TryCast` is a subclass of SQLAlchemy's :class:`.Cast`
+    construct, and works in the same way, except that the SQL expression
+    rendered is "TRY_CAST" rather than "CAST"::
+
+        from sqlalchemy import select
+        from sqlalchemy import Numeric
+        from sqlalchemy.dialects.mssql import try_cast
+
+        stmt = select(
+            try_cast(product_table.c.unit_price, Numeric(10, 4))
+        )
+
+    The above would render::
+
+        SELECT TRY_CAST (product_table.unit_price AS NUMERIC(10, 4))
+        FROM product_table
+
+    .. versionadded:: 1.3.7
+
+    """
+    return TryCast(*arg, **kw)
+
+
+class TryCast(sql.elements.Cast):
+    """Represent a SQL Server TRY_CAST expression."""
+
+    __visit_name__ = "try_cast"
+
+    stringify_dialect = "mssql"
+    inherit_cache = True
 
 
 # old names.
@@ -1685,7 +1663,6 @@ ischema_names = {
     "varbinary": VARBINARY,
     "bit": BIT,
     "real": REAL,
-    "double precision": DOUBLE_PRECISION,
     "image": IMAGE,
     "xml": XML,
     "timestamp": TIMESTAMP,
@@ -1715,9 +1692,6 @@ class MSTypeCompiler(compiler.GenericTypeCompiler):
             spec = spec + "(%s)" % length
 
         return " ".join([c for c in (spec, collation) if c is not None])
-
-    def visit_double(self, type_, **kw):
-        return self.visit_DOUBLE_PRECISION(type_, **kw)
 
     def visit_FLOAT(self, type_, **kw):
         precision = getattr(type_, "precision", None)
@@ -1865,11 +1839,14 @@ class MSExecutionContext(default.DefaultExecutionContext):
     _enable_identity_insert = False
     _select_lastrowid = False
     _lastrowid = None
+    _rowcount = None
 
     dialect: MSDialect
 
     def _opt_encode(self, statement):
+
         if self.compiled and self.compiled.schema_translate_map:
+
             rst = self.compiled.preparer._render_schema_translates
             statement = rst(statement, self.compiled.schema_translate_map)
 
@@ -1948,7 +1925,6 @@ class MSExecutionContext(default.DefaultExecutionContext):
             row = self.cursor.fetchall()[0]
             self._lastrowid = int(row[0])
 
-            self.cursor_fetch_strategy = _cursor._NO_CURSOR_DML
         elif (
             self.compiled is not None
             and is_sql_compiler(self.compiled)
@@ -1983,6 +1959,13 @@ class MSExecutionContext(default.DefaultExecutionContext):
 
     def get_lastrowid(self):
         return self._lastrowid
+
+    @property
+    def rowcount(self):
+        if self._rowcount is not None:
+            return self._rowcount
+        else:
+            return self.cursor.rowcount
 
     def handle_dbapi_exception(self, e):
         if self._enable_identity_insert:
@@ -2035,10 +2018,6 @@ class MSSQLCompiler(compiler.SQLCompiler):
         self.tablealiases = {}
         super().__init__(*args, **kwargs)
 
-    def _format_frame_clause(self, range_, **kw):
-        kw["literal_execute"] = True
-        return super()._format_frame_clause(range_, **kw)
-
     def _with_legacy_schema_aliasing(fn):
         def decorate(self, *arg, **kw):
             if self.dialect.legacy_schema_aliasing:
@@ -2060,12 +2039,6 @@ class MSSQLCompiler(compiler.SQLCompiler):
 
     def visit_char_length_func(self, fn, **kw):
         return "LEN%s" % self.function_argspec(fn, **kw)
-
-    def visit_aggregate_strings_func(self, fn, **kw):
-        expr = fn.clauses.clauses[0]._compiler_dispatch(self, **kw)
-        kw["literal_execute"] = True
-        delimeter = fn.clauses.clauses[1]._compiler_dispatch(self, **kw)
-        return f"string_agg({expr}, {delimeter})"
 
     def visit_concat_op_expression_clauselist(
         self, clauselist, operator, **kw
@@ -2129,7 +2102,6 @@ class MSSQLCompiler(compiler.SQLCompiler):
             or (
                 # limit can use TOP with is by itself. fetch only uses TOP
                 # when it needs to because of PERCENT and/or WITH TIES
-                # TODO: Why?  shouldn't we use TOP always ?
                 select._simple_int_clause(select._fetch_clause)
                 and (
                     select._fetch_clause_options["percent"]
@@ -2390,13 +2362,10 @@ class MSSQLCompiler(compiler.SQLCompiler):
         return ""
 
     def order_by_clause(self, select, **kw):
-        # MSSQL only allows ORDER BY in subqueries if there is a LIMIT:
-        # "The ORDER BY clause is invalid in views, inline functions,
-        # derived tables, subqueries, and common table expressions,
-        # unless TOP, OFFSET or FOR XML is also specified."
+        # MSSQL only allows ORDER BY in subqueries if there is a LIMIT
         if (
             self.is_subquery()
-            and not self._use_top(select)
+            and not select._limit
             and (
                 select._offset is None
                 or not self.dialect._supports_offset_fetch
@@ -2429,13 +2398,13 @@ class MSSQLCompiler(compiler.SQLCompiler):
             for t in [from_table] + extra_froms
         )
 
-    def delete_table_clause(self, delete_stmt, from_table, extra_froms, **kw):
+    def delete_table_clause(self, delete_stmt, from_table, extra_froms):
         """If we have extra froms make sure we render any alias as hint."""
         ashint = False
         if extra_froms:
             ashint = True
         return from_table._compiler_dispatch(
-            self, asfrom=True, iscrud=True, ashint=ashint, **kw
+            self, asfrom=True, iscrud=True, ashint=ashint
         )
 
     def delete_extra_from_clause(
@@ -2492,12 +2461,10 @@ class MSSQLCompiler(compiler.SQLCompiler):
             type_expression = "ELSE CAST(JSON_VALUE(%s, %s) AS %s)" % (
                 self.process(binary.left, **kw),
                 self.process(binary.right, **kw),
-                (
-                    "FLOAT"
-                    if isinstance(binary.type, sqltypes.Float)
-                    else "NUMERIC(%s, %s)"
-                    % (binary.type.precision, binary.type.scale)
-                ),
+                "FLOAT"
+                if isinstance(binary.type, sqltypes.Float)
+                else "NUMERIC(%s, %s)"
+                % (binary.type.precision, binary.type.scale),
             )
         elif binary.type._type_affinity is sqltypes.Boolean:
             # the NULL handling is particularly weird with boolean, so
@@ -2533,6 +2500,7 @@ class MSSQLCompiler(compiler.SQLCompiler):
 
 
 class MSSQLStrictCompiler(MSSQLCompiler):
+
     """A subclass of MSSQLCompiler which disables the usage of bind
     parameters where not allowed natively by MS-SQL.
 
@@ -2656,24 +2624,16 @@ class MSDDLCompiler(compiler.DDLCompiler):
             else:
                 text += "NONCLUSTERED "
 
-        # handle columnstore option (has no negative value)
-        columnstore = index.dialect_options["mssql"]["columnstore"]
-        if columnstore:
-            text += "COLUMNSTORE "
-
-        text += "INDEX %s ON %s" % (
+        text += "INDEX %s ON %s (%s)" % (
             self._prepared_index_name(index, include_schema=include_schema),
             preparer.format_table(index.table),
-        )
-
-        # in some case mssql allows indexes with no columns defined
-        if len(index.expressions) > 0:
-            text += " (%s)" % ", ".join(
+            ", ".join(
                 self.sql_compiler.process(
                     expr, include_table=False, literal_binds=True
                 )
                 for expr in index.expressions
-            )
+            ),
+        )
 
         # handle other included columns
         if index.dialect_options["mssql"]["include"]:
@@ -2737,9 +2697,8 @@ class MSDDLCompiler(compiler.DDLCompiler):
             formatted_name = self.preparer.format_constraint(constraint)
             if formatted_name is not None:
                 text += "CONSTRAINT %s " % formatted_name
-        text += "UNIQUE %s" % self.define_unique_constraint_distinct(
-            constraint, **kw
-        )
+        text += "UNIQUE "
+
         clustered = constraint.dialect_options["mssql"]["clustered"]
         if clustered is not None:
             if clustered:
@@ -3006,9 +2965,6 @@ class MSDialect(default.DefaultDialect):
     supports_statement_cache = True
     supports_default_values = True
     supports_empty_insert = False
-    favor_returning_over_lastrowid = True
-
-    returns_native_bytes = True
 
     supports_comments = True
     supports_default_metavalue = False
@@ -3071,15 +3027,7 @@ class MSDialect(default.DefaultDialect):
 
     use_insertmanyvalues = True
 
-    # note pyodbc will set this to False if fast_executemany is set,
-    # as of SQLAlchemy 2.0.9
     use_insertmanyvalues_wo_returning = True
-
-    insertmanyvalues_implicit_sentinel = (
-        InsertmanyvaluesSentinelOpts.AUTOINCREMENT
-        | InsertmanyvaluesSentinelOpts.IDENTITY
-        | InsertmanyvaluesSentinelOpts.USE_INSERT_FROM_SELECT
-    )
 
     # "The incoming request has too many parameters. The server supports a "
     # "maximum of 2100 parameters."
@@ -3101,15 +3049,7 @@ class MSDialect(default.DefaultDialect):
     construct_arguments = [
         (sa_schema.PrimaryKeyConstraint, {"clustered": None}),
         (sa_schema.UniqueConstraint, {"clustered": None}),
-        (
-            sa_schema.Index,
-            {
-                "clustered": None,
-                "include": None,
-                "where": None,
-                "columnstore": None,
-            },
-        ),
+        (sa_schema.Index, {"clustered": None, "include": None, "where": None}),
         (
             sa_schema.Column,
             {"identity_start": None, "identity_increment": None},
@@ -3436,27 +3376,18 @@ class MSDialect(default.DefaultDialect):
         )
         rp = connection.execution_options(future_result=True).execute(
             sql.text(
-                f"""
-select
-    ind.index_id,
-    ind.is_unique,
-    ind.name,
-    ind.type,
-    {filter_definition}
-from
-    sys.indexes as ind
-join sys.tables as tab on
-    ind.object_id = tab.object_id
-join sys.schemas as sch on
-    sch.schema_id = tab.schema_id
-where
-    tab.name = :tabname
-    and sch.name = :schname
-    and ind.is_primary_key = 0
-    and ind.type != 0
-order by
-    ind.name
-                """
+                "select ind.index_id, ind.is_unique, ind.name, "
+                "case when ind.index_id = 1 "
+                "then cast(1 as bit) "
+                "else cast(0 as bit) end as is_clustered, "
+                f"{filter_definition} "
+                "from sys.indexes as ind join sys.tables as tab on "
+                "ind.object_id=tab.object_id "
+                "join sys.schemas as sch on sch.schema_id=tab.schema_id "
+                "where tab.name = :tabname "
+                "and sch.name=:schname "
+                "and ind.is_primary_key=0 and ind.type != 0 "
+                "order by ind.name "
             )
             .bindparams(
                 sql.bindparam("tabname", tablename, ischema.CoerceUnicode()),
@@ -3466,47 +3397,31 @@ order by
         )
         indexes = {}
         for row in rp.mappings():
-            indexes[row["index_id"]] = current = {
+            indexes[row["index_id"]] = {
                 "name": row["name"],
                 "unique": row["is_unique"] == 1,
                 "column_names": [],
                 "include_columns": [],
-                "dialect_options": {},
+                "dialect_options": {"mssql_clustered": row["is_clustered"]},
             }
 
-            do = current["dialect_options"]
-            index_type = row["type"]
-            if index_type in {1, 2}:
-                do["mssql_clustered"] = index_type == 1
-            if index_type in {5, 6}:
-                do["mssql_clustered"] = index_type == 5
-                do["mssql_columnstore"] = True
             if row["filter_definition"] is not None:
-                do["mssql_where"] = row["filter_definition"]
+                indexes[row["index_id"]].setdefault("dialect_options", {})[
+                    "mssql_where"
+                ] = row["filter_definition"]
 
         rp = connection.execution_options(future_result=True).execute(
             sql.text(
-                """
-select
-    ind_col.index_id,
-    col.name,
-    ind_col.is_included_column
-from
-    sys.columns as col
-join sys.tables as tab on
-    tab.object_id = col.object_id
-join sys.index_columns as ind_col on
-    ind_col.column_id = col.column_id
-    and ind_col.object_id = tab.object_id
-join sys.schemas as sch on
-    sch.schema_id = tab.schema_id
-where
-    tab.name = :tabname
-    and sch.name = :schname
-order by
-    ind_col.index_id,
-    ind_col.key_ordinal
-            """
+                "select ind_col.index_id, ind_col.object_id, col.name, "
+                "ind_col.is_included_column "
+                "from sys.columns as col "
+                "join sys.tables as tab on tab.object_id=col.object_id "
+                "join sys.index_columns as ind_col on "
+                "(ind_col.column_id=col.column_id and "
+                "ind_col.object_id=tab.object_id) "
+                "join sys.schemas as sch on sch.schema_id=tab.schema_id "
+                "where tab.name=:tabname "
+                "and sch.name=:schname"
             )
             .bindparams(
                 sql.bindparam("tabname", tablename, ischema.CoerceUnicode()),
@@ -3515,26 +3430,21 @@ order by
             .columns(name=sqltypes.Unicode())
         )
         for row in rp.mappings():
-            if row["index_id"] not in indexes:
-                continue
-            index_def = indexes[row["index_id"]]
-            is_colstore = index_def["dialect_options"].get("mssql_columnstore")
-            is_clustered = index_def["dialect_options"].get("mssql_clustered")
-            if not (is_colstore and is_clustered):
-                # a clustered columnstore index includes all columns but does
-                # not want them in the index definition
-                if row["is_included_column"] and not is_colstore:
-                    # a noncludsted columnstore index reports that includes
-                    # columns but requires that are listed as normal columns
-                    index_def["include_columns"].append(row["name"])
+            if row["index_id"] in indexes:
+                if row["is_included_column"]:
+                    indexes[row["index_id"]]["include_columns"].append(
+                        row["name"]
+                    )
                 else:
-                    index_def["column_names"].append(row["name"])
+                    indexes[row["index_id"]]["column_names"].append(
+                        row["name"]
+                    )
         for index_info in indexes.values():
             # NOTE: "root level" include_columns is legacy, now part of
             #       dialect_options (issue #7382)
-            index_info["dialect_options"]["mssql_include"] = index_info[
-                "include_columns"
-            ]
+            index_info.setdefault("dialect_options", {})[
+                "mssql_include"
+            ] = index_info["include_columns"]
 
         if indexes:
             return list(indexes.values())
@@ -3635,36 +3545,27 @@ order by
     @reflection.cache
     @_db_plus_owner
     def get_columns(self, connection, tablename, dbname, owner, schema, **kw):
-        sys_columns = ischema.sys_columns
-        sys_types = ischema.sys_types
-        sys_default_constraints = ischema.sys_default_constraints
-        computed_cols = ischema.computed_columns
-        identity_cols = ischema.identity_columns
-        extended_properties = ischema.extended_properties
-
-        # to access sys tables, need an object_id.
-        # object_id() can normally match to the unquoted name even if it
-        # has special characters. however it also accepts quoted names,
-        # which means for the special case that the name itself has
-        # "quotes" (e.g. brackets for SQL Server) we need to "quote" (e.g.
-        # bracket) that name anyway.  Fixed as part of #12654
-
         is_temp_table = tablename.startswith("#")
         if is_temp_table:
             owner, tablename = self._get_internal_temp_table_name(
                 connection, tablename
             )
 
-        object_id_tokens = [self.identifier_preparer.quote(tablename)]
+            columns = ischema.mssql_temp_table_columns
+        else:
+            columns = ischema.columns
+
+        computed_cols = ischema.computed_columns
+        identity_cols = ischema.identity_columns
         if owner:
-            object_id_tokens.insert(0, self.identifier_preparer.quote(owner))
-
-        if is_temp_table:
-            object_id_tokens.insert(0, "tempdb")
-
-        object_id = func.object_id(".".join(object_id_tokens))
-
-        whereclause = sys_columns.c.object_id == object_id
+            whereclause = sql.and_(
+                columns.c.table_name == tablename,
+                columns.c.table_schema == owner,
+            )
+            full_name = columns.c.table_schema + "." + columns.c.table_name
+        else:
+            whereclause = columns.c.table_name == tablename
+            full_name = columns.c.table_name
 
         if self._supports_nvarchar_max:
             computed_definition = computed_cols.c.definition
@@ -3674,112 +3575,92 @@ order by
                 computed_cols.c.definition, NVARCHAR(4000)
             )
 
+        object_id = func.object_id(full_name)
+
         s = (
             sql.select(
-                sys_columns.c.name,
-                sys_types.c.name,
-                sys_columns.c.is_nullable,
-                sys_columns.c.max_length,
-                sys_columns.c.precision,
-                sys_columns.c.scale,
-                sys_default_constraints.c.definition,
-                sys_columns.c.collation_name,
+                columns.c.column_name,
+                columns.c.data_type,
+                columns.c.is_nullable,
+                columns.c.character_maximum_length,
+                columns.c.numeric_precision,
+                columns.c.numeric_scale,
+                columns.c.column_default,
+                columns.c.collation_name,
                 computed_definition,
                 computed_cols.c.is_persisted,
                 identity_cols.c.is_identity,
                 identity_cols.c.seed_value,
                 identity_cols.c.increment_value,
-                extended_properties.c.value.label("comment"),
+                ischema.extended_properties.c.value.label("comment"),
             )
-            .select_from(sys_columns)
-            .join(
-                sys_types,
-                onclause=sys_columns.c.user_type_id
-                == sys_types.c.user_type_id,
-            )
-            .outerjoin(
-                sys_default_constraints,
-                sql.and_(
-                    sys_default_constraints.c.object_id
-                    == sys_columns.c.default_object_id,
-                    sys_default_constraints.c.parent_column_id
-                    == sys_columns.c.column_id,
-                ),
-            )
+            .select_from(columns)
             .outerjoin(
                 computed_cols,
                 onclause=sql.and_(
-                    computed_cols.c.object_id == sys_columns.c.object_id,
-                    computed_cols.c.column_id == sys_columns.c.column_id,
+                    computed_cols.c.object_id == object_id,
+                    computed_cols.c.name
+                    == columns.c.column_name.collate("DATABASE_DEFAULT"),
                 ),
             )
             .outerjoin(
                 identity_cols,
                 onclause=sql.and_(
-                    identity_cols.c.object_id == sys_columns.c.object_id,
-                    identity_cols.c.column_id == sys_columns.c.column_id,
+                    identity_cols.c.object_id == object_id,
+                    identity_cols.c.name
+                    == columns.c.column_name.collate("DATABASE_DEFAULT"),
                 ),
             )
             .outerjoin(
-                extended_properties,
+                ischema.extended_properties,
                 onclause=sql.and_(
-                    extended_properties.c["class"] == 1,
-                    extended_properties.c.name == "MS_Description",
-                    sys_columns.c.object_id == extended_properties.c.major_id,
-                    sys_columns.c.column_id == extended_properties.c.minor_id,
+                    ischema.extended_properties.c["class"] == 1,
+                    ischema.extended_properties.c.major_id == object_id,
+                    ischema.extended_properties.c.minor_id
+                    == columns.c.ordinal_position,
+                    ischema.extended_properties.c.name == "MS_Description",
                 ),
             )
             .where(whereclause)
-            .order_by(sys_columns.c.column_id)
+            .order_by(columns.c.ordinal_position)
         )
 
-        if is_temp_table:
-            exec_opts = {"schema_translate_map": {"sys": "tempdb.sys"}}
-        else:
-            exec_opts = {"schema_translate_map": {}}
-        c = connection.execution_options(**exec_opts).execute(s)
+        c = connection.execution_options(future_result=True).execute(s)
 
         cols = []
         for row in c.mappings():
-            name = row[sys_columns.c.name]
-            type_ = row[sys_types.c.name]
-            nullable = row[sys_columns.c.is_nullable] == 1
-            maxlen = row[sys_columns.c.max_length]
-            numericprec = row[sys_columns.c.precision]
-            numericscale = row[sys_columns.c.scale]
-            default = row[sys_default_constraints.c.definition]
-            collation = row[sys_columns.c.collation_name]
+            name = row[columns.c.column_name]
+            type_ = row[columns.c.data_type]
+            nullable = row[columns.c.is_nullable] == "YES"
+            charlen = row[columns.c.character_maximum_length]
+            numericprec = row[columns.c.numeric_precision]
+            numericscale = row[columns.c.numeric_scale]
+            default = row[columns.c.column_default]
+            collation = row[columns.c.collation_name]
             definition = row[computed_definition]
             is_persisted = row[computed_cols.c.is_persisted]
             is_identity = row[identity_cols.c.is_identity]
             identity_start = row[identity_cols.c.seed_value]
             identity_increment = row[identity_cols.c.increment_value]
-            comment = row[extended_properties.c.value]
+            comment = row[ischema.extended_properties.c.value]
 
             coltype = self.ischema_names.get(type_, None)
 
             kwargs = {}
-
             if coltype in (
+                MSString,
+                MSChar,
+                MSNVarchar,
+                MSNChar,
+                MSText,
+                MSNText,
                 MSBinary,
                 MSVarBinary,
                 sqltypes.LargeBinary,
             ):
-                kwargs["length"] = maxlen if maxlen != -1 else None
-            elif coltype in (
-                MSString,
-                MSChar,
-                MSText,
-            ):
-                kwargs["length"] = maxlen if maxlen != -1 else None
-                if collation:
-                    kwargs["collation"] = collation
-            elif coltype in (
-                MSNVarchar,
-                MSNChar,
-                MSNText,
-            ):
-                kwargs["length"] = maxlen // 2 if maxlen != -1 else None
+                if charlen == -1:
+                    charlen = None
+                kwargs["length"] = charlen
                 if collation:
                     kwargs["collation"] = collation
 
@@ -4001,8 +3882,6 @@ index_info AS (
             index_info.index_schema = fk_info.unique_constraint_schema
             AND index_info.index_name = fk_info.unique_constraint_name
             AND index_info.ordinal_position = fk_info.ordinal_position
-            AND NOT (index_info.table_schema = fk_info.table_schema
-                     AND index_info.table_name = fk_info.table_name)
 
     ORDER BY fk_info.constraint_schema, fk_info.constraint_name,
         fk_info.ordinal_position
@@ -4025,8 +3904,10 @@ index_info AS (
         )
 
         # group rows by constraint ID, to handle multi-column FKs
-        fkeys = util.defaultdict(
-            lambda: {
+        fkeys = []
+
+        def fkey_rec():
+            return {
                 "name": None,
                 "constrained_columns": [],
                 "referred_schema": None,
@@ -4034,7 +3915,8 @@ index_info AS (
                 "referred_columns": [],
                 "options": {},
             }
-        )
+
+        fkeys = util.defaultdict(fkey_rec)
 
         for r in connection.execute(s).all():
             (

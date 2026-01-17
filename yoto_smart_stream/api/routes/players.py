@@ -442,14 +442,7 @@ async def list_players(user: User = Depends(require_auth)):
         except Exception as e:
             logger.warning(f"Failed to update library: {e}")
 
-        try:
-            manager = client.get_manager()
-        except RuntimeError as e:
-            logger.info(f"Players requested without Yoto auth (manager): {e}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated with Yoto API. Please connect your Yoto account."
-            )
+        manager = client.get_manager()
 
         if not manager.players:
             return []
@@ -461,8 +454,6 @@ async def list_players(user: User = Depends(require_auth)):
 
         return players
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to fetch players: {type(e).__name__}: {e}")
         raise HTTPException(

@@ -110,7 +110,6 @@ class Settings(BaseSettings):
 
     # Storage settings
     audio_files_dir: Path = Field(default=Path("audio_files"), description="Audio files directory")
-    s3_ui_bucket: Optional[str] = Field(default=None, description="S3 UI bucket for static assets")
     
     @field_validator("audio_files_dir", mode="before")
     @classmethod

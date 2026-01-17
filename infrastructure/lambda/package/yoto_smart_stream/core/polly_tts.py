@@ -105,6 +105,7 @@ class PollyTTSService:
                 try:
                     audio = AudioSegment.from_mp3(str(output_path))
                     duration_ms = len(audio)
+                    # Basic silence check: very low RMS or extremely short duration
                     if duration_ms < 800 or audio.rms == 0:
                         logger.warning(
                             f"Polly produced invalid audio (duration={duration_ms}ms, rms={audio.rms}); treating as failure"
@@ -116,6 +117,7 @@ class PollyTTSService:
                         return False, None, "Polly produced silent or empty audio"
                 except Exception as audio_err:
                     logger.warning(f"Could not validate Polly audio output: {audio_err}")
+                    # Proceed without validation failure
 
                 file_size = output_path.stat().st_size
                 logger.info(f"✓ Polly synthesis complete: {output_path.name} ({file_size} bytes)")

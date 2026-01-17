@@ -14,7 +14,6 @@
 #
 # See the README file for information on usage and redistribution.
 #
-from __future__ import annotations
 
 import io
 import os
@@ -25,27 +24,14 @@ import tempfile
 
 from . import Image
 
-TYPE_CHECKING = False
-if TYPE_CHECKING:
-    from . import ImageWin
 
-
-def grab(
-    bbox: tuple[int, int, int, int] | None = None,
-    include_layered_windows: bool = False,
-    all_screens: bool = False,
-    xdisplay: str | None = None,
-    window: int | ImageWin.HWND | None = None,
-) -> Image.Image:
-    im: Image.Image
+def grab(bbox=None, include_layered_windows=False, all_screens=False, xdisplay=None):
     if xdisplay is None:
         if sys.platform == "darwin":
             fh, filepath = tempfile.mkstemp(".png")
             os.close(fh)
             args = ["screencapture"]
-            if window:
-                args += ["-l", str(window)]
-            elif bbox:
+            if bbox:
                 left, top, right, bottom = bbox
                 args += ["-R", f"{left},{top},{right-left},{bottom-top}"]
             subprocess.call(args + ["-x", filepath])
@@ -53,43 +39,13 @@ def grab(
             im.load()
             os.unlink(filepath)
             if bbox:
-                if window:
-                    # Determine if the window was in Retina mode or not
-                    # by capturing it without the shadow,
-                    # and checking how different the width is
-                    fh, filepath = tempfile.mkstemp(".png")
-                    os.close(fh)
-                    subprocess.call(
-                        ["screencapture", "-l", str(window), "-o", "-x", filepath]
-                    )
-                    with Image.open(filepath) as im_no_shadow:
-                        retina = im.width - im_no_shadow.width > 100
-                    os.unlink(filepath)
-
-                    # Since screencapture's -R does not work with -l,
-                    # crop the image manually
-                    if retina:
-                        left, top, right, bottom = bbox
-                        im_cropped = im.resize(
-                            (right - left, bottom - top),
-                            box=tuple(coord * 2 for coord in bbox),
-                        )
-                    else:
-                        im_cropped = im.crop(bbox)
-                    im.close()
-                    return im_cropped
-                else:
-                    im_resized = im.resize((right - left, bottom - top))
-                    im.close()
-                    return im_resized
+                im_resized = im.resize((right - left, bottom - top))
+                im.close()
+                return im_resized
             return im
         elif sys.platform == "win32":
-            if window is not None:
-                all_screens = -1
             offset, size, data = Image.core.grabscreen_win32(
-                include_layered_windows,
-                all_screens,
-                int(window) if window is not None else 0,
+                include_layered_windows, all_screens
             )
             im = Image.frombytes(
                 "RGB",
@@ -106,26 +62,20 @@ def grab(
                 left, top, right, bottom = bbox
                 im = im.crop((left - x0, top - y0, right - x0, bottom - y0))
             return im
-    # Cast to Optional[str] needed for Windows and macOS.
-    display_name: str | None = xdisplay
     try:
         if not Image.core.HAVE_XCB:
             msg = "Pillow was built without XCB support"
             raise OSError(msg)
-        size, data = Image.core.grabscreen_x11(display_name)
+        size, data = Image.core.grabscreen_x11(xdisplay)
     except OSError:
-        if display_name is None and sys.platform not in ("darwin", "win32"):
-            if shutil.which("gnome-screenshot"):
-                args = ["gnome-screenshot", "-f"]
-            elif shutil.which("grim"):
-                args = ["grim"]
-            elif shutil.which("spectacle"):
-                args = ["spectacle", "-n", "-b", "-f", "-o"]
-            else:
-                raise
+        if (
+            xdisplay is None
+            and sys.platform not in ("darwin", "win32")
+            and shutil.which("gnome-screenshot")
+        ):
             fh, filepath = tempfile.mkstemp(".png")
             os.close(fh)
-            subprocess.call(args + [filepath])
+            subprocess.call(["gnome-screenshot", "-f", filepath])
             im = Image.open(filepath)
             im.load()
             os.unlink(filepath)
@@ -143,29 +93,40 @@ def grab(
         return im
 
 
-def grabclipboard() -> Image.Image | list[str] | None:
+def grabclipboard():
     if sys.platform == "darwin":
-        p = subprocess.run(
-            ["osascript", "-e", "get the clipboard as «class PNGf»"],
-            capture_output=True,
-        )
-        if p.returncode != 0:
-            return None
+        fh, filepath = tempfile.mkstemp(".png")
+        os.close(fh)
+        commands = [
+            'set theFile to (open for access POSIX file "'
+            + filepath
+            + '" with write permission)',
+            "try",
+            "    write (the clipboard as «class PNGf») to theFile",
+            "end try",
+            "close access theFile",
+        ]
+        script = ["osascript"]
+        for command in commands:
+            script += ["-e", command]
+        subprocess.call(script)
 
-        import binascii
-
-        data = io.BytesIO(binascii.unhexlify(p.stdout[11:-3]))
-        return Image.open(data)
+        im = None
+        if os.stat(filepath).st_size != 0:
+            im = Image.open(filepath)
+            im.load()
+        os.unlink(filepath)
+        return im
     elif sys.platform == "win32":
         fmt, data = Image.core.grabclipboard_win32()
         if fmt == "file":  # CF_HDROP
             import struct
 
             o = struct.unpack_from("I", data)[0]
-            if data[16] == 0:
-                files = data[o:].decode("mbcs").split("\0")
-            else:
+            if data[16] != 0:
                 files = data[o:].decode("utf-16le").split("\0")
+            else:
+                files = data[o:].decode("mbcs").split("\0")
             return files[: files.index("")]
         if isinstance(data, bytes):
             data = io.BytesIO(data)
@@ -179,45 +140,29 @@ def grabclipboard() -> Image.Image | list[str] | None:
                 return BmpImagePlugin.DibImageFile(data)
         return None
     else:
-        if os.getenv("WAYLAND_DISPLAY"):
-            session_type = "wayland"
-        elif os.getenv("DISPLAY"):
-            session_type = "x11"
-        else:  # Session type check failed
-            session_type = None
+        if shutil.which("wl-paste"):
+            output = subprocess.check_output(["wl-paste", "-l"]).decode()
+            mimetypes = output.splitlines()
+            if "image/png" in mimetypes:
+                mimetype = "image/png"
+            elif mimetypes:
+                mimetype = mimetypes[0]
+            else:
+                mimetype = None
 
-        if shutil.which("wl-paste") and session_type in ("wayland", None):
-            args = ["wl-paste", "-t", "image"]
-        elif shutil.which("xclip") and session_type in ("x11", None):
+            args = ["wl-paste"]
+            if mimetype:
+                args.extend(["-t", mimetype])
+        elif shutil.which("xclip"):
             args = ["xclip", "-selection", "clipboard", "-t", "image/png", "-o"]
         else:
             msg = "wl-paste or xclip is required for ImageGrab.grabclipboard() on Linux"
             raise NotImplementedError(msg)
-
-        p = subprocess.run(args, capture_output=True)
-        if p.returncode != 0:
-            err = p.stderr
-            for silent_error in [
-                # wl-paste, when the clipboard is empty
-                b"Nothing is copied",
-                # Ubuntu/Debian wl-paste, when the clipboard is empty
-                b"No selection",
-                # Ubuntu/Debian wl-paste, when an image isn't available
-                b"No suitable type of content copied",
-                # wl-paste or Ubuntu/Debian xclip, when an image isn't available
-                b" not available",
-                # xclip, when an image isn't available
-                b"cannot convert ",
-                # xclip, when the clipboard isn't initialized
-                b"xclip: Error: There is no owner for the ",
-            ]:
-                if silent_error in err:
-                    return None
-            msg = f"{args[0]} error"
-            if err:
-                msg += f": {err.strip().decode()}"
+        p = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        err = p.stderr
+        if err:
+            msg = f"{args[0]} error: {err.strip().decode()}"
             raise ChildProcessError(msg)
-
         data = io.BytesIO(p.stdout)
         im = Image.open(data)
         im.load()

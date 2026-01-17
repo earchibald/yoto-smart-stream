@@ -1,20 +1,23 @@
-# *******************************************************************
-#   Copyright (c) 2017, 2019 IBM Corp.
-#
-#   All rights reserved. This program and the accompanying materials
-#   are made available under the terms of the Eclipse Public License v2.0
-#   and Eclipse Distribution License v1.0 which accompany this distribution.
-#
-#   The Eclipse Public License is available at
-#      http://www.eclipse.org/legal/epl-v20.html
-#   and the Eclipse Distribution License is available at
-#     http://www.eclipse.org/org/documents/edl-v10.php.
-#
-#   Contributors:
-#      Ian Craggs - initial implementation and/or documentation
-# *******************************************************************
+"""
+*******************************************************************
+  Copyright (c) 2017, 2019 IBM Corp.
+
+  All rights reserved. This program and the accompanying materials
+  are made available under the terms of the Eclipse Public License v2.0
+  and Eclipse Distribution License v1.0 which accompany this distribution.
+
+  The Eclipse Public License is available at
+     http://www.eclipse.org/legal/epl-v10.html
+  and the Eclipse Distribution License is available at
+    http://www.eclipse.org/org/documents/edl-v10.php.
+
+  Contributors:
+     Ian Craggs - initial implementation and/or documentation
+*******************************************************************
+"""
 
 import struct
+import sys
 
 from .packettypes import PacketTypes
 
@@ -49,8 +52,10 @@ def readInt32(buf):
 
 def writeUTF(data):
     # data could be a string, or bytes.  If string, encode into bytes with utf-8
-    if not isinstance(data, bytes):
-        data = bytes(data, "utf-8")
+    if sys.version_info[0] < 3:
+        data = bytearray(data, 'utf-8')
+    else:
+        data = data if type(data) == type(b"") else bytes(data, "utf-8")
     return writeInt16(len(data)) + data
 
 
@@ -95,17 +100,19 @@ class VariableByteIntegers:  # Variable Byte Integer
     def encode(x):
         """
           Convert an integer 0 <= x <= 268435455 into multi-byte format.
-          Returns the buffer converted from the integer.
+          Returns the buffer convered from the integer.
         """
-        if not 0 <= x <= 268435455:
-            raise ValueError(f"Value {x!r} must be in range 0-268435455")
+        assert 0 <= x <= 268435455
         buffer = b''
         while 1:
             digit = x % 128
             x //= 128
             if x > 0:
                 digit |= 0x80
-            buffer += bytes([digit])
+            if sys.version_info[0] >= 3:
+                buffer += bytes([digit])
+            else:
+                buffer += bytes(chr(digit))
             if x == 0:
                 break
         return buffer
@@ -132,21 +139,21 @@ class VariableByteIntegers:  # Variable Byte Integer
         return (value, bytes)
 
 
-class Properties:
+class Properties(object):
     """MQTT v5.0 properties class.
 
     See Properties.names for a list of accepted property names along with their numeric values.
 
     See Properties.properties for the data type of each property.
 
-    Example of use::
+    Example of use:
 
         publish_properties = Properties(PacketTypes.PUBLISH)
         publish_properties.UserProperty = ("a", "2")
         publish_properties.UserProperty = ("c", "3")
 
     First the object is created with packet type as argument, no properties will be present at
-    this point. Then properties are added as attributes, the name of which is the string property
+    this point.  Then properties are added as attributes, the name of which is the string property
     name without the spaces.
 
     """
@@ -257,33 +264,37 @@ class Properties:
             # the name could have spaces in, or not.  Remove spaces before assignment
             if name not in [aname.replace(' ', '') for aname in self.names.keys()]:
                 raise MQTTException(
-                    f"Property name must be one of {self.names.keys()}")
+                    "Property name must be one of "+str(self.names.keys()))
             # check that this attribute applies to the packet type
             if self.packetType not in self.properties[self.getIdentFromName(name)][1]:
-                raise MQTTException(f"Property {name} does not apply to packet type {PacketTypes.Names[self.packetType]}")
+                raise MQTTException("Property %s does not apply to packet type %s"
+                                    % (name, PacketTypes.Names[self.packetType]))
 
             # Check for forbidden values
-            if not isinstance(value, list):
+            if type(value) != type([]):
                 if name in ["ReceiveMaximum", "TopicAlias"] \
                         and (value < 1 or value > 65535):
 
-                    raise MQTTException(f"{name} property value must be in the range 1-65535")
+                    raise MQTTException(
+                        "%s property value must be in the range 1-65535" % (name))
                 elif name in ["TopicAliasMaximum"] \
                         and (value < 0 or value > 65535):
 
-                    raise MQTTException(f"{name} property value must be in the range 0-65535")
+                    raise MQTTException(
+                        "%s property value must be in the range 0-65535" % (name))
                 elif name in ["MaximumPacketSize", "SubscriptionIdentifier"] \
                         and (value < 1 or value > 268435455):
 
-                    raise MQTTException(f"{name} property value must be in the range 1-268435455")
+                    raise MQTTException(
+                        "%s property value must be in the range 1-268435455" % (name))
                 elif name in ["RequestResponseInformation", "RequestProblemInformation", "PayloadFormatIndicator"] \
                         and (value != 0 and value != 1):
 
                     raise MQTTException(
-                        f"{name} property value must be 0 or 1")
+                        "%s property value must be 0 or 1" % (name))
 
             if self.allowsMultiple(name):
-                if not isinstance(value, list):
+                if type(value) != type([]):
                     value = [value]
                 if hasattr(self, name):
                     value = object.__getattribute__(self, name) + value
@@ -297,7 +308,8 @@ class Properties:
             if hasattr(self, compressedName):
                 if not first:
                     buffer += ", "
-                buffer += f"{compressedName} : {getattr(self, compressedName)}"
+                buffer += compressedName + " : " + \
+                    str(getattr(self, compressedName))
                 first = False
         buffer += "]"
         return buffer
@@ -333,7 +345,10 @@ class Properties:
         buffer = b""
         buffer += VariableByteIntegers.encode(identifier)  # identifier
         if type == self.types.index("Byte"):  # value
-            buffer += bytes([value])
+            if sys.version_info[0] < 3:
+                buffer += chr(value)
+            else:
+                buffer += bytes([value])
         elif type == self.types.index("Two Byte Integer"):
             buffer += writeInt16(value)
         elif type == self.types.index("Four Byte Integer"):
@@ -397,6 +412,8 @@ class Properties:
         return rc
 
     def unpack(self, buffer):
+        if sys.version_info[0] < 3:
+            buffer = bytearray(buffer)
         self.clear()
         # deserialize properties into attributes from buffer received from network
         propslen, VBIlen = VariableByteIntegers.decode(buffer)
@@ -416,6 +433,6 @@ class Properties:
             compressedName = propname.replace(' ', '')
             if not self.allowsMultiple(compressedName) and hasattr(self, compressedName):
                 raise MQTTException(
-                    f"Property '{property}' must not exist more than once")
+                    "Property '%s' must not exist more than once" % property)
             setattr(self, propname, value)
         return self, propslen + VBIlen

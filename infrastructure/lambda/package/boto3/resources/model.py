@@ -366,15 +366,17 @@ class ResourceModel:
             name = xform_name(name)
 
         if name in names:
-            logger.debug('Renaming %s %s %s', self.name, category, name)
-            self._renamed[(category, name)] = f"{name}_{category}"
-            name += f"_{category}"
+            logger.debug(f'Renaming {self.name} {category} {name}')
+            self._renamed[(category, name)] = name + '_' + category
+            name += '_' + category
 
             if name in names:
                 # This isn't good, let's raise instead of trying to keep
                 # renaming this value.
                 raise ValueError(
-                    f'Problem renaming {self.name} {category} to {name}!'
+                    'Problem renaming {} {} to {}!'.format(
+                        self.name, category, name
+                    )
                 )
 
         names.add(name)

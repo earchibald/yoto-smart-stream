@@ -3,8 +3,8 @@ import enum
 import logging
 from io import BytesIO
 
+from mangum.types import ASGI, Message, Scope, Response
 from mangum.exceptions import UnexpectedMessage
-from mangum.types import ASGI, Message, Response, Scope
 
 
 class HTTPCycleState(enum.Enum):
@@ -33,11 +33,25 @@ class HTTPCycle:
         self.state = HTTPCycleState.REQUEST
         self.logger = logging.getLogger("mangum.http")
         self.app_queue: asyncio.Queue[Message] = asyncio.Queue()
-        self.app_queue.put_nowait({"type": "http.request", "body": body, "more_body": False})
+        self.app_queue.put_nowait(
+            {
+                "type": "http.request",
+                "body": body,
+                "more_body": False,
+            }
+        )
 
-    async def __call__(self, app: ASGI) -> Response:
-        await self.run(app)
-        return {"status": self.status, "headers": self.headers, "body": self.body}
+    def __call__(self, app: ASGI) -> Response:
+        asgi_instance = self.run(app)
+        loop = asyncio.get_event_loop()
+        asgi_task = loop.create_task(asgi_instance)
+        loop.run_until_complete(asgi_task)
+
+        return {
+            "status": self.status,
+            "headers": self.headers,
+            "body": self.body,
+        }
 
     async def run(self, app: ASGI) -> None:
         try:
@@ -68,11 +82,18 @@ class HTTPCycle:
         return await self.app_queue.get()  # pragma: no cover
 
     async def send(self, message: Message) -> None:
-        if self.state is HTTPCycleState.REQUEST and message["type"] == "http.response.start":
+        if (
+            self.state is HTTPCycleState.REQUEST
+            and message["type"] == "http.response.start"
+        ):
             self.status = message["status"]
             self.headers = message.get("headers", [])
             self.state = HTTPCycleState.RESPONSE
-        elif self.state is HTTPCycleState.RESPONSE and message["type"] == "http.response.body":
+        elif (
+            self.state is HTTPCycleState.RESPONSE
+            and message["type"] == "http.response.body"
+        ):
+
             body = message.get("body", b"")
             more_body = message.get("more_body", False)
             self.buffer.write(body)

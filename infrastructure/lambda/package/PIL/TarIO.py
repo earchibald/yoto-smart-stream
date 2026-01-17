@@ -13,17 +13,16 @@
 #
 # See the README file for information on usage and redistribution.
 #
-from __future__ import annotations
 
 import io
 
 from . import ContainerIO
 
 
-class TarIO(ContainerIO.ContainerIO[bytes]):
+class TarIO(ContainerIO.ContainerIO):
     """A file object that provides read access to a given member of a TAR file."""
 
-    def __init__(self, tarfile: str, file: str) -> None:
+    def __init__(self, tarfile, file):
         """
         Create file object.
 
@@ -35,16 +34,12 @@ class TarIO(ContainerIO.ContainerIO[bytes]):
         while True:
             s = self.fh.read(512)
             if len(s) != 512:
-                self.fh.close()
-
                 msg = "unexpected end of tar file"
                 raise OSError(msg)
 
             name = s[:100].decode("utf-8")
             i = name.find("\0")
             if i == 0:
-                self.fh.close()
-
                 msg = "cannot find subfile"
                 raise OSError(msg)
             if i > 0:
@@ -59,3 +54,13 @@ class TarIO(ContainerIO.ContainerIO[bytes]):
 
         # Open region
         super().__init__(self.fh, self.fh.tell(), size)
+
+    # Context manager support
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+    def close(self):
+        self.fh.close()

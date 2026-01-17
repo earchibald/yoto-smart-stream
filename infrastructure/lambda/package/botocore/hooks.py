@@ -170,7 +170,7 @@ class BaseEventHooks:
 
     def _verify_is_callable(self, func):
         if not callable(func):
-            raise ValueError(f"Event handler {func} must be callable.")
+            raise ValueError("Event handler %s must be callable." % func)
 
     def _verify_accept_kwargs(self, func):
         """Verifies a callable accepts kwargs
@@ -314,20 +314,20 @@ class HierarchicalEmitter(BaseEventHooks):
                 if unique_id_uses_count:
                     if not count:
                         raise ValueError(
-                            f"Initial registration of  unique id {unique_id} was "
+                            "Initial registration of  unique id %s was "
                             "specified to use a counter. Subsequent register "
                             "calls to unique id must specify use of a counter "
-                            "as well."
+                            "as well." % unique_id
                         )
                     else:
                         self._unique_id_handlers[unique_id]['count'] += 1
                 else:
                     if count:
                         raise ValueError(
-                            f"Initial registration of unique id {unique_id} was "
+                            "Initial registration of unique id %s was "
                             "specified to not use a counter. Subsequent "
                             "register calls to unique id must specify not to "
-                            "use a counter as well."
+                            "use a counter as well." % unique_id
                         )
                 return
             else:
@@ -364,9 +364,9 @@ class HierarchicalEmitter(BaseEventHooks):
             if unique_id_uses_count:
                 if count is None:
                     raise ValueError(
-                        f"Initial registration of unique id {unique_id} was specified to "
+                        "Initial registration of unique id %s was specified to "
                         "use a counter. Subsequent unregister calls to unique "
-                        "id must specify use of a counter as well."
+                        "id must specify use of a counter as well." % unique_id
                     )
                 elif count == 1:
                     handler = self._unique_id_handlers.pop(unique_id)[
@@ -378,10 +378,10 @@ class HierarchicalEmitter(BaseEventHooks):
             else:
                 if count:
                     raise ValueError(
-                        f"Initial registration of unique id {unique_id} was specified "
+                        "Initial registration of unique id %s was specified "
                         "to not use a counter. Subsequent unregister calls "
                         "to unique id must specify not to use a counter as "
-                        "well."
+                        "well." % unique_id
                     )
                 handler = self._unique_id_handlers.pop(unique_id)['handler']
         try:
@@ -480,7 +480,7 @@ class EventAliaser(BaseEventHooks):
 
             new_name = '.'.join(event_parts)
             logger.debug(
-                "Changing event name from %s to %s", event_name, new_name
+                f"Changing event name from {event_name} to {new_name}"
             )
             self._alias_name_cache[event_name] = new_name
             return new_name

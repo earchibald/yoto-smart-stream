@@ -1,9 +1,6 @@
-from __future__ import annotations
-
 import json
-from collections.abc import AsyncGenerator, Iterator, Mapping
+import typing
 from http import cookies as http_cookies
-from typing import TYPE_CHECKING, Any, NoReturn, cast
 
 import anyio
 
@@ -13,19 +10,14 @@ from starlette.exceptions import HTTPException
 from starlette.formparsers import FormParser, MultiPartException, MultiPartParser
 from starlette.types import Message, Receive, Scope, Send
 
-if TYPE_CHECKING:
-    from python_multipart.multipart import parse_options_header
+try:
+    from multipart.multipart import parse_options_header
+except ModuleNotFoundError:  # pragma: nocover
+    parse_options_header = None
 
-    from starlette.applications import Starlette
+
+if typing.TYPE_CHECKING:
     from starlette.routing import Router
-else:
-    try:
-        try:
-            from python_multipart.multipart import parse_options_header
-        except ModuleNotFoundError:  # pragma: no cover
-            from multipart.multipart import parse_options_header
-    except ModuleNotFoundError:  # pragma: no cover
-        parse_options_header = None
 
 
 SERVER_PUSH_HEADERS_TO_COPY = {
@@ -37,7 +29,7 @@ SERVER_PUSH_HEADERS_TO_COPY = {
 }
 
 
-def cookie_parser(cookie_string: str) -> dict[str, str]:
+def cookie_parser(cookie_string: str) -> typing.Dict[str, str]:
     """
     This function parses a ``Cookie`` HTTP header into a dict of key/value pairs.
 
@@ -49,7 +41,7 @@ def cookie_parser(cookie_string: str) -> dict[str, str]:
     Note: we are explicitly _NOT_ using `SimpleCookie.load` because it is based
     on an outdated spec and will fail on lots of input we want to support
     """
-    cookie_dict: dict[str, str] = {}
+    cookie_dict: typing.Dict[str, str] = {}
     for chunk in cookie_string.split(";"):
         if "=" in chunk:
             key, val = chunk.split("=", 1)
@@ -68,20 +60,20 @@ class ClientDisconnect(Exception):
     pass
 
 
-class HTTPConnection(Mapping[str, Any]):
+class HTTPConnection(typing.Mapping[str, typing.Any]):
     """
     A base class for incoming HTTP connections, that is used to provide
     any functionality that is common to both `Request` and `WebSocket`.
     """
 
-    def __init__(self, scope: Scope, receive: Receive | None = None) -> None:
+    def __init__(self, scope: Scope, receive: typing.Optional[Receive] = None) -> None:
         assert scope["type"] in ("http", "websocket")
         self.scope = scope
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> typing.Any:
         return self.scope[key]
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> typing.Iterator[str]:
         return iter(self.scope)
 
     def __len__(self) -> int:
@@ -94,12 +86,12 @@ class HTTPConnection(Mapping[str, Any]):
     __hash__ = object.__hash__
 
     @property
-    def app(self) -> Any:
+    def app(self) -> typing.Any:
         return self.scope["app"]
 
     @property
     def url(self) -> URL:
-        if not hasattr(self, "_url"):  # pragma: no branch
+        if not hasattr(self, "_url"):
             self._url = URL(scope=self.scope)
         return self._url
 
@@ -107,16 +99,11 @@ class HTTPConnection(Mapping[str, Any]):
     def base_url(self) -> URL:
         if not hasattr(self, "_base_url"):
             base_url_scope = dict(self.scope)
-            # This is used by request.url_for, it might be used inside a Mount which
-            # would have its own child scope with its own root_path, but the base URL
-            # for url_for should still be the top level app root path.
-            app_root_path = base_url_scope.get("app_root_path", base_url_scope.get("root_path", ""))
-            path = app_root_path
-            if not path.endswith("/"):
-                path += "/"
-            base_url_scope["path"] = path
+            base_url_scope["path"] = "/"
             base_url_scope["query_string"] = b""
-            base_url_scope["root_path"] = app_root_path
+            base_url_scope["root_path"] = base_url_scope.get(
+                "app_root_path", base_url_scope.get("root_path", "")
+            )
             self._base_url = URL(scope=base_url_scope)
         return self._base_url
 
@@ -128,47 +115,52 @@ class HTTPConnection(Mapping[str, Any]):
 
     @property
     def query_params(self) -> QueryParams:
-        if not hasattr(self, "_query_params"):  # pragma: no branch
+        if not hasattr(self, "_query_params"):
             self._query_params = QueryParams(self.scope["query_string"])
         return self._query_params
 
     @property
-    def path_params(self) -> dict[str, Any]:
+    def path_params(self) -> typing.Dict[str, typing.Any]:
         return self.scope.get("path_params", {})
 
     @property
-    def cookies(self) -> dict[str, str]:
+    def cookies(self) -> typing.Dict[str, str]:
         if not hasattr(self, "_cookies"):
-            cookies: dict[str, str] = {}
-            cookie_headers = self.headers.getlist("cookie")
+            cookies: typing.Dict[str, str] = {}
+            cookie_header = self.headers.get("cookie")
 
-            for header in cookie_headers:
-                cookies.update(cookie_parser(header))
-
+            if cookie_header:
+                cookies = cookie_parser(cookie_header)
             self._cookies = cookies
         return self._cookies
 
     @property
-    def client(self) -> Address | None:
-        # client is a 2 item tuple of (host, port), None if missing
+    def client(self) -> typing.Optional[Address]:
+        # client is a 2 item tuple of (host, port), None or missing
         host_port = self.scope.get("client")
         if host_port is not None:
             return Address(*host_port)
         return None
 
     @property
-    def session(self) -> dict[str, Any]:
-        assert "session" in self.scope, "SessionMiddleware must be installed to access request.session"
-        return self.scope["session"]  # type: ignore[no-any-return]
+    def session(self) -> typing.Dict[str, typing.Any]:
+        assert (
+            "session" in self.scope
+        ), "SessionMiddleware must be installed to access request.session"
+        return self.scope["session"]
 
     @property
-    def auth(self) -> Any:
-        assert "auth" in self.scope, "AuthenticationMiddleware must be installed to access request.auth"
+    def auth(self) -> typing.Any:
+        assert (
+            "auth" in self.scope
+        ), "AuthenticationMiddleware must be installed to access request.auth"
         return self.scope["auth"]
 
     @property
-    def user(self) -> Any:
-        assert "user" in self.scope, "AuthenticationMiddleware must be installed to access request.user"
+    def user(self) -> typing.Any:
+        assert (
+            "user" in self.scope
+        ), "AuthenticationMiddleware must be installed to access request.user"
         return self.scope["user"]
 
     @property
@@ -181,26 +173,26 @@ class HTTPConnection(Mapping[str, Any]):
             self._state = State(self.scope["state"])
         return self._state
 
-    def url_for(self, name: str, /, **path_params: Any) -> URL:
-        url_path_provider: Router | Starlette | None = self.scope.get("router") or self.scope.get("app")
-        if url_path_provider is None:
-            raise RuntimeError("The `url_for` method can only be used inside a Starlette application or with a router.")
-        url_path = url_path_provider.url_path_for(name, **path_params)
+    def url_for(self, __name: str, **path_params: typing.Any) -> URL:
+        router: Router = self.scope["router"]
+        url_path = router.url_path_for(__name, **path_params)
         return url_path.make_absolute_url(base_url=self.base_url)
 
 
-async def empty_receive() -> NoReturn:
+async def empty_receive() -> typing.NoReturn:
     raise RuntimeError("Receive channel has not been made available")
 
 
-async def empty_send(message: Message) -> NoReturn:
+async def empty_send(message: Message) -> typing.NoReturn:
     raise RuntimeError("Send channel has not been made available")
 
 
 class Request(HTTPConnection):
-    _form: FormData | None
+    _form: typing.Optional[FormData]
 
-    def __init__(self, scope: Scope, receive: Receive = empty_receive, send: Send = empty_send):
+    def __init__(
+        self, scope: Scope, receive: Receive = empty_receive, send: Send = empty_send
+    ):
         super().__init__(scope)
         assert scope["type"] == "http"
         self._receive = receive
@@ -211,42 +203,43 @@ class Request(HTTPConnection):
 
     @property
     def method(self) -> str:
-        return cast(str, self.scope["method"])
+        return self.scope["method"]
 
     @property
     def receive(self) -> Receive:
         return self._receive
 
-    async def stream(self) -> AsyncGenerator[bytes, None]:
+    async def stream(self) -> typing.AsyncGenerator[bytes, None]:
         if hasattr(self, "_body"):
             yield self._body
             yield b""
             return
         if self._stream_consumed:
             raise RuntimeError("Stream consumed")
-        while not self._stream_consumed:
+        self._stream_consumed = True
+        while True:
             message = await self._receive()
             if message["type"] == "http.request":
                 body = message.get("body", b"")
-                if not message.get("more_body", False):
-                    self._stream_consumed = True
                 if body:
                     yield body
-            elif message["type"] == "http.disconnect":  # pragma: no branch
+                if not message.get("more_body", False):
+                    break
+            elif message["type"] == "http.disconnect":
                 self._is_disconnected = True
                 raise ClientDisconnect()
         yield b""
 
     async def body(self) -> bytes:
         if not hasattr(self, "_body"):
-            chunks: list[bytes] = []
+            chunks: "typing.List[bytes]" = []
             async for chunk in self.stream():
                 chunks.append(chunk)
             self._body = b"".join(chunks)
         return self._body
 
-    async def json(self) -> Any:
-        if not hasattr(self, "_json"):  # pragma: no branch
+    async def json(self) -> typing.Any:
+        if not hasattr(self, "_json"):
             body = await self.body()
             self._json = json.loads(body)
         return self._json
@@ -254,14 +247,13 @@ class Request(HTTPConnection):
     async def _get_form(
         self,
         *,
-        max_files: int | float = 1000,
-        max_fields: int | float = 1000,
-        max_part_size: int = 1024 * 1024,
+        max_files: typing.Union[int, float] = 1000,
+        max_fields: typing.Union[int, float] = 1000,
     ) -> FormData:
-        if self._form is None:  # pragma: no branch
-            assert parse_options_header is not None, (
-                "The `python-multipart` library must be installed to use form parsing."
-            )
+        if self._form is None:
+            assert (
+                parse_options_header is not None
+            ), "The `python-multipart` library must be installed to use form parsing."
             content_type_header = self.headers.get("Content-Type")
             content_type: bytes
             content_type, _ = parse_options_header(content_type_header)
@@ -272,7 +264,6 @@ class Request(HTTPConnection):
                         self.stream(),
                         max_files=max_files,
                         max_fields=max_fields,
-                        max_part_size=max_part_size,
                     )
                     self._form = await multipart_parser.parse()
                 except MultiPartException as exc:
@@ -289,16 +280,15 @@ class Request(HTTPConnection):
     def form(
         self,
         *,
-        max_files: int | float = 1000,
-        max_fields: int | float = 1000,
-        max_part_size: int = 1024 * 1024,
+        max_files: typing.Union[int, float] = 1000,
+        max_fields: typing.Union[int, float] = 1000,
     ) -> AwaitableOrContextManager[FormData]:
         return AwaitableOrContextManagerWrapper(
-            self._get_form(max_files=max_files, max_fields=max_fields, max_part_size=max_part_size)
+            self._get_form(max_files=max_files, max_fields=max_fields)
         )
 
     async def close(self) -> None:
-        if self._form is not None:  # pragma: no branch
+        if self._form is not None:
             await self._form.close()
 
     async def is_disconnected(self) -> bool:
@@ -317,8 +307,12 @@ class Request(HTTPConnection):
 
     async def send_push_promise(self, path: str) -> None:
         if "http.response.push" in self.scope.get("extensions", {}):
-            raw_headers: list[tuple[bytes, bytes]] = []
+            raw_headers: "typing.List[typing.Tuple[bytes, bytes]]" = []
             for name in SERVER_PUSH_HEADERS_TO_COPY:
                 for value in self.headers.getlist(name):
-                    raw_headers.append((name.encode("latin-1"), value.encode("latin-1")))
-            await self._send({"type": "http.response.push", "path": path, "headers": raw_headers})
+                    raw_headers.append(
+                        (name.encode("latin-1"), value.encode("latin-1"))
+                    )
+            await self._send(
+                {"type": "http.response.push", "path": path, "headers": raw_headers}
+            )

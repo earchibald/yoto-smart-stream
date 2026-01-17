@@ -11,12 +11,6 @@
       "output_token": "NextToken",
       "limit_key": "MaxResults",
       "result_key": "Subscriptions"
-    },
-    "ListRegisteredSubscriptionProviders": {
-      "input_token": "NextToken",
-      "output_token": "NextToken",
-      "limit_key": "MaxResults",
-      "result_key": "RegisteredSubscriptionProviders"
     }
   }
 }

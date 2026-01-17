@@ -1,9 +1,8 @@
-from collections.abc import AsyncGenerator
-from contextlib import AbstractContextManager
+from contextlib import AsyncExitStack as AsyncExitStack  # noqa
 from contextlib import asynccontextmanager as asynccontextmanager
-from typing import TypeVar
+from typing import AsyncGenerator, ContextManager, TypeVar
 
-import anyio.to_thread
+import anyio
 from anyio import CapacityLimiter
 from starlette.concurrency import iterate_in_threadpool as iterate_in_threadpool  # noqa
 from starlette.concurrency import run_in_threadpool as run_in_threadpool  # noqa
@@ -16,7 +15,7 @@ _T = TypeVar("_T")
 
 @asynccontextmanager
 async def contextmanager_in_threadpool(
-    cm: AbstractContextManager[_T],
+    cm: ContextManager[_T],
 ) -> AsyncGenerator[_T, None]:
     # blocking __exit__ from running waiting on a free thread
     # can create race conditions/deadlocks if the context manager itself
@@ -30,7 +29,7 @@ async def contextmanager_in_threadpool(
     except Exception as e:
         ok = bool(
             await anyio.to_thread.run_sync(
-                cm.__exit__, type(e), e, e.__traceback__, limiter=exit_limiter
+                cm.__exit__, type(e), e, None, limiter=exit_limiter
             )
         )
         if not ok:
