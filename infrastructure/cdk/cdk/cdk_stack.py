@@ -359,9 +359,25 @@ class YotoSmartStreamStack(Stack):
             log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,
         )
         
-        # Note: ffmpeg layer removed due to permission issues with third-party layers
-        # Audio recording features requiring ffmpeg/ffprobe will not work in Lambda
-        # Users should upload pre-recorded audio files instead
+        # Add ffmpeg Lambda layer for audio processing
+        # Using static build from https://johnvansickle.com/ffmpeg/
+        try:
+            ffmpeg_layer = lambda_.LayerVersion(
+                self,
+                "FfmpegLayer",
+                code=lambda_.Code.from_asset("../lambda-layers/ffmpeg"),
+                compatible_runtimes=[lambda_.Runtime.PYTHON_3_12],
+                description="FFmpeg static binaries for audio processing",
+            )
+            function.add_layers(ffmpeg_layer)
+            
+            # Update PATH to include ffmpeg binaries
+            function.add_environment("PATH", "/opt/bin:/usr/local/bin:/usr/bin:/bin")
+            
+            CfnOutput(self, "FfmpegLayerArn", value=ffmpeg_layer.layer_version_arn)
+        except Exception as e:
+            print(f"Warning: Could not add ffmpeg layer: {e}")
+            print("Audio recording features requiring ffmpeg/ffprobe will not work")
 
         CfnOutput(self, "LambdaFunctionArn", value=function.function_arn)
         return function

@@ -212,9 +212,13 @@ async def poll_auth_status(
         )
 
     try:
+        logger.info(f"Polling auth status for device_code: {poll_request.device_code[:10]}...")
+        
         # Use single-attempt polling (non-blocking, suitable for Lambda/serverless)
         # The frontend will poll this endpoint repeatedly until success
         poll_status = client.poll_device_code_single_attempt(poll_request.device_code)
+        
+        logger.info(f"Poll status result: {poll_status}")
         
         if poll_status == "success":
             # Authentication succeeded

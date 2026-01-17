@@ -209,8 +209,11 @@ class YotoClient:
         import datetime
         
         if not self.manager or not self.manager.api:
+            logger.error("Manager not initialized when polling device code")
             raise RuntimeError("Manager not initialized")
             
+        logger.info(f"Polling OAuth token with device_code: {device_code[:10]}...")
+        
         # Make a single token request
         token_data = {
             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
@@ -221,19 +224,27 @@ class YotoClient:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         
         try:
-            response = requests.post(self.manager.api.TOKEN_URL, data=token_data, headers=headers)
-            response_body = response.json()
+            logger.debug(f"Sending token request to: {self.manager.api.TOKEN_URL}")
+            response = requests.post(self.manager.api.TOKEN_URL, data=token_data, headers=headers, timeout=10)
+            
+            logger.info(f"Token response status: {response.status_code}")
+            
+            try:
+                response_body = response.json()
+            except Exception as json_err:
+                logger.error(f"Failed to parse response JSON: {json_err}, response text: {response.text[:200]}")
+                raise Exception(f"Invalid JSON response from OAuth server")
             
             # Successful authentication
             if response.ok:
-                logger.info("OAuth device code authentication successful!")
+                logger.info("✓ OAuth device code authentication successful!")
                 
                 # Create token object
                 from yoto_api import Token
                 import pytz
                 
                 valid_until = datetime.datetime.now(pytz.utc) + datetime.timedelta(
-                    seconds=response_body["expires_in"]
+                    seconds=response_body.get("expires_in", 3600)
                 )
                 
                 self.manager.token = Token(
@@ -244,29 +255,41 @@ class YotoClient:
                     valid_until=valid_until,
                 )
                 
+                logger.info(f"Token created, expires at: {valid_until}")
+                
                 # Update players with the new token
-                self.manager.api.update_players(self.manager.token, self.manager.players)
+                try:
+                    self.manager.api.update_players(self.manager.token, self.manager.players)
+                    logger.info("Players updated with new token")
+                except Exception as player_err:
+                    logger.warning(f"Failed to update players: {player_err}")
                 
                 return "success"
                 
-            # Handle OAuth2 errors
-            if response.status_code == 403:
-                error = response_body.get("error")
-                if error == "authorization_pending":
-                    logger.debug("Authorization pending, user hasn't completed authorization yet")
-                    return "pending"
-                elif error == "expired_token":
-                    logger.warning("Device code has expired")
-                    return "expired"
-                else:
-                    error_desc = response_body.get("error_description", response_body.get("error", "Unknown error"))
-                    logger.error(f"OAuth error: {error_desc}")
-                    raise Exception(error_desc)
+            # Handle OAuth2 errors - check for authorization_pending regardless of status code
+            error = response_body.get("error", "")
+            error_desc = response_body.get("error_description", "")
             
-            # Unexpected status code
-            logger.error(f"Unexpected response: {response.status_code} {response.text}")
-            raise Exception(f"Token request failed: {response.status_code}")
+            if error == "authorization_pending":
+                logger.debug("Authorization pending - user hasn't completed authorization yet")
+                return "pending"
+            elif error == "expired_token" or error == "token_expired":
+                logger.warning("Device code has expired")
+                return "expired"
+            elif error == "access_denied":
+                logger.error("User denied authorization")
+                return "expired"  # Treat as expired so user can restart
+            else:
+                # Log full error details
+                logger.error(f"OAuth error ({response.status_code}): error={error}, description={error_desc}")
+                logger.error(f"Full response body: {response_body}")
+                # Return error but don't raise exception - frontend will keep polling or show error
+                return "error"
             
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Timeout polling for token: {e}")
+            # Return pending on timeout - frontend will retry
+            return "pending"
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error polling for token: {e}")
             raise
