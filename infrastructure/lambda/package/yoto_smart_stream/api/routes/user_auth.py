@@ -6,12 +6,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 from ...auth import create_access_token, decode_access_token, verify_password
 from ...auth_cognito import get_cognito_auth
-from ...database import get_db
-from ...models import User
+from ...config import get_settings
+from ...storage.dynamodb_store import DynamoStore, UserRecord, get_store
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +44,15 @@ class SessionResponse(BaseModel):
     is_admin: bool = False
 
 
+def get_store_dep() -> DynamoStore:
+    settings = get_settings()
+    return get_store(settings.dynamodb_table, region_name=settings.dynamodb_region)
+
+
 def get_current_user(
     session_token: Optional[str] = Cookie(None, alias="session"),
-    db: Session = Depends(get_db)
-) -> Optional[User]:
+    store: DynamoStore = Depends(get_store_dep)
+) -> Optional[UserRecord]:
     """
     Get current user from session cookie.
     
@@ -70,14 +74,14 @@ def get_current_user(
     if not username:
         return None
     
-    user = db.query(User).filter(User.username == username).first()
+    user = store.get_user(username)
     if not user or not user.is_active:
         return None
     
     return user
 
 
-def require_auth(user: Optional[User] = Depends(get_current_user)) -> User:
+def require_auth(user: Optional[UserRecord] = Depends(get_current_user)) -> UserRecord:
     """
     Dependency that requires authentication.
     
@@ -102,7 +106,7 @@ def require_auth(user: Optional[User] = Depends(get_current_user)) -> User:
 async def login(
     login_data: LoginRequest,
     response: Response,
-    db: Session = Depends(get_db)
+    store: DynamoStore = Depends(get_store_dep)
 ):
     """
     User login endpoint.
@@ -152,7 +156,7 @@ async def login(
     logger.debug("Using local database authentication")
     
     # Query user from database
-    user = db.query(User).filter(User.username == login_data.username).first()
+    user = store.get_user(login_data.username)
     
     if not user:
         logger.warning(f"User not found: {login_data.username}")
@@ -220,7 +224,7 @@ async def logout(response: Response):
 
 
 @router.get("/user/session", response_model=SessionResponse)
-async def check_session(user: Optional[User] = Depends(get_current_user)):
+async def check_session(user: Optional[UserRecord] = Depends(get_current_user)):
     """
     Check current session status.
     
@@ -236,18 +240,18 @@ async def check_session(user: Optional[User] = Depends(get_current_user)):
 
 
 @router.get("/user/debug")
-async def debug_users(db: Session = Depends(get_db)):
+async def debug_users(store: DynamoStore = Depends(get_store_dep)):
     """
     Debug endpoint to check user database state.
     
     Returns count and list of usernames (NOT FOR PRODUCTION).
     """
     try:
-        users = db.query(User).all()
+        users = store.list_users()
         return {
             "user_count": len(users),
             "usernames": [u.username for u in users],
-            "database_url": "Check server logs for database path"
+            "persistence": "dynamodb"
         }
     except Exception as e:
         return {

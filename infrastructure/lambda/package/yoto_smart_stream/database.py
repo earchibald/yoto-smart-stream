@@ -5,36 +5,41 @@ Provides SQLAlchemy database setup and session management for the application.
 """
 
 import logging
+import os
+from typing import Any, Generator
+
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from .config import get_settings
+from .storage.dynamodb_store import DynamoStore, get_store
 
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+use_dynamo = bool(settings.dynamodb_table or os.getenv("DYNAMODB_TABLE"))
 
-# Create engine
-engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
-)
-
-# Create SessionLocal class
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create Base class for models
+# SQLAlchemy primitives are only initialized when a SQL database URL is provided
+engine = None
+SessionLocal = None
 Base = declarative_base()
 
+if not use_dynamo and settings.database_url:
+    engine = create_engine(
+        settings.database_url,
+        connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def get_db():
-    """
-    Get database session.
-    
-    Yields:
-        Database session
-    """
+
+def get_db() -> Generator[DynamoStore | Session, None, None]:
+    """Yield DynamoDB store or SQLAlchemy session depending on configuration."""
+    if use_dynamo or not settings.database_url:
+        store = get_store(settings.dynamodb_table, region_name=settings.dynamodb_region)
+        yield store
+        return
+
     db = SessionLocal()
     try:
         yield db
@@ -42,8 +47,12 @@ def get_db():
         db.close()
 
 
-def init_db():
-    """Initialize database tables and handle schema migrations."""
+def init_db() -> None:
+    """Initialize persistence layer."""
+    if use_dynamo or not settings.database_url:
+        logger.info("DynamoDB mode: no SQL schema initialization required")
+        return
+
     # Create all tables from models
     Base.metadata.create_all(bind=engine)
     

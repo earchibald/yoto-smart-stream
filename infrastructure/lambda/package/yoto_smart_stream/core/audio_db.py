@@ -12,11 +12,12 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from ..models import AudioFile
+from ..storage.dynamodb_store import AudioFileRecord, DynamoStore
 
 logger = logging.getLogger(__name__)
 
 
-def get_or_create_audio_file(db: Session, filename: str, size: int, duration: Optional[int] = None) -> AudioFile:
+def get_or_create_audio_file(db: Session | DynamoStore, filename: str, size: int, duration: Optional[int] = None) -> AudioFile | AudioFileRecord:
     """
     Get existing AudioFile record or create a new one.
 
@@ -29,11 +30,12 @@ def get_or_create_audio_file(db: Session, filename: str, size: int, duration: Op
     Returns:
         AudioFile instance
     """
-    # Try to get existing record
+    if isinstance(db, DynamoStore):
+        return db.upsert_audio_file(filename=filename, size=size, duration=duration)
+
     audio_file = db.query(AudioFile).filter(AudioFile.filename == filename).first()
 
     if audio_file:
-        # Update size and duration if provided
         audio_file.size = size
         if duration is not None:
             audio_file.duration = duration
@@ -41,7 +43,6 @@ def get_or_create_audio_file(db: Session, filename: str, size: int, duration: Op
         db.commit()
         logger.debug(f"Updated existing AudioFile record: {filename}")
     else:
-        # Create new record
         audio_file = AudioFile(
             filename=filename,
             size=size,
@@ -57,12 +58,12 @@ def get_or_create_audio_file(db: Session, filename: str, size: int, duration: Op
 
 
 def update_transcript(
-    db: Session,
+    db: Session | DynamoStore,
     filename: str,
     transcript: Optional[str],
     status: str,
     error: Optional[str] = None
-) -> Optional[AudioFile]:
+) -> Optional[AudioFile | AudioFileRecord]:
     """
     Update transcript for an audio file.
 
@@ -76,6 +77,9 @@ def update_transcript(
     Returns:
         Updated AudioFile instance or None if not found
     """
+    if isinstance(db, DynamoStore):
+        return db.update_transcript(filename, transcript=transcript, status=status, error=error)
+
     audio_file = db.query(AudioFile).filter(AudioFile.filename == filename).first()
 
     if not audio_file:
@@ -97,7 +101,7 @@ def update_transcript(
     return audio_file
 
 
-def get_audio_file_by_filename(db: Session, filename: str) -> Optional[AudioFile]:
+def get_audio_file_by_filename(db: Session | DynamoStore, filename: str) -> Optional[AudioFile | AudioFileRecord]:
     """
     Get AudioFile record by filename.
 
@@ -108,4 +112,6 @@ def get_audio_file_by_filename(db: Session, filename: str) -> Optional[AudioFile
     Returns:
         AudioFile instance or None if not found
     """
+    if isinstance(db, DynamoStore):
+        return db.get_audio_file(filename)
     return db.query(AudioFile).filter(AudioFile.filename == filename).first()

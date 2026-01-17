@@ -20,6 +20,7 @@ from ...utils.s3 import s3_enabled, object_exists, stream_object, upload_file
 from ..dependencies import get_yoto_client
 from ...database import get_db
 from ...models import User
+from ...storage.dynamodb_store import get_store
 from .user_auth import require_auth
 
 router = APIRouter()
@@ -27,7 +28,13 @@ logger = logging.getLogger(__name__)
 
 
 # Background task for transcription
-def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
+def transcribe_audio_background(
+    filename: str,
+    audio_path: str,
+    db_url: Optional[str],
+    dynamodb_table: Optional[str] = None,
+    dynamodb_region: Optional[str] = None,
+):
     """
     Background task to transcribe audio file.
     
@@ -42,18 +49,32 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
     from ...config import get_settings
     from ...core.audio_db import update_transcript, get_audio_file_by_filename
     from ...core.transcription import get_transcription_service
-    
-    # Create a new database session for this background task
-    engine = create_engine(db_url, connect_args={"check_same_thread": False} if "sqlite" in db_url else {})
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = SessionLocal()
-    
+
+    persistence = None
+    db_session = None
+
+    # Prefer DynamoDB when configured
+    if dynamodb_table:
+        try:
+            persistence = get_store(dynamodb_table, region_name=dynamodb_region)
+        except Exception as exc:
+            logger.error(f"Failed to initialize DynamoDB store for transcription: {exc}")
+    elif db_url:
+        engine = create_engine(db_url, connect_args={"check_same_thread": False} if "sqlite" in db_url else {})
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db_session = SessionLocal()
+        persistence = db_session
+
+    if persistence is None:
+        logger.error("No persistence backend available for transcription task")
+        return
+
     try:
         settings = get_settings()
         if not settings.transcription_enabled:
             logger.info(f"Transcription disabled; skipping background transcription for {filename}")
             update_transcript(
-                db,
+                persistence,
                 filename,
                 None,
                 "disabled",
@@ -64,10 +85,10 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
         logger.info(f"Starting background transcription for {filename}")
         
         # Update status to processing
-        update_transcript(db, filename, None, "processing", None)
+        update_transcript(persistence, filename, None, "processing", None)
         
         # Check if still processing (could have been cancelled)
-        audio_record = get_audio_file_by_filename(db, filename)
+        audio_record = get_audio_file_by_filename(persistence, filename)
         if audio_record and audio_record.transcript_status != "processing":
             logger.info(f"Transcription was cancelled for {filename}")
             return
@@ -77,25 +98,25 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
         transcript_text, error_msg = transcription_service.transcribe_audio(Path(audio_path))
         
         # Check again before saving (in case cancelled during transcription)
-        audio_record = get_audio_file_by_filename(db, filename)
+        audio_record = get_audio_file_by_filename(persistence, filename)
         if audio_record and audio_record.transcript_status != "processing":
             logger.info(f"Transcription was cancelled for {filename} during processing")
             return
         
         if transcript_text:
-            update_transcript(db, filename, transcript_text, "completed", None)
+            update_transcript(persistence, filename, transcript_text, "completed", None)
             logger.info(f"✓ Background transcription completed for {filename}")
         else:
-            update_transcript(db, filename, None, "error", error_msg)
+            update_transcript(persistence, filename, None, "error", error_msg)
             logger.warning(f"Background transcription failed for {filename}: {error_msg}")
     except Exception as e:
         logger.error(f"Background transcription error for {filename}: {e}", exc_info=True)
-        # Only update to error if still processing
-        audio_record = get_audio_file_by_filename(db, filename)
+        audio_record = get_audio_file_by_filename(persistence, filename)
         if audio_record and audio_record.transcript_status == "processing":
-            update_transcript(db, filename, None, "error", str(e))
+            update_transcript(persistence, filename, None, "error", str(e))
     finally:
-        db.close()
+        if db_session:
+            db_session.close()
 
 
 # Request/Response models
@@ -432,7 +453,9 @@ async def upload_audio(
                     transcribe_audio_background,
                     final_filename,
                     str(output_path),
-                    settings.database_url
+                    settings.database_url,
+                    settings.dynamodb_table,
+                    settings.dynamodb_region,
                 )
                 logger.info(f"Scheduled background transcription for {final_filename}")
         else:
