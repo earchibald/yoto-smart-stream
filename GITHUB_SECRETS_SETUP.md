@@ -53,6 +53,112 @@ You need to add these secrets to your GitHub repository:
 
 PR Environments will automatically inherit this value through the `${{shared.YOTO_CLIENT_ID}}` reference that is set by the GitHub Actions workflow.
 
+## GitHub Environment: copilot
+
+To support Cloud Agent (GitHub Copilot Workspace) operations, you need to configure a GitHub Environment named `copilot` with secrets and variables that Cloud Agents can access.
+
+### What is the copilot Environment?
+
+The `copilot` environment provides base secrets and variables for Cloud Agents running in GitHub Actions. These agents get access to:
+- Yoto API credentials
+- Base Railway authentication (read-only)
+- Other service credentials needed for development
+
+**Note:** Railway PR environment tokens are **NOT** included in the copilot environment due to Railway API limitations. These must be provisioned manually per PR. See [Cloud Agent Railway Token Guide](docs/CLOUD_AGENT_RAILWAY_TOKENS.md) for details.
+
+### Creating the copilot Environment
+
+1. Go to your GitHub repository: https://github.com/earchibald/yoto-smart-stream
+2. Click **Settings** (top navigation)
+3. In the left sidebar, click **Environments**
+4. Click **New environment**
+5. Name: `copilot` (exact name required)
+6. Click **Configure environment**
+
+### Required Secrets for copilot Environment
+
+Add these secrets to the `copilot` environment:
+
+#### 1. YOTO_CLIENT_ID
+
+**What it is**: Your Yoto API client ID for authentication
+
+**How to get it**:
+1. Go to https://yoto.dev/
+2. Sign in with your Yoto account
+3. Create or view your app
+4. Copy the Client ID
+
+**How to add it**:
+1. In the `copilot` environment configuration page
+2. Click **Add secret** under "Environment secrets"
+3. Name: `YOTO_CLIENT_ID`
+4. Value: Paste your Client ID
+5. Click **Add secret**
+
+#### 2. RAILWAY_API_TOKEN (Optional, for read-only Railway access)
+
+**What it is**: A base Railway token for read-only operations (viewing status, projects, etc.)
+
+**How to get it**:
+1. Go to https://railway.app/account/tokens
+2. Click "Create Token"
+3. Give it a name like "Copilot Read-Only"
+4. Scope: Account-wide (read-only is fine)
+5. Copy the token
+
+**How to add it**:
+1. In the `copilot` environment configuration page
+2. Click **Add secret** under "Environment secrets"
+3. Name: `RAILWAY_API_TOKEN`
+4. Value: Paste the token
+5. Click **Add secret**
+
+**Note**: This token provides basic Railway access. For full Railway access to PR environments (deploy, logs, variables), you need to provision PR-specific tokens. See [Cloud Agent Railway Token Guide](docs/CLOUD_AGENT_RAILWAY_TOKENS.md).
+
+### Optional Secrets
+
+Add these if needed for your development workflow:
+
+- `AWS_ACCESS_KEY_ID` - For AWS deployments
+- `AWS_SECRET_ACCESS_KEY` - For AWS deployments
+- `AWS_REGION` - AWS region (e.g., us-east-1)
+- Other service credentials as needed
+
+### Environment Protection Rules (Optional)
+
+You can optionally configure protection rules for the `copilot` environment:
+
+1. **Required reviewers**: Not needed for copilot (automated agent access)
+2. **Wait timer**: Not needed for copilot (no deployment delays)
+3. **Deployment branches**: All branches (copilot agents work on any PR)
+
+Leave these unconfigured unless you have specific security requirements.
+
+### Verification
+
+After configuring the `copilot` environment:
+
+1. Go to: Repository → Settings → Environments
+2. You should see:
+   - ✅ `copilot` environment listed
+   - ✅ Secrets configured (names visible, values hidden)
+3. Test by triggering a Copilot workflow (if available)
+
+### Railway PR Environment Tokens
+
+**Important**: The `copilot` environment does **NOT** include Railway tokens for specific PR environments. These must be provisioned manually due to Railway API limitations.
+
+**Why?**
+- Railway doesn't provide an API to create environment-specific tokens
+- Each PR needs its own Railway token scoped to that PR's environment
+- Tokens must be created via Railway UI and manually configured
+
+**How to provision:**
+1. See the complete guide: [Cloud Agent Railway Token Guide](docs/CLOUD_AGENT_RAILWAY_TOKENS.md)
+2. Use the helper script: `scripts/provision_pr_railway_token.sh`
+3. Follow the workflow when Cloud Agent needs Railway access for a PR
+
 ## Visual Guide
 
 ### Step 1: Navigate to Repository Settings
@@ -158,6 +264,9 @@ For this project, you only need **repository secrets** for automated deployments
 - [ ] Get Railway token from https://railway.app/account/tokens
 - [ ] Add `RAILWAY_TOKEN_PROD` to repository secrets
 - [ ] Set `YOTO_CLIENT_ID` as a Shared Variable in Railway production environment
+- [ ] Create `copilot` GitHub environment with required secrets
+- [ ] Add `YOTO_CLIENT_ID` to copilot environment secrets
+- [ ] Add `RAILWAY_API_TOKEN` to copilot environment secrets (optional)
 - [ ] Merge to `main` branch to trigger automatic production deployment
 - [ ] Open a PR to test PR Environment creation
 
@@ -166,12 +275,16 @@ For this project, you only need **repository secrets** for automated deployments
 - PR Environments are automatically created by Railway for each pull request
 - `YOTO_CLIENT_ID` is stored in Railway (as a Shared Variable), not in GitHub Secrets
 - There are no staging or development environments
+- Cloud Agents use the `copilot` environment for base secrets
+- Railway PR environment tokens must be provisioned manually (see docs/CLOUD_AGENT_RAILWAY_TOKENS.md)
 
-**Still confused?** 
+**Still confused?**
 - Repository secrets location: https://github.com/earchibald/yoto-smart-stream/settings/secrets/actions
+- Environments location: https://github.com/earchibald/yoto-smart-stream/settings/environments
 - You need **repository-level** secrets for GitHub Actions to work
 - The secret must be named exactly: `RAILWAY_TOKEN_PROD`
 - Railway production environment must have `YOTO_CLIENT_ID` set as a Shared Variable
+- Cloud Agent environment must be named exactly: `copilot`
 
 ---
 
