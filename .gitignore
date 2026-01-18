@@ -92,3 +92,4 @@ recordings/
 
 # Agent temporary files
 .agent-tmp/
+infrastructure/lambda/package/

@@ -1,5 +1,5 @@
 {
-  "app": "/Users/earchibald/work/yoto-smart-stream/cdk_venv/bin/python app.py",
+  "app": "python3 app.py",
   "watch": {
     "include": [
       "**"
