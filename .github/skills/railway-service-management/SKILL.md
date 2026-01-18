@@ -1,6 +1,6 @@
 ---
 name: railway-service-management
-description: Specialized knowledge for managing multi-environment Railway deployments. Use when: (1) Setting up Railway projects/environments/services, (2) Configuring deployments and builds (NIXPACKS/Railpack/Dockerfile), (3) Managing Railway CLI operations and logs, (4) Implementing PR environments or branch-based workflows, (5) Troubleshooting deployment failures or health checks, (6) Managing secrets/variables across environments, (7) Optimizing Railway costs and resources, (8) Configuring databases/volumes/networking, (9) Setting up CI/CD with GitHub Actions, (10) Using Railway MCP Server tools.
+description: Specialized knowledge for managing multi-environment Railway deployments. Use when: (1) Setting up Railway projects/environments/services, (2) Configuring deployments and builds (NIXPACKS/Railpack/Dockerfile), (3) Managing Railway CLI operations and logs, (4) Implementing PR environments or branch-based workflows, (5) Troubleshooting deployment failures or health checks, (6) Managing secrets/variables across environments, (7) Optimizing Railway costs and resources, (8) Configuring databases/volumes/networking, (9) Setting up CI/CD with GitHub Actions, (10) Using Railway MCP Server tools, (11) Cloud Agent sessions needing Railway CLI access with token-based authentication.
 ---
 
 # Railway Service Management
@@ -9,38 +9,26 @@ Complete guide for managing Railway.app deployments across multiple environments
 
 ## Quick Start for Cloud Agents
 
-**IMPORTANT:** If you're a Cloud Agent (GitHub Copilot Workspace), start here:
+**If you're a Cloud Agent (GitHub Copilot Workspace), use the setup script:**
 
 ```bash
-# 1. Set up RAILWAY_TOKEN (auto-detect from RAILWAY_TOKEN_XX if needed)
-if [ -z "$RAILWAY_TOKEN" ]; then
-  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1); do
-    export RAILWAY_TOKEN="${!var}"
-    echo "✅ Using $var as RAILWAY_TOKEN"
-    break
-  done
-fi
+# Run the automated setup script
+bash .github/skills/railway-service-management/scripts/setup_cloud_agent.sh
 
-# 2. Link to this project's service
-railway service link yoto-smart-stream
-
-# 3. Auto-detect and link to environment (PR or production)
-if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]]; then
-  ENV="pr-${BASH_REMATCH[1]}"
-elif [[ "$GITHUB_REF_NAME" =~ pr-([0-9]+) ]]; then
-  ENV="pr-${BASH_REMATCH[1]}"
-else
-  ENV="production"
-fi
-railway environment link "$ENV"
-
-# 4. Verify setup and use Railway commands
+# Then use Railway CLI commands
 railway status --json
 railway logs --lines 50 --filter "@level:error" --json
 railway var list --json
+railway deployment list --json
 ```
 
-**Full setup script and documentation**: [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-token-only-mode) in cli_scripts.md
+The script automatically:
+- Detects RAILWAY_TOKEN from RAILWAY_TOKEN_XX variables
+- Identifies the correct environment (PR or production)
+- Links to service: yoto-smart-stream
+- Configures Railway CLI for immediate use
+
+**For detailed instructions**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-token-only-mode)
 
 ## Quick Start
 
