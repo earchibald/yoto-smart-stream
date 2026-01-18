@@ -1,6 +1,6 @@
 ---
 name: railway-service-management
-description: Specialized knowledge for managing multi-environment Railway deployments. Use when: (1) Setting up Railway projects/environments/services, (2) Configuring deployments and builds (NIXPACKS/Railpack/Dockerfile), (3) Managing Railway CLI operations and logs, (4) Implementing PR environments or branch-based workflows, (5) Troubleshooting deployment failures or health checks, (6) Managing secrets/variables across environments, (7) Optimizing Railway costs and resources, (8) Configuring databases/volumes/networking, (9) Setting up CI/CD with GitHub Actions, (10) Using Railway MCP Server tools, (11) Cloud Agent sessions needing Railway CLI access with token-based authentication.
+description: Specialized knowledge for managing multi-environment Railway deployments. Use when: (1) Setting up Railway projects/environments/services, (2) Configuring deployments and builds (NIXPACKS/Railpack/Dockerfile), (3) Managing Railway CLI operations and logs, (4) Implementing PR environments or branch-based workflows, (5) Troubleshooting deployment failures or health checks, (6) Managing secrets/variables across environments, (7) Optimizing Railway costs and resources, (8) Configuring databases/volumes/networking, (9) Setting up CI/CD with GitHub Actions, (10) Using Railway MCP Server tools, (11) Cloud Agent sessions needing Railway CLI access with RAILWAY_API_TOKEN-based authentication.
 ---
 
 # Railway Service Management
@@ -23,12 +23,13 @@ railway deployment list --json
 ```
 
 The script automatically:
-- Verifies RAILWAY_TOKEN is configured
+- Verifies RAILWAY_API_TOKEN is configured
+- Logs in to Railway using `railway login`
 - Identifies the correct environment (PR or production)
-- Links to service: yoto-smart-stream
+- Links to project: yoto, service: yoto-smart-stream
 - Configures Railway CLI for immediate use
 
-**For detailed instructions**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-token-only-mode)
+**For detailed instructions**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-railway_api_token-mode)
 
 ## Quick Start
 

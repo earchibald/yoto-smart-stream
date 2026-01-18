@@ -195,51 +195,53 @@ railway whoami
 # 4. Add to GitHub Secrets as RAILWAY_TOKEN
 ```
 
-## Cloud Agent Authentication (Token-Only Mode)
+## Cloud Agent Authentication (RAILWAY_API_TOKEN Mode)
 
 ### Overview
 
-**Cloud Agents** (e.g., GitHub Copilot Workspace) cannot use interactive `railway login` but can use Railway CLI with the `RAILWAY_TOKEN` environment variable. This provides full CLI functionality without browser authentication.
+**Cloud Agents** (e.g., GitHub Copilot Workspace) use `RAILWAY_API_TOKEN` for authentication. The Railway CLI automatically detects this token and uses it for authentication via `railway login`.
 
 **Key Points:**
-- ❌ No `railway login` (interactive browser login unavailable)
-- ✅ All commands work with `RAILWAY_TOKEN` environment variable
-- ✅ `RAILWAY_TOKEN` must be configured in Cloud Agent environment
+- ✅ Use `railway login` (automatically detects `RAILWAY_API_TOKEN`)
+- ✅ Full CLI functionality with `RAILWAY_API_TOKEN` environment variable
+- ✅ `RAILWAY_API_TOKEN` must be configured in Cloud Agent environment
 - ⚠️ Token must have appropriate project/environment permissions
+
+### Local User Setup (One-time)
+
+**Step 1: Login to Railway locally**
+
+```bash
+# Browserless login (displays link to copy/paste)
+railway login --browserless
+# Click the displayed link, approve, and authenticate via GitHub OAuth in browser
+```
+
+**Step 2: Send RAILWAY_API_TOKEN to GitHub Secrets**
+
+```bash
+# Extract token from Railway config and set as GitHub Secret for copilot environment
+gh secret set --env copilot RAILWAY_API_TOKEN --body="$(jq -r '.user.token' ~/.railway/config.json)"
+```
 
 ### Quick Start for Cloud Agents
 
-**Step 1: Verify Railway token**
+**Step 1: Login to Railway**
 
 ```bash
-# Check that RAILWAY_TOKEN is set
-if [ -z "$RAILWAY_TOKEN" ]; then
-  echo "❌ RAILWAY_TOKEN not configured"
-  exit 1
-fi
-
-echo "✅ RAILWAY_TOKEN is set"
+# RAILWAY_API_TOKEN is automatically detected and used
+railway login
 ```
 
-**Step 2: Verify authentication**
+**Step 2: Link project, service, and environment**
 
 ```bash
-# Check Railway CLI version
-railway --version
+# Link to project, service, and environment in one command
+railway link --project yoto --service yoto-smart-stream --environment yoto-smart-stream-pr-88
 
-# Test authentication
-railway whoami
-```
-
-**Step 3: Link service and environment**
-
-```bash
-# For this project, use these exact values:
+# Or link separately:
 railway service link yoto-smart-stream
-
-# For PR environments, link to the PR environment name
-# Environment name format: pr-{NUMBER} (e.g., pr-86, pr-123)
-railway environment link pr-86
+railway environment link yoto-smart-stream-pr-88
 
 # Verify linking
 railway status --json

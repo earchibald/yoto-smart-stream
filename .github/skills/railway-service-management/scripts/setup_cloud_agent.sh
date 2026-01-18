@@ -7,26 +7,31 @@ set -e
 echo "🚀 Railway CLI Cloud Agent Setup"
 echo ""
 
-# 1. Verify RAILWAY_TOKEN is set
-if [ -z "$RAILWAY_TOKEN" ]; then
-  echo "❌ Error: RAILWAY_TOKEN not set"
-  echo "Cloud Agent environment must have RAILWAY_TOKEN configured"
+# 1. Verify RAILWAY_API_TOKEN is set
+if [ -z "$RAILWAY_API_TOKEN" ]; then
+  echo "❌ Error: RAILWAY_API_TOKEN not set"
+  echo "Cloud Agent environment must have RAILWAY_API_TOKEN configured"
   echo ""
-  echo "Expected: RAILWAY_TOKEN environment variable"
-  echo "Found: $(env | grep '^RAILWAY_TOKEN' | cut -d= -f1 | tr '\n' ', ' | sed 's/,$//')"
+  echo "Expected: RAILWAY_API_TOKEN environment variable"
   exit 1
 fi
 
-echo "✅ RAILWAY_TOKEN is set"
+echo "✅ RAILWAY_API_TOKEN is set"
 
-# 2. Auto-detect environment from GitHub context
+# 2. Login to Railway (automatically uses RAILWAY_API_TOKEN)
+echo ""
+echo "🔐 Logging in to Railway..."
+railway login
+echo "✅ Logged in to Railway"
+
+# 3. Auto-detect environment from GitHub context
 if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]]; then
   PR_NUMBER="${BASH_REMATCH[1]}"
-  ENV_NAME="pr-${PR_NUMBER}"
+  ENV_NAME="yoto-smart-stream-pr-${PR_NUMBER}"
   echo "📋 Detected PR #${PR_NUMBER} → Environment: ${ENV_NAME}"
 elif [[ "$GITHUB_REF_NAME" =~ pr-([0-9]+) ]]; then
   PR_NUMBER="${BASH_REMATCH[1]}"
-  ENV_NAME="pr-${PR_NUMBER}"
+  ENV_NAME="yoto-smart-stream-pr-${PR_NUMBER}"
   echo "📋 Detected PR #${PR_NUMBER} from branch → Environment: ${ENV_NAME}"
 elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
   ENV_NAME="production"
@@ -36,15 +41,10 @@ else
   echo "📋 Using default → Environment: ${ENV_NAME}"
 fi
 
-# 3. Link service
+# 4. Link project, service, and environment
 echo ""
-echo "🔗 Linking to service: yoto-smart-stream"
-railway service link yoto-smart-stream 2>&1 | head -3 || echo "⚠️  May already be linked"
-
-# 4. Link environment
-echo ""
-echo "🔗 Linking to environment: ${ENV_NAME}"
-railway environment link "$ENV_NAME" 2>&1 | head -3 || echo "⚠️  May already be linked"
+echo "🔗 Linking to project: yoto, service: yoto-smart-stream, environment: ${ENV_NAME}"
+railway link --project yoto --service yoto-smart-stream --environment "$ENV_NAME"
 
 # 5. Verify setup
 echo ""
