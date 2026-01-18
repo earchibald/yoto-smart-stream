@@ -53,6 +53,9 @@ from aws_cdk import (
     aws_s3 as s3,
 )
 from aws_cdk import (
+    aws_s3_deployment as s3_deployment,
+)
+from aws_cdk import (
     aws_sns as sns,
 )
 from aws_cdk import (
@@ -94,6 +97,9 @@ class YotoSmartStreamStack(Stack):
         self.ui_bucket = self._create_ui_bucket()
         self.lambda_function = self._create_lambda_function(yoto_client_id)
         self.api_gateway = self._create_api_gateway()
+
+        # Deploy static files to S3
+        self._deploy_static_files()
 
         # Update Lambda PUBLIC_URL now that API Gateway is created
         self.lambda_function.add_environment(
@@ -313,6 +319,24 @@ class YotoSmartStreamStack(Stack):
 
         CfnOutput(self, "UIBucketName", value=bucket.bucket_name)
         return bucket
+
+    def _deploy_static_files(self) -> s3_deployment.BucketDeployment:
+        """Deploy static files (HTML, CSS, JS) to S3 UI bucket"""
+        deployment = s3_deployment.BucketDeployment(
+            self,
+            "StaticFilesDeployment",
+            sources=[
+                s3_deployment.Source.asset("../../yoto_smart_stream/static")
+            ],
+            destination_bucket=self.ui_bucket,
+            cache_control=[
+                s3_deployment.CacheControl.max_age(Duration.hours(1)),
+                s3_deployment.CacheControl.must_revalidate(),
+            ],
+            prune=True,  # Remove old files not in source
+        )
+        
+        return deployment
 
     def _create_lambda_function(self, yoto_client_id: Optional[str]) -> lambda_.Function:
         """Create Lambda function for API"""
