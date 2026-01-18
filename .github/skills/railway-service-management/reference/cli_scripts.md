@@ -1,5 +1,15 @@
 # Railway CLI & Automation Scripts
 
+## Table of Contents
+
+- [Railway MCP Server](#railway-mcp-server)
+- [Railway CLI Installation](#railway-cli-installation)
+- [Authentication](#authentication)
+- [Essential Commands](#essential-commands)
+- [Automation Scripts](#automation-scripts)
+- [Makefile for Common Tasks](#makefile-for-common-tasks)
+- [Best Practices](#best-practices)
+
 ## Overview
 
 This guide covers the Railway CLI, Railway MCP Server, common commands, and automation scripts for managing Railway deployments efficiently.
@@ -295,6 +305,8 @@ railway up -e staging
 
 ### Logs
 
+**ALWAYS prefer filtering logs for efficiency when using Railway CLI.**
+
 ```bash
 # Stream logs
 railway logs
@@ -308,15 +320,57 @@ railway logs -s web -e production
 # Follow logs (continuous)
 railway logs -e production --follow
 
-# Filter logs
-railway logs -e production --filter "ERROR"
-railway logs -e production --filter "request_id"
-
 # Tail last N lines
 railway logs -e production --tail 100
 
 # Logs for specific deployment
 railway logs --deployment [DEPLOYMENT_ID]
+
+# Show deployment/build logs
+railway logs --deployment  # Show deployment logs
+railway logs --build       # Show build logs
+```
+
+#### Railway Log Filter Syntax
+
+Railway supports powerful filter syntax for querying logs:
+
+**Filter Operators:**
+- `"<search term>"` - Filter for partial substring match
+- `@attribute:value` - Filter by custom attribute
+- `@level:error` - Filter by error level
+- `@level:warn` - Filter by warning level  
+- `@level:info` - Filter by info level
+- `@level:debug` - Filter by debug level
+- `AND`, `OR` - Combine filters
+- `-` - NOT operator (exclude)
+
+**Common Examples:**
+
+```bash
+# Find logs with error level
+railway logs --filter "@level:error"
+
+# Find error logs containing specific text
+railway logs --filter "@level:error AND \"failed to connect\""
+
+# Find logs containing a substring
+railway logs --filter "\"POST /api\""
+railway logs --filter "\"uvicorn\" OR \"startup\""
+
+# Exclude specific level
+railway logs --filter "-@level:debug"
+
+# Stream latest deployment logs (even if failed/building)
+railway logs --latest --json
+# After timeout, send ^C to exit
+
+# By time
+railway logs --since "1h" --json
+railway logs --since "30m" --json
+
+# By number of lines
+railway logs --lines 100 --json
 ```
 
 ### Database Access

@@ -1,5 +1,22 @@
 # Configuration Management for Railway
 
+## Table of Contents
+
+- [Configuration Hierarchy](#configuration-hierarchy)
+- [Railway-Provided Variables](#railway-provided-variables)
+- [Configuration Patterns](#configuration-patterns)
+- [Setting Variables in Railway](#setting-variables-in-railway)
+- [Reference Variables](#reference-variables)
+- [Configuration Files](#configuration-files)
+  - [railway.toml](#railwaytoml)
+  - [railpack.json](#railpackjson)
+  - [.env.example](#envexample)
+- [Environment-Specific Variables](#environment-specific-variables)
+- [Feature Flags](#feature-flags)
+- [Configuration Validation](#configuration-validation)
+- [Configuration Updates](#configuration-updates)
+- [Best Practices](#best-practices)
+
 ## Overview
 
 Effective configuration management is crucial for maintaining multiple environments and ensuring secure, consistent deployments. This guide covers environment variables, configuration patterns, and best practices.
@@ -358,6 +375,90 @@ mountPath = "/app/data"
 [deploy.ports]
 web = 8000
 ```
+
+### railpack.json
+
+Railpack is Railway's preferred BuildKit-based build system. It offers better build caching and performance than NIXPACKS.
+
+**Key Principle: Prefer Auto-Detection**
+
+Railpack works best when allowed to auto-detect language, runtime, and dependencies. Only add custom configuration when default behavior needs modification.
+
+**Minimal Configuration Example:**
+
+```json
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "packages": {
+    "python": "3.11"
+  },
+  "deploy": {
+    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+  }
+}
+```
+
+**Important Constraints:**
+
+1. **First input layer**: The first input of any step CANNOT have `include` or `exclude` filters
+2. **Package layering**: Python packages installed in build steps must be properly layered to deploy
+3. **Railway variables**: Railway automatically provides `$PORT` - do not override unless necessary
+4. **Auto-detection**: Railpack detects:
+   - Language provider from files (requirements.txt, package.json, etc.)
+   - Package manager (pip, npm, yarn, etc.)
+   - Runtime framework (FastAPI, Express, etc.)
+
+**Configuration Split with railway.toml:**
+
+When using both files:
+- **railpack.json**: Build and deployment logic (what to build, how to start)
+- **railway.toml**: Infrastructure concerns only (volumes, health checks, ports)
+
+**Troubleshooting Deployment Issues:**
+
+If packages aren't available at runtime:
+1. Remove custom build steps
+2. Let Railpack auto-detect the build process
+3. Only specify `startCommand` if needed
+4. Check build logs for "Successfully installed" to verify packages are being installed
+5. Check deployment logs for "command not found" errors indicating layering issues
+
+**Advanced Configuration Example:**
+
+```json
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "packages": {
+    "python": "3.11",
+    "nodejs": "20"  // If you need Node for build tools
+  },
+  "install": {
+    "steps": [
+      {
+        "command": "pip install -r requirements.txt"
+      }
+    ]
+  },
+  "build": {
+    "steps": [
+      {
+        "command": "python manage.py collectstatic --noinput"
+      }
+    ]
+  },
+  "deploy": {
+    "startCommand": "gunicorn app:app --bind 0.0.0.0:$PORT --workers 4",
+    "healthcheck": {
+      "path": "/health",
+      "timeout": 100
+    }
+  }
+}
+```
+
+**Best Practice**: Start with minimal configuration and only add custom steps if auto-detection doesn't meet your needs.
 
 ### .env.example
 

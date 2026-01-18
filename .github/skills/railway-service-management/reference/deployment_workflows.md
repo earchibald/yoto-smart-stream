@@ -1,5 +1,22 @@
 # Deployment Workflows for Railway
 
+## Table of Contents
+
+- [Quick Fixes: Env Linking + Static Cache Busting](#quick-fixes-env-linking--static-cache-busting)
+- [Railway Native PR Environments](#railway-native-pr-environments)
+- [Automated Deployment via GitHub Integration](#automated-deployment-via-github-integration)
+- [GitHub Actions Integration](#github-actions-integration)
+- [Manual Deployment Workflows](#manual-deployment-workflows)
+- [Checklist](#checklist)
+- [Database Migration Workflows](#database-migration-workflows)
+- [Rollback Workflows](#rollback-workflows)
+- [Environment-Specific Deployment Strategies](#environment-specific-deployment-strategies)
+- [Monitoring & Notifications](#monitoring--notifications)
+- [Deployment Checklist](#deployment-checklist)
+- [Railway.toml Configuration Synchronization](#railwaytoml-configuration-synchronization)
+- [GitHub Deployment Status Checks](#github-deployment-status-checks-authoritative-process)
+- [Best Practices](#best-practices)
+
 ## Overview
 
 This guide covers automated deployment workflows for Railway, including GitHub Actions integration, CI/CD pipelines, Railway's native PR Environments, and deployment automation strategies.

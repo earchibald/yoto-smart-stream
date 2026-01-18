@@ -1,103 +1,86 @@
 ---
 name: railway-service-management
-description: Specialized knowledge for managing multi-environment Railway deployments, including development branch previews, production services, and full lifecycle management. Use this when setting up Railway infrastructure, configuring multi-environment workflows, or managing Railway deployments.
+description: Specialized knowledge for managing multi-environment Railway deployments. Use when: (1) Setting up Railway projects/environments/services, (2) Configuring deployments and builds (NIXPACKS/Railpack/Dockerfile), (3) Managing Railway CLI operations and logs, (4) Implementing PR environments or branch-based workflows, (5) Troubleshooting deployment failures or health checks, (6) Managing secrets/variables across environments, (7) Optimizing Railway costs and resources, (8) Configuring databases/volumes/networking, (9) Setting up CI/CD with GitHub Actions, (10) Using Railway MCP Server tools.
 ---
 
-# Railway CLI Guidance
-**ALWAYS** apply this guidance to **EVERY** use of the railway CLI.
-- 
+# Railway Service Management
 
-# Railway CLI Commands for common tasks
+Complete guide for managing Railway.app deployments across multiple environments with automated workflows.
 
-## Get Railway Status (Detailed, JSON)
-`railway status --json`
+## Quick Start
 
-## Get Railway Logs (Detailed, JSON)
-### Deployment and Build logs options
-```
-  -d, --deployment                 Show deployment logs
-  -b, --build                      Show build logs
-```
+### Common CLI Commands
 
-### Apply Filtering (can be combined with --latest, --since or --lines)
-Railway supports custom filter syntax for querying logs:
-- **PREFER** to filter whenever possible for agent efficiency but widen search as needed
-
-#### Filter Syntax:
-- `"<search term>"` - Filter for partial substring match
-- `@attribute:value` - Filter by custom attribute
-- `@level:error` - Filter by error level
-- `@level:warn` - Filter by warning level
-- `@level:info` - Filter by info level
-- `@level:debug` - Filter by debug level
-- Combine with `AND`, `OR`, `-` (NOT)
-
-#### Common Examples:
 ```bash
-# Find logs with error level
+# Check deployment status
+railway status --json
+
+# View filtered logs (prefer filtering for efficiency)
 railway logs --filter "@level:error"
+railway logs --filter "\"uvicorn\" OR \"startup\""
 
-# Find error logs containing specific text
-railway logs --filter "@level:error AND \"failed to connect\""
-
-# Find logs containing a substring
-railway logs --filter "\"POST /api\""
-
-# Exclude specific level
-railway logs --filter "-@level:debug"
+# Link workspace to environment
+railway link --project <project_id>
+railway environment --environment develop
 ```
 
-### **Stream** latest deployment logs (even if failed/building)
-`railway logs --latest --json`
-- After the desired timeout, send `^C` to exit
+**For complete CLI reference and Railway MCP Server usage**: See [cli_scripts.md](reference/cli_scripts.md)
 
-### By Time
-`railway logs --since "$DURATION_GDATE_SYNTAX" --json`
+## Essential Workflows
 
-### By Number of Lines
-`railway logs --lines $NUM_LINES --json`
+### 1. Deployment Configuration
 
-# Railpack Configuration Best Practices
-
-## Key Learnings from Production Deployments
-
-### Auto-Detection vs Custom Steps
-- **PREFER auto-detection**: Railpack works best when allowed to auto-detect language, runtime, and dependencies
-- Only add custom configuration when default behavior needs modification
-- Custom steps can interfere with proper package layering
-
-### Minimal Configuration Example
+**Railpack** (preferred build system):
 ```json
 {
   "$schema": "https://schema.railpack.com",
   "provider": "python",
-  "packages": {
-    "python": "3.11"
-  },
-  "deploy": {
-    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
-  }
+  "packages": {"python": "3.11"},
+  "deploy": {"startCommand": "uvicorn app:main --host 0.0.0.0 --port $PORT"}
 }
 ```
 
-### Important Constraints
-1. **First input layer**: The first input of any step CANNOT have `include` or `exclude` filters
-2. **Package layering**: Python packages installed in build steps must be properly layered to deploy
-3. **Railway variables**: Railway automatically provides `$PORT` - do not override unless necessary
-4. **Auto-detection**: Railpack detects:
-   - Language provider from files (requirements.txt, package.json, etc.)
-   - Package manager (pip, npm, yarn, etc.)
-   - Runtime framework (FastAPI, Express, etc.)
+**Key principle**: Prefer auto-detection over custom steps. Only configure what needs to differ from defaults.
 
-### Configuration Split
-When using both `railpack.json` and `railway.toml`:
-- **railpack.json**: Build and deployment logic
-- **railway.toml**: Infrastructure concerns only (volumes, health checks)
+**For detailed build configuration**: See [configuration_management.md](reference/configuration_management.md)
 
-### Troubleshooting Deployment Issues
-If packages aren't available at runtime:
-1. Remove custom build steps
-2. Let Railpack auto-detect the build process
-3. Only specify `startCommand` if needed
-4. Check build logs for "Successfully installed" to verify packages are being installed
-5. Check deployment logs for "command not found" errors indicating layering issues
+### 2. Multi-Environment Setup
+
+Typical structure:
+- **Production** (main branch) - Customer-facing
+- **Staging** (develop branch) - Pre-production testing  
+- **PR Environments** - Automatic ephemeral environments per PR
+
+**For complete multi-environment architecture**: See [multi_environment_architecture.md](reference/multi_environment_architecture.md)
+
+### 3. Troubleshooting Deployments
+
+Common issues:
+- Health check failures → Check `railway logs --filter "@level:error"`
+- Package not found → Verify build succeeded, check layering (see configuration_management.md)
+- Environment deleted → Re-link with `railway link` and `railway environment`
+
+**For deployment workflows and CI/CD**: See [deployment_workflows.md](reference/deployment_workflows.md)
+
+## Reference Documentation
+
+Load these files as needed for detailed guidance:
+
+- **[cli_scripts.md](reference/cli_scripts.md)** - Complete Railway CLI reference, MCP Server tools, automation scripts
+- **[configuration_management.md](reference/configuration_management.md)** - Railpack, NIXPACKS, Dockerfile builds, railway.toml
+- **[deployment_workflows.md](reference/deployment_workflows.md)** - GitHub Actions, CI/CD, PR workflows, rollback strategies
+- **[multi_environment_architecture.md](reference/multi_environment_architecture.md)** - Environment setup, branch mapping, isolation patterns
+- **[secrets_management.md](reference/secrets_management.md)** - Environment variables, GitHub Secrets integration
+- **[monitoring_logging.md](reference/monitoring_logging.md)** - Log aggregation, metrics, alerting, debugging
+- **[database_services.md](reference/database_services.md)** - PostgreSQL, MySQL, Redis setup and management
+- **[pr_environments.md](reference/pr_environments.md)** - Railway's native PR environment feature
+- **[cost_optimization.md](reference/cost_optimization.md)** - Resource optimization, billing, usage monitoring
+- **[platform_fundamentals.md](reference/platform_fundamentals.md)** - Core Railway concepts, architecture, terminology
+
+## Critical Guidelines
+
+1. **Always filter logs** when using Railway CLI for efficiency
+2. **Prefer auto-detection** for build configuration (Railpack)
+3. **Use Railway MCP Server** tools when available for Railway management
+4. **Verify environment link** before CLI operations: `railway status --json`
+5. **Check health checks** are properly configured for all services
