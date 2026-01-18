@@ -301,3 +301,84 @@ async def update_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update user: {str(e)}"
         )
+
+class DeleteUserResponse(BaseModel):
+    """Response model for user deletion."""
+    success: bool
+    message: str
+
+
+@router.delete("/admin/users/{user_id}", response_model=DeleteUserResponse)
+async def delete_user(
+    user_id: int,
+    admin: UserRecord = Depends(require_admin),
+    store: DynamoStore = Depends(get_store_dep)
+):
+    """
+    Delete a user (admin only).
+    
+    Cannot delete:
+    - Yourself (the current admin)
+    - Admin users (to prevent accidental lockout)
+    
+    Args:
+        user_id: ID of the user to delete
+        admin: Current admin user
+        store: Database store
+        
+    Returns:
+        Success message
+    """
+    logger.info(f"Admin {admin.username} attempting to delete user {user_id}")
+    
+    # Get the user
+    user = store.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with id {user_id} not found"
+        )
+    
+    # Cannot delete yourself
+    if user.user_id == admin.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete yourself"
+        )
+    
+    # Cannot delete admin users (to prevent lockout)
+    if user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete admin users"
+        )
+    
+    try:
+        # Delete from Cognito if enabled
+        if USE_COGNITO:
+            cognito = get_cognito_auth()
+            if not cognito.delete_user(user.username):
+                logger.warning(f"Failed to delete user from Cognito: {cognito.last_error}")
+                # Continue anyway - DynamoDB is source of truth
+        
+        # Delete from DynamoDB
+        if not store.delete_user(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with id {user_id} not found"
+            )
+
+        logger.info(f"✓ User deleted successfully: {user.username} (id: {user_id})")
+
+        return DeleteUserResponse(
+            success=True,
+            message=f"User '{user.username}' deleted successfully"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete user: {str(e)}"
+        )

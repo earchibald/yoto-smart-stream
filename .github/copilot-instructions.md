@@ -1,6 +1,7 @@
 # GitHub Copilot Workspace Instructions
 
 ## RULES
+- In a new session or after a "Summarizing conversation" message, ALWAYS re-read this file to refresh your memory of the instructions.
 - Follow the instructions in this file when generating code or suggestions.
 - ALWAYS FOLLOW THE [STANDARD WORKFLOW](#standard-workflow) outlined below.
 - If there are conflicting instructions between this file and any other documentation, prioritize the instructions in this file.

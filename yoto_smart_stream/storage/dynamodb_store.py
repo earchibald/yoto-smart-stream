@@ -205,6 +205,22 @@ class DynamoStore:
 
         return self.get_user(user.username)
 
+    def delete_user(self, user_id: int) -> bool:
+        """Delete a user by user_id. Returns True if deleted, False if not found."""
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return False
+        
+        try:
+            self.table.delete_item(
+                Key={"PK": self._user_pk(user.username), "SK": self._user_sk()}
+            )
+            logger.info(f"Deleted user {user.username} (id: {user_id}) from DynamoDB")
+            return True
+        except Exception as exc:
+            logger.error(f"Failed to delete user {user.username}: {exc}")
+            raise
+
     def ensure_admin_user(self, hashed_password: str, email: Optional[str]) -> UserRecord:
         existing = self.get_user("admin")
         if existing:
