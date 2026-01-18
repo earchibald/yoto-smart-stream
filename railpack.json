@@ -20,7 +20,8 @@
     "build": {
       "inputs": [
         {
-          "step": "install"
+          "step": "install",
+          "include": ["."]
         }
       ],
       "commands": [
@@ -36,15 +37,12 @@
     }
   },
   "deploy": {
-    "base": {
-      "image": "ghcr.io/railwayapp/railpack-runtime:latest"
-    },
+    "startCommand": "uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT",
     "inputs": [
       {
         "step": "build",
         "include": ["."]
       }
-    ],
-    "startCommand": "uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT"
+    ]
   }
 }
