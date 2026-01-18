@@ -286,12 +286,13 @@ async def poll_auth_status(
         # Log full traceback for debugging
         logger.error(f"Auth poll exception: {e}")
         logger.error(f"Traceback: {traceback.format_exc()}")
+        logger.warning(f"🔍 [OAuth Poll] Checking error: error_msg={repr(error_msg)}, has slow_down={('slow_down' in error_msg)}, has 429={('429' in error_msg)}")
 
         # Check for common error types
         if "slow_down" in error_msg or "429" in error_msg:
             # Yoto API rate limiting - user is polling too fast
             # Return pending and let frontend increase polling interval
-            logger.debug(f"Rate limited by Yoto OAuth - user polling too fast. Returning pending.")
+            logger.warning(f"✅ Rate limited by Yoto OAuth - user polling too fast. Returning pending.")
             return AuthPollResponse(
                 status="pending",
                 message="Waiting for user to authorize...",

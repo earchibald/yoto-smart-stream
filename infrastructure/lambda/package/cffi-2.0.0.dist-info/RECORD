@@ -1,8 +1,8 @@
-_cffi_backend.cpython-313-darwin.so,sha256=-1KxR1DcwqDQ_leuIyqsFR2PeTXkXvsrrcUDOxPWdzU,212944
+_cffi_backend.cpython-312-x86_64-linux-gnu.so,sha256=AGLtw5fn9u4Cmwk3BbGlsXG7VZEvQekABMyEGuRZmcE,348808
 cffi-2.0.0.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
 cffi-2.0.0.dist-info/METADATA,sha256=uYzn40F68Im8EtXHNBLZs7FoPM-OxzyYbDWsjJvhujk,2559
 cffi-2.0.0.dist-info/RECORD,,
-cffi-2.0.0.dist-info/WHEEL,sha256=oqGJCpG61FZJmvyZ3C_0aCv-2mdfcY9e3fXvyUNmWfM,136
+cffi-2.0.0.dist-info/WHEEL,sha256=aSgG0F4rGPZtV0iTEIfy6dtHq6g67Lze3uLfk0vWn88,151
 cffi-2.0.0.dist-info/entry_points.txt,sha256=y6jTxnyeuLnL-XJcDv8uML3n6wyYiGRg8MTp_QGJ9Ho,75
 cffi-2.0.0.dist-info/licenses/AUTHORS,sha256=KmemC7-zN1nWfWRf8TG45ta8TK_CMtdR_Kw-2k0xTMg,208
 cffi-2.0.0.dist-info/licenses/LICENSE,sha256=W6JN3FcGf5JJrdZEw6_EGl1tw34jQz73Wdld83Cwr2M,1123

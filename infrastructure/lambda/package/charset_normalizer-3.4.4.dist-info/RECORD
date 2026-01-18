@@ -2,7 +2,7 @@
 charset_normalizer-3.4.4.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
 charset_normalizer-3.4.4.dist-info/METADATA,sha256=jVuUFBti8dav19YLvWissTihVdF2ozUY4KKMw7jdkBQ,37303
 charset_normalizer-3.4.4.dist-info/RECORD,,
-charset_normalizer-3.4.4.dist-info/WHEEL,sha256=YOKbiIEZep2WTRrpKV0dvEfsSeIOVH2NqduVxoKQt6I,142
+charset_normalizer-3.4.4.dist-info/WHEEL,sha256=DxRnWQz-Kp9-4a4hdDHsSv0KUC3H7sN9Nbef3-8RjXU,190
 charset_normalizer-3.4.4.dist-info/entry_points.txt,sha256=ADSTKrkXZ3hhdOVFi6DcUEHQRS0xfxDIE_pEz4wLIXA,65
 charset_normalizer-3.4.4.dist-info/licenses/LICENSE,sha256=bQ1Bv-FwrGx9wkjJpj4lTQ-0WmDVCoJX0K-SxuJJuIc,1071
 charset_normalizer-3.4.4.dist-info/top_level.txt,sha256=7ASyzePr8_xuZWJsnqJjIBtyV8vhEo0wBCv1MPRRi3Q,19
@@ -26,9 +26,9 @@ charset_normalizer/cli/__pycache__/__init__.cpython-313.pyc,,
 charset_normalizer/cli/__pycache__/__main__.cpython-313.pyc,,
 charset_normalizer/constant.py,sha256=7UVY4ldYhmQMHUdgQ_sgZmzcQ0xxYxpBunqSZ-XJZ8U,42713
 charset_normalizer/legacy.py,sha256=sYBzSpzsRrg_wF4LP536pG64BItw7Tqtc3SMQAHvFLM,2731
-charset_normalizer/md.cpython-313-darwin.so,sha256=cbNSgb0QFQ0qlpLT-kP0E534Gz4BVed125B_W4INdko,66592
+charset_normalizer/md.cpython-312-x86_64-linux-gnu.so,sha256=sZ7umtJLjKfA83NFJ7npkiDyr06zDT8cWtl6uIx2MsM,15912
 charset_normalizer/md.py,sha256=-_oN3h3_X99nkFfqamD3yu45DC_wfk5odH0Tr_CQiXs,20145
-charset_normalizer/md__mypyc.cpython-313-darwin.so,sha256=0wp6BVLM2UhA7LJYHhN3XPemmGag4JfnD-46xu9cuhc,502424
+charset_normalizer/md__mypyc.cpython-312-x86_64-linux-gnu.so,sha256=J2WWgLBQiO8sqdFsENp9u5V9uEH0tTwvTLszPdqhsv0,290584
 charset_normalizer/models.py,sha256=lKXhOnIPtiakbK3i__J9wpOfzx3JDTKj7Dn3Rg0VaRI,12394
 charset_normalizer/py.typed,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
 charset_normalizer/utils.py,sha256=sTejPgrdlNsKNucZfJCxJ95lMTLA0ShHLLE3n5wpT9Q,12170
