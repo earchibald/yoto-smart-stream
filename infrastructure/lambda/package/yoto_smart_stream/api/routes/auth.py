@@ -265,12 +265,6 @@ async def poll_auth_status(
         else:
             logger.error("No refresh token available after authentication!")
 
-        # Update player status
-        try:
-            client.update_player_status()
-        except Exception as e:
-            logger.warning(f"Failed to update player status: {e}")
-
         logger.info("Authentication successful!")
 
         return AuthPollResponse(
