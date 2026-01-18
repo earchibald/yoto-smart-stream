@@ -164,7 +164,7 @@ async function loadAudioFiles() {
             const transcriptBadge = getTranscriptBadge(file);
             
             return `
-                <div class="list-item">
+                <div class="list-item" data-filename="${escapeHtml(file.filename)}">
                     <div class="list-item-header">
                         <span class="list-item-title">
                             🎵 ${escapeHtml(file.filename)}
@@ -178,6 +178,9 @@ async function loadAudioFiles() {
                             <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
                                 📋
                             </button>
+                            ${!file.is_static ? `<button class="control-btn control-btn-danger" onclick="deleteAudioFile('${escapeHtml(file.filename)}', event)" title="Delete Audio File">
+                                🗑️
+                            </button>` : ''}
                         </div>
                         <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
                             <source src="${escapeHtml(file.url)}" type="audio/mpeg">
@@ -338,6 +341,55 @@ async function copyAudioUrl(url, event) {
         document.execCommand('copy');
         document.body.removeChild(textarea);
         alert('URL copied to clipboard!');
+    }
+}
+
+// Delete audio file
+async function deleteAudioFile(filename, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete "${filename}"?\n\nThis will permanently remove:\n• The audio file from storage\n• All associated metadata and transcripts\n\nThis action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || `Failed to delete file: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        // Remove the file item from the UI with animation
+        const fileItem = document.querySelector(`[data-filename="${CSS.escape(filename)}"]`);
+        if (fileItem) {
+            fileItem.style.opacity = '0.5';
+            fileItem.style.transition = 'opacity 0.3s ease-out';
+            setTimeout(() => {
+                fileItem.remove();
+                
+                // Check if list is empty
+                const container = document.getElementById('audio-list');
+                const remainingItems = container.querySelectorAll('.list-item');
+                if (remainingItems.length === 0) {
+                    container.innerHTML = '<p class="loading">No audio files found. Add MP3 files to the audio_files directory or generate TTS audio below.</p>';
+                }
+            }, 300);
+        }
+        
+        // Show success message
+        alert(`✓ Successfully deleted "${filename}"`);
+        
+    } catch (error) {
+        console.error('Error deleting audio file:', error);
+        alert(`Failed to delete audio file: ${error.message}`);
     }
 }
 

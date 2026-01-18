@@ -578,6 +578,19 @@ header h2 {
     border-color: #5a67d8;
 }
 
+.control-btn.control-btn-danger {
+    background: #fee;
+    color: #c53030;
+    border-color: #fc8181;
+}
+
+.control-btn.control-btn-danger:hover:not(:disabled) {
+    background: #c53030;
+    color: white;
+    border-color: #c53030;
+    box-shadow: 0 2px 4px rgba(197, 48, 48, 0.3);
+}
+
 .volume-control {
     display: flex;
     align-items: center;

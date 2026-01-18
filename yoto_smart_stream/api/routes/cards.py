@@ -599,6 +599,65 @@ async def stream_audio(filename: str):
     )
 
 
+@router.delete("/audio/{filename}")
+async def delete_audio_file(
+    filename: str, user: User = Depends(require_auth), db: Session = Depends(get_db)
+):
+    """
+    Delete an audio file from storage and database.
+
+    This permanently removes:
+    - The audio file from storage (S3 bucket or local filesystem)
+    - The database record including transcripts and metadata
+
+    Args:
+        filename: Audio filename to delete (e.g., 'story.mp3')
+
+    Returns:
+        Success message with deletion details
+    """
+    from ...core.audio_db import delete_audio_file as delete_audio_record
+
+    settings = get_settings()
+    storage = settings.get_storage()
+
+    # Check if file exists in storage
+    if not await storage.exists(filename):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file not found: {filename}"
+        )
+
+    try:
+        # Delete from storage (S3 or local)
+        deleted_from_storage = await storage.delete(filename)
+
+        if not deleted_from_storage:
+            logger.warning(f"Failed to delete {filename} from storage, but continuing with DB cleanup")
+
+        # Delete from database (including transcripts)
+        deleted_from_db = delete_audio_record(db, filename)
+
+        if deleted_from_storage:
+            logger.info(f"✓ Deleted audio file: {filename} (storage + database)")
+        else:
+            logger.info(f"⚠ Deleted audio file: {filename} (database only, storage deletion failed)")
+
+        return {
+            "success": True,
+            "filename": filename,
+            "deleted_from_storage": deleted_from_storage,
+            "deleted_from_database": deleted_from_db,
+            "message": f"Successfully deleted {filename}",
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to delete audio file {filename}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete audio file: {str(e)}",
+        ) from e
+
+
 # Card creation endpoints
 @router.post("/cards/create-streaming")
 async def create_streaming_card(request: CreateCardRequest, user: User = Depends(require_auth)):

@@ -109,3 +109,27 @@ def get_audio_file_by_filename(db: Session, filename: str) -> Optional[AudioFile
         AudioFile instance or None if not found
     """
     return db.query(AudioFile).filter(AudioFile.filename == filename).first()
+
+
+def delete_audio_file(db: Session, filename: str) -> bool:
+    """
+    Delete AudioFile record and its transcript.
+
+    Args:
+        db: Database session
+        filename: Audio filename
+
+    Returns:
+        True if deleted, False if not found
+    """
+    audio_file = db.query(AudioFile).filter(AudioFile.filename == filename).first()
+
+    if not audio_file:
+        logger.warning(f"AudioFile record not found for deletion: {filename}")
+        return False
+
+    db.delete(audio_file)
+    db.commit()
+
+    logger.info(f"Deleted AudioFile record: {filename}")
+    return True
