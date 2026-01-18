@@ -30,3 +30,4 @@ repos:
       - id: mypy
         additional_dependencies: [pydantic>=2.0.0]
         args: [--ignore-missing-imports]
+        exclude: ^infrastructure/lambda/package/
