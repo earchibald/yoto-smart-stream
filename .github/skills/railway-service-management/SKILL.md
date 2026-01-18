@@ -7,6 +7,41 @@ description: Specialized knowledge for managing multi-environment Railway deploy
 
 Complete guide for managing Railway.app deployments across multiple environments with automated workflows.
 
+## Quick Start for Cloud Agents
+
+**IMPORTANT:** If you're a Cloud Agent (GitHub Copilot Workspace), start here:
+
+```bash
+# 1. Set up RAILWAY_TOKEN (auto-detect from RAILWAY_TOKEN_XX if needed)
+if [ -z "$RAILWAY_TOKEN" ]; then
+  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1); do
+    export RAILWAY_TOKEN="${!var}"
+    echo "✅ Using $var as RAILWAY_TOKEN"
+    break
+  done
+fi
+
+# 2. Link to this project's service
+railway service link yoto-smart-stream
+
+# 3. Auto-detect and link to environment (PR or production)
+if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]]; then
+  ENV="pr-${BASH_REMATCH[1]}"
+elif [[ "$GITHUB_REF_NAME" =~ pr-([0-9]+) ]]; then
+  ENV="pr-${BASH_REMATCH[1]}"
+else
+  ENV="production"
+fi
+railway environment link "$ENV"
+
+# 4. Verify setup and use Railway commands
+railway status --json
+railway logs --lines 50 --filter "@level:error" --json
+railway var list --json
+```
+
+**Full setup script and documentation**: [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-token-only-mode) in cli_scripts.md
+
 ## Quick Start
 
 ### Common CLI Commands
@@ -25,8 +60,6 @@ railway environment --environment develop
 ```
 
 **For complete CLI reference and Railway MCP Server usage**: See [cli_scripts.md](reference/cli_scripts.md)
-
-**For Cloud Agent (token-only) usage**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-token-only-mode) in cli_scripts.md
 
 ## Essential Workflows
 
@@ -50,7 +83,7 @@ railway environment --environment develop
 
 Typical structure:
 - **Production** (main branch) - Customer-facing
-- **Staging** (develop branch) - Pre-production testing  
+- **Staging** (develop branch) - Pre-production testing
 - **PR Environments** - Automatic ephemeral environments per PR
 
 **For complete multi-environment architecture**: See [multi_environment_architecture.md](reference/multi_environment_architecture.md)
