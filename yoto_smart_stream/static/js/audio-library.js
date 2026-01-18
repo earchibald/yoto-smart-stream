@@ -349,11 +349,56 @@ async function deleteAudioFile(filename, event) {
     event.preventDefault();
     event.stopPropagation();
     
-    // Confirm deletion
-    if (!confirm(`Are you sure you want to delete "${filename}"?\n\nThis will permanently remove:\n• The audio file from storage\n• All associated metadata and transcripts\n\nThis action cannot be undone.`)) {
-        return;
+    // Show confirmation modal
+    showDeleteConfirmModal(filename);
+}
+
+function showDeleteConfirmModal(filename) {
+    const modal = document.getElementById('deleteConfirmModal');
+    const message = document.getElementById('deleteConfirmMessage');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    
+    message.textContent = `Are you sure you want to delete "${filename}"?`;
+    
+    // Remove any existing event listeners
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    // Add click handler for confirm button
+    newConfirmBtn.onclick = async () => {
+        closeDeleteConfirmModal();
+        await performDelete(filename);
+    };
+    
+    // Setup keyboard handlers
+    const keyHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeDeleteConfirmModal();
+        }
+    };
+    modal.dataset.keyHandler = keyHandler;
+    document.addEventListener('keydown', keyHandler);
+    
+    // Show modal
+    modal.style.display = 'flex';
+    
+    // Focus the confirm button
+    setTimeout(() => newConfirmBtn.focus(), 100);
+}
+
+function closeDeleteConfirmModal() {
+    const modal = document.getElementById('deleteConfirmModal');
+    
+    // Remove keyboard handler
+    if (modal.dataset.keyHandler) {
+        document.removeEventListener('keydown', modal.dataset.keyHandler);
+        delete modal.dataset.keyHandler;
     }
     
+    modal.style.display = 'none';
+}
+
+async function performDelete(filename) {
     try {
         const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}`, {
             method: 'DELETE',
@@ -385,12 +430,60 @@ async function deleteAudioFile(filename, event) {
         }
         
         // Show success message
-        alert(`✓ Successfully deleted "${filename}"`);
+        showResultMessage('success', '✓ File Deleted', `Successfully deleted "${filename}"`);
         
     } catch (error) {
         console.error('Error deleting audio file:', error);
-        alert(`Failed to delete audio file: ${error.message}`);
+        showResultMessage('error', '❌ Deletion Failed', `Failed to delete audio file: ${error.message}`);
     }
+}
+
+function showResultMessage(type, title, message) {
+    const modal = document.getElementById('resultMessageModal');
+    const header = document.getElementById('resultModalHeader');
+    const titleEl = document.getElementById('resultModalTitle');
+    const messageEl = document.getElementById('resultModalMessage');
+    
+    // Set content
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    
+    // Set header color based on type
+    if (type === 'success') {
+        header.style.background = 'linear-gradient(135deg, #38a169 0%, #2f855a 100%)';
+    } else if (type === 'error') {
+        header.style.background = 'linear-gradient(135deg, #c53030 0%, #9b2c2c 100%)';
+    } else {
+        header.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    }
+    
+    // Setup keyboard handlers
+    const keyHandler = (e) => {
+        if (e.key === 'Escape' || e.key === 'Enter') {
+            closeResultMessageModal();
+        }
+    };
+    modal.dataset.keyHandler = keyHandler;
+    document.addEventListener('keydown', keyHandler);
+    
+    // Show modal
+    modal.style.display = 'flex';
+    
+    // Focus the OK button
+    const okBtn = modal.querySelector('.btn-primary');
+    setTimeout(() => okBtn?.focus(), 100);
+}
+
+function closeResultMessageModal() {
+    const modal = document.getElementById('resultMessageModal');
+    
+    // Remove keyboard handler
+    if (modal.dataset.keyHandler) {
+        document.removeEventListener('keydown', modal.dataset.keyHandler);
+        delete modal.dataset.keyHandler;
+    }
+    
+    modal.style.display = 'none';
 }
 
 // TTS Generator Functions

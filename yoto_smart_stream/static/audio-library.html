@@ -368,6 +368,45 @@
         </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #c53030 0%, #9b2c2c 100%);">
+                <h3>⚠️ Confirm Deletion</h3>
+                <span class="modal-close" onclick="closeDeleteConfirmModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="deleteConfirmMessage" style="margin-bottom: 1rem; font-size: 1rem;"></p>
+                <p style="margin-bottom: 0.5rem; color: #c53030; font-weight: 600;">This will permanently remove:</p>
+                <ul style="margin: 0.5rem 0 1rem 1.5rem; color: #666;">
+                    <li>The audio file from storage</li>
+                    <li>All associated metadata and transcripts</li>
+                </ul>
+                <p style="margin: 0; color: #c53030; font-weight: 600;">⚠️ This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end; padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0;">
+                <button class="btn-secondary" onclick="closeDeleteConfirmModal()">Cancel</button>
+                <button id="confirmDeleteBtn" class="btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Message Modal -->
+    <div id="resultMessageModal" class="modal">
+        <div class="modal-content" style="max-width: 450px;">
+            <div id="resultModalHeader" class="modal-header">
+                <h3 id="resultModalTitle"></h3>
+                <span class="modal-close" onclick="closeResultMessageModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="resultModalMessage" style="margin: 0; font-size: 1rem;"></p>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0;">
+                <button class="btn-primary" onclick="closeResultMessageModal()" style="min-width: 80px;">OK</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/mqtt-analyzer.js"></script>
     <script src="/static/js/audio-library.js"></script>    <script>
         // Hide admin nav for non-admin users
