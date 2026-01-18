@@ -200,12 +200,18 @@ class DynamoStore:
 
         update_clause = ", ".join(update_expr + ["updated_at = :updated_at"])
 
-        self.table.update_item(
-            Key={"PK": self._user_pk(user.username), "SK": self._user_sk()},
-            UpdateExpression=f"SET {update_clause}",
-            ExpressionAttributeValues=expr_values,
-            ExpressionAttributeNames=expr_names if expr_names else None,
-        )
+        # Build update_item arguments
+        update_args = {
+            "Key": {"PK": self._user_pk(user.username), "SK": self._user_sk()},
+            "UpdateExpression": f"SET {update_clause}",
+            "ExpressionAttributeValues": expr_values,
+        }
+        
+        # Only include ExpressionAttributeNames if we have any
+        if expr_names:
+            update_args["ExpressionAttributeNames"] = expr_names
+        
+        self.table.update_item(**update_args)
 
         return self.get_user(user.username)
 
