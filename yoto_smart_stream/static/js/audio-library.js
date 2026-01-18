@@ -403,7 +403,9 @@ function closeDeleteConfirmModal() {
         deleteConfirmKeyHandler = null;
     }
     
-    modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 async function performDelete(filename) {
@@ -495,7 +497,9 @@ function closeResultMessageModal() {
         resultMessageKeyHandler = null;
     }
     
-    modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 // TTS Generator Functions
