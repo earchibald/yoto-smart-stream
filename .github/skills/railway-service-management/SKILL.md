@@ -23,7 +23,7 @@ railway deployment list --json
 ```
 
 The script automatically:
-- Detects RAILWAY_TOKEN from RAILWAY_TOKEN_XX variables
+- Verifies RAILWAY_TOKEN is configured
 - Identifies the correct environment (PR or production)
 - Links to service: yoto-smart-stream
 - Configures Railway CLI for immediate use

@@ -7,21 +7,17 @@ set -e
 echo "🚀 Railway CLI Cloud Agent Setup"
 echo ""
 
-# 1. Auto-detect and set RAILWAY_TOKEN from RAILWAY_TOKEN_XX variables
+# 1. Verify RAILWAY_TOKEN is set
 if [ -z "$RAILWAY_TOKEN" ]; then
-  echo "🔍 RAILWAY_TOKEN not set, checking for PR-specific tokens..."
-  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1 2>/dev/null); do
-    export RAILWAY_TOKEN="${!var}"
-    echo "✅ Using $var as RAILWAY_TOKEN"
-    break
-  done
-fi
-
-if [ -z "$RAILWAY_TOKEN" ]; then
-  echo "❌ Error: No Railway token found"
-  echo "Expected RAILWAY_TOKEN or RAILWAY_TOKEN_XX environment variable"
+  echo "❌ Error: RAILWAY_TOKEN not set"
+  echo "Cloud Agent environment must have RAILWAY_TOKEN configured"
+  echo ""
+  echo "Expected: RAILWAY_TOKEN environment variable"
+  echo "Found: $(env | grep '^RAILWAY_TOKEN' | cut -d= -f1 | tr '\n' ', ' | sed 's/,$//')"
   exit 1
 fi
+
+echo "✅ RAILWAY_TOKEN is set"
 
 # 2. Auto-detect environment from GitHub context
 if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]]; then
@@ -36,20 +32,8 @@ elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
   ENV_NAME="production"
   echo "📋 Detected main branch → Environment: ${ENV_NAME}"
 else
-  # Try to extract from token variable name
-  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1 2>/dev/null); do
-    if [[ "$var" =~ RAILWAY_TOKEN_([0-9]+) ]]; then
-      PR_NUMBER="${BASH_REMATCH[1]}"
-      ENV_NAME="pr-${PR_NUMBER}"
-      echo "📋 Detected PR #${PR_NUMBER} from token → Environment: ${ENV_NAME}"
-      break
-    fi
-  done
-
-  if [ -z "$ENV_NAME" ]; then
-    ENV_NAME="production"
-    echo "📋 Using default → Environment: ${ENV_NAME}"
-  fi
+  ENV_NAME="production"
+  echo "📋 Using default → Environment: ${ENV_NAME}"
 fi
 
 # 3. Link service

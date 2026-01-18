@@ -204,62 +204,21 @@ railway whoami
 **Key Points:**
 - ❌ No `railway login` (interactive browser login unavailable)
 - ✅ All commands work with `RAILWAY_TOKEN` environment variable
-- ✅ Token is automatically available in Cloud Agent sessions (may be named `RAILWAY_TOKEN_XX` for PR environments)
+- ✅ `RAILWAY_TOKEN` must be configured in Cloud Agent environment
 - ⚠️ Token must have appropriate project/environment permissions
-
-### Token Resolution for Cloud Agents
-
-Railway tokens may be provided with different variable names depending on context:
-
-```bash
-# Generic token (most common)
-export RAILWAY_TOKEN="${RAILWAY_TOKEN}"
-
-# PR-specific token (e.g., PR #86 uses RAILWAY_TOKEN_86)
-# If RAILWAY_TOKEN is not set, check for PR-specific token
-if [ -z "$RAILWAY_TOKEN" ]; then
-  # Extract PR number from GitHub context
-  if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]] || \
-     [[ "$GITHUB_REF" =~ refs/heads/copilot.*-([0-9]+) ]]; then
-    PR_NUM="${BASH_REMATCH[1]}"
-    PR_TOKEN_VAR="RAILWAY_TOKEN_${PR_NUM}"
-
-    # Use PR-specific token if available
-    if [ -n "${!PR_TOKEN_VAR}" ]; then
-      export RAILWAY_TOKEN="${!PR_TOKEN_VAR}"
-      echo "✅ Using ${PR_TOKEN_VAR} for Railway authentication"
-    fi
-  fi
-fi
-
-# Verify token is now set
-if [ -z "$RAILWAY_TOKEN" ]; then
-  echo "❌ Error: No Railway token found"
-  echo "Expected RAILWAY_TOKEN or RAILWAY_TOKEN_XX environment variable"
-  exit 1
-fi
-```
 
 ### Quick Start for Cloud Agents
 
-**Step 1: Set up Railway token**
+**Step 1: Verify Railway token**
 
 ```bash
-# Auto-detect and set RAILWAY_TOKEN from available tokens
+# Check that RAILWAY_TOKEN is set
 if [ -z "$RAILWAY_TOKEN" ]; then
-  # Check for PR-specific token (RAILWAY_TOKEN_86, etc.)
-  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1); do
-    export RAILWAY_TOKEN="${!var}"
-    echo "✅ Using $var as RAILWAY_TOKEN"
-    break
-  done
-fi
-
-# Verify
-if [ -z "$RAILWAY_TOKEN" ]; then
-  echo "❌ No Railway token available"
+  echo "❌ RAILWAY_TOKEN not configured"
   exit 1
 fi
+
+echo "✅ RAILWAY_TOKEN is set"
 ```
 
 **Step 2: Verify authentication**
@@ -296,22 +255,10 @@ Copy and run this script at the start of your session:
 
 echo "🔧 Setting up Railway CLI for Cloud Agent..."
 
-# 1. Auto-detect and set RAILWAY_TOKEN
+# 1. Verify RAILWAY_TOKEN is set
 if [ -z "$RAILWAY_TOKEN" ]; then
-  echo "🔍 RAILWAY_TOKEN not set, checking for PR-specific tokens..."
-
-  # Look for RAILWAY_TOKEN_XX variables
-  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1); do
-    export RAILWAY_TOKEN="${!var}"
-    echo "✅ Using $var as RAILWAY_TOKEN"
-    break
-  done
-fi
-
-# Verify token
-if [ -z "$RAILWAY_TOKEN" ]; then
-  echo "❌ Error: No Railway token found"
-  echo "Expected RAILWAY_TOKEN or RAILWAY_TOKEN_XX environment variable"
+  echo "❌ Error: RAILWAY_TOKEN not configured"
+  echo "Cloud Agent environment must have RAILWAY_TOKEN set"
   exit 1
 fi
 echo "✅ RAILWAY_TOKEN is set"
@@ -329,21 +276,8 @@ elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
   ENV_NAME="production"
   echo "📋 Detected main branch → Environment: ${ENV_NAME}"
 else
-  # Try to extract from token variable name
-  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1); do
-    if [[ "$var" =~ RAILWAY_TOKEN_([0-9]+) ]]; then
-      PR_NUMBER="${BASH_REMATCH[1]}"
-      ENV_NAME="pr-${PR_NUMBER}"
-      echo "📋 Detected PR #${PR_NUMBER} from token variable → Environment: ${ENV_NAME}"
-      break
-    fi
-  done
-
-  # Default to production if nothing detected
-  if [ -z "$ENV_NAME" ]; then
-    ENV_NAME="production"
-    echo "📋 Using default → Environment: ${ENV_NAME}"
-  fi
+  ENV_NAME="production"
+  echo "📋 Using default → Environment: ${ENV_NAME}"
 fi
 
 # 3. Link service and environment
