@@ -103,7 +103,7 @@ Use natural language commands with the MCP server:
 "Deploy a Postgres database for my application"
 
 # Create and deploy
-"Create a Next.js app in this directory and deploy it to Railway. 
+"Create a Next.js app in this directory and deploy it to Railway.
 Also assign it a domain."
 
 # Environment management
@@ -199,43 +199,191 @@ railway whoami
 
 ### Overview
 
-**Cloud Agents** (e.g., GitHub Copilot Workspace) cannot use interactive `railway login` but can use Railway CLI with `RAILWAY_TOKEN` environment variable. This provides a limited but functional subset of CLI commands.
+**Cloud Agents** (e.g., GitHub Copilot Workspace) cannot use interactive `railway login` but can use Railway CLI with the `RAILWAY_TOKEN` environment variable. This provides full CLI functionality without browser authentication.
 
-**Key Limitations:**
+**Key Points:**
 - ❌ No `railway login` (interactive browser login unavailable)
 - ✅ All commands work with `RAILWAY_TOKEN` environment variable
-- ⚠️ Requires one-time service/environment linking per session
+- ✅ Token is automatically available in Cloud Agent sessions (may be named `RAILWAY_TOKEN_XX` for PR environments)
+- ⚠️ Token must have appropriate project/environment permissions
 
-### Initial Setup (Once Per Session)
+### Token Resolution for Cloud Agents
 
-Link service and environment once at session start. These persist in `.railway/` config for subsequent commands:
+Railway tokens may be provided with different variable names depending on context:
 
 ```bash
-# Link to service (only required once per session)
-railway service link $SERVICE_NAME
+# Generic token (most common)
+export RAILWAY_TOKEN="${RAILWAY_TOKEN}"
 
-# Link to environment (only required once per session)
-railway environment link $ENVIRONMENT_NAME
+# PR-specific token (e.g., PR #86 uses RAILWAY_TOKEN_86)
+# If RAILWAY_TOKEN is not set, check for PR-specific token
+if [ -z "$RAILWAY_TOKEN" ]; then
+  # Extract PR number from GitHub context
+  if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]] || \
+     [[ "$GITHUB_REF" =~ refs/heads/copilot.*-([0-9]+) ]]; then
+    PR_NUM="${BASH_REMATCH[1]}"
+    PR_TOKEN_VAR="RAILWAY_TOKEN_${PR_NUM}"
+
+    # Use PR-specific token if available
+    if [ -n "${!PR_TOKEN_VAR}" ]; then
+      export RAILWAY_TOKEN="${!PR_TOKEN_VAR}"
+      echo "✅ Using ${PR_TOKEN_VAR} for Railway authentication"
+    fi
+  fi
+fi
+
+# Verify token is now set
+if [ -z "$RAILWAY_TOKEN" ]; then
+  echo "❌ Error: No Railway token found"
+  echo "Expected RAILWAY_TOKEN or RAILWAY_TOKEN_XX environment variable"
+  exit 1
+fi
 ```
 
-**Example:**
+### Quick Start for Cloud Agents
+
+**Step 1: Set up Railway token**
+
 ```bash
+# Auto-detect and set RAILWAY_TOKEN from available tokens
+if [ -z "$RAILWAY_TOKEN" ]; then
+  # Check for PR-specific token (RAILWAY_TOKEN_86, etc.)
+  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1); do
+    export RAILWAY_TOKEN="${!var}"
+    echo "✅ Using $var as RAILWAY_TOKEN"
+    break
+  done
+fi
+
+# Verify
+if [ -z "$RAILWAY_TOKEN" ]; then
+  echo "❌ No Railway token available"
+  exit 1
+fi
+```
+
+**Step 2: Verify authentication**
+
+```bash
+# Check Railway CLI version
+railway --version
+
+# Test authentication
+railway whoami
+```
+
+**Step 3: Link service and environment**
+
+```bash
+# For this project, use these exact values:
 railway service link yoto-smart-stream
-railway environment link yoto-smart-stream-pr-88
+
+# For PR environments, link to the PR environment name
+# Environment name format: pr-{NUMBER} (e.g., pr-86, pr-123)
+railway environment link pr-86
+
+# Verify linking
+railway status --json
 ```
 
-After linking, all subsequent commands inherit these defaults (no need to specify `-s` or `-e` flags).
+### Complete Setup Script for Cloud Agents
 
-**Automation Option:**
+Copy and run this script at the start of your session:
 
-Consider adding to `.github/workflows/copilot-setup-steps.yml` to run automatically when `RAILWAY_TOKEN` is set:
+```bash
+#!/bin/bash
+# Railway CLI setup for Cloud Agent sessions
 
-```yaml
-- name: Link Railway Service & Environment
-  if: env.RAILWAY_TOKEN != ''
-  run: |
-    railway service link ${{ vars.SERVICE_NAME }}
-    railway environment link ${{ vars.ENVIRONMENT_NAME }}
+echo "🔧 Setting up Railway CLI for Cloud Agent..."
+
+# 1. Auto-detect and set RAILWAY_TOKEN
+if [ -z "$RAILWAY_TOKEN" ]; then
+  echo "🔍 RAILWAY_TOKEN not set, checking for PR-specific tokens..."
+
+  # Look for RAILWAY_TOKEN_XX variables
+  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1); do
+    export RAILWAY_TOKEN="${!var}"
+    echo "✅ Using $var as RAILWAY_TOKEN"
+    break
+  done
+fi
+
+# Verify token
+if [ -z "$RAILWAY_TOKEN" ]; then
+  echo "❌ Error: No Railway token found"
+  echo "Expected RAILWAY_TOKEN or RAILWAY_TOKEN_XX environment variable"
+  exit 1
+fi
+echo "✅ RAILWAY_TOKEN is set"
+
+# 2. Determine environment from branch/PR context
+if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]]; then
+  PR_NUMBER="${BASH_REMATCH[1]}"
+  ENV_NAME="pr-${PR_NUMBER}"
+  echo "📋 Detected PR #${PR_NUMBER} → Environment: ${ENV_NAME}"
+elif [[ "$GITHUB_REF_NAME" =~ pr-([0-9]+) ]]; then
+  PR_NUMBER="${BASH_REMATCH[1]}"
+  ENV_NAME="pr-${PR_NUMBER}"
+  echo "📋 Detected PR #${PR_NUMBER} from branch → Environment: ${ENV_NAME}"
+elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
+  ENV_NAME="production"
+  echo "📋 Detected main branch → Environment: ${ENV_NAME}"
+else
+  # Try to extract from token variable name
+  for var in $(env | grep '^RAILWAY_TOKEN_' | cut -d= -f1); do
+    if [[ "$var" =~ RAILWAY_TOKEN_([0-9]+) ]]; then
+      PR_NUMBER="${BASH_REMATCH[1]}"
+      ENV_NAME="pr-${PR_NUMBER}"
+      echo "📋 Detected PR #${PR_NUMBER} from token variable → Environment: ${ENV_NAME}"
+      break
+    fi
+  done
+
+  # Default to production if nothing detected
+  if [ -z "$ENV_NAME" ]; then
+    ENV_NAME="production"
+    echo "📋 Using default → Environment: ${ENV_NAME}"
+  fi
+fi
+
+# 3. Link service and environment
+echo ""
+echo "🔗 Linking to Railway service: yoto-smart-stream"
+if railway service link yoto-smart-stream; then
+  echo "✅ Service linked"
+else
+  echo "⚠️  Service link failed, but may already be linked"
+fi
+
+echo ""
+echo "🔗 Linking to environment: ${ENV_NAME}"
+if railway environment link "$ENV_NAME"; then
+  echo "✅ Environment linked"
+else
+  echo "⚠️  Environment link failed, but may already be linked"
+fi
+
+# 4. Verify setup
+echo ""
+echo "📊 Verifying Railway CLI setup..."
+if railway status --json > /dev/null 2>&1; then
+  echo "✅ Railway CLI is ready!"
+  echo ""
+  echo "Available commands:"
+  echo "  railway status --json          # Project/service info"
+  echo "  railway logs --lines 50 --json # Recent logs"
+  echo "  railway var list --json        # Environment variables"
+  echo "  railway deployment list --json # Deployments"
+else
+  echo "⚠️  Railway CLI setup incomplete"
+  echo "Try running: railway whoami"
+fi
+```
+
+**Save as `setup_railway.sh` and run:**
+```bash
+chmod +x setup_railway.sh
+./setup_railway.sh
 ```
 
 ### Available Commands (Cloud Agent Mode)
@@ -528,7 +676,7 @@ Railway supports powerful filter syntax for querying logs:
 - `"<search term>"` - Filter for partial substring match
 - `@attribute:value` - Filter by custom attribute
 - `@level:error` - Filter by error level
-- `@level:warn` - Filter by warning level  
+- `@level:warn` - Filter by warning level
 - `@level:info` - Filter by info level
 - `@level:debug` - Filter by debug level
 - `AND`, `OR` - Combine filters
@@ -840,17 +988,17 @@ echo ""
 
 for ENV in "${ENVIRONMENTS[@]}"; do
     echo "Checking $ENV..."
-    
+
     # Get service URL
     URL="https://yoto-${ENV}.up.railway.app/health"
-    
+
     # Check health
     if curl -f -s "$URL" > /dev/null; then
         echo "  ✅ $ENV is healthy"
     else
         echo "  ❌ $ENV is unhealthy"
     fi
-    
+
     echo ""
 done
 
