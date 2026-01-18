@@ -117,6 +117,9 @@ function applyLibraryFilter() {
 // Auth polling state
 let authPollInterval = null;
 let deviceCode = null;
+let authPollDelay = 3000;  // Start with 3 seconds
+let authPollMaxDelay = 8000;  // Cap at 8 seconds
+const AUTH_POLL_BACKOFF_FACTOR = 1.5;  // Exponential backoff factor
 
 // Player refresh polling state
 let playerRefreshInterval = null;
@@ -302,10 +305,15 @@ function startAuthPolling() {
         clearInterval(authPollInterval);
     }
     
-    console.log('🔄 [OAuth] Starting polling for OAuth authorization (every 3 seconds)');
+    // Reset backoff on start
+    authPollDelay = 3000;
     
-    // Poll every 3 seconds
+    console.log('🔄 [OAuth] Starting polling for OAuth authorization (initial interval: 3 seconds)');
+    
+    // Poll with exponential backoff
+    let pollCount = 0;
     authPollInterval = setInterval(async () => {
+        pollCount++;
         try {
             const response = await fetch(`${API_BASE}/auth/poll`, {
                 method: 'POST',
@@ -324,6 +332,7 @@ function startAuthPolling() {
                 
                 clearInterval(authPollInterval);
                 authPollInterval = null;
+                authPollDelay = 3000;  // Reset for next auth attempt
                 
                 // Show success message
                 const authWaiting = document.getElementById('auth-waiting');
@@ -345,17 +354,34 @@ function startAuthPolling() {
                 console.warn('⏰ [OAuth] Authentication expired - user took too long to authorize');
                 clearInterval(authPollInterval);
                 authPollInterval = null;
+                authPollDelay = 3000;  // Reset for next auth attempt
                 alert('Authentication expired. Please try again.');
                 window.location.reload();
                 
+            } else {
+                // Still pending - keep polling with backoff
+                // Increase poll interval exponentially on repeated pending responses
+                if (pollCount > 1) {
+                    const newDelay = Math.min(authPollDelay * AUTH_POLL_BACKOFF_FACTOR, authPollMaxDelay);
+                    if (newDelay > authPollDelay) {
+                        console.debug(`[OAuth] Increasing poll interval from ${authPollDelay}ms to ${newDelay}ms (received pending status)`);
+                        authPollDelay = newDelay;
+                        
+                        // Restart interval with new delay
+                        clearInterval(authPollInterval);
+                        pollCount = 0;
+                        startAuthPolling();
+                        return;
+                    }
+                }
             }
-            // Otherwise keep polling (status === 'pending')
             
         } catch (error) {
             console.debug('[OAuth] Polling...', error.message);
-            // Continue polling even on errors
+            // Continue polling even on errors, but increase backoff
+            authPollDelay = Math.min(authPollDelay * AUTH_POLL_BACKOFF_FACTOR, authPollMaxDelay);
         }
-    }, 3000);
+    }, authPollDelay);
 }
 
 // Logout
