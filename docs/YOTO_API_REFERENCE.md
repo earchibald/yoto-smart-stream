@@ -1,3 +1,9 @@
+> **⚠️ DEPRECATED**: This documentation has been consolidated into the [yoto-smart-stream skill](../.github/skills/yoto-smart-stream/SKILL.md). Please refer to the skill for current information.
+>
+> **New location:** `.github/skills/yoto-smart-stream/reference/yoto_api_reference.md`
+
+---
+
 # Yoto API Reference Documentation
 
 This document provides comprehensive reference information about the Yoto API for use in developing Yoto smart streaming skills and applications.

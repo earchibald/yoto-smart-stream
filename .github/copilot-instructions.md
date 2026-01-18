@@ -56,27 +56,35 @@ This workspace contains locally-maintained custom skills in `.github/skills/`:
 │       ├── deployment_workflows.md
 │       ├── configuration_management.md
 │       └── ...
-└── yoto-api-development/
+├── yoto-smart-stream/
+│   ├── SKILL.md                    # Main overview and quick start
+│   └── reference/                  # Detailed reference docs
+│       ├── yoto_api_reference.md
+│       ├── yoto_mqtt_reference.md
+│       ├── architecture.md
+│       ├── service_operations.md
+│       └── ...
+└── yoto-smart-stream-testing/
     ├── SKILL.md                    # Main overview and quick start
     └── reference/                  # Detailed reference docs
-        ├── yoto_api_reference.md
-        ├── yoto_mqtt_reference.md
-        ├── architecture.md
-        └── ...
+        ├── testing_guide.md
+        └── login_workflows.md
 ```
 
 **Examples of Updates to Make:**
 
-- ✅ You discover a new Yoto API endpoint → Update `yoto-api-development/reference/yoto_api_reference.md`
+- ✅ You discover a new Yoto API endpoint → Update `yoto-smart-stream/reference/yoto_api_reference.md`
 - ✅ You find a better Railway deployment pattern → Update `railway-service-management/reference/deployment_workflows.md`
-- ✅ You implement MQTT reconnection logic → Update `yoto-api-development/reference/yoto_mqtt_reference.md` with the pattern
+- ✅ You implement MQTT reconnection logic → Update `yoto-smart-stream/reference/yoto_mqtt_reference.md` with the pattern
 - ✅ You correct an error in documented API behavior → Fix it in the relevant reference file
 - ✅ You add a new Railway CLI command pattern → Add it to `railway-service-management/reference/cli_scripts.md`
+- ✅ You implement service operation improvements → Update `yoto-smart-stream/reference/service_operations.md`
+- ✅ You add new testing patterns → Update `yoto-smart-stream-testing/reference/testing_guide.md`
 
 ## Development Workflow
 
 1. **Testing First**: Write tests before implementing features (TDD approach)
-2. **Use Skills**: Delegate to custom skills when available (railway-service-management, yoto-api-development)
+2. **Use Skills**: Delegate to custom skills when available (railway-service-management, yoto-smart-stream, yoto-smart-stream-testing)
 3. **Update Documentation**: Keep skills and docs synchronized with verified implementation
 4. **Code Quality**: Run linting and tests before committing
 5. **Security**: Never commit secrets; use environment variables and GitHub Secrets
