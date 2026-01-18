@@ -56,3 +56,48 @@ railway logs --filter "-@level:debug"
 
 ### By Number of Lines
 `railway logs --lines $NUM_LINES --json`
+
+# Railpack Configuration Best Practices
+
+## Key Learnings from Production Deployments
+
+### Auto-Detection vs Custom Steps
+- **PREFER auto-detection**: Railpack works best when allowed to auto-detect language, runtime, and dependencies
+- Only add custom configuration when default behavior needs modification
+- Custom steps can interfere with proper package layering
+
+### Minimal Configuration Example
+```json
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "packages": {
+    "python": "3.11"
+  },
+  "deploy": {
+    "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+  }
+}
+```
+
+### Important Constraints
+1. **First input layer**: The first input of any step CANNOT have `include` or `exclude` filters
+2. **Package layering**: Python packages installed in build steps must be properly layered to deploy
+3. **Railway variables**: Railway automatically provides `$PORT` - do not override unless necessary
+4. **Auto-detection**: Railpack detects:
+   - Language provider from files (requirements.txt, package.json, etc.)
+   - Package manager (pip, npm, yarn, etc.)
+   - Runtime framework (FastAPI, Express, etc.)
+
+### Configuration Split
+When using both `railpack.json` and `railway.toml`:
+- **railpack.json**: Build and deployment logic
+- **railway.toml**: Infrastructure concerns only (volumes, health checks)
+
+### Troubleshooting Deployment Issues
+If packages aren't available at runtime:
+1. Remove custom build steps
+2. Let Railpack auto-detect the build process
+3. Only specify `startCommand` if needed
+4. Check build logs for "Successfully installed" to verify packages are being installed
+5. Check deployment logs for "command not found" errors indicating layering issues
