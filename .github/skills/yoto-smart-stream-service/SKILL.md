@@ -154,15 +154,15 @@ The service implements the **Device Code Grant** flow specifically designed for 
 - Token Persistence: Saves to AWS Secrets Manager (Lambda) or local file (dev)
 - Error Detection: Comprehensive logging of OAuth flow failures in CloudWatch
 
-**Token Storage & Refresh** (`yoto_smart_stream/storage/secrets_manager.py`):
+**Token Storage & Refresh**:
 - **Lambda**: AWS Secrets Manager with Lambda Extension caching (1000ms TTL)
-  - Secret name: `{environment}/oauth-tokens` (e.g., `yoto-smart-stream-dev/oauth-tokens`)
-  - JSON format: `{"access_token": "...", "refresh_token": "...", "expires_at": "..."}`
-  - Extension endpoint: `localhost:2773/secretsmanager/get?secretId=...`
-  - Fallback: boto3 Secrets Manager client if extension unavailable
+   - Store static client configuration only (client_id, optional client_secret) under `{environment}/yoto-client-config`.
+   - Do not store dynamic OAuth tokens in Secrets Manager.
 - **Local Development**: File-based storage at `/tmp/.yoto_refresh_token`
 - **Automatic Refresh**: Checks token expiration before each API call, automatically refreshes if needed
 - **Persistence**: Tokens survive service restarts and cold starts
+- **No caching**: Every Yoto API call reloads the refresh token from persistent storage (DynamoDB/Secrets/file) before refreshing, to avoid stale or invalid tokens.
+- **Concurrent safety**: Token refresh uses a short-lived DynamoDB lock (`yoto_token_lock_owner`, `yoto_token_lock_expires_at`) with conditional writes to prevent race conditions across Lambda instances.
 
 **Rate Limiting Guardrails** (`yoto_smart_stream/api/routes/auth.py` lines 282-310):
 ```python

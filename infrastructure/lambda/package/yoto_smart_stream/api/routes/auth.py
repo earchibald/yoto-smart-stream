@@ -236,24 +236,34 @@ async def poll_auth_status(
         # Log for debugging
         logger.debug(f"device_code_flow_complete() result: {result}")
         logger.debug(f"client.manager.token: {client.manager.token}")
+        if client.manager.token:
+            logger.info(f"🔍 [OAuth Poll] Token object type: {type(client.manager.token)}")
+            logger.info(f"🔍 [OAuth Poll] Token attributes: {dir(client.manager.token)}")
+            if hasattr(client.manager.token, 'refresh_token'):
+                logger.info(f"🔍 [OAuth Poll] refresh_token value: {client.manager.token.refresh_token[:50]}..." if len(str(client.manager.token.refresh_token)) > 50 else f"🔍 [OAuth Poll] refresh_token value: {client.manager.token.refresh_token}")
+                logger.info(f"🔍 [OAuth Poll] refresh_token type: {type(client.manager.token.refresh_token)}")
+                logger.info(f"🔍 [OAuth Poll] refresh_token length: {len(str(client.manager.token.refresh_token))}")
         
         # If we get here, authentication succeeded
         client.set_authenticated(True)
 
-        # Save tokens to Secrets Manager (primary storage)
+        # Save tokens to DynamoDB (primary storage - reliable and persistent)
         if client.manager.token and hasattr(client.manager.token, 'refresh_token') and client.manager.token.refresh_token:
             try:
-                from ...storage.secrets_manager import save_yoto_tokens, YotoTokens
-                
-                tokens = YotoTokens(
-                    access_token=client.manager.token.access_token or "",
+                # Save to DynamoDB first (most reliable)
+                store.save_yoto_tokens(
+                    username=current_user.username,
                     refresh_token=client.manager.token.refresh_token,
+                    access_token=getattr(client.manager.token, "access_token", None),
                     expires_at=getattr(client.manager.token, "expires_at", None)
                 )
-                save_yoto_tokens(tokens)
-                logger.info("✓ Yoto OAuth tokens saved to Secrets Manager")
+                logger.info("✓ Yoto OAuth tokens saved to DynamoDB")
+                
+                # Per security model, do not store dynamic tokens in Secrets Manager
+                logger.info("Skipping Secrets Manager backup for tokens (use DynamoDB only)")
+                
             except Exception as e:
-                logger.error(f"Failed to save tokens to Secrets Manager: {e}")
+                logger.error(f"Failed to save tokens to DynamoDB: {e}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Failed to save OAuth tokens: {str(e)}"

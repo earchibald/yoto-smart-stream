@@ -1,7 +1,7 @@
 """
 AWS Lambda handler for Yoto Smart Stream API
 Uses Mangum to adapt FastAPI for Lambda
-Force update: 2026-01-17T22:06:00Z
+Force update: 2026-01-18T00:00:00Z
 """
 import os
 import sys

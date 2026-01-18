@@ -49,11 +49,31 @@ class YotoTokens:
         )
 
 
+# Client credentials (stored in Secrets Manager or SSM; static config)
+@dataclass
+class ClientCredentials:
+    client_id: str
+    client_secret: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ClientCredentials":
+        return cls(
+            client_id=data.get("client_id", ""),
+            client_secret=data.get("client_secret")
+        )
+
+
 def get_secret_name() -> str:
     """Get the Secrets Manager secret name based on environment."""
     env = os.environ.get("ENVIRONMENT", "dev")
     prefix = os.environ.get("YOTO_SECRET_PREFIX", f"yoto-smart-stream-{env}")
     return f"{prefix}/oauth-tokens"
+
+def get_client_config_secret_name() -> str:
+    """Secret name for static client credentials (client_id, client_secret)."""
+    env = os.environ.get("ENVIRONMENT", "dev")
+    prefix = os.environ.get("YOTO_SECRET_PREFIX", f"yoto-smart-stream-{env}")
+    return f"{prefix}/yoto-client-config"
 
 
 def _get_secret_from_extension(secret_name: str) -> Optional[dict]:
@@ -137,31 +157,8 @@ def save_yoto_tokens(tokens: YotoTokens) -> None:
     secret_name = get_secret_name()
     secret_value = json.dumps(tokens.to_dict())
     
-    try:
-        import boto3
-        
-        region = os.environ.get("AWS_REGION", "us-east-1")
-        sm_client = boto3.client("secretsmanager", region_name=region)
-        
-        try:
-            # Try to update existing secret
-            sm_client.put_secret_value(
-                SecretId=secret_name,
-                SecretString=secret_value
-            )
-            logger.info(f"✓ Yoto OAuth tokens updated in Secrets Manager: {secret_name}")
-        except sm_client.exceptions.ResourceNotFoundException:
-            # Create new secret if it doesn't exist
-            sm_client.create_secret(
-                Name=secret_name,
-                Description="Yoto Smart Stream OAuth tokens",
-                SecretString=secret_value
-            )
-            logger.info(f"✓ Yoto OAuth tokens created in Secrets Manager: {secret_name}")
-        
-    except Exception as e:
-        logger.error(f"Failed to save tokens to Secrets Manager: {e}")
-        raise
+    # Per security model, tokens are dynamic and should not be persisted in Secrets Manager.
+    logger.info("Skipping Secrets Manager token save per no-cache/no-secrets policy")
 
 
 def load_yoto_tokens() -> Optional[YotoTokens]:
@@ -176,18 +173,8 @@ def load_yoto_tokens() -> Optional[YotoTokens]:
     """
     secret_name = get_secret_name()
     
-    # Try extension first (Lambda environment)
-    if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
-        secret_data = _get_secret_from_extension(secret_name)
-        if secret_data:
-            return YotoTokens.from_dict(secret_data)
-    
-    # Fall back to direct boto3 access
-    secret_data = _get_secret_from_boto3(secret_name)
-    if secret_data:
-        return YotoTokens.from_dict(secret_data)
-    
-    logger.debug(f"Refresh token not found in Secrets Manager: {secret_name}")
+    # Per security model, tokens are persisted in DynamoDB, not Secrets Manager.
+    logger.debug("Skipping token load from Secrets Manager; use DynamoDB store")
     return None
 
 
@@ -195,18 +182,20 @@ def delete_yoto_tokens() -> None:
     """Delete Yoto OAuth tokens from Secrets Manager."""
     secret_name = get_secret_name()
     
-    try:
-        import boto3
-        
-        region = os.environ.get("AWS_REGION", "us-east-1")
-        sm_client = boto3.client("secretsmanager", region_name=region)
-        
-        sm_client.delete_secret(
-            SecretId=secret_name,
-            ForceDeleteWithoutRecovery=True
-        )
-        logger.info(f"✓ Yoto OAuth tokens deleted from Secrets Manager: {secret_name}")
-        
-    except Exception as e:
-        logger.warning(f"Failed to delete tokens from Secrets Manager: {e}")
+    logger.info("Skipping token deletion from Secrets Manager (not used for tokens)")
+
+def load_client_credentials() -> Optional[ClientCredentials]:
+    """Load client_id/client_secret from Secrets Manager."""
+    secret_name = get_client_config_secret_name()
+    # Try extension first
+    if os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        data = _get_secret_from_extension(secret_name)
+        if data:
+            return ClientCredentials.from_dict(data)
+    # Fall back to boto3
+    data = _get_secret_from_boto3(secret_name)
+    if data:
+        return ClientCredentials.from_dict(data)
+    logger.warning(f"Client config not found in Secrets Manager: {secret_name}")
+    return None
 

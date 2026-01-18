@@ -454,6 +454,9 @@ async def list_players(user: User = Depends(require_auth)):
 
         return players
 
+    except HTTPException as e:
+        # Preserve HTTP errors (e.g., 401) raised above
+        raise e
     except Exception as e:
         logger.error(f"Failed to fetch players: {type(e).__name__}: {e}")
         raise HTTPException(

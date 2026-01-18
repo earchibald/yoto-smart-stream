@@ -236,6 +236,13 @@ async def poll_auth_status(
         # Log for debugging
         logger.debug(f"device_code_flow_complete() result: {result}")
         logger.debug(f"client.manager.token: {client.manager.token}")
+        if client.manager.token:
+            logger.info(f"🔍 [OAuth Poll] Token object type: {type(client.manager.token)}")
+            logger.info(f"🔍 [OAuth Poll] Token attributes: {dir(client.manager.token)}")
+            if hasattr(client.manager.token, 'refresh_token'):
+                logger.info(f"🔍 [OAuth Poll] refresh_token value: {client.manager.token.refresh_token[:50]}..." if len(str(client.manager.token.refresh_token)) > 50 else f"🔍 [OAuth Poll] refresh_token value: {client.manager.token.refresh_token}")
+                logger.info(f"🔍 [OAuth Poll] refresh_token type: {type(client.manager.token.refresh_token)}")
+                logger.info(f"🔍 [OAuth Poll] refresh_token length: {len(str(client.manager.token.refresh_token))}")
         
         # If we get here, authentication succeeded
         client.set_authenticated(True)
@@ -252,19 +259,8 @@ async def poll_auth_status(
                 )
                 logger.info("✓ Yoto OAuth tokens saved to DynamoDB")
                 
-                # Also save to Secrets Manager as backup
-                try:
-                    from ...storage.secrets_manager import save_yoto_tokens as sm_save, YotoTokens
-                    
-                    tokens = YotoTokens(
-                        access_token=client.manager.token.access_token or "",
-                        refresh_token=client.manager.token.refresh_token,
-                        expires_at=getattr(client.manager.token, "expires_at", None)
-                    )
-                    sm_save(tokens)
-                    logger.info("✓ Yoto OAuth tokens also saved to Secrets Manager (backup)")
-                except Exception as e:
-                    logger.warning(f"Failed to save tokens to Secrets Manager (backup): {e}")
+                # Per security model, do not store dynamic tokens in Secrets Manager
+                logger.info("Skipping Secrets Manager backup for tokens (use DynamoDB only)")
                 
             except Exception as e:
                 logger.error(f"Failed to save tokens to DynamoDB: {e}")

@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import List, Optional
 
@@ -35,6 +35,8 @@ class UserRecord:
     yoto_refresh_token: Optional[str] = None
     yoto_access_token: Optional[str] = None
     yoto_token_expires_at: Optional[str] = None
+    yoto_token_lock_owner: Optional[str] = None
+    yoto_token_lock_expires_at: Optional[str] = None
 
     @property
     def id(self) -> int:
@@ -125,6 +127,8 @@ class DynamoStore:
             yoto_refresh_token=item.get("yoto_refresh_token"),
             yoto_access_token=item.get("yoto_access_token"),
             yoto_token_expires_at=item.get("yoto_token_expires_at"),
+            yoto_token_lock_owner=item.get("yoto_token_lock_owner"),
+            yoto_token_lock_expires_at=item.get("yoto_token_lock_expires_at"),
         )
 
     def list_users(self) -> List[UserRecord]:
@@ -237,35 +241,83 @@ class DynamoStore:
             logger.error(f"Failed to delete user {user.username}: {exc}")
             raise
 
-    def save_yoto_tokens(self, username: str, refresh_token: str, access_token: Optional[str] = None, expires_at: Optional[str] = None) -> None:
+    def save_yoto_tokens(self, username: str, refresh_token: str, access_token: Optional[str] = None, expires_at: Optional[str] = None, lock_owner: Optional[str] = None, clear_lock: bool = False) -> None:
         """Save Yoto OAuth tokens to DynamoDB for the specified user."""
         user = self.get_user(username)
         if not user:
             logger.error(f"Cannot save tokens: user {username} not found")
             return
         
-        update_expr = ["yoto_refresh_token = :rt", "updated_at = :updated_at"]
+        set_expr = ["yoto_refresh_token = :rt", "updated_at = :updated_at"]
+        remove_expr = []
         expr_values = {
             ":rt": refresh_token,
             ":updated_at": _iso(_now_utc())
         }
-        
+
         if access_token:
-            update_expr.append("yoto_access_token = :at")
+            set_expr.append("yoto_access_token = :at")
             expr_values[":at"] = access_token
-        
+
         if expires_at:
-            update_expr.append("yoto_token_expires_at = :exp")
+            set_expr.append("yoto_token_expires_at = :exp")
             expr_values[":exp"] = expires_at
-        
-        update_clause = ", ".join(update_expr)
-        
-        self.table.update_item(
-            Key={"PK": self._user_pk(username), "SK": self._user_sk()},
-            UpdateExpression=f"SET {update_clause}",
-            ExpressionAttributeValues=expr_values
-        )
+
+        if clear_lock:
+            remove_expr.append("yoto_token_lock_owner")
+            remove_expr.append("yoto_token_lock_expires_at")
+
+        condition = None
+        if lock_owner:
+            condition = Attr("yoto_token_lock_owner").eq(lock_owner)
+
+        update_parts = []
+        if set_expr:
+            update_parts.append("SET " + ", ".join(set_expr))
+        if remove_expr:
+            update_parts.append("REMOVE " + ", ".join(remove_expr))
+
+        params = {
+            "Key": {"PK": self._user_pk(username), "SK": self._user_sk()},
+            "UpdateExpression": " ".join(update_parts),
+            "ExpressionAttributeValues": expr_values,
+        }
+        if condition:
+            params["ConditionExpression"] = condition
+
+        self.table.update_item(**params)
         logger.info(f"✓ Yoto OAuth tokens saved to DynamoDB for user {username}")
+
+    def acquire_yoto_token_lock(self, username: str, lock_owner: str, ttl_seconds: int = 30) -> bool:
+        """Attempt to acquire a short-lived lock for token refresh."""
+        expires_at = _iso(_now_utc() + timedelta(seconds=ttl_seconds))
+        try:
+            self.table.update_item(
+                Key={"PK": self._user_pk(username), "SK": self._user_sk()},
+                UpdateExpression="SET yoto_token_lock_owner = :owner, yoto_token_lock_expires_at = :exp",
+                ExpressionAttributeValues={
+                    ":owner": lock_owner,
+                    ":exp": expires_at,
+                },
+                ConditionExpression=(Attr("yoto_token_lock_owner").not_exists() | Attr("yoto_token_lock_expires_at").lt(_iso(_now_utc())))
+            )
+            logger.info(f"✓ Acquired token lock for {username} as {lock_owner}")
+            return True
+        except Exception as exc:
+            logger.debug(f"Failed to acquire token lock for {username}: {exc}")
+            return False
+
+    def release_yoto_token_lock(self, username: str, lock_owner: str) -> None:
+        """Release the token lock if held by this owner."""
+        try:
+            self.table.update_item(
+                Key={"PK": self._user_pk(username), "SK": self._user_sk()},
+                UpdateExpression="REMOVE yoto_token_lock_owner, yoto_token_lock_expires_at",
+                ConditionExpression=Attr("yoto_token_lock_owner").eq(lock_owner)
+            )
+            logger.info(f"✓ Released token lock for {username} held by {lock_owner}")
+        except Exception as exc:
+            logger.debug(f"Lock release skipped for {username}: {exc}")
     
     def load_yoto_tokens(self, username: str) -> Optional[tuple]:
         """Load Yoto OAuth tokens from DynamoDB.
