@@ -11,9 +11,11 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import os
 
+import boto3
+from botocore.exceptions import ClientError
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings, log_configuration
@@ -285,9 +287,59 @@ def create_app() -> FastAPI:
     # Define static directory path once
     static_dir = Path(__file__).parent.parent / "static"
 
-    # Mount static files directory
-    if static_dir.exists():
-        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    # S3-based static file serving
+    s3_client = boto3.client('s3')
+    ui_bucket_name = os.getenv('S3_UI_BUCKET', '')
+
+    async def serve_from_s3(file_path: str, content_type: str = "text/html"):
+        """Helper function to serve files from S3 with local fallback."""
+        # Try S3 first
+        if ui_bucket_name:
+            try:
+                response = s3_client.get_object(
+                    Bucket=ui_bucket_name,
+                    Key=file_path
+                )
+                content = response['Body'].read()
+                return Response(
+                    content=content,
+                    media_type=content_type,
+                    headers={"Cache-Control": "public, max-age=3600"}
+                )
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'NoSuchKey':
+                    logger.warning(f"File not found in S3: {file_path}, trying local")
+                else:
+                    logger.error(f"S3 error fetching {file_path}: {e}")
+        
+        # Fallback to local file (for development/backward compatibility)
+        local_path = static_dir / file_path
+        if local_path.exists():
+            return FileResponse(local_path)
+        
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"File not found: {file_path}"
+        )
+
+    # Serve static assets (CSS, JS, images)
+    @app.get("/static/{file_path:path}", tags=["Static Files"])
+    async def serve_static(file_path: str):
+        """Serve static files (CSS, JS, images) from S3."""
+        # Determine content type
+        content_type = "application/octet-stream"
+        if file_path.endswith('.css'):
+            content_type = "text/css"
+        elif file_path.endswith('.js'):
+            content_type = "application/javascript"
+        elif file_path.endswith('.png'):
+            content_type = "image/png"
+        elif file_path.endswith('.jpg') or file_path.endswith('.jpeg'):
+            content_type = "image/jpeg"
+        elif file_path.endswith('.svg'):
+            content_type = "image/svg+xml"
+        
+        return await serve_from_s3(file_path, content_type)
 
     # Include routers
     app.include_router(health.router, prefix="/api", tags=["Health"])
@@ -299,50 +351,31 @@ def create_app() -> FastAPI:
     app.include_router(library.router, prefix="/api", tags=["Library"])
     app.include_router(streams.router, prefix="/api", tags=["Streams"])
 
+    # HTML page routes
     @app.get("/login", tags=["Web UI"])
     async def login_page():
-        """Serve the login page."""
-        login_path = static_dir / "login.html"
-        if login_path.exists():
-            return FileResponse(login_path)
-        return {"message": "Login page not available"}
+        """Serve the login page from S3."""
+        return await serve_from_s3("login.html", "text/html")
 
     @app.get("/", tags=["Web UI"])
     async def root():
-        """Serve the admin dashboard web UI."""
-        index_path = static_dir / "index.html"
-        if index_path.exists():
-            return FileResponse(index_path)
-        # Fallback if static files don't exist
-        return {
-            "message": "Web UI not available",
-            "docs": "/docs",
-            "api": "/api/status",
-        }
+        """Serve the admin dashboard web UI from S3."""
+        return await serve_from_s3("index.html", "text/html")
 
     @app.get("/streams", tags=["Web UI"])
     async def streams_ui():
-        """Serve the music streams interface."""
-        streams_path = static_dir / "streams.html"
-        if streams_path.exists():
-            return FileResponse(streams_path)
-        return {"message": "Streams UI not available", "docs": "/docs"}
+        """Serve the music streams interface from S3."""
+        return await serve_from_s3("streams.html", "text/html")
 
     @app.get("/library", tags=["Web UI"])
     async def library_ui():
-        """Serve the library viewer interface."""
-        library_path = static_dir / "library.html"
-        if library_path.exists():
-            return FileResponse(library_path)
-        return {"message": "Library UI not available", "docs": "/docs"}
+        """Serve the library viewer interface from S3."""
+        return await serve_from_s3("library.html", "text/html")
 
     @app.get("/audio-library", tags=["Web UI"])
     async def audio_library_ui():
-        """Serve the audio library interface."""
-        audio_library_path = static_dir / "audio-library.html"
-        if audio_library_path.exists():
-            return FileResponse(audio_library_path)
-        return {"message": "Audio Library UI not available", "docs": "/docs"}
+        """Serve the audio library interface from S3."""
+        return await serve_from_s3("audio-library.html", "text/html")
 
     @app.get("/audio/{filename}", tags=["Audio"], response_class=FileResponse)
     async def get_audio_file(filename: str):
@@ -364,11 +397,8 @@ def create_app() -> FastAPI:
 
     @app.get("/admin", tags=["Web UI"])
     async def admin_ui():
-        """Serve the admin interface."""
-        admin_path = static_dir / "admin.html"
-        if admin_path.exists():
-            return FileResponse(admin_path)
-        return {"message": "Admin UI not available", "docs": "/docs"}
+        """Serve the admin interface from S3."""
+        return await serve_from_s3("admin.html", "text/html")
 
     @app.get("/api/status", tags=["General"])
     async def api_status():

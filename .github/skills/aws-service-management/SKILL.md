@@ -3,6 +3,7 @@
 Minimal skill for managing multi-environment AWS deployments for the yoto-smart-stream project.
 
 ## Quick Start
+- Use the `awslabs.aws-iac-mcp-server` to gather use best practices, documentation, use case patterns and to validate everything possible with the tools provided by the MCP.
 - Ensure CDK is installed: `npm install -g aws-cdk`
 - Source the Python venv once per session: `source cdk_venv/bin/activate`
 - Use the default AWS profile; test only against AWS services.

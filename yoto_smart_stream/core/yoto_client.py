@@ -15,11 +15,6 @@ from ..api.mqtt_event_store import MQTTEvent, get_mqtt_event_store
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache for expensive API calls (persists across Lambda invocations in same container)
-_player_status_cache_time: Optional[float] = None
-_library_cache_time: Optional[float] = None
-_CACHE_TTL = 5.0  # seconds - cache TTL for player status and library
-
 
 class YotoClient:
     """
@@ -194,29 +189,18 @@ class YotoClient:
         self.authenticate(force_reload=True)
 
     def update_player_status(self, force: bool = False) -> None:
-        """Update player status from API with retry logic and caching.
+        """Update player status from API with retry logic.
         
         Args:
-            force: If True, bypass cache and force a fresh API call
+            force: If True, force a fresh API call (parameter kept for backward compatibility)
         """
-        global _player_status_cache_time
-        
-        # Check cache first (unless forced)
-        current_time = time.time()
-        if not force and _player_status_cache_time is not None:
-            cache_age = current_time - _player_status_cache_time
-            if cache_age < _CACHE_TTL:
-                logger.debug(f"Using cached player status (age: {cache_age:.1f}s)")
-                return
-        
         self.ensure_authenticated()
         
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 self.manager.update_players_status()
-                _player_status_cache_time = current_time  # Update cache timestamp
-                logger.debug(f"Updated status for {len(self.manager.players)} players (cached for {_CACHE_TTL}s)")
+                logger.debug(f"Updated status for {len(self.manager.players)} players")
                 return
             except Exception as e:
                 if attempt < max_retries - 1:
@@ -231,21 +215,11 @@ class YotoClient:
                     raise
 
     def update_library(self, force: bool = False) -> None:
-        """Update library from API to get card metadata with caching.
+        """Update library from API to get card metadata.
         
         Args:
-            force: If True, bypass cache and force a fresh API call
+            force: If True, force a fresh API call (parameter kept for backward compatibility)
         """
-        global _library_cache_time
-        
-        # Check cache first (unless forced)
-        current_time = time.time()
-        if not force and _library_cache_time is not None:
-            cache_age = current_time - _library_cache_time
-            if cache_age < _CACHE_TTL:
-                logger.debug(f"Using cached library (age: {cache_age:.1f}s)")
-                return
-        
         self.ensure_authenticated()
         # Clear any cached library items before refreshing to avoid stale merges
         try:
@@ -254,8 +228,7 @@ class YotoClient:
         except Exception:
             logger.debug("Could not clear cached library before refresh", exc_info=True)
         self.manager.update_library()
-        _library_cache_time = current_time  # Update cache timestamp
-        logger.debug(f"Updated library with {len(self.manager.library)} items (cached for {_CACHE_TTL}s)")
+        logger.debug(f"Updated library with {len(self.manager.library)} items")
 
     def _mqtt_event_callback(self) -> None:
         """
