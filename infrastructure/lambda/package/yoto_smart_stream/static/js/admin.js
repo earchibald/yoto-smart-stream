@@ -400,6 +400,7 @@ function openEditUserModal(userId, username, email, isAdmin) {
     document.getElementById('edit-username').textContent = username;
     document.getElementById('edit-email').value = email;
     document.getElementById('edit-password').value = '';
+    document.getElementById('edit-is-admin').checked = isAdmin;
     
     // Show modal
     modal.style.display = 'flex';
@@ -526,6 +527,7 @@ async function handleEditUser(event) {
     const userId = modal.dataset.userId;
     const email = document.getElementById('edit-email').value.trim() || null;
     const password = document.getElementById('edit-password').value;
+    const isAdmin = document.getElementById('edit-is-admin').checked;
     
     const submitBtn = document.getElementById('edit-user-btn');
     const submitText = document.getElementById('edit-user-text');
@@ -537,7 +539,7 @@ async function handleEditUser(event) {
     const errorMessage = document.getElementById('edit-user-error-message');
     
     // At least one field must be changed
-    if (!email && !password) {
+    if (!email && !password && isAdmin === undefined) {
         showEditUserError('Please change at least one field');
         return;
     }
@@ -554,6 +556,8 @@ async function handleEditUser(event) {
         const updateData = {};
         if (email) updateData.email = email;
         if (password) updateData.password = password;
+        // Always send is_admin to allow toggling admin status
+        updateData.is_admin = isAdmin;
         
         const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
             method: 'PATCH',

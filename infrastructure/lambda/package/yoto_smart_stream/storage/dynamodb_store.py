@@ -173,7 +173,7 @@ class DynamoStore:
 
         return self._user_item_to_record(item)
 
-    def update_user(self, user_id: int, email: Optional[str], hashed_password: Optional[str]) -> Optional[UserRecord]:
+    def update_user(self, user_id: int, email: Optional[str], hashed_password: Optional[str], is_admin: Optional[bool] = None) -> Optional[UserRecord]:
         user = self.get_user_by_id(user_id)
         if not user:
             return None
@@ -190,6 +190,10 @@ class DynamoStore:
         if hashed_password is not None:
             update_expr.append("hashed_password = :pwd")
             expr_values[":pwd"] = hashed_password
+
+        if is_admin is not None:
+            update_expr.append("is_admin = :is_admin")
+            expr_values[":is_admin"] = is_admin
 
         if not update_expr:
             return user
