@@ -152,6 +152,9 @@ async function loadUsers() {
                         <button class="control-btn edit-user-btn" title="Edit user">
                             ✏️
                         </button>
+                        <button class="control-btn delete-user-btn" title="Delete user" style="color: #ef4444;">
+                            🗑️
+                        </button>
                     </div>
                 </div>
                 <div class="list-item-details">
@@ -171,6 +174,17 @@ async function loadUsers() {
                 const email = listItem.dataset.email;
                 const isAdmin = listItem.dataset.isAdmin === 'true';
                 openEditUserModal(userId, username, email, isAdmin);
+            });
+        });
+        
+        // Add event listeners for delete buttons
+        container.querySelectorAll('.delete-user-btn').forEach((btn, index) => {
+            btn.addEventListener('click', function() {
+                const listItem = this.closest('.list-item');
+                const userId = parseInt(listItem.dataset.userId);
+                const username = listItem.dataset.username;
+                const isAdmin = listItem.dataset.isAdmin === 'true';
+                openDeleteUserModal(userId, username, isAdmin);
             });
         });
         
@@ -394,6 +408,111 @@ function closeEditUserModal() {
     const modal = document.getElementById('edit-user-modal');
     if (modal) {
         modal.style.display = 'none';
+    }
+}
+
+// Open delete user modal
+function openDeleteUserModal(userId, username, isAdmin) {
+    // Don't allow deleting admin users
+    if (isAdmin) {
+        alert('Cannot delete admin users');
+        return;
+    }
+    
+    const modal = document.getElementById('delete-user-modal');
+    if (!modal) {
+        console.error('Delete user modal not found');
+        return;
+    }
+    
+    // Store user info
+    modal.dataset.userId = userId;
+    modal.dataset.username = username;
+    
+    // Update modal text
+    document.getElementById('delete-username-display').textContent = username;
+    document.getElementById('delete-username-input').placeholder = username;
+    document.getElementById('delete-username-input').value = '';
+    
+    // Reset result messages
+    const result = document.getElementById('delete-user-result');
+    if (result) result.style.display = 'none';
+    
+    // Show modal
+    modal.style.display = 'flex';
+    
+    // Focus on input
+    document.getElementById('delete-username-input').focus();
+}
+
+// Close delete user modal
+function closeDeleteUserModal() {
+    const modal = document.getElementById('delete-user-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.getElementById('delete-username-input').value = '';
+    }
+}
+
+// Handle delete user
+async function handleDeleteUser(event) {
+    event.preventDefault();
+    
+    const modal = document.getElementById('delete-user-modal');
+    const userId = parseInt(modal.dataset.userId);
+    const expectedUsername = modal.dataset.username;
+    const enteredUsername = document.getElementById('delete-username-input').value.trim();
+    
+    const submitBtn = document.getElementById('delete-user-btn');
+    const submitText = document.getElementById('delete-user-text');
+    const submitSpinner = document.getElementById('delete-user-spinner');
+    const result = document.getElementById('delete-user-result');
+    const successDiv = document.getElementById('delete-user-success');
+    const errorDiv = document.getElementById('delete-user-error');
+    const errorMessage = document.getElementById('delete-user-error-message');
+    
+    // Verify username matches
+    if (enteredUsername !== expectedUsername) {
+        if (result) result.style.display = 'block';
+        if (errorDiv) errorDiv.style.display = 'block';
+        if (successDiv) successDiv.style.display = 'none';
+        if (errorMessage) errorMessage.textContent = 'Username does not match. Please type the exact username to confirm deletion.';
+        return;
+    }
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    if (submitText) submitText.style.display = 'none';
+    if (submitSpinner) submitSpinner.style.display = 'inline';
+    if (result) result.style.display = 'none';
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.detail || 'Failed to delete user');
+        }
+        
+        // Success - close modal and reload users
+        closeDeleteUserModal();
+        await loadUsers();
+        
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        if (result) result.style.display = 'block';
+        if (errorDiv) errorDiv.style.display = 'block';
+        if (successDiv) successDiv.style.display = 'none';
+        if (errorMessage) errorMessage.textContent = error.message || 'Failed to delete user';
+    } finally {
+        // Reset button state
+        submitBtn.disabled = false;
+        if (submitText) submitText.style.display = 'inline';
+        if (submitSpinner) submitSpinner.style.display = 'none';
     }
 }
 

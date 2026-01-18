@@ -150,6 +150,17 @@
                                 autocomplete="email"
                             />
                         </div>
+                        <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input
+                                type="checkbox"
+                                id="is-admin"
+                                name="is-admin"
+                                style="width: auto; cursor: pointer;"
+                            />
+                            <label for="is-admin" title="Grant admin privileges to this user" style="margin: 0; cursor: pointer;">
+                                👑 Grant admin access
+                            </label>
+                        </div>
                         <div class="form-actions">
                             <button type="submit" class="btn-primary" id="create-user-btn">
                                 <span id="create-user-text">👤 Create User</span>

@@ -28,6 +28,7 @@ class CreateUserRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_-]+$")
     password: str = Field(..., min_length=4)
     email: Optional[EmailStr] = None
+    is_admin: bool = Field(default=False, description="Whether to grant admin access to this user")
 
 
 class UserResponse(BaseModel):
@@ -200,13 +201,13 @@ async def create_user(
     # Hash password
     hashed_password = get_password_hash(user_data.password)
     
-    # Create new user (non-admin by default)
+    # Create new user with admin flag from request
     try:
         created = store.create_user(
             username=user_data.username,
             hashed_password=hashed_password,
             email=user_data.email,
-            is_admin=False,
+            is_admin=user_data.is_admin,
         )
 
         logger.info(f"✓ User created successfully: {created.username} (id: {created.user_id})")

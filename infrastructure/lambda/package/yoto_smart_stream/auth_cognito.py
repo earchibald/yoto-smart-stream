@@ -212,6 +212,33 @@ class CognitoAuth:
             self.last_error = str(e)
             return False
     
+    def delete_user(self, username: str) -> bool:
+        """Delete a user from Cognito user pool."""
+        if not self.is_enabled():
+            return True
+
+        try:
+            self.client.admin_delete_user(
+                UserPoolId=self.user_pool_id,
+                Username=username
+            )
+            logger.info(f"Deleted Cognito user: {username}")
+            self.last_error = None
+            return True
+        except ClientError as e:
+            logger.error(f"Failed to delete user {username}: {e}")
+            try:
+                code = e.response.get("Error", {}).get("Code")
+                msg = e.response.get("Error", {}).get("Message")
+                self.last_error = f"{code}: {msg}" if code or msg else str(e)
+            except Exception:
+                self.last_error = str(e)
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error deleting user {username}: {e}")
+            self.last_error = str(e)
+            return False
+    
     def list_users(self, limit: int = 60) -> list:
         """
         List all users in the Cognito user pool.
