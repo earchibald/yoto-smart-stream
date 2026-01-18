@@ -29,6 +29,7 @@ env/
 ENV/
 env.bak/
 venv.bak/
+cdk_venv/
 
 # IDEs
 .vscode/

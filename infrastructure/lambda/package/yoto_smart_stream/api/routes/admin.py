@@ -257,8 +257,12 @@ async def update_user(
     """
     logger.info(f"Admin {admin.username} updating user {user_id}")
     
-    # At least one field must be provided
-    if not update_data.email and not update_data.password and update_data.is_admin is None:
+    # At least one field must be provided (check if email, password, or is_admin is explicitly set)
+    has_email = update_data.email is not None
+    has_password = update_data.password is not None
+    has_is_admin = update_data.is_admin is not None
+    
+    if not has_email and not has_password and not has_is_admin:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one field (email, password, or is_admin) must be provided"
