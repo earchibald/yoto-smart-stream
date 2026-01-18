@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings, log_configuration
@@ -84,18 +84,18 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
     logger.info(f"Database URL: {settings.database_url}")
     init_db()
-    
+
     # Create default admin user if it doesn't exist
     from ..auth import get_password_hash
     from ..database import SessionLocal
     from ..models import User
-    
+
     db = SessionLocal()
     try:
         # Count existing users
         user_count = db.query(User).count()
         logger.info(f"Current user count in database: {user_count}")
-        
+
         admin_user = db.query(User).filter(User.username == "admin").first()
         if not admin_user:
             try:
@@ -103,13 +103,13 @@ async def lifespan(app: FastAPI):
                 logger.info("Hashing default password...")
                 hashed = get_password_hash("yoto")
                 logger.info(f"Password hash generated successfully (length: {len(hashed)} bytes)")
-                
+
                 admin_user = User(
                     username="admin",
                     email="eugenearchibald@gmail.com",
                     hashed_password=hashed,
                     is_active=True,
-                    is_admin=True
+                    is_admin=True,
                 )
                 logger.info("User object created, committing to database...")
                 db.add(admin_user)
@@ -118,11 +118,14 @@ async def lifespan(app: FastAPI):
             except Exception as hash_err:
                 logger.error(f"Error during user creation: {hash_err}")
                 import traceback
+
                 logger.error(traceback.format_exc())
                 db.rollback()
                 raise
         else:
-            logger.info(f"✓ Admin user already exists (id: {admin_user.id}, active: {admin_user.is_active})")
+            logger.info(
+                f"✓ Admin user already exists (id: {admin_user.id}, active: {admin_user.is_active})"
+            )
     except Exception as e:
         logger.error(f"Failed to create admin user: {e}")
         logger.error(f"Database URL was: {settings.database_url}")
@@ -145,11 +148,11 @@ async def lifespan(app: FastAPI):
         log_environment_variables(logger.info)
 
     # Enable debug logging for yoto_api library to see MQTT events
-    yoto_api_logger = logging.getLogger('yoto_api')
+    yoto_api_logger = logging.getLogger("yoto_api")
     yoto_api_logger.setLevel(logging.DEBUG)
-    mqtt_logger = logging.getLogger('paho.mqtt')
+    mqtt_logger = logging.getLogger("paho.mqtt")
     mqtt_logger.setLevel(logging.INFO)
-    
+
     # Startup
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     logger.info(f"Environment: {settings.environment}")
@@ -186,7 +189,7 @@ async def lifespan(app: FastAPI):
     try:
         stream_manager = get_stream_manager()
         test_queue = await stream_manager.get_or_create_queue("test-stream")
-        
+
         # Check if test files exist and add them to the queue
         test_files = [f"{i}.mp3" for i in range(1, 11)]
         existing_files = []
@@ -194,7 +197,7 @@ async def lifespan(app: FastAPI):
             audio_path = settings.audio_files_dir / filename
             if audio_path.exists():
                 existing_files.append(filename)
-        
+
         if existing_files:
             # Clear any existing files and add all test files
             test_queue.clear()
@@ -322,18 +325,30 @@ def create_app() -> FastAPI:
             return FileResponse(audio_library_path)
         return {"message": "Audio Library UI not available", "docs": "/docs"}
 
-    @app.get("/audio/{filename}", tags=["Audio"], response_class=FileResponse)
+    @app.get("/audio/{filename}", tags=["Audio"])
     async def get_audio_file(filename: str):
-        """Serve raw audio files from the configured audio directory."""
-        safe_name = Path(filename).name  # Prevent path traversal
-        audio_path = settings.audio_files_dir / safe_name
+        """
+        Serve raw audio files from storage.
 
-        if not audio_path.exists():
+        For S3 storage: Returns presigned URL (307 redirect) for direct access.
+        For local storage: Returns file directly via FileResponse.
+        """
+        safe_name = Path(filename).name  # Prevent path traversal
+        storage = settings.get_storage()
+
+        if not await storage.exists(safe_name):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Audio file not found",
             )
 
+        # For S3: return presigned URL (redirect)
+        if settings.storage_backend == "s3":
+            url = await storage.get_url(safe_name, expiry=settings.presigned_url_expiry)
+            return RedirectResponse(url=url, status_code=307)
+
+        # For local: return FileResponse (existing behavior)
+        audio_path = settings.audio_files_dir / safe_name
         return FileResponse(
             audio_path,
             media_type="audio/mpeg",

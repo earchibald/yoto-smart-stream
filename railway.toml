@@ -9,7 +9,8 @@ healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 
 # Persistent volumes - survive deployments and restarts
-# Store Yoto auth tokens and other persistent data
+# Stores: SQLite database, stream queues, OAuth tokens
+# Audio files migrated to Railway Bucket (S3-compatible storage) for cost efficiency
 [[deploy.volumes]]
 name = "data"
 mountPath = "/data"
