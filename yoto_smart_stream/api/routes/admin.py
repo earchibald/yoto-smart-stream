@@ -58,6 +58,7 @@ class UpdateUserRequest(BaseModel):
 
     email: Optional[EmailStr] = None
     password: Optional[str] = Field(None, min_length=4)
+    is_admin: Optional[bool] = Field(None, description="Whether to grant admin access to this user")
 
 
 class UpdateUserResponse(BaseModel):
@@ -257,10 +258,10 @@ async def update_user(
     logger.info(f"Admin {admin.username} updating user {user_id}")
     
     # At least one field must be provided
-    if not update_data.email and not update_data.password:
+    if not update_data.email and not update_data.password and update_data.is_admin is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one field (email or password) must be provided"
+            detail="At least one field (email, password, or is_admin) must be provided"
         )
     
     # Get the user
@@ -273,7 +274,12 @@ async def update_user(
     
     try:
         hashed_password = get_password_hash(update_data.password) if update_data.password else None
-        updated = store.update_user(user_id, email=update_data.email, hashed_password=hashed_password)
+        updated = store.update_user(
+            user_id, 
+            email=update_data.email, 
+            hashed_password=hashed_password,
+            is_admin=update_data.is_admin
+        )
         if not updated:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

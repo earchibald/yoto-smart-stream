@@ -213,6 +213,7 @@ async function handleCreateUser(event) {
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirm-password').value;
     const email = document.getElementById('email').value.trim() || null;
+    const isAdmin = document.getElementById('is-admin').checked;
     
     // Validation
     if (!username || !password || !confirmPassword) {
@@ -248,7 +249,8 @@ async function handleCreateUser(event) {
             body: JSON.stringify({
                 username: username,
                 password: password,
-                email: email
+                email: email,
+                is_admin: isAdmin
             }),
         });
         
