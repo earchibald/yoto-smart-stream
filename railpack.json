@@ -41,6 +41,10 @@
     },
     "inputs": [
       {
+        "step": "install",
+        "include": ["."]
+      },
+      {
         "step": "build",
         "include": ["."]
       }
