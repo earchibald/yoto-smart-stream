@@ -123,7 +123,7 @@ class DynamoStore:
 
     def list_users(self) -> List[UserRecord]:
         response = self.table.scan(
-            FilterExpression=Attr("PK").begins_with("USER#") & Attr("SK").eq(self._user_sk())
+            FilterExpression=Attr("PK").begins_with("user#") & Attr("SK").eq(self._user_sk())
         )
         items = response.get("Items", [])
         return [self._user_item_to_record(item) for item in items]
@@ -140,7 +140,7 @@ class DynamoStore:
 
     def get_user_by_id(self, user_id: int) -> Optional[UserRecord]:
         response = self.table.scan(
-            FilterExpression=Attr("PK").begins_with("USER#")
+            FilterExpression=Attr("PK").begins_with("user#")
             & Attr("SK").eq(self._user_sk())
             & Attr("user_id").eq(user_id)
         )

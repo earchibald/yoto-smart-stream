@@ -89,18 +89,54 @@
                             />
                         </div>
                         <div class="form-group">
-                            <label for="password" title="Password for the new user (minimum 4 characters)">
+                            <label for="password" title="Password for the new user (minimum 8 characters)">
                                 Password:
                             </label>
-                            <input
-                                type="password"
-                                id="password"
-                                name="password"
-                                placeholder="Minimum 4 characters"
-                                required
-                                autocomplete="new-password"
-                                minlength="4"
-                            />
+                            <div style="position: relative;">
+                                <input
+                                    type="password"
+                                    id="password"
+                                    name="password"
+                                    placeholder="Minimum 8 characters"
+                                    required
+                                    autocomplete="new-password"
+                                    minlength="8"
+                                />
+                                <button
+                                    type="button"
+                                    class="toggle-password"
+                                    onclick="togglePasswordVisibility('password')"
+                                    title="Show/hide password"
+                                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.2rem;"
+                                >
+                                    👁️
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirm-password" title="Re-enter password to confirm">
+                                Confirm Password:
+                            </label>
+                            <div style="position: relative;">
+                                <input
+                                    type="password"
+                                    id="confirm-password"
+                                    name="confirm-password"
+                                    placeholder="Re-enter password"
+                                    required
+                                    autocomplete="new-password"
+                                    minlength="8"
+                                />
+                                <button
+                                    type="button"
+                                    class="toggle-password"
+                                    onclick="togglePasswordVisibility('confirm-password')"
+                                    title="Show/hide password"
+                                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 1.2rem;"
+                                >
+                                    👁️
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="email" title="Optional email address for the user">

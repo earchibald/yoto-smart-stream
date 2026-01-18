@@ -55,6 +55,14 @@ async function checkAdminStatus() {
     }
 }
 
+// Toggle password visibility
+function togglePasswordVisibility(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (field) {
+        field.type = field.type === 'password' ? 'text' : 'password';
+    }
+}
+
 // Load initial data
 document.addEventListener('DOMContentLoaded', async () => {
     // Check authentication before loading anything else
@@ -189,10 +197,22 @@ async function handleCreateUser(event) {
     // Get form data
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
     const email = document.getElementById('email').value.trim() || null;
     
-    if (!username || !password) {
-        showCreateUserError('Please fill in username and password');
+    // Validation
+    if (!username || !password || !confirmPassword) {
+        showCreateUserError('Please fill in all required fields');
+        return;
+    }
+    
+    if (password !== confirmPassword) {
+        showCreateUserError('Passwords do not match');
+        return;
+    }
+    
+    if (password.length < 8) {
+        showCreateUserError('Password must be at least 8 characters long');
         return;
     }
     

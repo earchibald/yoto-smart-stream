@@ -108,26 +108,33 @@ async def list_users(
     
     Args:
         admin: Current admin user
-        db: Database session
+        store: Database store
         
     Returns:
         List of all users
     """
     logger.info(f"Admin {admin.username} listing all users")
     
-    users = store.list_users()
-    
-    return [
-        UserResponse(
-            id=user.user_id,
-            username=user.username,
-            email=user.email,
-            is_active=user.is_active,
-            is_admin=user.is_admin,
-            created_at=user.created_at.isoformat()
+    try:
+        users = store.list_users()
+        
+        return [
+            UserResponse(
+                id=user.user_id,
+                username=user.username,
+                email=user.email,
+                is_active=user.is_active,
+                is_admin=user.is_admin,
+                created_at=user.created_at.isoformat()
+            )
+            for user in users
+        ]
+    except Exception as e:
+        logger.error(f"Error listing users: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list users: {str(e)}"
         )
-        for user in users
-    ]
 
 
 @router.post("/admin/users", response_model=CreateUserResponse)
