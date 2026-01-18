@@ -345,6 +345,10 @@ async function copyAudioUrl(url, event) {
 }
 
 // Delete audio file
+// Global variable to store modal keyboard handlers
+let deleteConfirmKeyHandler = null;
+let resultMessageKeyHandler = null;
+
 async function deleteAudioFile(filename, event) {
     event.preventDefault();
     event.stopPropagation();
@@ -370,14 +374,18 @@ function showDeleteConfirmModal(filename) {
         await performDelete(filename);
     };
     
-    // Setup keyboard handlers
-    const keyHandler = (e) => {
+    // Remove previous keyboard handler if exists
+    if (deleteConfirmKeyHandler) {
+        document.removeEventListener('keydown', deleteConfirmKeyHandler);
+    }
+    
+    // Setup keyboard handler
+    deleteConfirmKeyHandler = (e) => {
         if (e.key === 'Escape') {
             closeDeleteConfirmModal();
         }
     };
-    modal.dataset.keyHandler = keyHandler;
-    document.addEventListener('keydown', keyHandler);
+    document.addEventListener('keydown', deleteConfirmKeyHandler);
     
     // Show modal
     modal.style.display = 'flex';
@@ -390,9 +398,9 @@ function closeDeleteConfirmModal() {
     const modal = document.getElementById('deleteConfirmModal');
     
     // Remove keyboard handler
-    if (modal.dataset.keyHandler) {
-        document.removeEventListener('keydown', modal.dataset.keyHandler);
-        delete modal.dataset.keyHandler;
+    if (deleteConfirmKeyHandler) {
+        document.removeEventListener('keydown', deleteConfirmKeyHandler);
+        deleteConfirmKeyHandler = null;
     }
     
     modal.style.display = 'none';
@@ -457,14 +465,18 @@ function showResultMessage(type, title, message) {
         header.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
     }
     
-    // Setup keyboard handlers
-    const keyHandler = (e) => {
+    // Remove previous keyboard handler if exists
+    if (resultMessageKeyHandler) {
+        document.removeEventListener('keydown', resultMessageKeyHandler);
+    }
+    
+    // Setup keyboard handler
+    resultMessageKeyHandler = (e) => {
         if (e.key === 'Escape' || e.key === 'Enter') {
             closeResultMessageModal();
         }
     };
-    modal.dataset.keyHandler = keyHandler;
-    document.addEventListener('keydown', keyHandler);
+    document.addEventListener('keydown', resultMessageKeyHandler);
     
     // Show modal
     modal.style.display = 'flex';
@@ -478,9 +490,9 @@ function closeResultMessageModal() {
     const modal = document.getElementById('resultMessageModal');
     
     // Remove keyboard handler
-    if (modal.dataset.keyHandler) {
-        document.removeEventListener('keydown', modal.dataset.keyHandler);
-        delete modal.dataset.keyHandler;
+    if (resultMessageKeyHandler) {
+        document.removeEventListener('keydown', resultMessageKeyHandler);
+        resultMessageKeyHandler = null;
     }
     
     modal.style.display = 'none';
