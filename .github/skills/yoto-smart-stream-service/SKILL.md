@@ -83,17 +83,222 @@ OAuth authorization flow is required for Yoto device access:
 - **Non-admin users** - Share the OAuth credentials (single-tenant mode); non-admin users cannot change credentials
 - **Automatic token refresh** - Service automatically refreshes access tokens before expiration
 
-**OAuth Flow (Device Code Grant):**
-1. Login to Yoto Smart Stream with admin credentials
-2. Navigate to Dashboard
-3. Click "🔑 Connect Yoto Account" button
-4. Complete Yoto OAuth device flow in browser:
-   - Visit verification URL displayed
-   - Enter the device code shown
-   - Authorize the application
-5. Authorization complete - tokens stored and used for all subsequent operations
+#### OAuth Flow Methodology: Device Code Grant (RFC 8628)
 
-**For Agents:** If you don't have Yoto OAuth credentials, pause and notify the user to perform this one-time manual step. Wait for "continue" from the user before proceeding.
+The service implements the **Device Code Grant** flow specifically designed for applications without a web browser on the device:
+
+```
+┌─────────────────────┐
+│  Yoto Smart Stream  │
+│   (Web Dashboard)   │
+└──────────┬──────────┘
+           │ 1. User clicks "Connect Yoto Account"
+           │    POST /auth/start
+           ▼
+┌──────────────────────────────────┐
+│  Yoto Authorization Server       │
+│  (login.yotoplay.com)            │
+└──────────┬───────────────────────┘
+           │ 2. Return device_code + user_code
+           │    Valid for 10 minutes
+           ▼
+┌──────────────────────────────────┐
+│  User's Browser                  │
+│  (opens separate tab)            │
+└──────────┬───────────────────────┘
+           │ 3. User navigates to verification URL
+           │    https://login.yotoplay.com/activate?user_code=XXXX-XXXX
+           │ 4. Enters device code, clicks Confirm
+           │ 5. Redirected to login page if not authenticated
+           │ 6. Enters Yoto credentials
+           │ 7. Grants application permissions
+           ▼
+┌──────────────────────────────────┐
+│  Backend (yoto_smart_stream)     │
+│  Polling /auth/status            │
+└──────────┬───────────────────────┘
+           │ 8. Detects authorization completion
+           │    Exchanges device_code for tokens
+           ▼
+┌──────────────────────────────────┐
+│  AWS Secrets Manager             │
+│  (or local file in dev)          │
+└──────────┬───────────────────────┘
+           │ 9. Tokens persisted
+           │    access_token, refresh_token, expires_at
+           ▼
+┌──────────────────────────────────┐
+│  Frontend (Dashboard)            │
+└──────────────────────────────────┘
+   10. Shows success, reloads page
+   11. Players now visible and controllable
+```
+
+#### Specific Implementation Details
+
+**Frontend Components** (`yoto_smart_stream/static/js/dashboard.js`):
+- OAuth polling with exponential backoff (3s → 8s, factor 1.5) to respect Yoto's 5-second minimum interval
+- Detects "slow_down" and "429" error responses automatically
+- Increases polling interval dynamically when rate limiting detected
+- Auto-reloads page after successful authorization (5-second delay)
+- Stores OAuth logs in browser console for debugging
+
+**Backend Components** (`yoto_smart_stream/api/routes/auth.py`):
+- `POST /auth/start` - Initiates device code flow, returns `user_code` and `device_code`
+- `GET /auth/status` - Frontend polls this endpoint every 3-8 seconds
+  - Returns `status="pending"` while waiting
+  - Returns `status="authorized"` when tokens received
+  - Detects rate limiting errors, returns `status="slow_down"`
+  - Detects expired device codes, returns `status="expired"`
+- Token Exchange: Receives `device_code` from Yoto API, exchanges for access/refresh tokens
+- Token Persistence: Saves to AWS Secrets Manager (Lambda) or local file (dev)
+- Error Detection: Comprehensive logging of OAuth flow failures in CloudWatch
+
+**Token Storage & Refresh** (`yoto_smart_stream/storage/secrets_manager.py`):
+- **Lambda**: AWS Secrets Manager with Lambda Extension caching (1000ms TTL)
+  - Secret name: `{environment}/oauth-tokens` (e.g., `yoto-smart-stream-dev/oauth-tokens`)
+  - JSON format: `{"access_token": "...", "refresh_token": "...", "expires_at": "..."}`
+  - Extension endpoint: `localhost:2773/secretsmanager/get?secretId=...`
+  - Fallback: boto3 Secrets Manager client if extension unavailable
+- **Local Development**: File-based storage at `/tmp/.yoto_refresh_token`
+- **Automatic Refresh**: Checks token expiration before each API call, automatically refreshes if needed
+- **Persistence**: Tokens survive service restarts and cold starts
+
+**Rate Limiting Guardrails** (`yoto_smart_stream/api/routes/auth.py` lines 282-310):
+```python
+# Error detection logic
+if "slow_down" in error_msg or "429" in error_msg:
+    # Return pending status, frontend increases polling delay
+    return AuthPollResponse(status="pending")
+    
+# Device code expiration detection
+if "expired" in error_msg or "Invalid or expired device code" in error_msg:
+    return AuthPollResponse(status="expired")
+```
+
+**MQTT Integration** (after successful OAuth):
+- MQTT client automatically connects using OAuth tokens
+- Real-time device status updates flow through `localhost:2773` extension or boto3
+- Device events (playback, volume, battery) streamed via MQTT
+
+#### Full Login and OAuth Testing Workflow
+
+**Prerequisites:**
+- AWS credentials configured (default profile)
+- Yoto OAuth credentials (retrieve from 1Password if needed):
+  ```bash
+  YOTO_USERNAME=$(op read "op://Private/Yotoplay/username")
+  YOTO_PASSWORD=$(op read "op://Private/Yotoplay/password")
+  ```
+- Playwright MCP browser available for UI automation
+- AWS CloudWatch access for log verification
+
+**Step-by-Step Testing (v0.3.11+oauth-fix.3+)**
+
+1. **Navigate to Dashboard**
+   ```
+   https://a34zdsc0vb.execute-api.us-east-1.amazonaws.com/
+   Expected: "Connect Your Yoto Account" section visible
+   ```
+
+2. **Initiate OAuth Flow**
+   - Click "🔑 Connect Yoto Account" button
+   - Frontend calls `POST /auth/start`
+   - Expected response: `{"user_code": "XXXX-XXXX", "device_code": "..."}`
+   - Dashboard displays verification URL and user code
+   - Console shows: "✓ [OAuth] Device code received"
+
+3. **Complete Device Confirmation**
+   - Open new browser tab
+   - Navigate to displayed verification URL
+   - Expected: Device confirmation page showing user code
+   - Click "Confirm" button
+   - Expected: Redirect to login page
+
+4. **Authenticate with Yoto Credentials**
+   - Enter email: `eugene.archibald@gmail.com` (or YOTO_USERNAME)
+   - Enter password: (from YOTO_PASSWORD)
+   - Click "Log In"
+   - Expected: Redirect to success page: "Congratulations, you're all set!"
+   - Backend now receives tokens from Yoto API
+
+5. **Verify Token Persistence**
+   - Switch back to dashboard tab
+   - Expected: Console shows "🎉 [OAuth] OAuth Authentication Success!"
+   - Expected: "✓ Tokens received and stored. Page reloading in 5 seconds..."
+   - Page auto-reloads after 5 seconds
+
+6. **Confirm Players Load**
+   - After page reload, dashboard should show:
+     - "2" Connected Players (or count of your devices)
+     - Player cards with device name, status (Online/Offline), volume, battery
+     - Player controls (▶️ Play, ⏸️ Pause, ⏹️ Stop, Volume slider)
+   - Console shows: "📡 Player Status Update" with device statuses
+   - No 500 errors loading players endpoint
+
+7. **Verify CloudWatch Logs**
+   ```bash
+   aws logs tail /aws/lambda/yoto-api-dev --since 10m --region us-east-1 | grep -E "(success|✓|saved|authenticated)"
+   ```
+   - Expected: "✓ Yoto OAuth tokens saved to Secrets Manager"
+   - Expected: "Loaded secret from Lambda Extension" (or "from boto3")
+   - No "LimitExceededException" or "marked for deletion" errors
+
+8. **Verify Token Storage**
+   ```bash
+   aws secretsmanager get-secret-value --secret-id yoto-smart-stream-dev/oauth-tokens --region us-east-1 | jq -r '.SecretString' | jq 'keys'
+   ```
+   - Expected output: `["access_token", "expires_at", "refresh_token"]`
+
+9. **Test Device Control**
+   - Click play button (▶️) on an online player
+   - Expected: Device starts playing the current card or audio
+   - Check player UI updates (playing status changes)
+   - Test volume slider, pause button
+   - Expected: Changes reflected on device in real-time via MQTT
+
+10. **Test Token Refresh (Optional)**
+    - Wait for access token to approach expiration (check `expires_at`)
+    - Make any API call (e.g., load players)
+    - Expected: Service automatically refreshes token, no user action needed
+    - CloudWatch should show: "Token refreshed automatically"
+
+#### Guardrails & Best Practices
+
+**Secrets Manager Version Limits:**
+- AWS Secrets Manager limits 100 versions per secret (with deprecation)
+- During development/testing, deleted secrets enter "pending deletion" state
+- **Guardrail**: Use `restore-secret` if deletion fails, don't force-delete in production
+- **Guardrail**: Monitor `LimitExceededException` errors in CloudWatch
+- **Guardrail**: Implement version cleanup logic if testing repeatedly
+
+**Rate Limiting from Yoto API:**
+- Yoto requires minimum 5-second polling interval
+- **Guardrail**: Frontend implements exponential backoff (3s base, 8s max, 1.5x multiplier)
+- **Guardrail**: Backend detects "slow_down" and "429" responses, returns to frontend
+- **Guardrail**: Don't hardcode polling intervals; use configuration
+
+**Device Code Expiration:**
+- Device codes valid for 10 minutes only
+- **Guardrail**: User must complete auth within 10 minutes
+- **Guardrail**: Backend detects "Invalid or expired device code" error
+- **Guardrail**: Frontend shows "expired" status, user must restart by clicking button again
+
+**Token Refresh Failures:**
+- Refresh token can be revoked if user changes password in Yoto
+- **Guardrail**: Check for "401 Unauthorized" when refreshing
+- **Guardrail**: Prompt user to re-authorize (complete OAuth flow again)
+- **Guardrail**: Never expose tokens in logs or error messages
+
+**MQTT Connection:**
+- MQTT uses OAuth tokens for authentication
+- **Guardrail**: Only connect to MQTT after successful OAuth
+- **Guardrail**: Implement exponential backoff for MQTT reconnects
+- **Guardrail**: Log MQTT connection failures separately for debugging
+
+**For Agents:** If you don't have Yoto OAuth credentials, and are operating in a local environment, attempt to retrieve them using 1Password cli:
+- username: `op read "op://Private/Yotoplay/username"`
+- password: `op read "op://Private/Yotoplay/password"`
 
 ### Yoto API Configuration
 
