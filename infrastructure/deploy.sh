@@ -15,15 +15,34 @@ print_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 print_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+# Function to auto-detect environment based on git branch
+get_branch_environment() {
+    local script_dir="$(cd "$(dirname "$0")/.." && pwd)"
+    local env_script="$script_dir/scripts/get_deployment_environment.py"
+
+    if [ -f "$env_script" ]; then
+        python3 "$env_script"
+    else
+        echo "dev"
+    fi
+}
+
 # Parse arguments
-ENVIRONMENT="${1:-dev}"
+# If no environment is specified, auto-detect based on git branch
+if [ -z "$1" ]; then
+    ENVIRONMENT=$(get_branch_environment)
+    print_info "Auto-detected environment from git branch: $ENVIRONMENT"
+else
+    ENVIRONMENT="$1"
+fi
+
 YOTO_CLIENT_ID="${2:-$YOTO_CLIENT_ID}"
 BILLING_EMAIL="${3:-$BILLING_ALERT_EMAIL}"
 
 if [ -z "$YOTO_CLIENT_ID" ]; then
     print_error "YOTO_CLIENT_ID is required"
-    echo "Usage: $0 <environment> <yoto_client_id> [billing_email]"
-    echo "  environment: dev, staging, or prod (default: dev)"
+    echo "Usage: $0 [environment] <yoto_client_id> [billing_email]"
+    echo "  environment: dev, staging, prod, or omit to auto-detect from git branch"
     echo "  yoto_client_id: Your Yoto API client ID (or set YOTO_CLIENT_ID env var)"
     echo "  billing_email: Email for billing alerts (optional, or set BILLING_ALERT_EMAIL env var)"
     exit 1

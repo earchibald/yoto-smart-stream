@@ -46,9 +46,60 @@ source cdk_venv/bin/activate
 
 ## Deployment Configuration
 
-### Environment Selection
-- **aws-develop branch or copilot* branches**: Deploy to CDK environment `dev`
-- **aws-main branch**: Deploy to CDK environment `prod`
+### Environment Selection and Branch-Specific Deployments
+
+The deployment system automatically detects the appropriate CDK environment based on the current git branch:
+
+- **aws-main branch**: Deploy to `prod` environment
+- **aws-develop branch**: Deploy to `dev` environment
+- **copilot/* branches** (PR sessions): Deploy to **branch-specific** environment (e.g., `copilot-implement-feature-pr123`)
+  - Automatically includes PR number if available for better isolation
+  - Creates isolated AWS resources for testing
+  - Automatically cleaned up when PR is closed
+- **copilot-* branches** (VS Code background sessions): Deploy to **branch-specific** environment (e.g., `copilot-worktree-1`)
+- **Other branches**: Deploy to `dev` environment (default)
+
+### Quick Deployment Commands
+
+**Automatic branch-based deployment** (recommended for Copilot sessions):
+```bash
+# From repository root - auto-detects branch and environment
+./scripts/deploy_branch.sh
+
+# Or navigate to CDK directory and let CDK auto-detect
+cd infrastructure/cdk
+cdk deploy \
+  -c yoto_client_id="Pcht77vFlFIWF9xro2oPUBEtCYJr8zuO" \
+  -c enable_mqtt=true \
+  -c enable_cloudfront=false
+```
+
+**Manual environment specification**:
+```bash
+# Specify environment explicitly
+cdk deploy \
+  -c environment=<environment-name> \
+  -c yoto_client_id="Pcht77vFlFIWF9xro2oPUBEtCYJr8zuO" \
+  -c enable_mqtt=true \
+  -c enable_cloudfront=false
+```
+
+### Cleanup Branch-Specific Environments
+
+**Automatic cleanup**: When a PR with a `copilot/*` branch is closed, the GitHub Actions workflow automatically destroys the CDK stack.
+
+**Manual cleanup**:
+```bash
+# Auto-detect current branch environment and destroy
+./scripts/cleanup_environment.sh
+
+# Or specify environment name
+./scripts/cleanup_environment.sh copilot-test-pr123
+
+# Or use CDK directly
+cd infrastructure/cdk
+cdk destroy -c environment=<environment-name>
+```
 
 ### Deployment Flags by Environment
 

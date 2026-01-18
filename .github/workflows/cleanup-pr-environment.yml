@@ -1,0 +1,92 @@
+name: Cleanup PR Environment
+
+# This workflow automatically tears down the CDK stack when a PR is closed
+# It runs for PRs with copilot/* branches to clean up branch-specific environments
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - aws-develop
+      - aws-main
+
+jobs:
+  cleanup:
+    name: Destroy CDK Stack
+    runs-on: ubuntu-latest
+    # Only run for copilot branches
+    if: startsWith(github.head_ref, 'copilot/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js (for CDK)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install CDK
+        run: npm install -g aws-cdk
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Determine environment name
+        id: env
+        run: |
+          # Set PR number for environment detection
+          export PR_NUMBER="${{ github.event.pull_request.number }}"
+          export GITHUB_REF="refs/pull/${{ github.event.pull_request.number }}/merge"
+
+          # Get environment name using our detection script
+          ENV_NAME=$(python3 scripts/get_deployment_environment.py)
+          echo "Environment to destroy: $ENV_NAME"
+          echo "environment=$ENV_NAME" >> $GITHUB_OUTPUT
+
+      - name: Install CDK dependencies
+        run: |
+          cd infrastructure/cdk
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Destroy CDK stack
+        run: |
+          cd infrastructure/cdk
+          STACK_NAME="YotoSmartStream-${{ steps.env.outputs.environment }}"
+
+          echo "🗑️  Destroying stack: $STACK_NAME"
+
+          # Check if stack exists before attempting to destroy
+          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" 2>/dev/null; then
+            cdk destroy \
+              -c environment="${{ steps.env.outputs.environment }}" \
+              -c yoto_client_id="Pcht77vFlFIWF9xro2oPUBEtCYJr8zuO" \
+              --force
+            echo "✅ Stack destroyed successfully"
+          else
+            echo "ℹ️  Stack does not exist, nothing to destroy"
+          fi
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const envName = '${{ steps.env.outputs.environment }}';
+            const stackName = `YotoSmartStream-${envName}`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🗑️ **CDK Environment Cleanup**\n\nThe branch-specific CDK stack \`${stackName}\` has been destroyed.\n\nEnvironment: \`${envName}\``
+            });

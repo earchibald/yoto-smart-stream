@@ -2,30 +2,61 @@
 Yoto Smart Stream AWS CDK Stack
 Architecture 1: Lambda + Fargate Spot + DynamoDB + S3 + Cognito
 """
+from typing import Optional
+
 from aws_cdk import (
-    Stack,
-    Duration,
     CfnOutput,
-    BundlingOptions,
-    aws_lambda as lambda_,
-    aws_apigatewayv2 as apigw,
-    aws_apigatewayv2_integrations as apigw_integrations,
-    aws_apigatewayv2_authorizers as apigw_authorizers,
-    aws_dynamodb as dynamodb,
-    aws_s3 as s3,
-    aws_iam as iam,
-    aws_logs as logs,
-    aws_ecs as ecs,
-    aws_ec2 as ec2,
-    aws_ecr_assets as ecr_assets,
-    aws_cloudfront as cloudfront,
-    aws_cloudfront_origins as origins,
-    aws_cognito as cognito,
-    aws_sns as sns,
-    aws_sns_subscriptions as sns_subscriptions,
-    aws_cloudwatch as cloudwatch,
-    aws_cloudwatch_actions as cloudwatch_actions,
+    Duration,
     RemovalPolicy,
+    Stack,
+)
+from aws_cdk import (
+    aws_apigatewayv2 as apigw,
+)
+from aws_cdk import (
+    aws_apigatewayv2_integrations as apigw_integrations,
+)
+from aws_cdk import (
+    aws_cloudfront as cloudfront,
+)
+from aws_cdk import (
+    aws_cloudfront_origins as origins,
+)
+from aws_cdk import (
+    aws_cloudwatch as cloudwatch,
+)
+from aws_cdk import (
+    aws_cloudwatch_actions as cloudwatch_actions,
+)
+from aws_cdk import (
+    aws_cognito as cognito,
+)
+from aws_cdk import (
+    aws_dynamodb as dynamodb,
+)
+from aws_cdk import (
+    aws_ec2 as ec2,
+)
+from aws_cdk import (
+    aws_ecs as ecs,
+)
+from aws_cdk import (
+    aws_iam as iam,
+)
+from aws_cdk import (
+    aws_lambda as lambda_,
+)
+from aws_cdk import (
+    aws_logs as logs,
+)
+from aws_cdk import (
+    aws_s3 as s3,
+)
+from aws_cdk import (
+    aws_sns as sns,
+)
+from aws_cdk import (
+    aws_sns_subscriptions as sns_subscriptions,
 )
 from constructs import Construct
 
@@ -38,24 +69,24 @@ class YotoSmartStreamStack(Stack):
         scope: Construct,
         construct_id: str,
         environment: str = "dev",
-        yoto_client_id: str = None,
+        yoto_client_id: Optional[str] = None,
         enable_mqtt: bool = True,
         enable_cloudfront: bool = False,
-        billing_alert_email: str = None,
+        billing_alert_email: Optional[str] = None,
         billing_alert_threshold: float = 10.0,
-        **kwargs
+        **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.env_name = environment  # Renamed from self.environment to avoid conflict
         self.is_production = environment == "prod"
-        
+
         # Create billing alerts if email provided
         if billing_alert_email:
             self.billing_alert_topic = self._create_billing_alerts(
                 billing_alert_email, billing_alert_threshold
             )
-        
+
         # Create resources
         self.cognito_user_pool = self._create_cognito_user_pool()
         self.dynamodb_table = self._create_dynamodb_table()
@@ -63,29 +94,27 @@ class YotoSmartStreamStack(Stack):
         self.ui_bucket = self._create_ui_bucket()
         self.lambda_function = self._create_lambda_function(yoto_client_id)
         self.api_gateway = self._create_api_gateway()
-        
+
         # Update Lambda PUBLIC_URL now that API Gateway is created
         self.lambda_function.add_environment(
             "PUBLIC_URL",
-            f"https://{self.api_gateway.api_id}.execute-api.{self.region}.amazonaws.com"
+            f"https://{self.api_gateway.api_id}.execute-api.{self.region}.amazonaws.com",
         )
-        
+
         if enable_mqtt:
             self.mqtt_service = self._create_mqtt_handler()
-        
+
         if enable_cloudfront:
             self.cloudfront_dist = self._create_cloudfront_distribution()
 
-    def _create_billing_alerts(
-        self, email: str, threshold: float
-    ) -> sns.Topic:
+    def _create_billing_alerts(self, email: str, threshold: float) -> sns.Topic:
         """
         Create billing alerts with CloudWatch alarm and SNS topic.
-        
+
         Args:
             email: Email address for billing alerts
             threshold: Dollar amount threshold for alerts
-            
+
         Returns:
             SNS topic for billing alerts
         """
@@ -96,12 +125,10 @@ class YotoSmartStreamStack(Stack):
             topic_name=f"yoto-billing-alerts-{self.env_name}",
             display_name=f"Yoto Smart Stream Billing Alerts ({self.env_name})",
         )
-        
+
         # Subscribe email to topic
-        topic.add_subscription(
-            sns_subscriptions.EmailSubscription(email)
-        )
-        
+        topic.add_subscription(sns_subscriptions.EmailSubscription(email))
+
         # Create CloudWatch alarm for billing
         # Note: Billing metrics are only available in us-east-1
         alarm = cloudwatch.Alarm(
@@ -122,12 +149,10 @@ class YotoSmartStreamStack(Stack):
             evaluation_periods=1,
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
         )
-        
+
         # Add SNS action to alarm
-        alarm.add_alarm_action(
-            cloudwatch_actions.SnsAction(topic)
-        )
-        
+        alarm.add_alarm_action(cloudwatch_actions.SnsAction(topic))
+
         CfnOutput(
             self,
             "BillingAlertTopicArn",
@@ -146,7 +171,7 @@ class YotoSmartStreamStack(Stack):
             value=str(threshold),
             description="Billing alert threshold in USD",
         )
-        
+
         return topic
 
     def _create_cognito_user_pool(self) -> cognito.UserPool:
@@ -196,7 +221,7 @@ class YotoSmartStreamStack(Stack):
             ),
             prevent_user_existence_errors=True,
         )
-        
+
         # Store client as instance variable for use in Lambda environment
         self.cognito_user_pool_client = user_pool_client
 
@@ -225,12 +250,8 @@ class YotoSmartStreamStack(Stack):
             self,
             "YotoTable",
             table_name=f"yoto-smart-stream-{self.env_name}",
-            partition_key=dynamodb.Attribute(
-                name="PK", type=dynamodb.AttributeType.STRING
-            ),
-            sort_key=dynamodb.Attribute(
-                name="SK", type=dynamodb.AttributeType.STRING
-            ),
+            partition_key=dynamodb.Attribute(name="PK", type=dynamodb.AttributeType.STRING),
+            sort_key=dynamodb.Attribute(name="SK", type=dynamodb.AttributeType.STRING),
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             point_in_time_recovery=self.is_production,
             removal_policy=RemovalPolicy.RETAIN if self.is_production else RemovalPolicy.DESTROY,
@@ -260,7 +281,9 @@ class YotoSmartStreamStack(Stack):
                     enabled=True,
                     noncurrent_version_expiration=Duration.days(30),
                 ),
-            ] if self.is_production else [],
+            ]
+            if self.is_production
+            else [],
             removal_policy=RemovalPolicy.RETAIN if self.is_production else RemovalPolicy.DESTROY,
             auto_delete_objects=not self.is_production,
         )
@@ -291,7 +314,7 @@ class YotoSmartStreamStack(Stack):
         CfnOutput(self, "UIBucketName", value=bucket.bucket_name)
         return bucket
 
-    def _create_lambda_function(self, yoto_client_id: str) -> lambda_.Function:
+    def _create_lambda_function(self, yoto_client_id: Optional[str]) -> lambda_.Function:
         """Create Lambda function for API"""
         # Lambda execution role
         role = iam.Role(
@@ -309,7 +332,7 @@ class YotoSmartStreamStack(Stack):
         self.dynamodb_table.grant_read_write_data(role)
         self.audio_bucket.grant_read_write(role)
         self.ui_bucket.grant_read(role)
-        
+
         # Grant Secrets Manager permissions for OAuth tokens
         role.add_to_policy(
             iam.PolicyStatement(
@@ -324,7 +347,7 @@ class YotoSmartStreamStack(Stack):
                 ],
             )
         )
-        
+
         # Grant Polly permissions for TTS
         role.add_to_policy(
             iam.PolicyStatement(
@@ -332,7 +355,7 @@ class YotoSmartStreamStack(Stack):
                 resources=["*"],
             )
         )
-        
+
         # Grant Cognito permissions
         role.add_to_policy(
             iam.PolicyStatement(
@@ -346,7 +369,7 @@ class YotoSmartStreamStack(Stack):
                 resources=[self.cognito_user_pool.user_pool_arn],
             )
         )
-        
+
         # Grant Secrets Manager permissions for Yoto OAuth tokens
         role.add_to_policy(
             iam.PolicyStatement(
@@ -356,7 +379,9 @@ class YotoSmartStreamStack(Stack):
                     "secretsmanager:UpdateSecret",
                     "secretsmanager:DeleteSecret",
                 ],
-                resources=[f"arn:aws:secretsmanager:{self.region}:{self.account}:secret:yoto-smart-stream-{self.env_name}/yoto-token/*"],
+                resources=[
+                    f"arn:aws:secretsmanager:{self.region}:{self.account}:secret:yoto-smart-stream-{self.env_name}/yoto-token/*"
+                ],
             )
         )
 
@@ -387,21 +412,22 @@ class YotoSmartStreamStack(Stack):
                 "PUBLIC_URL": f"https://{{api_id}}.execute-api.{self.region}.amazonaws.com",  # For audio streaming (will be populated after API creation)
                 # AWS_REGION is automatically set by Lambda runtime
             },
-            log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,
+            log_retention=logs.RetentionDays.ONE_WEEK
+            if not self.is_production
+            else logs.RetentionDays.ONE_MONTH,
         )
-        
+
         # Add AWS Secrets Manager Lambda Extension Layer
         # This layer provides automatic caching and refresh of secrets
         # Using the underlying CDK construct to add the layer directly to CloudFormation
-        from aws_cdk.aws_lambda import CfnFunction
-        
+
         cfn_function = function.node.default_child
         extension_layer_arn = f"arn:aws:lambda:{self.region}:976759262368:layer:AWS-Parameters-and-Secrets-Lambda-Extension:12"
-        
+
         if not hasattr(cfn_function, "layers"):
             cfn_function.layers = []
         cfn_function.layers.append(extension_layer_arn)
-        
+
         # FFmpeg Lambda layer removed - exceeds Lambda size limit (250MB)
         # Audio recording/conversion features will not work
         # Workaround: Upload pre-recorded MP3 files directly
@@ -480,12 +506,16 @@ class YotoSmartStreamStack(Stack):
         )
 
         # Add container
-        container = task_definition.add_container(
+        _container = task_definition.add_container(
             "mqtt-handler",
-            image=ecs.ContainerImage.from_asset("../mqtt_handler"),  # Fixed path: relative to cdk directory
+            image=ecs.ContainerImage.from_asset(
+                "../mqtt_handler"
+            ),  # Fixed path: relative to cdk directory
             logging=ecs.LogDriver.aws_logs(
                 stream_prefix="ecs",
-                log_retention=logs.RetentionDays.ONE_WEEK if not self.is_production else logs.RetentionDays.ONE_MONTH,
+                log_retention=logs.RetentionDays.ONE_WEEK
+                if not self.is_production
+                else logs.RetentionDays.ONE_MONTH,
             ),
             environment={
                 "ENVIRONMENT": self.env_name,
