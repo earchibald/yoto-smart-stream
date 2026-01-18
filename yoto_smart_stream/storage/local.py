@@ -29,7 +29,11 @@ class LocalStorage(BaseStorage):
         file_path = self.base_path / filename
         async with aiofiles.open(file_path, "wb") as f:
             await f.write(file_data)
-        logger.debug(f"Saved file: {filename} ({len(file_data)} bytes)")
+        file_size_mb = len(file_data) / (1024 * 1024)
+        logger.info(
+            f"✓ Saved to LOCAL STORAGE: {file_path} "
+            f"({file_size_mb:.2f} MB, {len(file_data)} bytes)"
+        )
         return str(file_path)
 
     async def get_url(self, filename: str, expiry: int = 604800) -> str:

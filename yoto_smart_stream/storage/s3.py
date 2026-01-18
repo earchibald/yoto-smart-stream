@@ -65,10 +65,14 @@ class S3Storage(BaseStorage):
                 Body=file_data,
                 ContentType="audio/mpeg",
             )
-            logger.debug(f"Saved file to S3: {filename} ({len(file_data)} bytes)")
+            file_size_mb = len(file_data) / (1024 * 1024)
+            logger.info(
+                f"✓ Saved to RAILWAY BUCKET: s3://{self.bucket_name}/{filename} "
+                f"({file_size_mb:.2f} MB, {len(file_data)} bytes)"
+            )
             return f"s3://{self.bucket_name}/{filename}"
         except ClientError as e:
-            logger.error(f"Failed to save file to S3: {filename} - {e}")
+            logger.error(f"Failed to save file to Railway Bucket: {filename} - {e}")
             raise
 
     async def get_url(self, filename: str, expiry: int = 604800) -> str:
