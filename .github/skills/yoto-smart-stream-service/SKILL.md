@@ -129,6 +129,9 @@ OAuth authorization flow is required for Yoto device access:
 - Set `DYNAMODB_TABLE` (CDK injects) to activate; `AWS_REGION`/`AWS_DEFAULT_REGION` picked up automatically
 - SQLite remains for local-only dev; Lambda runs fully on DynamoDB
 
+**User Management Notes (Cognito + DynamoDB)**
+- Cognito user creation happens before DynamoDB writes. If Cognito reports `UsernameExistsException` but the user is missing locally, the service now resets the Cognito password to the requested value and proceeds to create the DynamoDB record so the user appears in the admin list.
+
 ### Audio Streaming Architecture
 
 1. **Audio files** - Stored in `/tmp/audio_files` (Lambda ephemeral) or `./audio_files` (local)

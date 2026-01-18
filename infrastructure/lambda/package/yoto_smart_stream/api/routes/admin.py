@@ -173,12 +173,21 @@ async def create_user(
             )
             
             if not success:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to create user in Cognito: {cognito.last_error or 'Unknown error'}"
-                )
-            
-            logger.info(f"✓ User created in Cognito: {user_data.username}")
+                # If the user already exists in Cognito, sync password and proceed to local creation
+                if cognito.last_error and "UsernameExistsException" in cognito.last_error:
+                    logger.info(f"Cognito user already exists; syncing local record for {user_data.username}")
+                    if not cognito.set_permanent_password(user_data.username, user_data.password):
+                        raise HTTPException(
+                            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"Failed to sync existing Cognito user password: {cognito.last_error}"
+                        )
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to create user in Cognito: {cognito.last_error or 'Unknown error'}"
+                    )
+            else:
+                logger.info(f"✓ User created in Cognito: {user_data.username}")
     
     # Check if username already exists in local database
     existing_user = store.get_user(user_data.username)

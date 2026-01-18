@@ -182,6 +182,35 @@ class CognitoAuth:
             logger.error(f"Unexpected error creating user: {e}")
             self.last_error = str(e)
             return False
+
+    def set_permanent_password(self, username: str, password: str) -> bool:
+        """Set or reset a user's password as permanent in Cognito."""
+        if not self.is_enabled():
+            return True
+
+        try:
+            self.client.admin_set_user_password(
+                UserPoolId=self.user_pool_id,
+                Username=username,
+                Password=password,
+                Permanent=True,
+            )
+            logger.info(f"Set permanent password for Cognito user: {username}")
+            self.last_error = None
+            return True
+        except ClientError as e:
+            logger.error(f"Failed to set password for user {username}: {e}")
+            try:
+                code = e.response.get("Error", {}).get("Code")
+                msg = e.response.get("Error", {}).get("Message")
+                self.last_error = f"{code}: {msg}" if code or msg else str(e)
+            except Exception:
+                self.last_error = str(e)
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error setting password for user {username}: {e}")
+            self.last_error = str(e)
+            return False
     
     def list_users(self, limit: int = 60) -> list:
         """
