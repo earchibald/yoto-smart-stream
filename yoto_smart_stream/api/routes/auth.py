@@ -250,14 +250,17 @@ async def poll_auth_status(
         # Save tokens to DynamoDB (primary storage - reliable and persistent)
         if client.manager.token and hasattr(client.manager.token, 'refresh_token') and client.manager.token.refresh_token:
             try:
+                # Use current user if authenticated, otherwise use 'admin' for global tokens
+                username = current_user.username if current_user else "admin"
+                
                 # Save to DynamoDB first (most reliable)
                 store.save_yoto_tokens(
-                    username=current_user.username,
+                    username=username,
                     refresh_token=client.manager.token.refresh_token,
                     access_token=getattr(client.manager.token, "access_token", None),
                     expires_at=getattr(client.manager.token, "expires_at", None)
                 )
-                logger.info("✓ Yoto OAuth tokens saved to DynamoDB")
+                logger.info(f"✓ Yoto OAuth tokens saved to DynamoDB for user: {username}")
                 
                 # Per security model, do not store dynamic tokens in Secrets Manager
                 logger.info("Skipping Secrets Manager backup for tokens (use DynamoDB only)")

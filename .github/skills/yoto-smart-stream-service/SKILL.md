@@ -185,10 +185,10 @@ if "expired" in error_msg or "Invalid or expired device code" in error_msg:
 
 **Prerequisites:**
 - AWS credentials configured (default profile)
-- Yoto OAuth credentials (retrieve from 1Password if needed):
+- Yoto OAuth credentials, set env vars from 1Password):
   ```bash
-  YOTO_USERNAME=$(op read "op://Private/Yotoplay/username")
-  YOTO_PASSWORD=$(op read "op://Private/Yotoplay/password")
+  export YOTO_USERNAME=$(op read "op://Private/Yotoplay/username")
+  export YOTO_PASSWORD=$(op read "op://Private/Yotoplay/password")
   ```
 - Playwright MCP browser available for UI automation
 - AWS CloudWatch access for log verification
