@@ -4,44 +4,7 @@
   "packages": {
     "python": "3.11"
   },
-  "steps": {
-    "install": {
-      "commands": [
-        {
-          "src": "requirements.txt",
-          "dest": "requirements.txt"
-        },
-        {
-          "cmd": "pip install -r requirements.txt",
-          "customName": "Install Python dependencies"
-        }
-      ]
-    },
-    "build": {
-      "inputs": [
-        {
-          "step": "install"
-        }
-      ],
-      "commands": [
-        {
-          "src": "yoto_smart_stream",
-          "dest": "yoto_smart_stream"
-        },
-        {
-          "src": "pyproject.toml",
-          "dest": "pyproject.toml"
-        }
-      ]
-    }
-  },
   "deploy": {
-    "startCommand": "uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT",
-    "inputs": [
-      {
-        "step": "build",
-        "include": ["."]
-      }
-    ]
+    "startCommand": "uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT"
   }
 }
