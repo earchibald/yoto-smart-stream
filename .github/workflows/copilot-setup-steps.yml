@@ -57,24 +57,7 @@ jobs:
         shell: bash
         run: python -m pip install --upgrade pip setuptools wheel
 
-      # Step 5: Install Railway CLI for deployments
-      - name: Install Railway CLI
-        shell: bash
-        run: |
-          if ! command -v railway &> /dev/null; then
-            echo "📦 Installing Railway CLI..."
-            npm install -g @railway/cli
-            if command -v railway &> /dev/null; then
-              echo "✅ Railway CLI installed successfully: $(railway --version)"
-            else
-              echo "⚠️  Railway CLI installation may have failed"
-              exit 1
-            fi
-          else
-            echo "✅ Railway CLI already installed: $(railway --version)"
-          fi
-
-      # Step 6: Install AWS CDK for AWS deployments
+      # Step 5: Install AWS CDK for AWS deployments
       - name: Install AWS CDK
         shell: bash
         run: |
@@ -91,7 +74,7 @@ jobs:
             echo "✅ AWS CDK already installed: $(cdk --version)"
           fi
 
-      # Step 7: Install Python package with development dependencies
+      # Step 6: Install Python package with development dependencies
       - name: Install Python dependencies
         shell: bash
         run: |
@@ -111,7 +94,7 @@ jobs:
           fi
           echo "✅ Python dependencies installed"
 
-      # Step 8: Install pre-commit hooks if configuration exists
+      # Step 7: Install pre-commit hooks if configuration exists
       - name: Setup pre-commit
         shell: bash
         run: |
@@ -124,24 +107,7 @@ jobs:
             echo "ℹ️  No .pre-commit-config.yaml found, skipping pre-commit setup"
           fi
 
-      # Step 9: Verify Railway authentication (if tokens available)
-      - name: Verify Railway auth
-        shell: bash
-        continue-on-error: true
-        run: |
-          if [ -n "$RAILWAY_API_TOKEN" ] || [ -n "$RAILWAY_TOKEN" ]; then
-            echo "🔐 Verifying Railway authentication..."
-            if railway whoami > /dev/null 2>&1; then
-              echo "✅ Authenticated to Railway as: $(railway whoami)"
-            else
-              echo "⚠️  Railway authentication failed - credentials may be invalid"
-            fi
-          else
-            echo "ℹ️  RAILWAY_API_TOKEN/RAILWAY_TOKEN not set"
-            echo "   Railway MCP tools will have limited functionality"
-          fi
-
-      # Step 10: Verify AWS credentials (if available)
+      # Step 8: Verify AWS credentials (if available)
       - name: Verify AWS credentials
         shell: bash
         continue-on-error: true
@@ -155,7 +121,7 @@ jobs:
             echo "   AWS CDK deployments will not be available"
           fi
 
-      # Step 11: Display setup summary
+      # Step 9: Display setup summary
       - name: Setup summary
         shell: bash
         run: |
@@ -169,16 +135,10 @@ jobs:
           echo "  • pip: $(pip --version | head -1)"
           echo "  • Node.js: $(node --version)"
           echo "  • npm: $(npm --version)"
-          echo "  • Railway CLI: $(railway --version 2>/dev/null || echo 'not installed')"
           echo "  • AWS CDK: $(cdk --version 2>/dev/null || echo 'not installed')"
           echo "  • GitHub CLI: $(gh --version | head -1 2>/dev/null || echo 'not installed')"
           echo ""
           echo "🔑 Available Secrets:"
-          if [ -n "$RAILWAY_API_TOKEN" ] || [ -n "$RAILWAY_TOKEN" ]; then
-            echo "  ✅ Railway authentication configured"
-          else
-            echo "  ⚠️  Railway authentication NOT configured"
-          fi
           if [ -n "$YOTO_CLIENT_ID" ]; then
             echo "  ✅ YOTO_CLIENT_ID configured"
           else
@@ -191,10 +151,6 @@ jobs:
           fi
           echo ""
           echo "📚 Quick Commands:"
-          echo "  • Run tests: pytest"
-          echo "  • Lint code: ruff check ."
-          echo "  • Format code: black ."
-          echo "  • Railway deploy: railway up"
           echo "  • AWS CDK deploy: cd infrastructure/cdk && cdk deploy"
           echo ""
           echo "=================================================="
