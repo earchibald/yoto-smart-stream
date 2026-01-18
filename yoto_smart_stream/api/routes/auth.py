@@ -240,20 +240,34 @@ async def poll_auth_status(
         # If we get here, authentication succeeded
         client.set_authenticated(True)
 
-        # Save tokens to Secrets Manager (primary storage)
+        # Save tokens to DynamoDB (primary storage - reliable and persistent)
         if client.manager.token and hasattr(client.manager.token, 'refresh_token') and client.manager.token.refresh_token:
             try:
-                from ...storage.secrets_manager import save_yoto_tokens, YotoTokens
-                
-                tokens = YotoTokens(
-                    access_token=client.manager.token.access_token or "",
+                # Save to DynamoDB first (most reliable)
+                store.save_yoto_tokens(
+                    username=current_user.username,
                     refresh_token=client.manager.token.refresh_token,
+                    access_token=getattr(client.manager.token, "access_token", None),
                     expires_at=getattr(client.manager.token, "expires_at", None)
                 )
-                save_yoto_tokens(tokens)
-                logger.info("✓ Yoto OAuth tokens saved to Secrets Manager")
+                logger.info("✓ Yoto OAuth tokens saved to DynamoDB")
+                
+                # Also save to Secrets Manager as backup
+                try:
+                    from ...storage.secrets_manager import save_yoto_tokens as sm_save, YotoTokens
+                    
+                    tokens = YotoTokens(
+                        access_token=client.manager.token.access_token or "",
+                        refresh_token=client.manager.token.refresh_token,
+                        expires_at=getattr(client.manager.token, "expires_at", None)
+                    )
+                    sm_save(tokens)
+                    logger.info("✓ Yoto OAuth tokens also saved to Secrets Manager (backup)")
+                except Exception as e:
+                    logger.warning(f"Failed to save tokens to Secrets Manager (backup): {e}")
+                
             except Exception as e:
-                logger.error(f"Failed to save tokens to Secrets Manager: {e}")
+                logger.error(f"Failed to save tokens to DynamoDB: {e}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Failed to save OAuth tokens: {str(e)}"

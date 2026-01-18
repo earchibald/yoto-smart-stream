@@ -32,6 +32,9 @@ class UserRecord:
     is_admin: bool
     created_at: datetime
     updated_at: datetime
+    yoto_refresh_token: Optional[str] = None
+    yoto_access_token: Optional[str] = None
+    yoto_token_expires_at: Optional[str] = None
 
     @property
     def id(self) -> int:
@@ -119,6 +122,9 @@ class DynamoStore:
             is_admin=bool(item.get("is_admin", False)),
             created_at=_parse_dt(item.get("created_at")) or _now_utc(),
             updated_at=_parse_dt(item.get("updated_at")) or _now_utc(),
+            yoto_refresh_token=item.get("yoto_refresh_token"),
+            yoto_access_token=item.get("yoto_access_token"),
+            yoto_token_expires_at=item.get("yoto_token_expires_at"),
         )
 
     def list_users(self) -> List[UserRecord]:
@@ -230,6 +236,50 @@ class DynamoStore:
         except Exception as exc:
             logger.error(f"Failed to delete user {user.username}: {exc}")
             raise
+
+    def save_yoto_tokens(self, username: str, refresh_token: str, access_token: Optional[str] = None, expires_at: Optional[str] = None) -> None:
+        """Save Yoto OAuth tokens to DynamoDB for the specified user."""
+        user = self.get_user(username)
+        if not user:
+            logger.error(f"Cannot save tokens: user {username} not found")
+            return
+        
+        update_expr = ["yoto_refresh_token = :rt", "updated_at = :updated_at"]
+        expr_values = {
+            ":rt": refresh_token,
+            ":updated_at": _iso(_now_utc())
+        }
+        
+        if access_token:
+            update_expr.append("yoto_access_token = :at")
+            expr_values[":at"] = access_token
+        
+        if expires_at:
+            update_expr.append("yoto_token_expires_at = :exp")
+            expr_values[":exp"] = expires_at
+        
+        update_clause = ", ".join(update_expr)
+        
+        self.table.update_item(
+            Key={"PK": self._user_pk(username), "SK": self._user_sk()},
+            UpdateExpression=f"SET {update_clause}",
+            ExpressionAttributeValues=expr_values
+        )
+        logger.info(f"✓ Yoto OAuth tokens saved to DynamoDB for user {username}")
+    
+    def load_yoto_tokens(self, username: str) -> Optional[tuple]:
+        """Load Yoto OAuth tokens from DynamoDB.
+        
+        Returns:
+            Tuple of (refresh_token, access_token, expires_at) or None if not found
+        """
+        user = self.get_user(username)
+        if not user or not user.yoto_refresh_token:
+            logger.debug(f"No Yoto tokens found for user {username}")
+            return None
+        
+        logger.info(f"✓ Loaded Yoto OAuth tokens from DynamoDB for user {username}")
+        return (user.yoto_refresh_token, user.yoto_access_token, user.yoto_token_expires_at)
 
     def ensure_admin_user(self, hashed_password: str, email: Optional[str]) -> UserRecord:
         existing = self.get_user("admin")

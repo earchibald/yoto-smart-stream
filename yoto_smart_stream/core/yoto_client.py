@@ -48,7 +48,7 @@ class YotoClient:
 
     def _save_refresh_token(self, user_id: Optional[str] = None) -> None:
         """
-        Save the current refresh token to Secrets Manager or file.
+        Save the current refresh token to DynamoDB, Secrets Manager, and/or file.
 
         This should be called after any operation that may update the refresh token,
         including authentication and token refresh operations.
@@ -57,7 +57,21 @@ class YotoClient:
             user_id: User identifier (ignored, kept for backward compatibility)
         """
         if self.manager and self.manager.token and self.manager.token.refresh_token:
-            # Try to save to Secrets Manager (primary storage)
+            # Try to save to DynamoDB first (primary storage - most reliable)
+            try:
+                from ..storage.dynamodb_store import get_store
+                store = get_store(self.settings.dynamodb_table, region_name=self.settings.dynamodb_region)
+                store.save_yoto_tokens(
+                    username="admin",
+                    refresh_token=self.manager.token.refresh_token,
+                    access_token=getattr(self.manager.token, "access_token", None),
+                    expires_at=getattr(self.manager.token, "expires_at", None)
+                )
+                logger.info("✓ Refresh token saved to DynamoDB")
+            except Exception as e:
+                logger.debug(f"Failed to save token to DynamoDB: {e}")
+            
+            # Also try to save to Secrets Manager (backup)
             try:
                 from ..storage.secrets_manager import save_yoto_tokens, YotoTokens
                 
@@ -67,9 +81,9 @@ class YotoClient:
                     expires_at=getattr(self.manager.token, "expires_at", None)
                 )
                 save_yoto_tokens(tokens)
-                logger.info("✓ Refresh token saved to Secrets Manager")
+                logger.info("✓ Refresh token also saved to Secrets Manager (backup)")
             except Exception as e:
-                logger.error(f"Failed to save token to Secrets Manager: {e}")
+                logger.debug(f"Failed to save token to Secrets Manager: {e}")
                 # Fall back to file storage on error
                 self._save_token_to_file()
         else:
@@ -87,13 +101,13 @@ class YotoClient:
 
     def authenticate(self, user_id: Optional[str] = None) -> None:
         """
-        Authenticate with Yoto API using stored refresh token from Secrets Manager or file.
+        Authenticate with Yoto API using stored refresh token from DynamoDB, Secrets Manager, or file.
 
         Args:
             user_id: User identifier (ignored, kept for backward compatibility)
 
         Raises:
-            FileNotFoundError: If refresh token not found in Secrets Manager or file
+            FileNotFoundError: If refresh token not found in any storage location
             Exception: If authentication fails
         """
         self.initialize()
@@ -101,22 +115,35 @@ class YotoClient:
         refresh_token = None
         
         logger.info("Authenticating with Yoto API...")
-        # Try loading from Secrets Manager (primary storage for tokens)
-        try:
-            from ..storage.secrets_manager import load_yoto_tokens
-            tokens = load_yoto_tokens()
-            if tokens:
-                refresh_token = tokens.refresh_token
-                logger.info("✓ Loaded refresh token from Secrets Manager")
-        except Exception as e:
-            logger.warning(f"Failed to load token from Secrets Manager: {e}")
         
-        # Fall back to file if not found in Secrets Manager
+        # Try loading from DynamoDB first (primary storage - most reliable)
+        try:
+            from ..storage.dynamodb_store import get_store
+            store = get_store(self.settings.dynamodb_table, region_name=self.settings.dynamodb_region)
+            tokens = store.load_yoto_tokens("admin")
+            if tokens:
+                refresh_token = tokens[0]  # refresh_token is first element of tuple
+                logger.info("✓ Loaded refresh token from DynamoDB")
+        except Exception as e:
+            logger.debug(f"Failed to load token from DynamoDB: {e}")
+        
+        # Fall back to Secrets Manager if not found in DynamoDB
+        if not refresh_token:
+            try:
+                from ..storage.secrets_manager import load_yoto_tokens
+                tokens = load_yoto_tokens()
+                if tokens:
+                    refresh_token = tokens.refresh_token
+                    logger.info("✓ Loaded refresh token from Secrets Manager")
+            except Exception as e:
+                logger.debug(f"Failed to load token from Secrets Manager: {e}")
+        
+        # Fall back to file if not found in DynamoDB or Secrets Manager
         if not refresh_token:
             token_file = self.settings.yoto_refresh_token_file
             if not token_file.exists():
                 raise FileNotFoundError(
-                    f"Refresh token not found in Secrets Manager or file: {token_file}. "
+                    f"Refresh token not found in DynamoDB, Secrets Manager, or file: {token_file}. "
                     "Run authentication first."
                 )
             refresh_token = token_file.read_text().strip()
