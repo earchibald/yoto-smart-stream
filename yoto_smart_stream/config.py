@@ -108,11 +108,11 @@ class Settings(BaseSettings):
     storage_backend: str = Field(default="local", description="Storage backend: 'local' or 's3'")
 
     # Railway Bucket credentials (S3-compatible)
-    bucket_name: Optional[str] = Field(default=None, alias="BUCKET")
-    bucket_access_key_id: Optional[str] = Field(default=None, alias="ACCESS_KEY_ID")
-    bucket_secret_access_key: Optional[str] = Field(default=None, alias="SECRET_ACCESS_KEY")
-    bucket_endpoint: str = Field(default="https://storage.railway.app", alias="ENDPOINT")
-    bucket_region: str = Field(default="auto", alias="REGION")
+    bucket_name: Optional[str] = Field(default=None, alias="AWS_S3_BUCKET_NAME")
+    bucket_access_key_id: Optional[str] = Field(default=None, alias="AWS_ACCESS_KEY_ID")
+    bucket_secret_access_key: Optional[str] = Field(default=None, alias="AWS_SECRET_ACCESS_KEY")
+    bucket_endpoint: str = Field(default="https://storage.railway.app", alias="AWS_ENDPOINT_URL")
+    bucket_region: str = Field(default="auto", alias="AWS_DEFAULT_REGION")
 
     # Presigned URL expiry (7 days default)
     presigned_url_expiry: int = Field(
@@ -163,10 +163,8 @@ class Settings(BaseSettings):
         if info.data.get("storage_backend") == "s3":
             if not v:
                 raise ValueError("bucket_name required when storage_backend='s3'")
-            if not info.data.get("bucket_access_key_id"):
-                raise ValueError("bucket_access_key_id required when storage_backend='s3'")
-            if not info.data.get("bucket_secret_access_key"):
-                raise ValueError("bucket_secret_access_key required when storage_backend='s3'")
+            # Note: bucket_access_key_id and bucket_secret_access_key will be checked
+            # by model validation after all fields are populated
         return v
 
     database_url: str = Field(
@@ -248,7 +246,17 @@ class Settings(BaseSettings):
     def __init__(self, **kwargs):
         """Initialize settings and create required directories."""
         super().__init__(**kwargs)
-        self.audio_files_dir.mkdir(exist_ok=True)
+        
+        # Validate S3 configuration if S3 backend is enabled
+        if self.storage_backend == "s3":
+            if not self.bucket_name:
+                raise ValueError("bucket_name (AWS_S3_BUCKET_NAME) required when storage_backend='s3'")
+            if not self.bucket_access_key_id:
+                raise ValueError("bucket_access_key_id (AWS_ACCESS_KEY_ID) required when storage_backend='s3'")
+            if not self.bucket_secret_access_key:
+                raise ValueError("bucket_secret_access_key (AWS_SECRET_ACCESS_KEY) required when storage_backend='s3'")
+        
+        self.audio_files_dir.mkdir(parents=True, exist_ok=True)
 
     def get_storage(self):
         """
