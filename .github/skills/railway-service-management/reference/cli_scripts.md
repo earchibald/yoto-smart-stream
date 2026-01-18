@@ -5,6 +5,7 @@
 - [Railway MCP Server](#railway-mcp-server)
 - [Railway CLI Installation](#railway-cli-installation)
 - [Authentication](#authentication)
+- [Cloud Agent Authentication (Token-Only Mode)](#cloud-agent-authentication-token-only-mode)
 - [Essential Commands](#essential-commands)
 - [Automation Scripts](#automation-scripts)
 - [Makefile for Common Tasks](#makefile-for-common-tasks)
@@ -192,6 +193,194 @@ railway whoami
 # 2. Click "Create Token"
 # 3. Copy token
 # 4. Add to GitHub Secrets as RAILWAY_TOKEN
+```
+
+## Cloud Agent Authentication (Token-Only Mode)
+
+### Overview
+
+**Cloud Agents** (e.g., GitHub Copilot Workspace) cannot use interactive `railway login` but can use Railway CLI with `RAILWAY_TOKEN` environment variable. This provides a limited but functional subset of CLI commands.
+
+**Key Limitations:**
+- ❌ No `railway login` (interactive browser login unavailable)
+- ✅ All commands work with `RAILWAY_TOKEN` environment variable
+- ⚠️ Requires one-time service/environment linking per session
+
+### Initial Setup (Once Per Session)
+
+Link service and environment once at session start. These persist in `.railway/` config for subsequent commands:
+
+```bash
+# Link to service (only required once per session)
+railway service link $SERVICE_NAME
+
+# Link to environment (only required once per session)
+railway environment link $ENVIRONMENT_NAME
+```
+
+**Example:**
+```bash
+railway service link yoto-smart-stream
+railway environment link yoto-smart-stream-pr-88
+```
+
+After linking, all subsequent commands inherit these defaults (no need to specify `-s` or `-e` flags).
+
+**Automation Option:**
+
+Consider adding to `.github/workflows/copilot-setup-steps.yml` to run automatically when `RAILWAY_TOKEN` is set:
+
+```yaml
+- name: Link Railway Service & Environment
+  if: env.RAILWAY_TOKEN != ''
+  run: |
+    railway service link ${{ vars.SERVICE_NAME }}
+    railway environment link ${{ vars.ENVIRONMENT_NAME }}
+```
+
+### Available Commands (Cloud Agent Mode)
+
+Once linked, these commands work without interactive login:
+
+#### Deployment Commands
+
+```bash
+# List deployments (JSON format recommended)
+railway deployment list --json
+
+# Upload and deploy from current directory
+# --json implies CI mode (stream build logs, then exit)
+railway up --json
+
+# Redeploy latest deployment
+railway deployment redeploy --yes --json
+
+# Restart service (without rebuilding)
+railway restart --yes --json
+
+# Remove most recent deployment
+railway down --yes
+```
+
+#### Log Commands
+
+```bash
+# View logs (extensive options available)
+railway logs                              # Stream live logs
+railway logs --build                      # Show build logs
+railway logs --deployment                 # Show deployment logs
+railway logs --json                       # JSON format
+railway logs --lines 100                  # Last 100 lines (no streaming)
+railway logs --filter "@level:error"      # Filter by level
+railway logs --filter "@level:warn AND rate limit"  # Complex filters
+railway logs --since 1h                   # Time-based
+railway logs --latest                     # Latest deployment (even if failed)
+```
+
+**Log Filter Syntax:**
+- `@level:error` - Error logs only
+- `@level:warn` - Warning logs
+- `"search term"` - Text search
+- `AND`, `OR` - Combine filters
+- `-@level:debug` - Exclude debug logs
+
+**Examples:**
+```bash
+# Last 10 error logs in JSON
+railway logs --lines 10 --filter "@level:error" --json
+
+# Stream logs from latest deployment
+railway logs --latest --json
+
+# Logs from last hour
+railway logs --since 1h --json
+```
+
+#### Status & Info Commands
+
+```bash
+# Show project/service information
+railway status --json
+
+# List environment variables
+railway var list --json
+
+# Set environment variable
+railway var set KEY="VALUE"
+
+# Delete environment variable
+railway var delete KEY
+```
+
+#### SSH Access
+
+```bash
+# Connect to service instance (for debugging)
+railway ssh
+```
+
+### Complete Cloud Agent Workflow Example
+
+```bash
+# 1. Verify RAILWAY_TOKEN is set
+if [ -z "$RAILWAY_TOKEN" ]; then
+  echo "Error: RAILWAY_TOKEN not set"
+  exit 1
+fi
+
+# 2. Link service and environment (once per session)
+railway service link yoto-smart-stream
+railway environment link yoto-smart-stream-pr-88
+
+# 3. Check status
+railway status --json
+
+# 4. Deploy
+railway up --json
+
+# 5. View logs
+railway logs --lines 50 --filter "@level:error" --json
+
+# 6. Check environment variables
+railway var list --json
+```
+
+### Best Practices for Cloud Agents
+
+1. **Always use `--json` flag** for machine-readable output
+2. **Filter logs aggressively** with `--filter` and `--lines` to reduce output
+3. **Use `--yes` flag** to skip confirmations (non-interactive)
+4. **Link service/environment at session start** to avoid repeated `-s`/`-e` flags
+5. **Prefer `--latest` for logs** when debugging failed deployments
+6. **Use time-based log queries** (`--since`, `--until`) for specific windows
+
+### Troubleshooting
+
+**"Not logged in" errors:**
+```bash
+# Verify RAILWAY_TOKEN is set
+echo $RAILWAY_TOKEN
+
+# Should show token UUID
+# If empty, token needs to be provisioned
+```
+
+**"No service linked" errors:**
+```bash
+# Re-link service
+railway service link yoto-smart-stream
+
+# Verify with status
+railway status --json
+```
+
+**"No environment linked" errors:**
+```bash
+# Re-link environment
+railway environment link yoto-smart-stream-pr-88
+
+# Verify
+railway status --json
 ```
 
 ## Essential Commands

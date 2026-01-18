@@ -26,6 +26,8 @@ railway environment --environment develop
 
 **For complete CLI reference and Railway MCP Server usage**: See [cli_scripts.md](reference/cli_scripts.md)
 
+**For Cloud Agent (token-only) usage**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-token-only-mode) in cli_scripts.md
+
 ## Essential Workflows
 
 ### 1. Deployment Configuration
