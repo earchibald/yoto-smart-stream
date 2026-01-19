@@ -437,6 +437,23 @@
         </div>
     </div>
 
+    <!-- Confirmation Modal (generic) -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div id="confirmModalHeader" class="modal-header">
+                <h3 id="confirmModalTitle"></h3>
+                <span class="modal-close" onclick="closeConfirmModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalMessage" style="margin: 0; font-size: 1rem;"></p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end; padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0;">
+                <button class="btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+                <button id="confirmModalBtn" class="btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Result Message Modal -->
     <div id="resultMessageModal" class="modal">
         <div class="modal-content" style="max-width: 450px;">

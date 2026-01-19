@@ -626,6 +626,77 @@ function closeResultMessageModal() {
     }
 }
 
+// Confirmation Modal Functions
+let confirmModalKeyHandler = null;
+let confirmModalCallback = null;
+
+function showConfirmModal(title, message, onConfirm) {
+    const modal = document.getElementById('confirmModal');
+    const header = document.getElementById('confirmModalHeader');
+    const titleEl = document.getElementById('confirmModalTitle');
+    const messageEl = document.getElementById('confirmModalMessage');
+    const confirmBtn = document.getElementById('confirmModalBtn');
+
+    // Set content
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+
+    // Set header color (info style)
+    header.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+
+    // Store callback
+    confirmModalCallback = onConfirm;
+
+    // Remove previous keyboard handler if exists
+    if (confirmModalKeyHandler) {
+        document.removeEventListener('keydown', confirmModalKeyHandler);
+    }
+
+    // Setup keyboard handler
+    confirmModalKeyHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeConfirmModal();
+        } else if (e.key === 'Enter') {
+            handleConfirmModalOk();
+        }
+    };
+    document.addEventListener('keydown', confirmModalKeyHandler);
+
+    // Setup button handler
+    confirmBtn.onclick = handleConfirmModalOk;
+
+    // Show modal
+    modal.style.display = 'flex';
+
+    // Focus the confirm button
+    setTimeout(() => confirmBtn?.focus(), 100);
+}
+
+function handleConfirmModalOk() {
+    closeConfirmModal();
+    if (confirmModalCallback) {
+        confirmModalCallback();
+        confirmModalCallback = null;
+    }
+}
+
+function closeConfirmModal() {
+    const modal = document.getElementById('confirmModal');
+
+    // Remove keyboard handler
+    if (confirmModalKeyHandler) {
+        document.removeEventListener('keydown', confirmModalKeyHandler);
+        confirmModalKeyHandler = null;
+    }
+
+    // Clear callback
+    confirmModalCallback = null;
+
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 // TTS Generator Functions
 
 // Update filename preview
@@ -1365,34 +1436,41 @@ function formatTranscriptStatus(status) {
 async function startTranscription(filename, event) {
     if (event) event.preventDefault();
 
-    if (!confirm(`Start transcription for ${filename}? This may take a few moments.`)) {
-        return;
-    }
+    showConfirmModal(
+        '🎤 Start Transcription',
+        `Start transcription for ${filename}? This may take a few moments.`,
+        async () => {
+            try {
+                const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcribe`, {
+                    method: 'POST'
+                });
 
-    try {
-        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcribe`, {
-            method: 'POST'
-        });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMessage = errorData.detail || 'Failed to start transcription';
+                    throw new Error(errorMessage);
+                }
 
-        if (!response.ok) {
-            throw new Error('Failed to start transcription');
+                const data = await response.json();
+
+                if (data.success) {
+                    showResultMessage('success', '✓ Transcription Complete',
+                        `Transcription completed successfully! Length: ${data.transcript_length} characters`);
+                } else {
+                    showResultMessage('error', '❌ Transcription Failed',
+                        data.error || 'Unknown error occurred during transcription');
+                }
+
+                // Reload the audio files list to update button states
+                await loadAudioFiles();
+
+            } catch (error) {
+                console.error('Error starting transcription:', error);
+                showResultMessage('error', '❌ Transcription Failed',
+                    error.message || 'Failed to start transcription. Please try again.');
+            }
         }
-
-        const data = await response.json();
-
-        if (data.success) {
-            alert(`Transcription completed successfully! Length: ${data.transcript_length} characters`);
-        } else {
-            alert(`Transcription failed: ${data.error || 'Unknown error'}`);
-        }
-
-        // Reload the audio files list to update button states
-        await loadAudioFiles();
-
-    } catch (error) {
-        console.error('Error starting transcription:', error);
-        alert('Failed to start transcription. Please try again.');
-    }
+    );
 }
 
 async function retryTranscription(filename, event) {
@@ -1401,57 +1479,64 @@ async function retryTranscription(filename, event) {
 
 // Cancel transcription
 async function cancelTranscription(filename) {
-    if (!confirm(`Cancel transcription for ${filename}?`)) {
-        return;
-    }
+    showConfirmModal(
+        '⚠️ Cancel Transcription',
+        `Cancel transcription for ${filename}?`,
+        async () => {
+            try {
+                const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcript/cancel`, {
+                    method: 'POST'
+                });
 
-    try {
-        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcript/cancel`, {
-            method: 'POST'
-        });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to cancel transcription');
+                }
 
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.detail || 'Failed to cancel transcription');
+                showResultMessage('success', '✓ Cancelled', 'Transcription cancelled successfully');
+
+                // Reload the audio files list to update badge
+                await loadAudioFiles();
+
+            } catch (error) {
+                console.error('Error cancelling transcription:', error);
+                showResultMessage('error', '❌ Cancellation Failed',
+                    `Failed to cancel transcription: ${error.message}`);
+            }
         }
-
-        // Reload the audio files list to update badge
-        await loadAudioFiles();
-
-    } catch (error) {
-        console.error('Error cancelling transcription:', error);
-        alert(`Failed to cancel transcription: ${error.message}`);
-    }
+    );
 }
 
 // Delete transcript
 async function deleteTranscriptConfirm(filename) {
     closeTranscriptOptions();
 
-    if (!confirm(`Delete transcript for ${filename}? The audio file will remain, but you'll need to re-transcribe it.`)) {
-        return;
-    }
+    showConfirmModal(
+        '⚠️ Delete Transcript',
+        `Delete transcript for ${filename}? The audio file will remain, but you'll need to re-transcribe it.`,
+        async () => {
+            try {
+                const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcript`, {
+                    method: 'DELETE'
+                });
 
-    try {
-        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcript`, {
-            method: 'DELETE'
-        });
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.detail || 'Failed to delete transcript');
+                }
 
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.detail || 'Failed to delete transcript');
+                showResultMessage('success', '✓ Deleted', 'Transcript deleted successfully');
+
+                // Reload the audio files list to update badge
+                await loadAudioFiles();
+
+            } catch (error) {
+                console.error('Error deleting transcript:', error);
+                showResultMessage('error', '❌ Deletion Failed',
+                    `Failed to delete transcript: ${error.message}`);
+            }
         }
-
-        const data = await response.json();
-        alert(data.message || 'Transcript deleted successfully');
-
-        // Reload the audio files list to update badge
-        await loadAudioFiles();
-
-    } catch (error) {
-        console.error('Error deleting transcript:', error);
-        alert(`Failed to delete transcript: ${error.message}`);
-    }
+    );
 }
 
 // Auto-refresh functionality for processing transcripts

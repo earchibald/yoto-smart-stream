@@ -1070,7 +1070,7 @@ async def trigger_transcription(
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Transcription disabled in this environment. Set TRANSCRIPTION_ENABLED=true and install whisper dependencies to enable.",
+            detail="Transcription disabled in this environment. Set transcription_enabled=true and configure ELEVENLABS_API_KEY to enable.",
         )
 
     # Get or create audio file record
