@@ -498,6 +498,13 @@ header h2 {
     font-size: 1.75rem;
     color: #667eea;
     margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* Dynamic font sizing for environment card */
+#environment {
+    transition: font-size 0.2s ease;
 }
 
 .stat-content p {

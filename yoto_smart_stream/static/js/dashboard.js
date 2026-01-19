@@ -285,7 +285,11 @@ async function loadSystemStatus() {
 
         // Update stats
         document.getElementById('mqtt-status').textContent = data.features?.mqtt_events ? 'Enabled' : 'Disabled';
-        document.getElementById('environment').textContent = data.environment || 'Unknown';
+
+        // Update environment with dynamic font sizing
+        const envElement = document.getElementById('environment');
+        envElement.textContent = data.environment || 'Unknown';
+        adjustEnvironmentFontSize(envElement);
 
     } catch (error) {
         console.error('Error loading status:', error);
@@ -872,6 +876,24 @@ function formatFileSize(bytes) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+/**
+ * Dynamically adjust font size of environment text to fit without wrapping
+ */
+function adjustEnvironmentFontSize(element) {
+    const parentWidth = element.parentElement.offsetWidth;
+    let fontSize = 1.75; // Start with default 1.75rem
+    const minFontSize = 0.875; // Minimum 0.875rem (14px)
+
+    // Set initial font size
+    element.style.fontSize = `${fontSize}rem`;
+
+    // Reduce font size until text fits or we reach minimum
+    while (element.scrollWidth > parentWidth && fontSize > minFontSize) {
+        fontSize -= 0.0625; // Reduce by 1px (0.0625rem)
+        element.style.fontSize = `${fontSize}rem`;
+    }
 }
 
 // Copy audio URL to clipboard
