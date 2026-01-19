@@ -9,19 +9,24 @@ Complete guide for managing Railway.app deployments across multiple environments
 
 ## Quick Start for Cloud Agents
 
-**If you're a Cloud Agent (GitHub Copilot Workspace), use the setup script:**
+**Railway CLI is automatically configured for Cloud Agents (GitHub Copilot Workspace).**
+
+The Railway CLI is installed and configured during workspace setup via `.github/workflows/copilot-setup-steps.yml`:
+- Installs Railway CLI via npm
+- Authenticates using RAILWAY_API_TOKEN
+- Auto-detects and links to the correct environment (PR or production)
+- Links to project: yoto, service: yoto-smart-stream
+
+You can immediately use Railway CLI commands:
 
 ```bash
-# Run the automated setup script
-bash .github/skills/railway-service-management/scripts/setup_cloud_agent.sh
-
-# Then use Railway CLI commands
 railway status --json
 railway logs --lines 50 --filter "@level:error" --json
 railway var list --json
 railway deployment list --json
 ```
 
+<<<<<<< ours
 The script automatically:
 - Verifies RAILWAY_API_TOKEN is configured
 - Logs in to Railway using `railway login`
@@ -29,6 +34,8 @@ The script automatically:
 - Links to project: yoto, service: yoto-smart-stream
 - Configures Railway CLI for immediate use
 
+=======
+>>>>>>> theirs
 **For detailed instructions**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-railway_api_token-mode)
 
 ## Quick Start
