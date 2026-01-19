@@ -614,10 +614,13 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
         }
         
         # Add optional fields if they exist
-        if "description" in card_data:
-            update_payload["description"] = card_data["description"]
-        if "author" in card_data:
-            update_payload["author"] = card_data["author"]
+        # NOTE: API returns description/author inside metadata object, but they need to be
+        # at the top level in the update payload (same as create payload structure)
+        metadata = card_data.get("metadata", {})
+        if "description" in metadata:
+            update_payload["description"] = metadata["description"]
+        if "author" in metadata:
+            update_payload["author"] = metadata["author"]
         
         logger.info(f"[EDIT CHECK] Attempting update with payload keys: {update_payload.keys()}")
         
