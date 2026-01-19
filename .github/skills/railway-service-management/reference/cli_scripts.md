@@ -2,10 +2,9 @@
 
 ## Table of Contents
 
-- [Railway MCP Server](#railway-mcp-server)
 - [Railway CLI Installation](#railway-cli-installation)
 - [Authentication](#authentication)
-- [Cloud Agent Authentication (Token-Only Mode)](#cloud-agent-authentication-token-only-mode)
+- [Cloud Agent Authentication (RAILWAY_API_TOKEN Mode)](#cloud-agent-authentication-railway_api_token-mode)
 - [Essential Commands](#essential-commands)
 - [Automation Scripts](#automation-scripts)
 - [Makefile for Common Tasks](#makefile-for-common-tasks)
@@ -13,129 +12,7 @@
 
 ## Overview
 
-This guide covers the Railway CLI, Railway MCP Server, common commands, and automation scripts for managing Railway deployments efficiently.
-
-## Railway MCP Server
-
-### What is Railway MCP Server?
-
-The Railway MCP (Model Context Protocol) Server provides specialized Railway management tools that can be used directly from AI coding agents like GitHub Copilot Workspace. It enables natural language interaction with Railway infrastructure.
-
-**Official Repository**: https://github.com/railwayapp/railway-mcp-server
-
-### Configuration
-
-The Railway MCP Server is configured in `.github/copilot-workspace.yml`:
-
-```yaml
-mcp_servers:
-  railway-mcp-server:
-    command: npx
-    args:
-      - "-y"
-      - "@railway/mcp-server"
-```
-
-For other editors:
-
-**Cursor** (`.cursor/mcp.json`):
-```json
-{
-  "mcpServers": {
-    "railway-mcp-server": {
-      "command": "npx",
-      "args": ["-y", "@railway/mcp-server"]
-    }
-  }
-}
-```
-
-**VS Code** (`.vscode/mcp.json`):
-```json
-{
-  "servers": {
-    "railway-mcp-server": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@railway/mcp-server"]
-    }
-  }
-}
-```
-
-### Available MCP Tools
-
-The Railway MCP Server provides these tools:
-
-**Project Management:**
-- `list-projects` - List all Railway projects
-- `create-project-and-link` - Create and link new projects
-
-**Service Management:**
-- `list-services` - List services in a project
-- `link-service` - Link a service to current directory
-- `deploy` - Deploy a service
-- `deploy-template` - Deploy from Railway Template Library
-
-**Environment Management:**
-- `create-environment` - Create new environments
-- `link-environment` - Link environment to directory
-
-**Configuration & Variables:**
-- `list-variables` - List environment variables
-- `set-variables` - Set environment variables
-- `generate-domain` - Generate railway.app domains
-
-**Monitoring & Logs:**
-- `get-logs` - Retrieve build/deployment logs
-  - Railway CLI v4.9.0+: Supports line limits and filtering
-  - Older versions: Stream logs without filtering
-
-**Status Check:**
-- `check-railway-status` - Verify CLI installation and login
-
-### Usage Examples
-
-Use natural language commands with the MCP server:
-
-```
-# Deploy from template
-"Deploy a Postgres database for my application"
-
-# Create and deploy
-"Create a Next.js app in this directory and deploy it to Railway.
-Also assign it a domain."
-
-# Environment management
-"Create a development environment that duplicates production settings"
-
-# Variable management
-"Pull environment variables for my project and save them in .env"
-
-# Logs
-"Show me the last 100 lines of deployment logs"
-"Show me error logs from the last deployment"
-```
-
-### Prerequisites
-
-The Railway MCP Server requires:
-- Railway CLI installed and accessible in PATH
-- User logged in (`railway login` or `RAILWAY_TOKEN` set)
-- npx available (comes with Node.js)
-
-### Security Considerations
-
-- **No Destructive Actions**: By design, the MCP server doesn't include destructive operations (no delete commands)
-- **Authentication Required**: All operations require valid Railway authentication
-- **Permission Respect**: Railway's existing permission model is enforced
-- **Monitoring**: Always review commands before execution
-
-### Documentation References
-
-- **MCP Server GitHub**: https://github.com/railwayapp/railway-mcp-server
-- **Copilot Workspace Config**: See `docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md` for full documentation
-- **Railway CLI Reference**: https://docs.railway.com/reference/cli
+This guide covers the Railway CLI, common commands, and automation scripts for managing Railway deployments efficiently.
 
 ## Railway CLI Installation
 
@@ -202,27 +79,30 @@ railway whoami
 **Cloud Agents** (e.g., GitHub Copilot Workspace) use `RAILWAY_API_TOKEN` for authentication. The Railway CLI automatically detects this token and uses it for authentication via `railway login`.
 
 **Key Points:**
+- ✅ Railway CLI works with full privileges in Cloud Agent runtime
 - ✅ Use `railway login` (automatically detects `RAILWAY_API_TOKEN`)
-- ✅ Full CLI functionality with `RAILWAY_API_TOKEN` environment variable
-- ✅ `RAILWAY_API_TOKEN` must be configured in Cloud Agent environment
+- ✅ All Railway CLI commands function normally after authentication
+- ❌ Railway MCP tools **WILL NOT WORK** - MCP servers run in separate process context and cannot access Railway authentication
 - ⚠️ Token must have appropriate project/environment permissions
 
 ### Local User Setup (One-time)
 
-**Step 1: Login to Railway locally**
+**Step 1: Login to Railway locally (browserless mode)**
 
 ```bash
-# Browserless login (displays link to copy/paste)
+# Browserless login displays a link to copy/paste
 railway login --browserless
-# Click the displayed link, approve, and authenticate via GitHub OAuth in browser
+# Click the displayed link and authenticate via GitHub OAuth in your browser
 ```
 
-**Step 2: Send RAILWAY_API_TOKEN to GitHub Secrets**
+**Step 2: Set RAILWAY_API_TOKEN as GitHub Secret**
 
 ```bash
 # Extract token from Railway config and set as GitHub Secret for copilot environment
 gh secret set --env copilot RAILWAY_API_TOKEN --body="$(jq -r '.user.token' ~/.railway/config.json)"
 ```
+
+This one-time setup provides Cloud Agents with Railway access.
 
 ### Quick Start for Cloud Agents
 
