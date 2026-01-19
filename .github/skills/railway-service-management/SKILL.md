@@ -3,15 +3,17 @@ name: railway-service-management
 description: Specialized knowledge for managing multi-environment Railway deployments. Use when: (1) Setting up Railway projects/environments/services, (2) Configuring deployments and builds (NIXPACKS/Railpack/Dockerfile), (3) Managing Railway CLI operations and logs, (4) Implementing PR environments or branch-based workflows, (5) Troubleshooting deployment failures or health checks, (6) Managing secrets/variables across environments, (7) Optimizing Railway costs and resources, (8) Configuring databases/volumes/networking, (9) Setting up CI/CD with GitHub Actions, (10) Cloud Agent sessions needing Railway CLI access with RAILWAY_API_TOKEN-based authentication.
 ---
 
-# Railway Service Management
+## Contents
 
-Complete guide for managing Railway.app deployments across multiple environments with automated workflows.
+- [Quick Start for Cloud Agents](#quick-start-for-cloud-agents)
+- [Quick Start](#quick-start)
+- [Essential Workflows](#essential-workflows)
+- [Reference Documentation](#reference-documentation)
+- [Critical Guidelines](#critical-guidelines)
 
 ## Quick Start for Cloud Agents
 
 **Railway CLI is automatically configured for Cloud Agents (GitHub Copilot Workspace).**
-
-The Railway CLI is installed and configured during workspace setup via `.github/workflows/copilot-setup-steps.yml`:
 - Installs Railway CLI via npm
 - Authenticates using RAILWAY_API_TOKEN
 - Auto-detects and links to the correct environment (PR or production)
@@ -29,6 +31,11 @@ railway deployment list --json
 **For detailed instructions**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-railway_api_token-mode)
 
 ## Quick Start
+
+### Monitoring Deployment Status Loop
+```bash
+ sleep 5 && while true; do STATUS=$(railway deployment list --json | jq -r '.[0].status'); echo "[$(date '+%H:%M:%S')] Deployment status: $STATUS"; if [ "$STATUS" = "SUCCESS" ]; then echo "✅ Deployment succeeded!"; break; elif [ "$STATUS" = "FAILURE" ]; then echo "❌ Deployment failed!"; exit 1; fi; sleep 5; done
+```
 
 ### Common CLI Commands
 
