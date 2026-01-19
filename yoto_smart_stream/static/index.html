@@ -72,7 +72,7 @@
                     <p>Connected Players</p>
                 </div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card" id="mqtt-status-card" style="cursor: pointer;" onclick="openMQTTAnalyzer()">
                 <div class="stat-icon">🔌</div>
                 <div class="stat-content">
                     <h3 id="mqtt-status">-</h3>
@@ -368,16 +368,22 @@
     <script src="/static/js/dashboard.js"></script>
     <script src="/static/js/mqtt-analyzer.js"></script>
     <script>
-        // Hide admin nav for non-admin users
+        // Hide admin nav and MQTT card for non-admin users
         async function checkAdminStatusNav() {
             try {
                 const response = await fetch('/api/user/session', { credentials: 'include' });
                 if (response.ok) {
                     const data = await response.json();
                     if (!data.is_admin) {
+                        // Hide admin nav link
                         const adminLink = document.querySelector('a[href="/admin"]');
                         if (adminLink) {
                             adminLink.parentElement.style.display = 'none';
+                        }
+                        // Hide MQTT Status card
+                        const mqttCard = document.getElementById('mqtt-status-card');
+                        if (mqttCard) {
+                            mqttCard.style.display = 'none';
                         }
                     }
                 }

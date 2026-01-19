@@ -894,8 +894,8 @@ function adjustEnvironmentFontSize(element) {
     element.style.fontSize = `${fontSize}rem`;
 
     // Reduce font size until text fits or we reach minimum
-    // Use a small buffer (2px) to account for rounding
-    while (element.scrollWidth > (parentWidth - 2) && fontSize > minFontSize) {
+    // Allow up to 10px from the right edge
+    while (element.scrollWidth > (parentWidth - 10) && fontSize > minFontSize) {
         fontSize -= 0.0625; // Reduce by 1px (0.0625rem)
         element.style.fontSize = `${fontSize}rem`;
     }
