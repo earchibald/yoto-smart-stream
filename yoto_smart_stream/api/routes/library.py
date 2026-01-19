@@ -575,6 +575,58 @@ async def get_card_raw_data(card_id: str, user: User = Depends(require_auth)):
         ) from e
 
 
+def _clean_card_payload_for_update(payload: dict) -> dict:
+    """
+    Clean a card payload for update by removing null values that the Yoto API doesn't accept.
+
+    The Yoto API expects certain fields to be objects or omitted entirely, not null.
+    This function recursively removes null values from the payload.
+
+    Args:
+        payload: The card payload dictionary
+
+    Returns:
+        Cleaned payload dictionary with null values removed
+    """
+    if not isinstance(payload, dict):
+        return payload
+
+    cleaned = {}
+    for key, value in payload.items():
+        if value is None:
+            # Skip null values
+            continue
+        elif isinstance(value, dict):
+            # Recursively clean nested dictionaries
+            cleaned_value = _clean_card_payload_for_update(value)
+            if cleaned_value:  # Only include if not empty
+                cleaned[key] = cleaned_value
+        elif isinstance(value, list):
+            # Clean list items
+            cleaned_list = []
+            for item in value:
+                if isinstance(item, dict):
+                    cleaned_item = _clean_card_payload_for_update(item)
+                    if cleaned_item:  # Only include if not empty
+                        cleaned_list.append(cleaned_item)
+                elif item is not None:
+                    cleaned_list.append(item)
+            if cleaned_list:  # Only include if not empty
+                cleaned[key] = cleaned_list
+        else:
+            cleaned[key] = value
+
+    return cleaned
+
+
+@router.post("/library/{card_id}/edit-check")
+        logger.error(f"Error fetching raw card data: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch raw card data: {str(e)}",
+        ) from e
+
+
 @router.post("/library/{card_id}/edit-check")
 async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
     """
@@ -649,6 +701,10 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
         # Build the update payload
         # The POST /content endpoint requires the full card structure with cardId
         update_payload = {**card_data, "cardId": card_id}
+
+        # Clean the payload to remove null values that the Yoto API doesn't accept
+        # The API expects certain fields to be objects or omitted, not null
+        update_payload = _clean_card_payload_for_update(update_payload)
 
         logger.info(f"[EDIT CHECK] Update payload keys: {update_payload.keys()}")
         logger.info(
