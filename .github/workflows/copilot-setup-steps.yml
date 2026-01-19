@@ -86,7 +86,7 @@ jobs:
 
             # Auto-detect environment from GitHub context
             if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]]; then
-              PR_NUMBER="${BASH_REMATCH[1]}"
+              PR_NUMBER="${{ github.event.pull_request.number }}"
               ENV_NAME="yoto-smart-stream-pr-${PR_NUMBER}"
               echo "📋 Detected PR #${PR_NUMBER} → Environment: ${ENV_NAME}"
             elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
