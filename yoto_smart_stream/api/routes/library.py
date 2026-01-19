@@ -611,7 +611,7 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
         
         # Attempt to update the card with the same data
         response = requests.post(
-            "https://api.yotoplay.com/content",
+            "https://api.yotoplay.com/card",
             headers={
                 "Authorization": f"Bearer {manager.token.access_token}",
                 "Content-Type": "application/json",

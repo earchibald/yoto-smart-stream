@@ -792,7 +792,7 @@ async def update_card(card_id: str, card_data: dict, user: User = Depends(requir
     
     try:
         response = requests.post(
-            "https://api.yotoplay.com/content",
+            "https://api.yotoplay.com/card",
             headers={
                 "Authorization": f"Bearer {manager.token.access_token}",
                 "Content-Type": "application/json",
