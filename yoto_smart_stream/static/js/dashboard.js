@@ -910,6 +910,8 @@ function adjustEnvironmentFontSize(element) {
     // Start with minimum and increase until overflow or max reached
     while (!overflow && fontSize < maxSize) {
         element.style.fontSize = `${fontSize}px`;
+        // Force reflow by reading offsetHeight
+        void element.offsetHeight;
         overflow = isOverflown(element);
         if (!overflow) fontSize++;
     }
