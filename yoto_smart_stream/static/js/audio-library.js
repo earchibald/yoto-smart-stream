@@ -689,17 +689,19 @@ function handleConfirmModalOk() {
     console.log('confirmModalCallback exists:', !!confirmModalCallback);
     console.log('typeof confirmModalCallback:', typeof confirmModalCallback);
 
+    // Save callback reference before closeConfirmModal clears it
+    const callback = confirmModalCallback;
+
     closeConfirmModal();
 
-    if (confirmModalCallback) {
+    if (callback) {
         console.log('Executing callback');
         try {
-            confirmModalCallback();
+            callback();
             console.log('Callback executed successfully');
         } catch (error) {
             console.error('Error executing callback:', error);
         }
-        confirmModalCallback = null;
     } else {
         console.warn('No callback to execute!');
     }
