@@ -18,10 +18,42 @@ This is the Yoto Smart Stream project - a service to stream audio to Yoto device
 
 ## Locally-Maintained Skills
 
-This workspace contains locally-maintained custom skills in `.github/skills/`:
+This workspace contains locally-maintained custom skills in `.github/skills/`. These skills are **specialized agents with domain expertise** that should be used whenever relevant work is being done.
+
+### Available Skills
 
 1. **railway-service-management** - Multi-environment Railway deployment management
-2. **yoto-api-development** - Yoto Play API integration, audio streaming, and MQTT handling
+   - **Use for**: Railway deployments, environment management, CLI operations, configuration
+   - **Key tools**: `get_deployment_endpoint.py` script for retrieving deployment URLs
+   - **Reference**: `.github/skills/railway-service-management/SKILL.md`
+
+2. **yoto-smart-stream** (formerly yoto-api-development) - Yoto Play API integration, audio streaming, and MQTT handling
+   - **Use for**: Yoto API integration, MQTT events, audio streaming, service operations
+   - **Reference**: `.github/skills/yoto-smart-stream/SKILL.md`
+
+3. **yoto-smart-stream-testing** - Comprehensive testing for Yoto Smart Stream
+   - **Use for**: Writing tests, debugging test failures, authentication testing, Playwright UI automation
+   - **Reference**: `.github/skills/yoto-smart-stream-testing/SKILL.md`
+
+### When to Use Skills
+
+**ALWAYS delegate to the appropriate skill when working on:**
+
+- 🚂 **Railway tasks**: Deployments, environment setup, getting endpoint URLs, configuration
+  → Use `railway-service-management` skill
+
+- 🎵 **Yoto API tasks**: API integration, MQTT handling, audio streaming, device management
+  → Use `yoto-smart-stream` skill
+
+- 🧪 **Testing tasks**: Writing tests, fixing test failures, authentication flows, UI testing
+  → Use `yoto-smart-stream-testing` skill
+
+**Examples:**
+- Deploying to Railway environment → Invoke `railway-service-management` skill
+- Getting a Railway deployment URL → Use `.github/skills/railway-service-management/scripts/get_deployment_endpoint.py`
+- Implementing Yoto API endpoint → Invoke `yoto-smart-stream` skill
+- Writing integration tests → Invoke `yoto-smart-stream-testing` skill
+- Fixing OAuth login flow → Invoke `yoto-smart-stream-testing` skill
 
 ### Skill Maintenance Directive
 
@@ -84,10 +116,47 @@ This workspace contains locally-maintained custom skills in `.github/skills/`:
 ## Development Workflow
 
 1. **Testing First**: Write tests before implementing features (TDD approach)
-2. **Use Skills**: Delegate to custom skills when available (railway-service-management, yoto-smart-stream, yoto-smart-stream-testing)
+2. **Use Skills First**: ALWAYS check if a custom skill is available for your task before doing it yourself
+   - Railway work? → Use `railway-service-management` skill
+   - Yoto API work? → Use `yoto-smart-stream` skill
+   - Testing work? → Use `yoto-smart-stream-testing` skill
 3. **Update Documentation**: Keep skills and docs synchronized with verified implementation
 4. **Code Quality**: Run linting and tests before committing
 5. **Security**: Never commit secrets; use environment variables and GitHub Secrets
+
+## Custom Skill Usage Examples
+
+### Railway Deployment Management
+
+```bash
+# Get deployment endpoint URL
+python .github/skills/railway-service-management/scripts/get_deployment_endpoint.py \
+  --environment production --url-only
+
+# Health check all environments
+bash .github/skills/railway-service-management/scripts/check_railway_deployments.sh
+```
+
+**For complex Railway tasks**, invoke the skill:
+```
+Use the railway-service-management skill to deploy to staging environment
+```
+
+### Yoto API Integration
+
+**For Yoto API work**, invoke the skill:
+```
+Use the yoto-smart-stream skill to implement MQTT reconnection logic
+Use the yoto-smart-stream skill to add support for new Yoto API endpoint
+```
+
+### Testing
+
+**For testing tasks**, invoke the skill:
+```
+Use the yoto-smart-stream-testing skill to write integration tests for the new endpoint
+Use the yoto-smart-stream-testing skill to fix the failing authentication test
+```
 
 ## Deployment
 

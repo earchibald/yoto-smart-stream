@@ -560,6 +560,66 @@ railway run -e production python
 
 ## Automation Scripts
 
+### Get Deployment Endpoint Script
+
+The `get_deployment_endpoint.py` script provides a programmatic way to retrieve Railway deployment endpoint URLs using the Railway CLI. This is useful for CI/CD workflows, health checks, and deployment verification.
+
+**Location:** `.github/skills/railway-service-management/scripts/get_deployment_endpoint.py`
+
+**Features:**
+- Get endpoint URL for current or specific environment
+- JSON and plain-text output formats
+- List deployments with metadata
+- Full type checking and test coverage
+
+**Basic Usage:**
+
+```bash
+# Get endpoint for current/linked service
+python .github/skills/railway-service-management/scripts/get_deployment_endpoint.py
+
+# Get endpoint for specific environment
+python .github/skills/railway-service-management/scripts/get_deployment_endpoint.py --environment production
+
+# Get URL only (for scripting)
+URL=$(python .github/skills/railway-service-management/scripts/get_deployment_endpoint.py --url-only)
+
+# JSON output
+python .github/skills/railway-service-management/scripts/get_deployment_endpoint.py --json
+
+# List deployments
+python .github/skills/railway-service-management/scripts/get_deployment_endpoint.py --list
+```
+
+**CI/CD Integration:**
+
+```yaml
+# GitHub Actions example
+- name: Get deployment URL
+  id: deployment
+  run: |
+    URL=$(python .github/skills/railway-service-management/scripts/get_deployment_endpoint.py \
+      --environment production --url-only)
+    echo "url=$URL" >> $GITHUB_OUTPUT
+
+- name: Run smoke tests
+  run: |
+    curl -f ${{ steps.deployment.outputs.url }}/api/health
+```
+
+**Shell Script Integration:**
+
+```bash
+# Health check all environments
+for env in production staging develop; do
+  URL=$(python .github/skills/railway-service-management/scripts/get_deployment_endpoint.py \
+    --environment $env --url-only)
+  curl -f "$URL/api/health" && echo "$env: OK" || echo "$env: FAILED"
+done
+```
+
+See [README_GET_DEPLOYMENT_ENDPOINT.md](../scripts/README_GET_DEPLOYMENT_ENDPOINT.md) for complete documentation.
+
 ### Deployment Script
 
 ```bash
