@@ -376,6 +376,7 @@ function getTranscriptBadge(file) {
 
 // Handle transcript badge clicks
 async function handleTranscriptBadgeClick(filename, status, event) {
+    console.log(`handleTranscriptBadgeClick called: filename=${filename}, status=${status}`);
     event.preventDefault();
     event.stopPropagation();
 
@@ -387,6 +388,7 @@ async function handleTranscriptBadgeClick(filename, status, event) {
         await cancelTranscription(filename);
     } else if (status === 'pending' || status === 'cancelled' || status === 'error') {
         // Start transcription
+        console.log('Calling startTranscription...');
         await startTranscription(filename, event);
     }
 }
@@ -1436,41 +1438,68 @@ function formatTranscriptStatus(status) {
 async function startTranscription(filename, event) {
     if (event) event.preventDefault();
 
+    // Check if modal function exists
+    if (typeof showConfirmModal !== 'function') {
+        console.error('showConfirmModal function not found');
+        if (!confirm(`Start transcription for ${filename}? This may take a few moments.`)) {
+            return;
+        }
+        // Fall back to direct API call without modal
+        await executeTranscription(filename);
+        return;
+    }
+
     showConfirmModal(
         '🎤 Start Transcription',
         `Start transcription for ${filename}? This may take a few moments.`,
         async () => {
-            try {
-                const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcribe`, {
-                    method: 'POST'
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    const errorMessage = errorData.detail || 'Failed to start transcription';
-                    throw new Error(errorMessage);
-                }
-
-                const data = await response.json();
-
-                if (data.success) {
-                    showResultMessage('success', '✓ Transcription Complete',
-                        `Transcription completed successfully! Length: ${data.transcript_length} characters`);
-                } else {
-                    showResultMessage('error', '❌ Transcription Failed',
-                        data.error || 'Unknown error occurred during transcription');
-                }
-
-                // Reload the audio files list to update button states
-                await loadAudioFiles();
-
-            } catch (error) {
-                console.error('Error starting transcription:', error);
-                showResultMessage('error', '❌ Transcription Failed',
-                    error.message || 'Failed to start transcription. Please try again.');
-            }
+            await executeTranscription(filename);
         }
     );
+}
+
+async function executeTranscription(filename) {
+    try {
+        const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcribe`, {
+            method: 'POST'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.detail || 'Failed to start transcription';
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            if (typeof showResultMessage === 'function') {
+                showResultMessage('success', '✓ Transcription Complete',
+                    `Transcription completed successfully! Length: ${data.transcript_length} characters`);
+            } else {
+                alert(`Transcription completed successfully! Length: ${data.transcript_length} characters`);
+            }
+        } else {
+            if (typeof showResultMessage === 'function') {
+                showResultMessage('error', '❌ Transcription Failed',
+                    data.error || 'Unknown error occurred during transcription');
+            } else {
+                alert(`Transcription failed: ${data.error || 'Unknown error'}`);
+            }
+        }
+
+        // Reload the audio files list to update button states
+        await loadAudioFiles();
+
+    } catch (error) {
+        console.error('Error starting transcription:', error);
+        if (typeof showResultMessage === 'function') {
+            showResultMessage('error', '❌ Transcription Failed',
+                error.message || 'Failed to start transcription. Please try again.');
+        } else {
+            alert('Failed to start transcription. Please try again.');
+        }
+    }
 }
 
 async function retryTranscription(filename, event) {
