@@ -670,17 +670,6 @@ function populateMetadataFromImport(streamName, metadataParam = null) {
     
     console.log('[POPULATE METADATA] ✓✓✓ Metadata population complete! ✓✓✓');
 }
-        
-        document.getElementById('queue-name').value = queueName;
-        document.getElementById('delete-queue-btn').style.display = 'inline-block';
-        
-        updateQueueDisplay();
-        clearFileCheckboxes();
-    } catch (error) {
-        console.error('Failed to load queue for editing:', error);
-        showScripterResult('Failed to load queue: ' + error.message, 'error');
-    }
-}
 
 function toggleFileSelection(filename) {
     const checkbox = document.querySelector(`input[value="${filename}"]`);
