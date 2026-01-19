@@ -368,25 +368,32 @@ async function loadPlayers() {
         // Update player count
         document.getElementById('player-count').textContent = players.length;
 
-        // Update player status indicator
-        const statusIndicator = document.getElementById('player-status-indicator');
-        if (statusIndicator) {
+        // Update player dots summary - one dot per player
+        const dotsContainer = document.getElementById('player-dots-container');
+        if (dotsContainer) {
+            // Clear existing dots
+            dotsContainer.innerHTML = '';
+
             if (players.length === 0) {
-                // Gray - no players connected
-                statusIndicator.className = 'status-dot status-gray';
-                statusIndicator.title = 'No players connected';
+                // Show single gray dot for no players
+                const dot = document.createElement('span');
+                dot.className = 'status-dot status-gray';
+                dot.title = 'No players connected';
+                dotsContainer.appendChild(dot);
+                dotsContainer.title = 'No players connected';
             } else {
-                // Check if any player is online
-                const hasOnlinePlayers = players.some(player => player.online);
-                if (hasOnlinePlayers) {
-                    // Green - at least one player is online
-                    statusIndicator.className = 'status-dot status-green';
-                    statusIndicator.title = 'Players online';
-                } else {
-                    // Red - players exist but all are offline
-                    statusIndicator.className = 'status-dot status-red';
-                    statusIndicator.title = 'All players offline';
-                }
+                // Create one dot per player
+                players.forEach(player => {
+                    const dot = document.createElement('span');
+                    dot.className = player.online ? 'status-dot status-green' : 'status-dot status-red';
+                    dot.title = `${player.name}: ${player.online ? 'Online' : 'Offline'}`;
+                    dotsContainer.appendChild(dot);
+                });
+
+                // Update container title with summary
+                const onlineCount = players.filter(p => p.online).length;
+                const offlineCount = players.length - onlineCount;
+                dotsContainer.title = `${onlineCount} online, ${offlineCount} offline`;
             }
         }
 
