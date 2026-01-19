@@ -144,10 +144,11 @@ class TranscriptionService:
                 transcript = result.get("text", "").strip()
             elif self.provider == "elevenlabs":
                 # Transcribe using ElevenLabs
+                settings = get_settings()
                 with open(audio_path, "rb") as audio_file:
                     result = self._elevenlabs_client.speech_to_text.convert(
                         file=audio_file,
-                        model_id=self.model_name or "scribe_v2",
+                        model_id=self.model_name or settings.transcription_model,
                         tag_audio_events=True,
                         language_code=None,  # Auto-detect language
                         diarize=False,  # Disable speaker diarization for simplicity
@@ -155,7 +156,12 @@ class TranscriptionService:
 
                 # Extract text from ElevenLabs response
                 # The result object has a 'text' attribute
-                transcript = getattr(result, "text", "").strip()
+                try:
+                    transcript = result.text.strip() if result.text else ""
+                except AttributeError:
+                    error_msg = "ElevenLabs API response missing 'text' attribute"
+                    logger.error(f"{error_msg}: {result}")
+                    return None, error_msg
 
             if not transcript:
                 error_msg = "Transcription completed but no text was extracted"

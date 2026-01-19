@@ -221,7 +221,7 @@ class Settings(BaseSettings):
         description="Enable speech-to-text transcription (requires Whisper + Torch or ElevenLabs)",
     )
     transcription_provider: str = Field(
-        default="elevenlabs",
+        default="whisper",
         description="Transcription provider: 'whisper' or 'elevenlabs'",
     )
     transcription_model: str = Field(
