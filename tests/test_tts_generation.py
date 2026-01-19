@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from yoto_smart_stream.api import app
+from yoto_smart_stream.models import AudioFile
 
 
 @pytest.fixture
@@ -285,3 +286,81 @@ class TestTTSGeneration:
         assert response.status_code == 500
         data = response.json()
         assert "Failed to generate TTS audio" in data["detail"]
+
+    @patch("yoto_smart_stream.api.routes.cards.require_auth")
+    @patch("yoto_smart_stream.api.routes.cards.get_settings")
+    @patch("yoto_smart_stream.api.routes.cards.gTTS")
+    @patch("yoto_smart_stream.api.routes.cards.AudioSegment")
+    @patch("yoto_smart_stream.core.audio_db.get_or_create_audio_file")
+    @patch("yoto_smart_stream.core.audio_db.update_transcript")
+    def test_generate_tts_creates_transcript(
+        self, mock_update_transcript, mock_get_or_create, mock_audio_segment, 
+        mock_gtts, mock_settings, mock_require_auth, client, temp_audio_dir
+    ):
+        """Test that TTS generation creates a transcript in the database."""
+        # Mock authentication
+        mock_user = MagicMock()
+        mock_user.id = 1
+        mock_user.username = "testuser"
+        mock_require_auth.return_value = mock_user
+        
+        # Setup mock settings
+        mock_settings_obj = MagicMock()
+        mock_settings_obj.audio_files_dir = temp_audio_dir
+        mock_settings.return_value = mock_settings_obj
+
+        # Setup mock TTS
+        mock_tts_instance = MagicMock()
+        mock_gtts.return_value = mock_tts_instance
+
+        # Setup mock AudioSegment
+        mock_audio = MagicMock()
+        mock_audio.set_channels.return_value = mock_audio
+        mock_audio.set_frame_rate.return_value = mock_audio
+        mock_audio.__len__ = MagicMock(return_value=5000)  # 5 seconds
+
+        # Mock the export to create an actual file
+        def mock_export(buffer_or_path, *args, **kwargs):
+            if hasattr(buffer_or_path, 'write'):
+                buffer_or_path.write(b"fake audio data")
+            else:
+                Path(buffer_or_path).write_bytes(b"fake audio data")
+
+        mock_audio.export.side_effect = mock_export
+        mock_audio_segment.from_mp3.return_value = mock_audio
+
+        # Mock database functions
+        mock_audio_file = MagicMock(spec=AudioFile)
+        mock_get_or_create.return_value = mock_audio_file
+
+        # Make the request
+        test_text = "This is a test story for text to speech."
+        response = client.post(
+            "/api/audio/generate-tts",
+            json={
+                "filename": "test-story",
+                "text": test_text
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify the response includes transcript status
+        assert data["transcript_status"] == "completed"
+
+        # Verify that get_or_create_audio_file was called
+        mock_get_or_create.assert_called_once()
+        call_args = mock_get_or_create.call_args
+        # It's called with positional args: db, filename, size, duration
+        assert call_args[0][1] == "test-story.mp3"
+        assert call_args[0][3] == 5
+
+        # Verify that update_transcript was called with the TTS text
+        mock_update_transcript.assert_called_once()
+        call_args = mock_update_transcript.call_args
+        # It's called with positional args: db, filename, transcript, status, error
+        assert call_args[0][1] == "test-story.mp3"
+        assert call_args[0][2] == test_text
+        assert call_args[0][3] == "completed"
+        assert call_args[0][4] is None
