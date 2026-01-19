@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+import requests
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from ...config import get_settings
@@ -70,8 +71,6 @@ async def upload_cover_image(
 
         # Upload to Yoto media service
         # Use the Yoto API to upload cover image
-        import requests
-
         headers = {
             "Authorization": f"Bearer {manager.token.access_token}",
         }
@@ -121,6 +120,18 @@ async def upload_cover_image(
 
     except HTTPException:
         raise
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"Connection error uploading cover image: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to connect to Yoto API: {str(e)}",
+        )
+    except requests.exceptions.Timeout as e:
+        logger.error(f"Timeout uploading cover image: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail=f"Yoto API request timed out: {str(e)}",
+        )
     except Exception as e:
         logger.error(f"Failed to upload cover image: {e}", exc_info=True)
         raise HTTPException(
