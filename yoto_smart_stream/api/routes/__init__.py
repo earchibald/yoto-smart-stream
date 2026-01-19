@@ -1,5 +1,5 @@
 """API routes initialization."""
 
-from . import cards, health, library, players, streams
+from . import cards, health, library, media, players, streams
 
-__all__ = ["cards", "health", "library", "players", "streams"]
+__all__ = ["cards", "health", "library", "media", "players", "streams"]
