@@ -767,18 +767,24 @@ async function editCard(cardId, cardTitle) {
         for (const chapter of chapters) {
             const tracks = chapter.tracks || [];
             for (const track of tracks) {
-                // Check if this is a streaming URL from our server
-                const trackUrl = track.url || track.trackUrl || '';
+                // Check for trackUrl or url field
+                const trackUrl = track.trackUrl || track.url || '';
                 console.log('[EDIT CARD] Processing track URL:', trackUrl);
                 
-                // Extract filename from URL (e.g., https://domain/audio/filename.mp3 -> filename.mp3)
-                const urlMatch = trackUrl.match(/\/audio\/([^?#]+)/);
-                if (urlMatch) {
-                    const filename = decodeURIComponent(urlMatch[1]);
-                    audioFiles.push(filename);
-                    console.log('[EDIT CARD] ✓ Extracted audio file:', filename);
+                if (trackUrl.startsWith('yoto:#')) {
+                    // Yoto-hosted content - pass through as-is
+                    audioFiles.push(trackUrl);
+                    console.log('[EDIT CARD] ✓ Found yoto:# URL:', trackUrl);
                 } else {
-                    console.log('[EDIT CARD] Skipping external URL:', trackUrl);
+                    // Extract filename from our streaming URL (e.g., https://domain/audio/filename.mp3 -> filename.mp3)
+                    const urlMatch = trackUrl.match(/\/audio\/([^?#]+)/);
+                    if (urlMatch) {
+                        const filename = decodeURIComponent(urlMatch[1]);
+                        audioFiles.push(filename);
+                        console.log('[EDIT CARD] ✓ Extracted audio file:', filename);
+                    } else if (trackUrl) {
+                        console.log('[EDIT CARD] Skipping external URL:', trackUrl);
+                    }
                 }
             }
         }
@@ -787,7 +793,7 @@ async function editCard(cardId, cardTitle) {
         
         if (audioFiles.length === 0) {
             console.warn('[EDIT CARD] No audio files found in card');
-            alert(`No audio files found in card "${cardTitle}".\n\nThis card may not contain audio hosted on this server.`);
+            alert(`No audio files found in card "${cardTitle}".\n\nThis card may not contain any playable audio content.`);
             return;
         }
         
