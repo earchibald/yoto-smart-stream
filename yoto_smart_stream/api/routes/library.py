@@ -73,15 +73,19 @@ async def get_library(
                 card_identifier = _safe_attr(card, 'cardId', 'id') or card_id
                 content_id = _safe_attr(card, 'contentId', 'content_id', 'card_id') or card_identifier
 
-                # Get cover image URL - check both root and metadata.cover_image_large
+                # Get cover image URL - check multiple possible locations
                 cover_url = None
                 cover_value = None
 
-                # Try card.metadata.cover_image_large first (common structure)
-                if hasattr(card, 'metadata') and hasattr(card.metadata, 'cover_image_large'):
-                    cover_value = card.metadata.cover_image_large
+                # Try card.metadata['cover_image_large'] if metadata is a dict
+                if hasattr(card, 'metadata'):
+                    metadata = card.metadata
+                    if isinstance(metadata, dict) and 'cover_image_large' in metadata:
+                        cover_value = metadata['cover_image_large']
+                    elif hasattr(metadata, 'cover_image_large'):
+                        cover_value = metadata.cover_image_large
                 # Fall back to card.cover_image_large
-                elif hasattr(card, 'cover_image_large'):
+                if not cover_value and hasattr(card, 'cover_image_large'):
                     cover_value = card.cover_image_large
 
                 # Validate it's a proper URL
@@ -389,15 +393,19 @@ async def get_card_chapters(card_id: str, user: User = Depends(require_auth)):
                 }
                 chapters.append(chapter_info)
 
-        # Get cover image URL - check both root and metadata.cover_image_large
+        # Get cover image URL - check multiple possible locations
         cover_url = None
         cover_value = None
 
-        # Try card.metadata.cover_image_large first (common structure)
-        if hasattr(card, 'metadata') and hasattr(card.metadata, 'cover_image_large'):
-            cover_value = card.metadata.cover_image_large
+        # Try card.metadata['cover_image_large'] if metadata is a dict
+        if hasattr(card, 'metadata'):
+            metadata = card.metadata
+            if isinstance(metadata, dict) and 'cover_image_large' in metadata:
+                cover_value = metadata['cover_image_large']
+            elif hasattr(metadata, 'cover_image_large'):
+                cover_value = metadata.cover_image_large
         # Fall back to card.cover_image_large
-        elif hasattr(card, 'cover_image_large'):
+        if not cover_value and hasattr(card, 'cover_image_large'):
             cover_value = card.cover_image_large
 
         # Validate it's a proper URL

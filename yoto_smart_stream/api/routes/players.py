@@ -224,11 +224,15 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
                 card = manager.library[active_card]
                 card_title = getattr(card, 'title', None)
                 card_author = getattr(card, 'author', None)
-                # Check both card.metadata.cover_image_large and card.cover_image_large
+                # Check multiple possible locations for cover URL
                 card_cover_url = None
-                if hasattr(card, 'metadata') and hasattr(card.metadata, 'cover_image_large'):
-                    card_cover_url = card.metadata.cover_image_large
-                elif hasattr(card, 'cover_image_large'):
+                if hasattr(card, 'metadata'):
+                    metadata = card.metadata
+                    if isinstance(metadata, dict) and 'cover_image_large' in metadata:
+                        card_cover_url = metadata['cover_image_large']
+                    elif hasattr(metadata, 'cover_image_large'):
+                        card_cover_url = metadata.cover_image_large
+                if not card_cover_url and hasattr(card, 'cover_image_large'):
                     card_cover_url = card.cover_image_large
                 # Validate it's a proper URL
                 if card_cover_url:
@@ -357,11 +361,15 @@ def extract_player_detail_info(player_id: str, player, manager=None) -> PlayerDe
             if card:
                 card_title = getattr(card, 'title', None)
                 card_author = getattr(card, 'author', None)
-                # Check both card.metadata.cover_image_large and card.cover_image_large
+                # Check multiple possible locations for cover URL
                 card_cover_url = None
-                if hasattr(card, 'metadata') and hasattr(card.metadata, 'cover_image_large'):
-                    card_cover_url = card.metadata.cover_image_large
-                elif hasattr(card, 'cover_image_large'):
+                if hasattr(card, 'metadata'):
+                    metadata = card.metadata
+                    if isinstance(metadata, dict) and 'cover_image_large' in metadata:
+                        card_cover_url = metadata['cover_image_large']
+                    elif hasattr(metadata, 'cover_image_large'):
+                        card_cover_url = metadata.cover_image_large
+                if not card_cover_url and hasattr(card, 'cover_image_large'):
                     card_cover_url = card.cover_image_large
                 # Validate it's a proper URL
                 if card_cover_url:
