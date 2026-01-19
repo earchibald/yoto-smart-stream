@@ -549,3 +549,159 @@ async def get_card_raw_data(card_id: str, user: User = Depends(require_auth)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch raw card data: {str(e)}"
         ) from e
+
+
+@router.post("/library/{card_id}/edit-check")
+async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
+    """
+    Check if a card is editable (MYO card) by attempting to update it with no changes.
+    
+    This endpoint:
+    1. Fetches the card's raw data
+    2. Attempts to update the card with the exact same data
+    3. Returns success if it's a MYO card, error if it's a commercial card
+    
+    Args:
+        card_id: The card ID to check
+        
+    Returns:
+        Dictionary with editability status and card data
+    """
+    try:
+        client = get_yoto_client()
+        manager = client.get_manager()
+        
+        logger.info(f"[EDIT CHECK] Checking if card {card_id} is editable")
+        
+        # Ensure library is loaded
+        if not manager.library:
+            manager.update_library()
+        
+        # Check if card exists in library
+        if card_id not in manager.library:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Card {card_id} not found in library"
+            )
+        
+        card = manager.library[card_id]
+        
+        # Get the card's current data
+        logger.info(f"[EDIT CHECK] Fetching current card data for {card_id}")
+        manager.update_card_detail(card_id)
+        
+        # Build the card payload (same format as Yoto API expects)
+        # We need to construct this from the card object attributes
+        card_payload = {
+            "title": getattr(card, 'title', ''),
+        }
+        
+        # Add optional fields if they exist
+        if hasattr(card, 'description') and card.description:
+            card_payload["description"] = card.description
+        if hasattr(card, 'author') and card.author:
+            card_payload["author"] = card.author
+            
+        # Add metadata
+        metadata = {}
+        if hasattr(card, 'cover') and card.cover:
+            # Try to extract imageId from cover URL or metadata
+            cover_val = card.cover
+            if isinstance(cover_val, dict) and 'imageId' in cover_val:
+                metadata['cover'] = {'imageId': cover_val['imageId']}
+            elif isinstance(cover_val, str) and '/image/' in cover_val:
+                # Extract imageId from URL like https://cdn.yoto.dev/image/abc123/
+                image_id = cover_val.split('/image/')[-1].rstrip('/')
+                if image_id:
+                    metadata['cover'] = {'imageId': image_id}
+        
+        if metadata:
+            card_payload["metadata"] = metadata
+        
+        # Add content structure if available
+        if hasattr(card, 'chapters') and card.chapters:
+            content_chapters = []
+            for chapter in card.chapters:
+                chapter_data = {
+                    "key": getattr(chapter, 'key', ''),
+                    "title": getattr(chapter, 'title', ''),
+                }
+                
+                # Add tracks if available
+                if hasattr(chapter, 'tracks') and chapter.tracks:
+                    tracks = []
+                    for track in chapter.tracks:
+                        track_data = {
+                            "key": getattr(track, 'key', ''),
+                            "title": getattr(track, 'title', ''),
+                            "format": getattr(track, 'format', 'mp3'),
+                            "url": getattr(track, 'url', ''),
+                        }
+                        if hasattr(track, 'channels'):
+                            track_data["channels"] = track.channels
+                        tracks.append(track_data)
+                    chapter_data["tracks"] = tracks
+                
+                content_chapters.append(chapter_data)
+            
+            if content_chapters:
+                card_payload["content"] = {"chapters": content_chapters}
+        
+        logger.info(f"[EDIT CHECK] Card payload: {card_payload}")
+        
+        # Attempt to update the card with the same data (including cardId)
+        update_payload = {**card_payload, "cardId": card_id}
+        
+        logger.info(f"[EDIT CHECK] Attempting update with cardId: {card_id}")
+        
+        response = requests.post(
+            "https://api.yotoplay.com/content",
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            json=update_payload,
+            timeout=30,
+        )
+        
+        logger.info(f"[EDIT CHECK] Yoto API response status: {response.status_code}")
+        logger.info(f"[EDIT CHECK] Yoto API response: {response.text}")
+        
+        response.raise_for_status()
+        
+        # If we got here, it's a MYO card and we can edit it!
+        logger.info(f"✓ Card {card_id} is editable (MYO card)")
+        return {
+            "success": True,
+            "editable": True,
+            "card_id": card_id,
+            "message": "Card is editable (MYO card)",
+            "card_data": card_payload
+        }
+        
+    except requests.exceptions.HTTPError as e:
+        error_detail = e.response.text if hasattr(e, 'response') else str(e)
+        logger.error(f"[EDIT CHECK] Card {card_id} is NOT editable (commercial card): {error_detail}")
+        
+        # This is a commercial card - can't be edited
+        return {
+            "success": False,
+            "editable": False,
+            "card_id": card_id,
+            "message": "This is a commercial card and cannot be edited. Only MYO (Make Your Own) cards can be edited.",
+            "error": error_detail
+        }
+        
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Please log in to Yoto first."
+        ) from e
+    except Exception as e:
+        logger.error(f"[EDIT CHECK] Error checking card editability: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check card editability: {str(e)}"
+        ) from e

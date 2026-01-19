@@ -720,44 +720,45 @@ async function editCard(cardId, cardTitle) {
     console.log('[EDIT CARD] Starting edit for card:', cardId, cardTitle);
     
     try {
-        // Step 1: Fetch the full card data
-        console.log('[EDIT CARD] Fetching card details...');
-        const response = await fetch(`${API_BASE}/library/content/${cardId}`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch card details: ${response.statusText}`);
-        }
+        // Step 1: Check if card is editable (MYO card) using the edit-check endpoint
+        // This endpoint attempts to update the card with NO CHANGES
+        console.log('[EDIT CARD] Checking if card is editable (testing with no-change update)...');
         
-        const cardData = await response.json();
-        console.log('[EDIT CARD] Card data fetched:', cardData);
-        
-        // Step 2: Attempt to update the card with the same data (no changes)
-        // This tests if it's a MYO card (updatable) or commercial card (not updatable)
-        console.log('[EDIT CARD] Testing if card is editable (MYO)...');
-        const updateResponse = await fetch(`${API_BASE}/cards/${cardId}`, {
-            method: 'PUT',
+        const checkResponse = await fetch(`${API_BASE}/library/${cardId}/edit-check`, {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(cardData),
         });
         
-        console.log('[EDIT CARD] Update test response status:', updateResponse.status);
+        if (!checkResponse.ok) {
+            throw new Error(`Failed to check card editability: ${checkResponse.statusText}`);
+        }
         
-        if (!updateResponse.ok) {
-            const errorData = await updateResponse.json();
-            console.error('[EDIT CARD] Card is not editable:', errorData);
-            
-            // It's a commercial card - show user-friendly error
-            alert(`Cannot edit "${cardTitle}".\n\nThis is a commercial card (not a Make Your Own card).\n\nOnly MYO cards can be edited.`);
+        const checkResult = await checkResponse.json();
+        console.log('[EDIT CARD] Edit check response:', checkResult);
+        
+        // Check if the card is editable
+        if (!checkResult.editable) {
+            console.error('[EDIT CARD] Card is not editable (commercial card)');
+            alert(`Cannot edit "${cardTitle}".\n\n${checkResult.message}`);
             return;
         }
         
-        const updateResult = await updateResponse.json();
-        console.log('[EDIT CARD] ✓ Card is editable! Update test succeeded:', updateResult);
+        console.log('[EDIT CARD] ✓ Card is editable! (MYO card confirmed)');
         
-        // Step 3: Load the card into Managed Streams
-        // Extract chapters/tracks from the card data
-        console.log('[EDIT CARD] Loading card into Managed Streams...');
+        // Step 2: Fetch the full card data to extract audio files
+        console.log('[EDIT CARD] Fetching full card details...');
+        const detailsResponse = await fetch(`${API_BASE}/library/content/${cardId}`);
+        if (!detailsResponse.ok) {
+            throw new Error(`Failed to fetch card details: ${detailsResponse.statusText}`);
+        }
+        
+        const cardData = await detailsResponse.json();
+        console.log('[EDIT CARD] Card data fetched:', cardData);
+        
+        // Step 3: Extract audio files from the card's chapters/tracks
+        console.log('[EDIT CARD] Extracting audio files from card...');
         
         const chapters = cardData.content?.chapters || [];
         const audioFiles = [];
@@ -768,23 +769,31 @@ async function editCard(cardId, cardTitle) {
             for (const track of tracks) {
                 // Check if this is a streaming URL from our server
                 const trackUrl = track.url || track.trackUrl || '';
-                console.log('[EDIT CARD] Track URL:', trackUrl);
+                console.log('[EDIT CARD] Processing track URL:', trackUrl);
                 
                 // Extract filename from URL (e.g., https://domain/audio/filename.mp3 -> filename.mp3)
                 const urlMatch = trackUrl.match(/\/audio\/([^?#]+)/);
                 if (urlMatch) {
-                    const filename = urlMatch[1];
+                    const filename = decodeURIComponent(urlMatch[1]);
                     audioFiles.push(filename);
-                    console.log('[EDIT CARD] Extracted audio file:', filename);
+                    console.log('[EDIT CARD] ✓ Extracted audio file:', filename);
+                } else {
+                    console.log('[EDIT CARD] Skipping external URL:', trackUrl);
                 }
             }
         }
         
-        console.log('[EDIT CARD] Extracted audio files:', audioFiles);
+        console.log('[EDIT CARD] Total audio files extracted:', audioFiles.length, audioFiles);
         
-        // Create or update a managed stream with this card's content
+        if (audioFiles.length === 0) {
+            console.warn('[EDIT CARD] No audio files found in card');
+            alert(`No audio files found in card "${cardTitle}".\n\nThis card may not contain audio hosted on this server.`);
+            return;
+        }
+        
+        // Step 4: Create or update a managed stream with this card's content
         const streamName = `edit_${cardId}`;
-        console.log('[EDIT CARD] Creating managed stream:', streamName);
+        console.log('[EDIT CARD] Creating/updating managed stream:', streamName);
         
         // Create the stream with the extracted files
         const createStreamResponse = await fetch(`${API_BASE}/streams/${streamName}`, {
@@ -799,19 +808,23 @@ async function editCard(cardId, cardTitle) {
         });
         
         if (!createStreamResponse.ok) {
+            const errorText = await createStreamResponse.text();
+            console.error('[EDIT CARD] Failed to create stream:', errorText);
             throw new Error(`Failed to create managed stream: ${createStreamResponse.statusText}`);
         }
         
-        console.log('[EDIT CARD] ✓ Managed stream created');
+        console.log('[EDIT CARD] ✓ Managed stream created/updated:', streamName);
         
-        // Step 4: Navigate to Stream Scripter with this stream selected
-        console.log('[EDIT CARD] Opening Stream Scripter...');
+        // Step 5: Navigate to Stream Scripter with this stream selected
+        console.log('[EDIT CARD] Navigating to Stream Scripter...');
         
         // Switch to Streams tab
         const streamsTab = document.querySelector('[data-tab="streams"]');
         if (streamsTab) {
             streamsTab.click();
-            console.log('[EDIT CARD] Switched to Streams tab');
+            console.log('[EDIT CARD] ✓ Switched to Streams tab');
+        } else {
+            console.error('[EDIT CARD] Could not find Streams tab');
         }
         
         // Wait a moment for the tab to load
@@ -819,7 +832,7 @@ async function editCard(cardId, cardTitle) {
             // Open the Stream Scripter modal
             if (typeof openStreamScripter === 'function') {
                 openStreamScripter();
-                console.log('[EDIT CARD] Stream Scripter opened');
+                console.log('[EDIT CARD] ✓ Stream Scripter opened');
                 
                 // Wait for the scripter to load, then select our stream
                 setTimeout(() => {
@@ -828,6 +841,8 @@ async function editCard(cardId, cardTitle) {
                         queueSelector.value = streamName;
                         queueSelector.dispatchEvent(new Event('change'));
                         console.log('[EDIT CARD] ✓ Stream selected in scripter:', streamName);
+                    } else {
+                        console.error('[EDIT CARD] Could not find queue selector');
                     }
                 }, 500);
             } else {
@@ -836,10 +851,11 @@ async function editCard(cardId, cardTitle) {
             }
         }, 300);
         
-        console.log('[EDIT CARD] ✓ Edit workflow complete');
+        console.log('[EDIT CARD] ✓✓✓ Edit workflow complete! ✓✓✓');
         
     } catch (error) {
         console.error('[EDIT CARD] Error:', error);
         alert(`Failed to edit card: ${error.message}`);
     }
 }
+
