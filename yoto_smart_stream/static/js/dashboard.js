@@ -289,7 +289,10 @@ async function loadSystemStatus() {
         // Update environment with dynamic font sizing
         const envElement = document.getElementById('environment');
         envElement.textContent = data.environment || 'Unknown';
-        adjustEnvironmentFontSize(envElement);
+        // Use requestAnimationFrame to ensure DOM has updated before measuring
+        requestAnimationFrame(() => {
+            adjustEnvironmentFontSize(envElement);
+        });
 
     } catch (error) {
         console.error('Error loading status:', error);
