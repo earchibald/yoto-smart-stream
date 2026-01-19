@@ -687,18 +687,19 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
         content_response = card_data.get("content", {})
         clean_content = clean_content_structure(content_response)
         
+        # For POST /content, description and author belong in metadata, not top-level
+        # The API response shows: metadata.description and metadata.author
+        if description:
+            clean_metadata["description"] = description
+        if author:
+            clean_metadata["author"] = author
+        
         update_payload = {
             "title": card_data.get("title"),
             "content": clean_content,  # Clean content without response-only fields
-            "metadata": clean_metadata,  # Clean metadata without description/author
+            "metadata": clean_metadata,  # Include description/author in metadata
             "cardId": card_id
         }
-        
-        # Add description and author at top level if they exist
-        if description:
-            update_payload["description"] = description
-        if author:
-            update_payload["author"] = author
         
         logger.info(f"[EDIT CHECK] Attempting update with payload keys: {update_payload.keys()}")
         logger.info(f"[EDIT CHECK] Full update payload: {update_payload}")
