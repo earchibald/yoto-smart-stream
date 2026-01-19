@@ -297,7 +297,14 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Architecture Guide](docs/ARCHITECTURE.md)**: System design and implementation recommendations
 - **[Planning Questions](docs/PLANNING_QUESTIONS.md)**: Open questions and decision points
 - **[Getting Started Guide](docs/GETTING_STARTED.md)**: Step-by-step setup instructions
-- **[AgentSkill](/.github/agentskills/yoto-api-development.md)**: Comprehensive development guide for Yoto API
+
+### Custom Skills
+This project includes specialized AI skills for development workflows:
+- **[Railway Service Management](/.github/skills/railway-service-management/SKILL.md)**: Railway deployment and infrastructure management
+- **[Yoto Smart Stream](/.github/skills/yoto-smart-stream/SKILL.md)**: Yoto API integration, audio streaming, and MQTT handling
+- **[Yoto Testing](/.github/skills/yoto-smart-stream-testing/SKILL.md)**: Comprehensive testing guide and automation
+
+See [Copilot Instructions](/.github/copilot-instructions.md) for detailed skill usage.
 
 ## 🛠️ Development
 
@@ -508,7 +515,8 @@ See [Architecture Guide](docs/ARCHITECTURE.md) for detailed implementation.
 yoto-smart-stream/
 ├── .devcontainer/          # GitHub Codespaces configuration
 ├── .github/
-│   └── agentskills/       # Development guides
+│   ├── skills/            # Custom AI skills for Railway, Yoto API, and testing
+│   └── workflows/         # GitHub Actions CI/CD
 ├── docs/                  # Documentation
 ├── examples/              # Example scripts
 │   ├── simple_client.py   # Basic API usage
