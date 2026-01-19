@@ -10,9 +10,9 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings, log_configuration
@@ -20,7 +20,7 @@ from ..core import YotoClient
 from ..database import init_db
 from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
-from .routes import auth, cards, cover_images, health, library, players, streams, user_auth
+from .routes import admin, auth, cards, health, library, media, players, streams, user_auth
 from .stream_manager import get_stream_manager
 
 logger = logging.getLogger(__name__)
@@ -106,8 +106,10 @@ async def lifespan(app: FastAPI):
 
                 admin_user = User(
                     username="admin",
+                    email="eugenearchibald@gmail.com",
                     hashed_password=hashed,
-                    is_active=True
+                    is_active=True,
+                    is_admin=True,
                 )
                 logger.info("User object created, committing to database...")
                 db.add(admin_user)
@@ -116,13 +118,13 @@ async def lifespan(app: FastAPI):
             except Exception as hash_err:
                 logger.error(f"Error during user creation: {hash_err}")
                 import traceback
+
                 logger.error(traceback.format_exc())
                 db.rollback()
                 raise
         else:
             logger.info(
-                f"✓ Admin user already exists "
-                f"(id: {admin_user.id}, active: {admin_user.is_active})"
+                f"✓ Admin user already exists (id: {admin_user.id}, active: {admin_user.is_active})"
             )
     except Exception as e:
         logger.error(f"Failed to create admin user: {e}")
@@ -135,8 +137,7 @@ async def lifespan(app: FastAPI):
     # This helps when Railway shared variables take time to load at startup
     if settings.railway_startup_wait_seconds > 0:
         logger.info(
-            f"Waiting {settings.railway_startup_wait_seconds} seconds "
-            "for Railway shared variables to initialize..."
+            f"Waiting {settings.railway_startup_wait_seconds} seconds for Railway shared variables to initialize..."
         )
         # Use asyncio.sleep for async context
         await asyncio.sleep(settings.railway_startup_wait_seconds)
@@ -147,9 +148,9 @@ async def lifespan(app: FastAPI):
         log_environment_variables(logger.info)
 
     # Enable debug logging for yoto_api library to see MQTT events
-    yoto_api_logger = logging.getLogger('yoto_api')
+    yoto_api_logger = logging.getLogger("yoto_api")
     yoto_api_logger.setLevel(logging.DEBUG)
-    mqtt_logger = logging.getLogger('paho.mqtt')
+    mqtt_logger = logging.getLogger("paho.mqtt")
     mqtt_logger.setLevel(logging.INFO)
 
     # Startup
@@ -272,12 +273,13 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(health.router, prefix="/api", tags=["Health"])
     app.include_router(user_auth.router, prefix="/api", tags=["User Authentication"])
+    app.include_router(admin.router, prefix="/api", tags=["Admin"])
     app.include_router(auth.router, prefix="/api", tags=["Yoto Authentication"])
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])
     app.include_router(library.router, prefix="/api", tags=["Library"])
     app.include_router(streams.router, prefix="/api", tags=["Streams"])
-    app.include_router(cover_images.router, prefix="/api", tags=["Cover Images"])
+    app.include_router(media.router, prefix="/api", tags=["Media"])
 
     @app.get("/login", tags=["Web UI"])
     async def login_page():
@@ -315,6 +317,52 @@ def create_app() -> FastAPI:
         if library_path.exists():
             return FileResponse(library_path)
         return {"message": "Library UI not available", "docs": "/docs"}
+
+    @app.get("/audio-library", tags=["Web UI"])
+    async def audio_library_ui():
+        """Serve the audio library interface."""
+        audio_library_path = static_dir / "audio-library.html"
+        if audio_library_path.exists():
+            return FileResponse(audio_library_path)
+        return {"message": "Audio Library UI not available", "docs": "/docs"}
+
+    @app.get("/audio/{filename}", tags=["Audio"])
+    async def get_audio_file(filename: str):
+        """
+        Serve raw audio files from storage.
+
+        For S3 storage: Returns presigned URL (307 redirect) for direct access.
+        For local storage: Returns file directly via FileResponse.
+        """
+        safe_name = Path(filename).name  # Prevent path traversal
+        storage = settings.get_storage()
+
+        if not await storage.exists(safe_name):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Audio file not found",
+            )
+
+        # For S3: return presigned URL (redirect)
+        if settings.storage_backend == "s3":
+            url = await storage.get_url(safe_name, expiry=settings.presigned_url_expiry)
+            return RedirectResponse(url=url, status_code=307)
+
+        # For local: return FileResponse (existing behavior)
+        audio_path = settings.audio_files_dir / safe_name
+        return FileResponse(
+            audio_path,
+            media_type="audio/mpeg",
+            filename=safe_name,
+        )
+
+    @app.get("/admin", tags=["Web UI"])
+    async def admin_ui():
+        """Serve the admin interface."""
+        admin_path = static_dir / "admin.html"
+        if admin_path.exists():
+            return FileResponse(admin_path)
+        return {"message": "Admin UI not available", "docs": "/docs"}
 
     @app.get("/api/status", tags=["General"])
     async def api_status():

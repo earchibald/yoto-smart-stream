@@ -939,7 +939,7 @@ npm install yoto-nodejs-client
    - GET /card/{cardId} - Get card details
    - GET /card/mine - User's MYO content
    - GET /card/family/library - Family library
-   - POST /card - Create/update content
+   - POST /card - Create/update content (**IMPORTANT**: Use this endpoint for BOTH creating AND updating MYO cards. Include `cardId` in the payload for updates. Do NOT use `/content` endpoint for updates.)
    - DELETE /card/{cardId} - Delete content
 
 4. **Groups**

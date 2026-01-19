@@ -58,30 +58,6 @@
                 <p class="loading">Loading managed streams...</p>
             </div>
         </section>
-
-        <section class="section">
-            <h3>Create Streaming Card</h3>
-            <form id="create-card-form" class="card-form">
-                <div class="form-group">
-                    <label for="card-title">Card Title</label>
-                    <input type="text" id="card-title" required placeholder="My Story">
-                </div>
-                <div class="form-group">
-                    <label for="card-description">Description</label>
-                    <input type="text" id="card-description" placeholder="A wonderful tale">
-                </div>
-                <div class="form-group">
-                    <label for="audio-file">Audio File</label>
-                    <select id="audio-file" required>
-                        <option value="">Select an audio file...</option>
-                    </select>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn-primary">Create Card</button>
-                </div>
-            </form>
-            <div id="card-result" class="result-message" style="display: none;"></div>
-        </section>
     </main>
 
     <!-- Audio Player Modal -->
@@ -125,6 +101,53 @@
                     <small style="color: #666;">Only alphanumeric characters and hyphens allowed</small>
                 </div>
 
+                <!-- Card Metadata Section -->
+                <div class="form-section" style="border-top: 1px solid #e0e0e0; padding-top: 1rem; margin-top: 1rem;">
+                    <h4 style="margin-bottom: 1rem;">📋 Card Metadata</h4>
+                    
+                    <div class="form-group">
+                        <label for="card-title">Card Title</label>
+                        <input type="text" id="card-title" placeholder="My Awesome Playlist">
+                        <small style="color: #666;">The title shown in your Yoto library (defaults to queue name)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="card-description">Description</label>
+                        <textarea id="card-description" rows="3" placeholder="A wonderful collection of stories and songs..."></textarea>
+                        <small style="color: #666;">Optional description for your card</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="card-author">Author</label>
+                        <input type="text" id="card-author" placeholder="Yoto Smart Stream">
+                        <small style="color: #666;">Who created this content</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="card-cover-image">Cover Image</label>
+                        <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <input type="file" id="card-cover-image" accept="image/*" onchange="previewCoverImage(this)">
+                                <small style="color: #666; display: block; margin-top: 0.25rem;">Upload a cover image for your card</small>
+                            </div>
+                            <div id="cover-image-preview" style="display: none; width: 80px; height: 80px; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; flex-shrink: 0;">
+                                <img id="cover-image-preview-img" src="" alt="Cover preview" style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                        </div>
+                        <div id="cover-image-status" style="display: none; margin-top: 0.5rem; padding: 0.5rem; background: #f0f0f0; border-radius: 4px; font-size: 0.9rem;"></div>
+                    </div>
+
+                    <!-- Future: Ambient Colors -->
+                    <!-- TODO: Add hex color picker for chapter/track ambient lighting
+                         Example: <input type="color" id="default-ambient" value="#FF6B6B">
+                         See Yoto API docs for ambient field on chapters/tracks -->
+                    
+                    <!-- Future: Interactive Card Mode -->
+                    <!-- TODO: Add toggle for interactive cards with event configuration
+                         Requires: onLhb, onRhb, onEnd event handlers for branching narratives
+                         See INTERACTIVE_CARD_ANALYSIS.md for implementation patterns -->
+                </div>
+
                 <div class="form-group">
                     <label>Available Files</label>
                     <div id="file-selector" class="file-selector-grid">
@@ -133,7 +156,11 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Current Queue (<span id="queue-count">0</span> files)</label>
+                    <label>Chapters & Tracks (<span id="queue-count">0</span> chapters)</label>
+                    <small style="color: #666; display: block; margin-bottom: 0.5rem;">
+                        Click chapter titles to edit. Click "+" to add tracks to a chapter.
+                        <!-- Future: Multi-track chapters allow multiple audio files per chapter section -->
+                    </small>
                     <div id="queue-list" class="queue-list">
                         <p style="color: #999; text-align: center; padding: 2rem;">No files added yet. Select files above to add them.</p>
                     </div>
@@ -143,6 +170,7 @@
 
                 <div class="form-actions">
                     <button class="btn-primary" onclick="saveQueue()">Save Queue</button>
+                    <button class="btn-primary" onclick="createCardFromQueue()" style="margin-left: 0.5rem;">Create Card</button>
                     <button id="delete-queue-btn" class="btn-danger" onclick="confirmDeleteQueue()" style="display: none;">Delete Queue</button>
                     <button class="btn-secondary" onclick="clearQueueSelection()">Clear Selection</button>
                     <button class="btn-secondary" onclick="closeStreamScripter()">Cancel</button>

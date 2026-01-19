@@ -767,6 +767,139 @@ async def create_streaming_card(request: CreateCardRequest, user: User = Depends
         ) from e
 
 
+@router.put("/cards/{card_id}")
+async def update_card(card_id: str, card_data: dict, user: User = Depends(require_auth)):
+    """
+    Update an existing Yoto MYO card.
+    
+    Only MYO (Make Your Own) cards can be updated. Commercial cards will return an error.
+    
+    Args:
+        card_id: The ID of the card to update
+        card_data: The complete card data (same format as create)
+    
+    Returns:
+        Updated card information
+    """
+    client = get_yoto_client()
+    manager = client.get_manager()
+    
+    logger.info(f"[UPDATE CARD] Starting update for card {card_id}")
+    logger.info(f"[UPDATE CARD] Request payload: {card_data}")
+    
+    # Ensure cardId is in the payload for update operation
+    update_payload = {**card_data, "cardId": card_id}
+    
+    try:
+        response = requests.post(
+            "https://api.yotoplay.com/card",
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            json=update_payload,
+            timeout=30,
+        )
+        
+        logger.info(f"[UPDATE CARD] Yoto API response status: {response.status_code}")
+        logger.info(f"[UPDATE CARD] Yoto API response body: {response.text}")
+        
+        response.raise_for_status()
+        card = response.json()
+        
+        logger.info(f"✓ Updated card: {card_id}")
+        return {
+            "success": True,
+            "card_id": card.get("id") or card.get("cardId"),
+            "message": "Card updated successfully!",
+            "card": card
+        }
+        
+    except requests.exceptions.HTTPError as e:
+        error_detail = e.response.text
+        logger.error(f"[UPDATE CARD] Yoto API error: {error_detail}")
+        
+        # Check if it's a 404 (likely a commercial card that can't be edited)
+        if e.response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot update this card. It may be a commercial card (not MYO).",
+            ) from e
+        
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Failed to update card: {error_detail}",
+        ) from e
+    except Exception as e:
+        logger.error(f"[UPDATE CARD] Error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update card: {str(e)}",
+        ) from e
+
+
+@router.delete("/cards/{card_id}")
+async def delete_card(card_id: str, user: User = Depends(require_auth)):
+    """
+    Delete a Yoto MYO card.
+    
+    Only MYO (Make Your Own) cards can be deleted. Commercial cards will return an error.
+    
+    Args:
+        card_id: The ID of the card to delete
+    
+    Returns:
+        Success confirmation
+    """
+    client = get_yoto_client()
+    manager = client.get_manager()
+    
+    logger.info(f"[DELETE CARD] Starting deletion for card {card_id}")
+    
+    try:
+        response = requests.delete(
+            f"https://api.yotoplay.com/content/{card_id}",
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+            },
+            timeout=30,
+        )
+        
+        logger.info(f"[DELETE CARD] Yoto API response status: {response.status_code}")
+        logger.info(f"[DELETE CARD] Yoto API response body: {response.text}")
+        
+        response.raise_for_status()
+        
+        logger.info(f"✓ Deleted card: {card_id}")
+        return {
+            "success": True,
+            "card_id": card_id,
+            "message": "Card deleted successfully!",
+        }
+        
+    except requests.exceptions.HTTPError as e:
+        error_detail = e.response.text
+        logger.error(f"[DELETE CARD] Yoto API error: {error_detail}")
+        
+        # Check if it's a 404 (likely a commercial card that can't be deleted)
+        if e.response.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot delete this card. It may be a commercial card (not MYO).",
+            ) from e
+        
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Failed to delete card: {error_detail}",
+        ) from e
+    except Exception as e:
+        logger.error(f"[DELETE CARD] Error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete card: {str(e)}",
+        ) from e
+
+
 # Transcription endpoints
 @router.get("/audio/{filename}/transcript")
 async def get_transcript(
@@ -1121,7 +1254,10 @@ async def _create_streaming_playlist(
     card_data = {
         "title": request.title,
         "content": {"chapters": chapters},
-        "metadata": {"description": request.description or ""},
+        "metadata": {
+            "description": request.description or "",
+            "author": request.author,
+        },
     }
 
     # Add cover image if provided

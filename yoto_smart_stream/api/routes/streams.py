@@ -120,6 +120,67 @@ async def get_stream_queue(stream_name: str, user: User = Depends(require_auth))
     return queue_info
 
 
+@router.post("/streams/{stream_name}", status_code=status.HTTP_200_OK)
+async def create_or_update_stream(stream_name: str, request: AddFilesRequest, user: User = Depends(require_auth)):
+    """
+    Create or update a stream queue with audio files or yoto:# URLs.
+    
+    This endpoint accepts:
+    - Local filenames (will verify they exist in audio_files directory)
+    - yoto:# URLs (will be passed through as-is for Yoto-hosted content)
+    
+    Args:
+        stream_name: Name of the stream queue
+        request: List of audio filenames or yoto:# URLs
+        
+    Returns:
+        Success message with updated queue information
+    """
+    settings = get_settings()
+    stream_manager = get_stream_manager()
+    
+    # Separate local files from yoto:# URLs
+    local_files = []
+    yoto_urls = []
+    missing_files = []
+    
+    for item in request.files:
+        if item.startswith('yoto:#'):
+            # Yoto-hosted content, pass through as-is
+            yoto_urls.append(item)
+        else:
+            # Local file, verify it exists
+            audio_path = settings.audio_files_dir / item
+            if not audio_path.exists():
+                missing_files.append(item)
+            else:
+                local_files.append(item)
+    
+    if missing_files:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Audio files not found: {', '.join(missing_files)}. "
+            f"Add them to {settings.audio_files_dir}/",
+        )
+
+    # Get or create the queue (clear it first for create/update behavior)
+    queue = await stream_manager.get_or_create_queue(stream_name)
+    queue.clear()  # Clear existing files for full replacement
+    
+    # Add all files (both local and yoto:# URLs)
+    all_items = local_files + yoto_urls
+    for item in all_items:
+        queue.add_file(item)
+    
+    logger.info(f"Created/updated stream '{stream_name}' with {len(local_files)} local files and {len(yoto_urls)} yoto:# URLs")
+    
+    return {
+        "success": True,
+        "message": f"Stream '{stream_name}' created/updated with {len(all_items)} item(s) ({len(local_files)} local, {len(yoto_urls)} yoto:#)",
+        "queue": _build_queue_response(queue),
+    }
+
+
 @router.post("/streams/{stream_name}/queue", status_code=status.HTTP_200_OK)
 async def add_files_to_queue(stream_name: str, request: AddFilesRequest, user: User = Depends(require_auth)):
     """
