@@ -495,10 +495,12 @@ header h2 {
 }
 
 .stat-content h3 {
-    font-size: 1.75rem;
+    font-size: clamp(1.2rem, 4.5vw, 1.75rem);
     color: #667eea;
     margin-bottom: 0.25rem;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Dynamic font sizing for environment card */
