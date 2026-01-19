@@ -77,12 +77,17 @@ async def upload_cover_image(
         }
 
         files = {"image": (image.filename, contents, image.content_type)}
+        data = {
+            "coverType": "default",
+            "autoConvert": "true"
+        }
 
         # Yoto cover image upload endpoint
         response = requests.post(
-            "https://api.yoto.io/media/coverImages/user/me",
+            "https://api.yotoplay.com/media/cover-image",
             headers=headers,
             files=files,
+            data=data,
             timeout=30,
         )
 
@@ -102,8 +107,8 @@ async def upload_cover_image(
         result = response.json()
 
         # Extract image ID from response
-        # Yoto returns: {"id": "img_...", ...}
-        image_id = result.get("id")
+        # Yoto returns: {"imageId": "...", "imageUrl": "..."}
+        image_id = result.get("imageId")
         if not image_id:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
