@@ -327,7 +327,7 @@ async def generate_tts_audio(
         audio_generator = client.text_to_speech.convert(
             voice_id=voice_id,
             text=request.text,
-            model_id="eleven_monolingual_v1",  # Using the standard model
+            model_id="eleven_multilingual_v3",  # Using the multilingual v3 model for better quality and tag support
         )
 
         # Collect audio bytes from the generator
@@ -381,7 +381,7 @@ async def generate_tts_audio(
                 final_filename,
                 provider="elevenlabs",
                 voice_id=voice_id,
-                model="eleven_monolingual_v1",
+                model="eleven_multilingual_v3",
             )
 
             return {
