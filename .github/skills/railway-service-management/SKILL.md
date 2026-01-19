@@ -29,8 +29,6 @@ The script automatically:
 - Links to project: yoto, service: yoto-smart-stream
 - Configures Railway CLI for immediate use
 
-**Important:** Railway CLI works with full privileges in Cloud Agent runtime. Railway MCP tools **will not work** because MCP servers run in a separate process context and cannot access Railway authentication.
-
 **For detailed instructions**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-railway_api_token-mode)
 
 ## Quick Start
@@ -107,6 +105,5 @@ Load these files as needed for detailed guidance:
 
 1. **Always filter logs** when using Railway CLI for efficiency
 2. **Prefer auto-detection** for build configuration (Railpack)
-3. **Use Railway CLI** commands (not MCP tools) in Cloud Agent sessions
-4. **Verify environment link** before CLI operations: `railway status --json`
-5. **Check health checks** are properly configured for all services
+3. **Verify environment link** before CLI operations: `railway status --json`
+4. **Check health checks** are properly configured for all services

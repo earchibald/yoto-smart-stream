@@ -233,9 +233,6 @@ railway variables set RAILWAY_API_TOKEN=<token-value> -e ${RAILWAY_ENV}
 ```bash
 # Using GitHub CLI
 gh pr view --json number -q .number
-
-# Or from GitHub MCP
-# Use mcp_github_pull_request_read tool
 ```
 
 **2. Calculate Environment Name**
@@ -267,7 +264,7 @@ Returns URL like: `https://railway.com/project/f92d5fa2-484e-4d93-9b1f-91c33cc33
 
 **5. Provision Token via Browser**
 
-Using Playwright MCP or manual browser:
+Using Playwright or manual browser:
 
 1. Navigate to URL from step 4
 2. Click **Settings** → **Tokens**
