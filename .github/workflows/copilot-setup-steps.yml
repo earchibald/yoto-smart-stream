@@ -22,7 +22,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      # Step 1: Install Node.js LTS (required for Railway CLI)
+      # Step 1: Install Node.js LTS (required for Railway CLI and AWS CDK)
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -74,35 +74,21 @@ jobs:
             echo "✅ Railway CLI already installed: $(railway --version)"
           fi
 
-      # Step 6: Login to Railway and link project (if RAILWAY_API_TOKEN available)
-      - name: Railway login and link
+      # Step 6: Install AWS CDK for AWS deployments
+      - name: Install AWS CDK
         shell: bash
-        continue-on-error: true
         run: |
-          if [ -n "$RAILWAY_API_TOKEN" ]; then
-            echo "🔐 Logging in to Railway..."
-            railway login
-            echo "✅ Logged in to Railway"
-
-            # Auto-detect environment from GitHub context
-            if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]]; then
-              PR_NUMBER="${{ github.event.pull_request.number }}"
-              ENV_NAME="yoto-smart-stream-pr-${PR_NUMBER}"
-              echo "📋 Detected PR #${PR_NUMBER} → Environment: ${ENV_NAME}"
-            elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
-              ENV_NAME="production"
-              echo "📋 Detected main branch → Environment: ${ENV_NAME}"
+          if ! command -v cdk &> /dev/null; then
+            echo "📦 Installing AWS CDK..."
+            npm install -g aws-cdk
+            if command -v cdk &> /dev/null; then
+              echo "✅ AWS CDK installed successfully: $(cdk --version)"
             else
-              ENV_NAME="production"
-              echo "📋 Using default → Environment: ${ENV_NAME}"
+              echo "⚠️  AWS CDK installation may have failed"
+              exit 1
             fi
-
-            echo "🔗 Linking to project: yoto, service: yoto-smart-stream, environment: ${ENV_NAME}"
-            railway link --project yoto --service yoto-smart-stream --environment "$ENV_NAME"
-            echo "✅ Railway CLI configured and linked"
           else
-            echo "ℹ️  RAILWAY_API_TOKEN not set"
-            echo "   Railway MCP tools will have limited functionality"
+            echo "✅ AWS CDK already installed: $(cdk --version)"
           fi
 
       # Step 7: Install Python package with development dependencies
@@ -143,7 +129,7 @@ jobs:
         shell: bash
         continue-on-error: true
         run: |
-          if [ -n "$RAILWAY_API_TOKEN" ]; then
+          if [ -n "$RAILWAY_API_TOKEN" ] || [ -n "$RAILWAY_TOKEN" ]; then
             echo "🔐 Verifying Railway authentication..."
             if railway whoami > /dev/null 2>&1; then
               echo "✅ Authenticated to Railway as: $(railway whoami)"
@@ -151,7 +137,7 @@ jobs:
               echo "⚠️  Railway authentication failed - credentials may be invalid"
             fi
           else
-            echo "ℹ️  RAILWAY_API_TOKEN not set"
+            echo "ℹ️  RAILWAY_API_TOKEN/RAILWAY_TOKEN not set"
             echo "   Railway MCP tools will have limited functionality"
           fi
 
@@ -166,6 +152,7 @@ jobs:
             echo "   Region: ${AWS_REGION:-not set, will use default}"
           else
             echo "ℹ️  AWS credentials not set"
+            echo "   AWS CDK deployments will not be available"
           fi
 
       # Step 11: Display setup summary
@@ -183,10 +170,11 @@ jobs:
           echo "  • Node.js: $(node --version)"
           echo "  • npm: $(npm --version)"
           echo "  • Railway CLI: $(railway --version 2>/dev/null || echo 'not installed')"
+          echo "  • AWS CDK: $(cdk --version 2>/dev/null || echo 'not installed')"
           echo "  • GitHub CLI: $(gh --version | head -1 2>/dev/null || echo 'not installed')"
           echo ""
           echo "🔑 Available Secrets:"
-          if [ -n "$RAILWAY_API_TOKEN" ]; then
+          if [ -n "$RAILWAY_API_TOKEN" ] || [ -n "$RAILWAY_TOKEN" ]; then
             echo "  ✅ Railway authentication configured"
           else
             echo "  ⚠️  Railway authentication NOT configured"
@@ -207,5 +195,6 @@ jobs:
           echo "  • Lint code: ruff check ."
           echo "  • Format code: black ."
           echo "  • Railway deploy: railway up"
+          echo "  • AWS CDK deploy: cd infrastructure/cdk && cdk deploy"
           echo ""
           echo "=================================================="
