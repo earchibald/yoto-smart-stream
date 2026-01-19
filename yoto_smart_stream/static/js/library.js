@@ -265,7 +265,10 @@ function displayCards(cards) {
             <div class="library-card" data-content-id="${escapeHtml(card.id)}" data-content-title="${escapeHtml(card.title)}">
                 <div class="library-card-image">
                     <img src="${escapeHtml(coverImage)}" alt="${escapeHtml(card.title)}" onerror="this.src='${placeholderSVG}'">
-                    <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data" aria-label="View Raw Data"></button>
+                    <div class="library-card-buttons">
+                        <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data" aria-label="View Raw Data"></button>
+                        <button class="library-card-edit-btn" onclick="event.stopPropagation(); editCard('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="Edit Card" aria-label="Edit Card">✏️</button>
+                    </div>
                 </div>
                 <div class="library-card-content">
                     <h4 class="library-card-title">${escapeHtml(card.title)}</h4>
@@ -279,7 +282,7 @@ function displayCards(cards) {
     // Add event listeners using delegation
     cardsGrid.addEventListener('click', function(event) {
         const card = event.target.closest('.library-card');
-        if (card && !event.target.closest('.library-card-info-btn')) {
+        if (card && !event.target.closest('.library-card-info-btn') && !event.target.closest('.library-card-edit-btn')) {
             const contentId = card.getAttribute('data-content-id');
             const contentTitle = card.getAttribute('data-content-title');
             showContentDetails(contentId, contentTitle);
@@ -711,3 +714,132 @@ window.addEventListener('click', function(event) {
         closeDeletePlaylistModal();
     }
 });
+
+// Edit card - test if it's a MYO card, load it to managed streams, and open Stream Scripter
+async function editCard(cardId, cardTitle) {
+    console.log('[EDIT CARD] Starting edit for card:', cardId, cardTitle);
+    
+    try {
+        // Step 1: Fetch the full card data
+        console.log('[EDIT CARD] Fetching card details...');
+        const response = await fetch(`${API_BASE}/library/content/${cardId}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch card details: ${response.statusText}`);
+        }
+        
+        const cardData = await response.json();
+        console.log('[EDIT CARD] Card data fetched:', cardData);
+        
+        // Step 2: Attempt to update the card with the same data (no changes)
+        // This tests if it's a MYO card (updatable) or commercial card (not updatable)
+        console.log('[EDIT CARD] Testing if card is editable (MYO)...');
+        const updateResponse = await fetch(`${API_BASE}/cards/${cardId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(cardData),
+        });
+        
+        console.log('[EDIT CARD] Update test response status:', updateResponse.status);
+        
+        if (!updateResponse.ok) {
+            const errorData = await updateResponse.json();
+            console.error('[EDIT CARD] Card is not editable:', errorData);
+            
+            // It's a commercial card - show user-friendly error
+            alert(`Cannot edit "${cardTitle}".\n\nThis is a commercial card (not a Make Your Own card).\n\nOnly MYO cards can be edited.`);
+            return;
+        }
+        
+        const updateResult = await updateResponse.json();
+        console.log('[EDIT CARD] ✓ Card is editable! Update test succeeded:', updateResult);
+        
+        // Step 3: Load the card into Managed Streams
+        // Extract chapters/tracks from the card data
+        console.log('[EDIT CARD] Loading card into Managed Streams...');
+        
+        const chapters = cardData.content?.chapters || [];
+        const audioFiles = [];
+        
+        // Extract audio filenames from tracks in chapters
+        for (const chapter of chapters) {
+            const tracks = chapter.tracks || [];
+            for (const track of tracks) {
+                // Check if this is a streaming URL from our server
+                const trackUrl = track.url || track.trackUrl || '';
+                console.log('[EDIT CARD] Track URL:', trackUrl);
+                
+                // Extract filename from URL (e.g., https://domain/audio/filename.mp3 -> filename.mp3)
+                const urlMatch = trackUrl.match(/\/audio\/([^?#]+)/);
+                if (urlMatch) {
+                    const filename = urlMatch[1];
+                    audioFiles.push(filename);
+                    console.log('[EDIT CARD] Extracted audio file:', filename);
+                }
+            }
+        }
+        
+        console.log('[EDIT CARD] Extracted audio files:', audioFiles);
+        
+        // Create or update a managed stream with this card's content
+        const streamName = `edit_${cardId}`;
+        console.log('[EDIT CARD] Creating managed stream:', streamName);
+        
+        // Create the stream with the extracted files
+        const createStreamResponse = await fetch(`${API_BASE}/streams/${streamName}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                files: audioFiles,
+                mode: 'sequential'  // Default to sequential playback
+            }),
+        });
+        
+        if (!createStreamResponse.ok) {
+            throw new Error(`Failed to create managed stream: ${createStreamResponse.statusText}`);
+        }
+        
+        console.log('[EDIT CARD] ✓ Managed stream created');
+        
+        // Step 4: Navigate to Stream Scripter with this stream selected
+        console.log('[EDIT CARD] Opening Stream Scripter...');
+        
+        // Switch to Streams tab
+        const streamsTab = document.querySelector('[data-tab="streams"]');
+        if (streamsTab) {
+            streamsTab.click();
+            console.log('[EDIT CARD] Switched to Streams tab');
+        }
+        
+        // Wait a moment for the tab to load
+        setTimeout(() => {
+            // Open the Stream Scripter modal
+            if (typeof openStreamScripter === 'function') {
+                openStreamScripter();
+                console.log('[EDIT CARD] Stream Scripter opened');
+                
+                // Wait for the scripter to load, then select our stream
+                setTimeout(() => {
+                    const queueSelector = document.getElementById('queue-selector');
+                    if (queueSelector) {
+                        queueSelector.value = streamName;
+                        queueSelector.dispatchEvent(new Event('change'));
+                        console.log('[EDIT CARD] ✓ Stream selected in scripter:', streamName);
+                    }
+                }, 500);
+            } else {
+                console.error('[EDIT CARD] openStreamScripter function not found');
+                alert('Stream created, but could not open Stream Scripter. Please navigate to Streams tab manually.');
+            }
+        }, 300);
+        
+        console.log('[EDIT CARD] ✓ Edit workflow complete');
+        
+    } catch (error) {
+        console.error('[EDIT CARD] Error:', error);
+        alert(`Failed to edit card: ${error.message}`);
+    }
+}
