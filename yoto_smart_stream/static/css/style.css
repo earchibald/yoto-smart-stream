@@ -504,7 +504,6 @@ header h2 {
 /* Dynamic font sizing for environment card */
 #environment {
     font-size: 12px; /* Start with minimum, will be adjusted by JS */
-    transition: font-size 0.2s ease;
 }
 
 .stat-content p {

@@ -896,8 +896,6 @@ function adjustEnvironmentFontSize(element) {
     const gap = parseInt(cardStyle.gap) || 16;
     const availableWidth = statCard.clientWidth - statIcon.offsetWidth - gap;
 
-    console.log(`[Environment Font Sizing] Available width: ${availableWidth}px (card: ${statCard.clientWidth}px - icon: ${statIcon.offsetWidth}px - gap: ${gap}px)`);
-
     let fontSize = 12; // Start with minimum font size
     const maxSize = 28; // Maximum font size (1.75rem = 28px)
     let overflow = false;
@@ -919,9 +917,6 @@ function adjustEnvironmentFontSize(element) {
     // Revert to the last state where no overflow happened
     if (overflow) {
         element.style.fontSize = `${fontSize - 1}px`;
-        console.log(`[Environment Font Sizing] Set to ${fontSize - 1}px (reverted from ${fontSize}px, scrollWidth: ${element.scrollWidth}px)`);
-    } else {
-        console.log(`[Environment Font Sizing] Set to ${fontSize}px (max size, scrollWidth: ${element.scrollWidth}px)`);
     }
 }
 
