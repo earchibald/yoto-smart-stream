@@ -526,6 +526,217 @@ header h2 {
     }
 }
 
+/* ===== Audio Recording Buttons Enhancement ===== */
+.recorder-buttons {
+    display: flex;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.btn-record,
+.btn-stop,
+.btn-rerecord {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-6);
+    border: none;
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-md);
+    min-width: 140px;
+    justify-content: center;
+}
+
+.btn-record {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+}
+
+.btn-record:hover:not(:disabled) {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+.btn-stop {
+    background: linear-gradient(135deg, var(--gray-600) 0%, var(--gray-700) 100%);
+    color: white;
+}
+
+.btn-stop:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--gray-700) 0%, var(--gray-800) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(71, 85, 105, 0.4);
+}
+
+.btn-rerecord {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+}
+
+.btn-rerecord:hover:not(:disabled) {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+}
+
+.btn-record:disabled,
+.btn-stop:disabled,
+.btn-rerecord:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.btn-text {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.btn-shortcut {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    font-weight: 400;
+}
+
+/* ===== Stream Card Fixes ===== */
+.stream-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.stream-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.stream-header h4 {
+    flex: 1;
+    min-width: 0;
+    word-wrap: break-word;
+}
+
+.stream-url {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--gray-700);
+    word-break: break-all;
+    margin: var(--space-2) 0;
+}
+
+.stream-info {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    margin: var(--space-2) 0;
+}
+
+.stream-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-top: var(--space-3);
+}
+
+.stream-actions button {
+    flex: 1;
+    min-width: 100px;
+    white-space: nowrap;
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.875rem;
+}
+
+/* ===== Library Card Placeholder Image ===== */
+.library-card-image {
+    position: relative;
+    background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
+}
+
+.library-card-image img {
+    background: white;
+}
+
+.library-card-image img[src*="placeholder"],
+.library-card-image img[src=""] {
+    opacity: 0;
+}
+
+.library-card-image::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    background: var(--primary-200);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.library-card-image::after {
+    content: '🎵';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+    color: var(--primary-600);
+}
+
+.library-card-image:has(img[src*="placeholder"])::before,
+.library-card-image:has(img[src*="placeholder"])::after,
+.library-card-image:has(img[src=""])::before,
+.library-card-image:has(img[src=""])::after,
+.library-card-image:has(img[alt])::before,
+.library-card-image:has(img[alt])::after {
+    opacity: 1;
+}
+
+/* Fallback for browsers that don't support :has() */
+@supports not selector(:has(*)) {
+    .library-card-image-placeholder {
+        background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+    }
+
+    .library-card-image-placeholder::before {
+        content: '🎵';
+        font-size: 3rem;
+        color: var(--primary-600);
+    }
+}
+
 /* ===== Form Enhancements ===== */
 .upload-form,
 .form-container {

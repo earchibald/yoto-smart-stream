@@ -91,15 +91,15 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAdminStatus();
     loadSystemStatus();
     loadLibrary();
-    
+
     // Setup modal close handlers
     const closeBtn = document.getElementById('modal-close-btn');
     const modal = document.getElementById('content-modal');
-    
+
     if (closeBtn) {
         closeBtn.addEventListener('click', closeContentModal);
     }
-    
+
     // Close modal when clicking outside
     if (modal) {
         modal.addEventListener('click', function(event) {
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
+
     // Setup filter listeners
     const cardsFilter = document.getElementById('cards-filter');
     const playlistsFilter = document.getElementById('playlists-filter');
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (playlistsFilter) {
         playlistsFilter.addEventListener('input', applyPlaylistsFilter);
     }
-    
+
     // Add keyboard shortcut: '/' key focuses the filter input
     document.addEventListener('keydown', (event) => {
         // Check if '/' key is pressed and not in an input field
@@ -134,12 +134,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 playlistsFilter.focus();
             }
         }
-        
+
         // Add Escape key listener to close modals
         if (event.key === 'Escape') {
             const contentModal = document.getElementById('content-modal');
             const rawDataModal = document.getElementById('raw-data-modal');
-            
+
             // Close whichever modal is currently open
             if (contentModal && contentModal.style.display === 'flex') {
                 closeContentModal();
@@ -156,12 +156,12 @@ async function loadSystemStatus() {
     try {
         const response = await fetch(`${API_BASE}/status`);
         if (!response.ok) throw new Error('Failed to fetch status');
-        
+
         const data = await response.json();
-        
+
         // Update version
         document.getElementById('app-version').textContent = `v${data.version}`;
-        
+
     } catch (error) {
         console.error('Error loading status:', error);
     }
@@ -176,12 +176,12 @@ async function loadLibrary() {
     const cardsSection = document.getElementById('cards-section');
     const playlistsSection = document.getElementById('playlists-section');
     const actionsSection = document.getElementById('actions-section');
-    
+
     statusTextEl.textContent = 'Loading library...';
-    
+
     try {
         const response = await fetch(`${API_BASE}/library`);
-        
+
         if (response.status === 401) {
             // Not authenticated
             statusEl.classList.add('error');
@@ -189,44 +189,44 @@ async function loadLibrary() {
             authMessage.style.display = 'block';
             return;
         }
-        
+
         if (!response.ok) throw new Error('Failed to fetch library');
-        
+
         const data = await response.json();
-        
+
         // Update status
         statusEl.classList.remove('error');
         statusTextEl.textContent = 'Library Loaded';
-        
+
         // Update stats
         document.getElementById('card-count').textContent = data.totalCards;
         document.getElementById('playlist-count').textContent = data.totalPlaylists;
-        
+
         // Show sections
         statsGrid.style.display = 'grid';
         cardsSection.style.display = 'block';
         playlistsSection.style.display = 'block';
         actionsSection.style.display = 'block';
-        
+
         // Display cards
         displayCards(data.cards);
-        
+
         // Display playlists
         displayPlaylists(data.playlists);
-        
+
     } catch (error) {
         console.error('Error loading library:', error);
         statusEl.classList.add('error');
         statusTextEl.textContent = 'Error Loading Library';
-        
+
         const cardsGrid = document.getElementById('cards-grid');
         const skeleton = document.getElementById('cards-skeleton');
-        
+
         // Hide skeleton and show error message
         if (skeleton) {
             skeleton.style.display = 'none';
         }
-        
+
         cardsGrid.innerHTML = `
             <div class="error-boundary error">
                 <div class="icon">⚠️</div>
@@ -243,25 +243,28 @@ async function loadLibrary() {
 function displayCards(cards) {
     const cardsGrid = document.getElementById('cards-grid');
     const skeleton = document.getElementById('cards-skeleton');
-    
+
     // Hide skeleton loader once data is ready
     if (skeleton) {
         skeleton.style.display = 'none';
     }
-    
+
     if (!cards || cards.length === 0) {
         cardsGrid.innerHTML = '<p class="loading">No cards found in your library.</p>';
         return;
     }
-    
+
+    // Create a nice placeholder SVG for cards without cover art
+    const placeholderSVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23a5f3fc;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%2306b6d4;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='300' height='300' fill='url(%23grad)'/%3E%3Ctext x='150' y='170' font-size='80' text-anchor='middle' fill='white' font-family='Arial, sans-serif'%3E🎵%3C/text%3E%3C/svg%3E`;
+
     cardsGrid.innerHTML = cards.map(card => {
-        // Use cover image if available, otherwise use placeholder
-        const coverImage = card.cover || 'https://via.placeholder.com/150?text=No+Cover';
-        
+        // Use cover image if available, otherwise use modern SVG placeholder
+        const coverImage = card.cover || placeholderSVG;
+
         return `
             <div class="library-card" data-content-id="${escapeHtml(card.id)}" data-content-title="${escapeHtml(card.title)}">
                 <div class="library-card-image">
-                    <img src="${escapeHtml(coverImage)}" alt="${escapeHtml(card.title)}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                    <img src="${escapeHtml(coverImage)}" alt="${escapeHtml(card.title)}" onerror="this.src='${placeholderSVG}'">
                     <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data" aria-label="View Raw Data"></button>
                 </div>
                 <div class="library-card-content">
@@ -272,7 +275,7 @@ function displayCards(cards) {
             </div>
         `;
     }).join('');
-    
+
     // Add event listeners using delegation
     cardsGrid.addEventListener('click', function(event) {
         const card = event.target.closest('.library-card');
@@ -287,12 +290,12 @@ function displayCards(cards) {
 // Display playlists
 function displayPlaylists(playlists) {
     const playlistsList = document.getElementById('playlists-list');
-    
+
     if (!playlists || playlists.length === 0) {
         playlistsList.innerHTML = '<p class="loading">No playlists found in your library.</p>';
         return;
     }
-    
+
     playlistsList.innerHTML = playlists.map(playlist => `
         <div class="list-item" data-content-id="${escapeHtml(playlist.id)}" data-content-title="${escapeHtml(playlist.name)}">
             <div class="list-item-header">
@@ -305,7 +308,7 @@ function displayPlaylists(playlists) {
             ${playlist.imageId ? `<div class="list-item-details"><span>Image ID: ${escapeHtml(playlist.imageId)}</span></div>` : ''}
         </div>
     `).join('');
-    
+
     // Add event listeners using delegation
     playlistsList.addEventListener('click', function(event) {
         const listItem = event.target.closest('.list-item');
@@ -327,22 +330,22 @@ async function showContentDetails(contentId, contentTitle) {
     const modal = document.getElementById('content-modal');
     const modalTitle = document.getElementById('modal-content-title');
     const modalBody = document.getElementById('modal-content-body');
-    
+
     // Show modal with loading state
     modalTitle.textContent = contentTitle;
     modalBody.innerHTML = '<p class="loading">Loading content details...</p>';
     modal.style.display = 'flex';
-    
+
     try {
         // Use the chapters endpoint which uses local cache
         const response = await fetch(`${API_BASE}/library/${contentId}/chapters`);
-        
+
         if (!response.ok) {
             throw new Error(`Failed to fetch content details: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         // Map the chapters response to content format
         const content = {
             title: data.card_title,
@@ -356,10 +359,10 @@ async function showContentDetails(contentId, contentTitle) {
                 icon: ch.icon
             })) : []
         };
-        
+
         // Build content details HTML
         let detailsHtml = '';
-        
+
         // Show cover image if available
         if (content.coverImage || content.coverImageLarge) {
             const coverUrl = content.coverImageLarge || content.coverImage;
@@ -369,7 +372,7 @@ async function showContentDetails(contentId, contentTitle) {
                 </div>
             `;
         }
-        
+
         // Show basic information
         detailsHtml += '<div class="modal-info-section">';
         if (content.author) {
@@ -386,7 +389,7 @@ async function showContentDetails(contentId, contentTitle) {
             detailsHtml += `<p><strong>Duration:</strong> ${minutes} minutes</p>`;
         }
         detailsHtml += '</div>';
-        
+
         // Show chapters/tracks if available
         if (content.chapters && content.chapters.length > 0) {
             detailsHtml += `
@@ -406,9 +409,9 @@ async function showContentDetails(contentId, contentTitle) {
                 </div>
             `;
         }
-        
+
         modalBody.innerHTML = detailsHtml;
-        
+
     } catch (error) {
         console.error('Error loading content details:', error);
         modalBody.innerHTML = `<p class="error-message">Failed to load content details: ${error.message}</p>`;
@@ -435,25 +438,25 @@ async function showCardRawData(cardId, cardTitle) {
     const modalTitle = document.getElementById('raw-data-title');
     const modalBody = document.getElementById('raw-data-body');
     const copyBtn = document.getElementById('copy-raw-data-btn');
-    
+
     // Show modal with loading state
     modalTitle.textContent = `Raw Data: ${cardTitle}`;
     modalBody.innerHTML = '<p class="loading">Loading all card data...</p>';
     modal.style.display = 'flex';
-    
+
     try {
         // Fetch comprehensive card data from new endpoint
         const response = await fetch(`${API_BASE}/library/${cardId}/raw`);
-        
+
         if (!response.ok) {
             throw new Error(`Failed to fetch raw data: ${response.statusText}`);
         }
-        
+
         const rawData = await response.json();
-        
+
         // Display formatted JSON
         modalBody.innerHTML = `<pre class="json-content">${escapeHtml(JSON.stringify(rawData, null, 2))}</pre>`;
-        
+
         // Setup copy button
         copyBtn.onclick = function() {
             navigator.clipboard.writeText(JSON.stringify(rawData, null, 2)).then(() => {
@@ -467,7 +470,7 @@ async function showCardRawData(cardId, cardTitle) {
                 alert('Failed to copy to clipboard');
             });
         };
-        
+
     } catch (error) {
         console.error('Error loading raw card data:', error);
         modalBody.innerHTML = `<p class="error-message">Failed to load raw data: ${error.message}</p>`;
@@ -492,7 +495,7 @@ function escapeHtml(text) {
 function openDeletePlaylistModal() {
     const modal = document.getElementById('delete-playlist-modal');
     modal.style.display = 'flex';
-    
+
     // Reset the modal state
     document.getElementById('delete-playlist-search').value = '';
     document.getElementById('delete-playlist-search-results').style.display = 'none';
@@ -508,20 +511,20 @@ function closeDeletePlaylistModal() {
 // Search for playlists to delete
 async function searchPlaylistsForDelete() {
     const playlistName = document.getElementById('delete-playlist-search').value.trim();
-    
+
     if (!playlistName) {
         alert('Please enter a playlist name to search for');
         return;
     }
-    
+
     const loadingDiv = document.getElementById('delete-playlist-loading');
     const resultsDiv = document.getElementById('delete-playlist-search-results');
     const resultMessageDiv = document.getElementById('delete-playlist-result');
-    
+
     loadingDiv.style.display = 'block';
     resultsDiv.style.display = 'none';
     resultMessageDiv.style.display = 'none';
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/playlists/search/${encodeURIComponent(playlistName)}`, {
             method: 'GET',
@@ -530,26 +533,26 @@ async function searchPlaylistsForDelete() {
             },
             credentials: 'include',
         });
-        
+
         const result = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(result.detail || 'Failed to search playlists');
         }
-        
+
         loadingDiv.style.display = 'none';
-        
+
         if (result.count === 0) {
             resultMessageDiv.textContent = `No playlists found matching "${playlistName}"`;
             resultMessageDiv.className = 'result-message info-message';
             resultMessageDiv.style.display = 'block';
             return;
         }
-        
+
         // Display results
         displayPlaylistSearchResults(result.playlists);
         resultsDiv.style.display = 'block';
-        
+
     } catch (error) {
         console.error('Failed to search playlists:', error);
         loadingDiv.style.display = 'none';
@@ -563,16 +566,16 @@ function displayPlaylistSearchResults(playlists) {
     const listDiv = document.getElementById('delete-playlist-list');
     const countSpan = document.getElementById('delete-playlist-count');
     const selectAllBtn = document.getElementById('select-all-delete-btn');
-    
+
     countSpan.textContent = playlists.length;
     selectAllBtn.style.display = playlists.length > 1 ? 'block' : 'none';
-    
+
     listDiv.innerHTML = playlists.map((playlist, index) => `
         <div class="playlist-item" style="padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem;">
             <div style="display: flex; align-items: flex-start; gap: 1rem;">
-                <input 
-                    type="checkbox" 
-                    id="playlist-${index}" 
+                <input
+                    type="checkbox"
+                    id="playlist-${index}"
                     data-playlist-id="${escapeHtml(playlist.id)}"
                     data-playlist-title="${escapeHtml(playlist.title)}"
                     onchange="updateDeleteSelection()"
@@ -596,9 +599,9 @@ function updateDeleteSelection() {
     const selectedCount = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]:checked').length;
     const selectedCountSpan = document.getElementById('delete-selected-count');
     const deleteBtn = document.getElementById('delete-confirm-btn');
-    
+
     selectedCountSpan.textContent = selectedCount;
-    
+
     if (selectedCount > 0) {
         deleteBtn.disabled = false;
         deleteBtn.style.opacity = '1';
@@ -613,39 +616,39 @@ function updateDeleteSelection() {
 function toggleSelectAllDelete() {
     const checkboxes = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]');
     const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-    
+
     checkboxes.forEach(cb => {
         cb.checked = !allChecked;
     });
-    
+
     updateDeleteSelection();
 }
 
 async function deleteSelectedPlaylists() {
     const checkboxes = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]:checked');
-    
+
     if (checkboxes.length === 0) {
         alert('Please select at least one playlist to delete');
         return;
     }
-    
+
     const playlistIds = Array.from(checkboxes).map(cb => cb.dataset.playlistId);
     const playlistTitles = Array.from(checkboxes).map(cb => cb.dataset.playlistTitle);
-    
+
     const confirmMessage = `Are you sure you want to delete ${playlistIds.length} playlist(s)?\n\n` +
         playlistTitles.slice(0, 5).map(t => `• ${t}`).join('\n') +
         (playlistTitles.length > 5 ? `\n... and ${playlistTitles.length - 5} more` : '') +
         '\n\nThis action cannot be undone.';
-    
+
     if (!confirm(confirmMessage)) {
         return;
     }
-    
+
     const deleteBtn = document.getElementById('delete-confirm-btn');
     const originalText = deleteBtn.textContent;
     deleteBtn.disabled = true;
     deleteBtn.textContent = '⏳ Deleting...';
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/playlists/delete-multiple`, {
             method: 'POST',
@@ -657,18 +660,18 @@ async function deleteSelectedPlaylists() {
                 playlist_ids: playlistIds,
             }),
         });
-        
+
         const result = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(result.detail || 'Failed to delete playlists');
         }
-        
+
         // Show results
         const resultDiv = document.getElementById('delete-playlist-result');
         const successCount = result.success.length;
         const failedCount = result.failed.length;
-        
+
         let message = `✓ Successfully deleted ${successCount} playlist(s)`;
         if (failedCount > 0) {
             message += `\n\n✗ Failed to delete ${failedCount} playlist(s):\n`;
@@ -676,11 +679,11 @@ async function deleteSelectedPlaylists() {
                 message += `• ${f.playlist_id}: ${f.error}\n`;
             });
         }
-        
+
         resultDiv.textContent = message;
         resultDiv.className = 'result-message ' + (failedCount > 0 ? 'error-message' : 'success-message');
         resultDiv.style.display = 'block';
-        
+
         // Refresh the library after successful deletion
         if (successCount > 0) {
             setTimeout(() => {
@@ -688,7 +691,7 @@ async function deleteSelectedPlaylists() {
                 closeDeletePlaylistModal();
             }, 2000);
         }
-        
+
     } catch (error) {
         console.error('Failed to delete playlists:', error);
         const resultDiv = document.getElementById('delete-playlist-result');

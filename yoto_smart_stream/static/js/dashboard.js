@@ -54,19 +54,19 @@ async function checkUserAuth() {
     try {
         const response = await fetch('/api/user/session', { credentials: 'include' });
         const data = await response.json();
-        
+
         if (!data.authenticated) {
             // Redirect to login page
             window.location.href = '/login';
             return false;
         }
-        
+
         // Show logout button if authenticated
         const logoutBtn = document.getElementById('logout-button');
         if (logoutBtn) {
             logoutBtn.style.display = 'inline-block';
         }
-        
+
         return true;
     } catch (error) {
         console.error('Error checking authentication:', error);
@@ -78,9 +78,9 @@ async function checkUserAuth() {
 // User logout function
 async function userLogout() {
     try {
-        await fetch('/api/user/logout', { 
+        await fetch('/api/user/logout', {
             method: 'POST',
-            credentials: 'include' 
+            credentials: 'include'
         });
         window.location.href = '/login';
     } catch (error) {
@@ -103,11 +103,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!isAuthenticated) {
         return; // Stop loading if not authenticated
     }
-    
+
     checkAuthStatus();
     loadSystemStatus();
     loadPlayers();
-    
+
     // Start auto-refresh for players every 5 seconds
     startPlayerAutoRefresh();
 });
@@ -122,9 +122,9 @@ async function checkAuthStatus() {
     try {
         const response = await fetch(`${API_BASE}/auth/status`);
         if (!response.ok) throw new Error('Failed to check auth status');
-        
+
         const data = await response.json();
-        
+
         if (data.authenticated) {
             // Hide auth section, show logout button
             document.getElementById('auth-section').style.display = 'none';
@@ -147,37 +147,37 @@ async function startAuth() {
     const authWaiting = document.getElementById('auth-waiting');
     const authActions = document.getElementById('auth-actions');
     const authMessage = document.getElementById('auth-message');
-    
+
     loginButton.disabled = true;
     loginButton.textContent = 'Starting...';
-    
+
     try {
         const response = await fetch(`${API_BASE}/auth/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to start authentication');
         }
-        
+
         const data = await response.json();
         deviceCode = data.device_code;
-        
+
         // Update UI with auth details
         document.getElementById('auth-url').href = data.verification_uri_complete || data.verification_uri;
         document.getElementById('auth-url').textContent = data.verification_uri;
         document.getElementById('user-code').textContent = data.user_code;
-        
+
         // Show waiting section
         authWaiting.style.display = 'block';
         authActions.style.display = 'none';
         authMessage.textContent = 'Complete the authorization in your browser, then we\'ll automatically connect.';
-        
+
         // Start polling for completion
         startAuthPolling();
-        
+
     } catch (error) {
         console.error('Error starting auth:', error);
         alert('Failed to start authentication: ' + error.message);
@@ -192,7 +192,7 @@ function startAuthPolling() {
     if (authPollInterval) {
         clearInterval(authPollInterval);
     }
-    
+
     // Poll every 3 seconds
     authPollInterval = setInterval(async () => {
         try {
@@ -201,16 +201,16 @@ function startAuthPolling() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ device_code: deviceCode })
             });
-            
+
             if (!response.ok) throw new Error('Failed to poll auth status');
-            
+
             const data = await response.json();
-            
+
             if (data.status === 'success') {
                 // Authentication successful!
                 clearInterval(authPollInterval);
                 authPollInterval = null;
-                
+
                 // Show success message
                 const authWaiting = document.getElementById('auth-waiting');
                 authWaiting.innerHTML = `
@@ -219,22 +219,22 @@ function startAuthPolling() {
                         <p>Successfully connected!</p>
                     </div>
                 `;
-                
+
                 // Reload the page after a short delay
                 setTimeout(() => {
                     window.location.reload();
                 }, 2000);
-                
+
             } else if (data.status === 'expired') {
                 // Token expired
                 clearInterval(authPollInterval);
                 authPollInterval = null;
                 alert('Authentication expired. Please try again.');
                 window.location.reload();
-                
+
             }
             // Otherwise keep polling (status === 'pending')
-            
+
         } catch (error) {
             console.error('Error polling auth:', error);
             // Continue polling even on errors
@@ -247,18 +247,18 @@ async function logout() {
     if (!confirm('Are you sure you want to logout?')) {
         return;
     }
-    
+
     try {
         const response = await fetch(`${API_BASE}/auth/logout`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
-        
+
         if (!response.ok) throw new Error('Failed to logout');
-        
+
         // Reload the page
         window.location.reload();
-        
+
     } catch (error) {
         console.error('Error logging out:', error);
         alert('Failed to logout: ' + error.message);
@@ -271,22 +271,22 @@ async function loadSystemStatus() {
     try {
         const response = await fetch(`${API_BASE}/status`);
         if (!response.ok) throw new Error('Failed to fetch status');
-        
+
         const data = await response.json();
-        
+
         // Update version
         document.getElementById('app-version').textContent = `v${data.version}`;
-        
+
         // Update status indicator
         const statusEl = document.getElementById('status');
         const statusTextEl = document.getElementById('status-text');
         statusEl.classList.remove('error');
         statusTextEl.textContent = 'System Running';
-        
+
         // Update stats
         document.getElementById('mqtt-status').textContent = data.features?.mqtt_events ? 'Enabled' : 'Disabled';
         document.getElementById('environment').textContent = data.environment || 'Unknown';
-        
+
     } catch (error) {
         console.error('Error loading status:', error);
         const statusEl = document.getElementById('status');
@@ -299,29 +299,29 @@ async function loadSystemStatus() {
 // Load players list
 async function loadPlayers() {
     const container = document.getElementById('players-list');
-    
+
     // Prevent concurrent API calls
     if (isLoadingPlayers) {
         return;
     }
-    
+
     isLoadingPlayers = true;
-    
+
     try {
         const response = await fetch(`${API_BASE}/players`);
         if (!response.ok) throw new Error('Failed to fetch players');
-        
+
         const players = await response.json();
-        
+
         // Console logging for MQTT events and status changes
         const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
         console.log(`%c[${timestamp}] 📡 Player Status Update`, 'color: #4CAF50; font-weight: bold');
-        
+
         // Detect and log changes for each player
         players.forEach(player => {
             const prevState = previousPlayerStates[player.id];
             const changes = [];
-            
+
             if (prevState) {
                 // Volume change (likely MQTT event)
                 if (prevState.volume !== player.volume) {
@@ -344,7 +344,7 @@ async function loadPlayers() {
                     changes.push(`Status: ${prevState.online ? 'Online' : 'Offline'} → ${player.online ? 'Online' : 'Offline'}`);
                 }
             }
-            
+
             if (changes.length > 0) {
                 console.log(`%c  🎮 ${player.name}:`, 'color: #2196F3; font-weight: bold');
                 changes.forEach(change => {
@@ -354,7 +354,7 @@ async function loadPlayers() {
                 // First load
                 console.log(`  🎮 ${player.name}: Online=${player.online}, Volume=${player.volume}/16, Playing=${player.playing}`);
             }
-            
+
             // Store current state for next comparison
             previousPlayerStates[player.id] = {
                 volume: player.volume,
@@ -364,23 +364,23 @@ async function loadPlayers() {
                 online: player.online
             };
         });
-        
+
         // Update player count
         document.getElementById('player-count').textContent = players.length;
-        
+
         if (players.length === 0) {
             container.innerHTML = '<p class="loading">No players connected</p>';
             return;
         }
-        
+
         // Check if we need to do a full rebuild or just update values
         const existingPlayerIds = new Set(
             Array.from(container.querySelectorAll('.player-card')).map(card => card.dataset.playerId)
         );
         const newPlayerIds = new Set(players.map(p => p.id));
-        const needsRebuild = existingPlayerIds.size !== newPlayerIds.size || 
+        const needsRebuild = existingPlayerIds.size !== newPlayerIds.size ||
                             ![...newPlayerIds].every(id => existingPlayerIds.has(id));
-        
+
         if (needsRebuild) {
             // Full rebuild needed (player added/removed)
             container.innerHTML = players.map(player => createPlayerCardHTML(player)).join('');
@@ -390,14 +390,14 @@ async function loadPlayers() {
                 updatePlayerCard(player);
             });
         }
-        
+
         // Update smart stream track information for all players
         players.forEach(player => {
             updateSmartStreamTrack(player.id);
         });
     } catch (error) {
         console.error('Error loading players:', error);
-        document.getElementById('players-list').innerHTML = 
+        document.getElementById('players-list').innerHTML =
             `<p class="error">Failed to load players: ${error.message}</p>`;
     } finally {
         isLoadingPlayers = false;
@@ -410,37 +410,37 @@ async function loadPlayers() {
 function createPlayerCardHTML(player) {
     // Build additional status indicators
     const indicators = [];
-    
+
     // Battery with charging
     if (player.battery_level !== null && player.battery_level !== undefined) {
         const chargingIcon = player.is_charging ? '⚡' : '';
         const batteryIcon = player.battery_level < 20 ? '🪫' : '🔋';
         indicators.push(`${batteryIcon} ${player.battery_level}%${chargingIcon}`);
     }
-    
+
     // Temperature if available
     if (player.temperature !== null && player.temperature !== undefined) {
         indicators.push(`🌡️ ${player.temperature}°C`);
     }
-    
+
     // Sleep timer if active
     if (player.sleep_timer_active && player.sleep_timer_seconds_remaining) {
         const minutes = Math.floor(player.sleep_timer_seconds_remaining / 60);
         indicators.push(`😴 ${minutes}m`);
     }
-    
+
     // Audio connections
     if (player.bluetooth_audio_connected) {
         indicators.push('🎧 BT');
     }
-    
+
     // Build media display (what's playing)
     let mediaInfo = '';
     if (player.active_card) {
         // Card/Album info (like yoto_ha media_album_name, media_artist)
         const cardTitle = player.card_title || 'Unknown Card';
         const cardAuthor = player.card_author ? ` by ${player.card_author}` : '';
-        
+
         // Chapter/Track info (like yoto_ha media_title)
         let trackInfo = '';
         if (player.chapter_title || player.track_title) {
@@ -449,7 +449,7 @@ function createPlayerCardHTML(player) {
                 : (player.chapter_title || player.track_title);
             trackInfo = `<div class="now-playing-track">${escapeHtml(title)}</div>`;
         }
-        
+
         mediaInfo = `
             <div class="now-playing">
                 <span class="now-playing-label">♫</span>
@@ -460,7 +460,7 @@ function createPlayerCardHTML(player) {
             </div>
         `;
     }
-    
+
     return `
         <div class="list-item player-card" data-player-id="${escapeHtml(player.id)}">
             <div class="list-item-header">
@@ -489,12 +489,12 @@ function createPlayerCardHTML(player) {
                     ⏹️
                 </button>
                 <div class="volume-control" data-player-id="${escapeHtml(player.id)}">
-                    <input type="range" 
+                    <input type="range"
                         id="volume-slider-${escapeHtml(player.id)}"
-                        class="volume-slider" 
-                        min="0" 
-                        max="16" 
-                        value="${player.volume}" 
+                        class="volume-slider"
+                        min="0"
+                        max="16"
+                        value="${player.volume}"
                         onmousedown="startSliderInteraction('${escapeHtml(player.id)}')"
                         ontouchstart="startSliderInteraction('${escapeHtml(player.id)}')"
                         oninput="setPlayerVolume('${escapeHtml(player.id)}', this.value)"
@@ -520,21 +520,21 @@ function createPlayerCardHTML(player) {
 function updatePlayerCard(player) {
     const card = document.querySelector(`.player-card[data-player-id="${player.id}"]`);
     if (!card) return;
-    
+
     // Update online status
     const statusBadge = card.querySelector('.status-badge');
     if (statusBadge) {
         statusBadge.className = `badge status-badge ${player.online ? 'online' : 'offline'}`;
         statusBadge.textContent = player.online ? '🟢 Online' : '🔴 Offline';
     }
-    
+
     // Update now playing info (card and chapter titles)
     const existingMediaInfo = card.querySelector('.now-playing');
     if (player.active_card && player.active_card !== 'none') {
         // Card/Album info
         const cardTitle = player.card_title || 'Unknown Card';
         const cardAuthor = player.card_author ? ` by ${player.card_author}` : '';
-        
+
         // Chapter/Track info
         let trackInfo = '';
         if (player.chapter_title || player.track_title) {
@@ -543,7 +543,7 @@ function updatePlayerCard(player) {
                 : (player.chapter_title || player.track_title);
             trackInfo = `<div class="now-playing-track">${escapeHtml(title)}</div>`;
         }
-        
+
         const mediaInfoHtml = `
             <div class="now-playing">
                 <span class="now-playing-label">♫</span>
@@ -553,7 +553,7 @@ function updatePlayerCard(player) {
                 </div>
             </div>
         `;
-        
+
         if (existingMediaInfo) {
             // Update existing media info
             const tempDiv = document.createElement('div');
@@ -572,7 +572,7 @@ function updatePlayerCard(player) {
         // Remove media info if no active card
         existingMediaInfo.remove();
     }
-    
+
     // Update playing/paused status in details
     const details = card.querySelector('.list-item-details');
     if (details) {
@@ -581,7 +581,7 @@ function updatePlayerCard(player) {
             playingSpan.textContent = player.playing ? '▶️ Playing' : '⏸️ Paused';
         }
     }
-    
+
     // Update volume slider and label only if not being interacted with
     if (canUpdateSlider(player.id)) {
         const slider = document.getElementById(`volume-slider-${player.id}`);
@@ -595,7 +595,7 @@ function updatePlayerCard(player) {
             setTimeout(() => programmaticUpdates.delete(player.id), 10);
         }
     }
-    
+
     // Update control buttons enabled/disabled state
     const controls = card.querySelectorAll('.player-controls button:not(.library-btn):not(.info-btn)');
     controls.forEach(btn => {
@@ -614,25 +614,25 @@ async function updateSmartStreamTrack(playerId) {
     try {
         const response = await fetch(`${API_BASE}/streams/detect-smart-stream/${playerId}`);
         if (!response.ok) return;
-        
+
         const data = await response.json();
         const card = document.querySelector(`.player-card[data-player-id="${playerId}"]`);
         if (!card) return;
-        
+
         const streamTrackElement = card.querySelector('.smart-stream-track');
         const trackNameElement = card.querySelector(`#stream-track-${playerId}`);
-        
+
         if (!streamTrackElement || !trackNameElement) return;
-        
+
         if (data.is_playing_smart_stream && data.current_track_name) {
             // Show the smart stream track display
             let displayText = escapeHtml(data.current_track_name);
-            
+
             // Add track number if available
             if (data.current_track_index !== null && data.total_tracks !== null) {
                 displayText += ` (${data.current_track_index + 1}/${data.total_tracks})`;
             }
-            
+
             trackNameElement.textContent = displayText;
             streamTrackElement.style.display = 'block';
         } else {
@@ -671,18 +671,18 @@ function canUpdateSlider(playerId) {
     if (activeSliders.has(playerId)) {
         return false;
     }
-    
+
     // Don't update if in cooldown period
     const cooldownUntil = sliderCooldowns.get(playerId);
     if (cooldownUntil && Date.now() < cooldownUntil) {
         return false;
     }
-    
+
     // Cleanup expired cooldown
     if (cooldownUntil) {
         sliderCooldowns.delete(playerId);
     }
-    
+
     return true;
 }
 
@@ -692,7 +692,7 @@ function startPlayerAutoRefresh() {
     if (playerRefreshInterval) {
         clearInterval(playerRefreshInterval);
     }
-    
+
     // Refresh players every 5 seconds
     playerRefreshInterval = setInterval(async () => {
         try {
@@ -738,18 +738,18 @@ function canUpdateSlider(playerId) {
     if (activeSliders.has(playerId)) {
         return false;
     }
-    
+
     // Don't update if in cooldown period
     const cooldownUntil = sliderCooldowns.get(playerId);
     if (cooldownUntil && Date.now() < cooldownUntil) {
         return false;
     }
-    
+
     // Cleanup expired cooldown
     if (cooldownUntil) {
         sliderCooldowns.delete(playerId);
     }
-    
+
     return true;
 }
 
@@ -762,21 +762,21 @@ async function controlPlayer(playerId, action) {
     try {
         const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
         console.log(`%c[${timestamp}] 🎮 Control: ${action}`, 'color: #FF9800; font-weight: bold', `Player: ${playerId}`);
-        
+
         const response = await fetch(`${API_BASE}/players/${playerId}/control`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action })
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || `Failed to ${action} player`);
         }
-        
+
         // Refresh players to update UI
         await loadPlayers();
-        
+
     } catch (error) {
         console.error(`Error controlling player:`, error);
         alert(`Failed to ${action} player: ${error.message}`);
@@ -792,12 +792,12 @@ async function setPlayerVolume(playerId, volume) {
         console.log(`%c🔇 Skipping programmatic volume update`, 'color: #999', `Player: ${playerId}`);
         return;
     }
-    
+
     try {
         const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
         const prevVolume = previousPlayerStates[playerId]?.volume || '?';
         console.log(`%c[${timestamp}] 🔊 Volume Control`, 'color: #9C27B0; font-weight: bold', `${prevVolume}/16 → ${volume}/16`, `(Player: ${playerId})`);
-        
+
         // Update the volume label immediately for responsiveness
         const volumeControl = document.querySelector(`.volume-control[data-player-id="${playerId}"]`);
         if (volumeControl) {
@@ -806,24 +806,24 @@ async function setPlayerVolume(playerId, volume) {
                 volumeLabel.textContent = `${volume}/16`;
             }
         }
-        
+
         const response = await fetch(`${API_BASE}/players/${playerId}/control`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'volume', volume: parseInt(volume) })
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to set volume');
         }
-        
+
         // Wait 2 seconds for MQTT to propagate before refreshing
         // This prevents the old volume value from overwriting the UI
         setTimeout(() => {
             loadPlayers();
         }, 2000);
-        
+
     } catch (error) {
         console.error('Error setting volume:', error);
         alert(`Failed to set volume: ${error.message}`);
@@ -875,32 +875,32 @@ async function showPlayerDetail(playerId) {
     const loadingEl = document.getElementById('modalPlayerLoading');
     const contentEl = document.getElementById('modalPlayerContent');
     const technicalInfoEl = document.getElementById('modalTechnicalInfo');
-    
+
     // Show modal and reset to loading state
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
     contentEl.style.display = 'none';
     technicalInfoEl.style.display = 'none';
-    
+
     // Reset info button state
     const infoButton = document.getElementById('modalInfoButton');
     if (infoButton) {
         infoButton.classList.remove('active');
     }
-    
+
     try {
         // Clear previous technical info
         clearTechnicalInfo();
-        
+
         // Fetch combined player data from our API
         const playerUrl = `${API_BASE}/players/${playerId}`;
         const playerResponse = await fetch(playerUrl);
         if (!playerResponse.ok) throw new Error('Failed to fetch player data');
         const playerData = await playerResponse.json();
-        
+
         // Store our combined endpoint (for reference)
         addTechnicalInfo('GET Player (Combined)', playerUrl, playerData);
-        
+
         // Fetch device status from Yoto API
         const statusUrl = `${API_BASE}/players/${playerId}/status`;
         try {
@@ -925,7 +925,7 @@ async function showPlayerDetail(playerId) {
                 message: statusError.message || String(statusError)
             });
         }
-        
+
         // Fetch device config from Yoto API
         const configUrl = `${API_BASE}/players/${playerId}/config`;
         try {
@@ -950,14 +950,14 @@ async function showPlayerDetail(playerId) {
                 message: configError.message || String(configError)
             });
         }
-        
+
         // Update modal with player data
         populatePlayerModal(playerData);
-        
+
         // Show content, hide loading
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
-        
+
     } catch (error) {
         console.error('Error loading player details:', error);
         loadingEl.innerHTML = '<p class="error-message">Failed to load player details. Please try again.</p>';
@@ -978,15 +978,15 @@ function closePlayerModal() {
 function populatePlayerModal(player) {
     // Header
     document.getElementById('modalPlayerName').textContent = player.name;
-    
+
     // Status Overview
     const statusBadge = document.getElementById('modalPlayerStatus');
     statusBadge.textContent = player.online ? 'Online' : 'Offline';
     statusBadge.className = `detail-value badge ${player.online ? 'online' : 'offline'}`;
-    
+
     document.getElementById('modalPlayerPlayback').textContent = player.playing ? '▶️ Playing' : '⏸️ Paused';
     document.getElementById('modalPlayerVolume').textContent = `${player.volume}%`;
-    
+
     // Battery with indicator
     const batteryEl = document.getElementById('modalPlayerBattery');
     if (player.battery_level !== null && player.battery_level !== undefined) {
@@ -1003,13 +1003,13 @@ function populatePlayerModal(player) {
     } else {
         batteryEl.textContent = 'N/A';
     }
-    
+
     // Device Information
     document.getElementById('modalPlayerId').textContent = player.id;
     document.getElementById('modalPlayerDeviceType').textContent = player.device_type || 'N/A';
     document.getElementById('modalPlayerFirmware').textContent = player.firmware_version || 'N/A';
     document.getElementById('modalPlayerPowerSource').textContent = player.power_source || 'N/A';
-    
+
     // Network & Environment
     const wifiEl = document.getElementById('modalPlayerWifi');
     if (player.wifi_strength !== null && player.wifi_strength !== undefined) {
@@ -1027,7 +1027,7 @@ function populatePlayerModal(player) {
             signalQuality = 'Fair';
             activeBars = 2;
         }
-        
+
         wifiEl.innerHTML = `
             <span class="wifi-indicator">
                 <span class="wifi-bars">
@@ -1039,7 +1039,7 @@ function populatePlayerModal(player) {
     } else {
         wifiEl.textContent = 'N/A';
     }
-    
+
     const tempEl = document.getElementById('modalPlayerTemperature');
     if (player.temperature !== null && player.temperature !== undefined) {
         const fahrenheit = (player.temperature * 9/5) + 32;
@@ -1047,7 +1047,7 @@ function populatePlayerModal(player) {
     } else {
         tempEl.textContent = 'N/A';
     }
-    
+
     // Ambient Light
     const ambientLightEl = document.getElementById('modalPlayerAmbientLight');
     if (player.ambient_light !== null && player.ambient_light !== undefined) {
@@ -1055,11 +1055,11 @@ function populatePlayerModal(player) {
     } else {
         ambientLightEl.textContent = 'N/A';
     }
-    
+
     // Day Mode
-    document.getElementById('modalPlayerDayMode').textContent = 
+    document.getElementById('modalPlayerDayMode').textContent =
         player.day_mode !== null ? (player.day_mode ? 'Day' : 'Night') : 'N/A';
-    
+
     // Nightlight
     const nightlightEl = document.getElementById('modalPlayerNightlight');
     if (player.nightlight_mode) {
@@ -1067,7 +1067,7 @@ function populatePlayerModal(player) {
     } else {
         nightlightEl.textContent = 'N/A';
     }
-    
+
     // Last Updated
     const lastUpdatedEl = document.getElementById('modalPlayerLastUpdated');
     if (player.last_updated_at) {
@@ -1076,16 +1076,16 @@ function populatePlayerModal(player) {
     } else {
         lastUpdatedEl.textContent = 'N/A';
     }
-    
+
     // Audio Connections
-    document.getElementById('modalPlayerBluetoothAudio').textContent = 
-        player.bluetooth_audio_connected !== null ? 
+    document.getElementById('modalPlayerBluetoothAudio').textContent =
+        player.bluetooth_audio_connected !== null ?
         (player.bluetooth_audio_connected ? '🎧 Connected' : 'Not Connected') : 'N/A';
-    
-    document.getElementById('modalPlayerAudioDevice').textContent = 
-        player.audio_device_connected !== null ? 
+
+    document.getElementById('modalPlayerAudioDevice').textContent =
+        player.audio_device_connected !== null ?
         (player.audio_device_connected ? '🔊 Connected' : 'Not Connected') : 'N/A';
-    
+
     // Sleep Timer Section
     const sleepTimerSection = document.getElementById('modalSleepTimerSection');
     if (player.sleep_timer_active && player.sleep_timer_seconds_remaining) {
@@ -1093,23 +1093,23 @@ function populatePlayerModal(player) {
         const hours = Math.floor(player.sleep_timer_seconds_remaining / 3600);
         const minutes = Math.floor((player.sleep_timer_seconds_remaining % 3600) / 60);
         const seconds = player.sleep_timer_seconds_remaining % 60;
-        
+
         let timeStr = '';
         if (hours > 0) timeStr += `${hours}h `;
         if (minutes > 0) timeStr += `${minutes}m `;
         if (seconds > 0 || timeStr === '') timeStr += `${seconds}s`;
-        
+
         document.getElementById('modalPlayerSleepTimer').textContent = `😴 ${timeStr}`;
     } else {
         sleepTimerSection.style.display = 'none';
     }
-    
+
     // Playback Information (show section only if there's active playback)
     const playbackSection = document.getElementById('modalPlaybackSection');
     if (player.active_card && player.active_card !== 'none') {
         playbackSection.style.display = 'block';
         document.getElementById('modalPlayerActiveCard').textContent = player.active_card;
-        
+
         // Card info from library
         const cardTitleRow = document.getElementById('modalCardTitleRow');
         const cardAuthorRow = document.getElementById('modalCardAuthorRow');
@@ -1125,7 +1125,7 @@ function populatePlayerModal(player) {
         } else {
             cardAuthorRow.style.display = 'none';
         }
-        
+
         // Chapter with title
         const chapterEl = document.getElementById('modalPlayerChapter');
         if (player.chapter_title && player.current_chapter) {
@@ -1135,7 +1135,7 @@ function populatePlayerModal(player) {
         } else {
             chapterEl.textContent = 'N/A';
         }
-        
+
         // Track with title
         const trackEl = document.getElementById('modalPlayerTrack');
         if (player.track_title && player.current_track) {
@@ -1145,7 +1145,7 @@ function populatePlayerModal(player) {
         } else {
             trackEl.textContent = 'N/A';
         }
-        
+
         const positionEl = document.getElementById('modalPlayerPosition');
         if (player.playback_position !== null && player.track_length !== null) {
             const position = formatTime(player.playback_position);
@@ -1167,11 +1167,11 @@ function populatePlayerModal(player) {
  */
 function formatTime(seconds) {
     if (seconds === null || seconds === undefined) return 'N/A';
-    
+
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
+
     if (hours > 0) {
         return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
@@ -1192,7 +1192,7 @@ document.addEventListener('keydown', (e) => {
         const playerModal = document.getElementById('playerModal');
         const libraryModal = document.getElementById('libraryModal');
         const chapterModal = document.getElementById('chapterModal');
-        
+
         // Close whichever modal is currently open
         if (playerModal && playerModal.style.display === 'flex') {
             closePlayerModal();
@@ -1225,11 +1225,11 @@ function clearTechnicalInfo() {
 function addTechnicalInfo(title, url, responseData) {
     const container = document.getElementById('technicalInfoContent');
     if (!container) return;
-    
+
     const requestInfo = `GET ${url}`;
     const responseJson = JSON.stringify(responseData, null, 2);
     const itemId = `tech-info-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const itemHtml = `
         <div class="technical-info-item">
             <h5>${title}</h5>
@@ -1249,7 +1249,7 @@ function addTechnicalInfo(title, url, responseData) {
             </div>
         </div>
     `;
-    
+
     container.insertAdjacentHTML('beforeend', itemHtml);
 }
 
@@ -1259,7 +1259,7 @@ function addTechnicalInfo(title, url, responseData) {
 function toggleTechnicalInfo() {
     const technicalInfoEl = document.getElementById('modalTechnicalInfo');
     const infoButton = document.getElementById('modalInfoButton');
-    
+
     if (technicalInfoEl.style.display === 'none' || technicalInfoEl.style.display === '') {
         technicalInfoEl.style.display = 'block';
         infoButton.classList.add('active');
@@ -1275,10 +1275,10 @@ function toggleTechnicalInfo() {
 function copyToClipboard(elementId, buttonElement) {
     const element = document.getElementById(elementId);
     const text = element.textContent;
-    
+
     // Get the button element - either passed as parameter or find it via event
     const button = buttonElement || window.event?.target;
-    
+
     // Use the Clipboard API
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
@@ -1287,7 +1287,7 @@ function copyToClipboard(elementId, buttonElement) {
                 const originalText = button.textContent;
                 button.textContent = 'Copied!';
                 button.style.background = '#48bb78';
-                
+
                 setTimeout(() => {
                     button.textContent = originalText;
                     button.style.background = '';
@@ -1305,14 +1305,14 @@ function copyToClipboard(elementId, buttonElement) {
         textarea.style.opacity = '0';
         document.body.appendChild(textarea);
         textarea.select();
-        
+
         try {
             document.execCommand('copy');
             if (button) {
                 const originalText = button.textContent;
                 button.textContent = 'Copied!';
                 button.style.background = '#48bb78';
-                
+
                 setTimeout(() => {
                     button.textContent = originalText;
                     button.style.background = '';
@@ -1322,7 +1322,7 @@ function copyToClipboard(elementId, buttonElement) {
             console.error('Failed to copy text: ', err);
             alert('Failed to copy to clipboard');
         }
-        
+
         document.body.removeChild(textarea);
     }
 }
@@ -1342,53 +1342,56 @@ async function showLibraryBrowser(playerId) {
     const loadingEl = document.getElementById('libraryLoading');
     const contentEl = document.getElementById('libraryContent');
     const filterEl = document.getElementById('libraryFilter');
-    
+
     // Show modal and reset to loading state
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
     contentEl.style.display = 'none';
     contentEl.innerHTML = '';
     filterEl.value = '';
-    
+
     // Store player ID for later use
     modal.dataset.playerId = playerId;
-    
+
     try {
         const response = await fetch('/api/library');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const library = await response.json();
-        
+
         // Hide loading, show content
         loadingEl.style.display = 'none';
         contentEl.style.display = 'grid';
-        
+
         if (!library.cards || library.cards.length === 0) {
             contentEl.innerHTML = '<p class="no-content">No cards found in your library.</p>';
             return;
         }
-        
+
+        // Create a nice placeholder SVG for cards without cover art
+        const placeholderSVG = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23a5f3fc;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%2306b6d4;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='300' height='300' fill='url(%23grad)'/%3E%3Ctext x='150' y='170' font-size='80' text-anchor='middle' fill='white' font-family='Arial, sans-serif'%3E🎵%3C/text%3E%3C/svg%3E`;
+
         // Render cards
         contentEl.innerHTML = library.cards.map(card => `
             <div class="library-card" data-title="${escapeHtml(card.title || 'Untitled')}" onclick="selectCard('${escapeHtml(playerId)}', '${escapeHtml(card.id)}')">
-                ${card.cover ? `<img src="${escapeHtml(card.cover)}" alt="${escapeHtml(card.title)}" />` : '<div class="no-cover">📚</div>'}
+                <img src="${card.cover ? escapeHtml(card.cover) : placeholderSVG}" alt="${escapeHtml(card.title)}" onerror="this.src='${placeholderSVG}'" />
                 <div class="library-card-info">
                     <div class="library-card-title">${escapeHtml(card.title || 'Untitled')}</div>
                     ${card.author ? `<div class="library-card-author">${escapeHtml(card.author)}</div>` : ''}
                 </div>
             </div>
         `).join('');
-        
+
         // Setup filter listener
         filterEl.removeEventListener('input', applyLibraryFilter);
         filterEl.addEventListener('input', applyLibraryFilter);
-        
+
         // Remove old keyboard handler if exists
         if (libraryKeyboardHandler) {
             document.removeEventListener('keydown', libraryKeyboardHandler);
         }
-        
+
         // Add keyboard shortcut for '/' key to focus filter
         libraryKeyboardHandler = (event) => {
             if (event.key === '/' && document.activeElement !== filterEl) {
@@ -1397,7 +1400,7 @@ async function showLibraryBrowser(playerId) {
             }
         };
         document.addEventListener('keydown', libraryKeyboardHandler);
-        
+
     } catch (error) {
         console.error('Error loading library:', error);
         loadingEl.style.display = 'none';
@@ -1411,7 +1414,7 @@ async function showLibraryBrowser(playerId) {
  */
 function closeLibraryBrowser() {
     document.getElementById('libraryModal').style.display = 'none';
-    
+
     // Remove keyboard event listener to prevent memory leak
     if (libraryKeyboardHandler) {
         document.removeEventListener('keydown', libraryKeyboardHandler);
@@ -1427,37 +1430,37 @@ async function selectCard(playerId, cardId) {
     const loadingEl = document.getElementById('chapterLoading');
     const contentEl = document.getElementById('chapterContent');
     const titleEl = document.getElementById('chapterModalTitle');
-    
+
     // Show modal and reset to loading state
     modal.style.display = 'flex';
     loadingEl.style.display = 'block';
     contentEl.style.display = 'none';
     contentEl.innerHTML = '';
     titleEl.textContent = 'Loading...';
-    
+
     // Store player and card IDs
     modal.dataset.playerId = playerId;
     modal.dataset.cardId = cardId;
-    
+
     try {
         const response = await fetch(`/api/library/${cardId}/chapters`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        
+
         // Update modal title
         titleEl.textContent = data.card_title || 'Select Chapter';
-        
+
         // Hide loading, show content
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
-        
+
         if (!data.chapters || data.chapters.length === 0) {
             contentEl.innerHTML = '<p class="no-content">No chapters available.</p>';
             return;
         }
-        
+
         // Render chapters
         contentEl.innerHTML = data.chapters.map(chapter => `
             <div class="chapter-item" onclick="playChapter('${escapeHtml(playerId)}', '${escapeHtml(cardId)}', '${escapeHtml(chapter.key)}')">
@@ -1469,7 +1472,7 @@ async function selectCard(playerId, cardId) {
                 <button class="chapter-play-btn" title="Play">▶️</button>
             </div>
         `).join('');
-        
+
     } catch (error) {
         console.error('Error loading chapters:', error);
         loadingEl.style.display = 'none';
@@ -1492,9 +1495,9 @@ async function playChapter(playerId, cardId, chapterKey) {
     try {
         // Convert chapter key to number (removing leading zeros)
         const chapterNum = parseInt(chapterKey, 10);
-        
+
         console.log(`🎵 Playing chapter ${chapterNum} from card ${cardId} on player ${playerId}`);
-        
+
         // Load the card and chapter (card/start triggers playback itself)
         const loadResponse = await fetch(`/api/players/${playerId}/play-card?card_id=${encodeURIComponent(cardId)}&chapter=${chapterNum}`, {
             method: 'POST',
@@ -1502,21 +1505,21 @@ async function playChapter(playerId, cardId, chapterKey) {
                 'Content-Type': 'application/json',
             }
         });
-        
+
         if (!loadResponse.ok) {
             const errorData = await loadResponse.json().catch(() => ({}));
             throw new Error(errorData.detail || `HTTP error! status: ${loadResponse.status}`);
         }
-        
+
         console.log('✓ Playback started via card/start');
-        
+
         // Close both modals
         closeChapterBrowser();
         closeLibraryBrowser();
-        
+
         // Refresh players to show updated state
         setTimeout(() => loadPlayers(), 1000);
-        
+
     } catch (error) {
         console.error('Error playing chapter:', error);
         alert(`Failed to play chapter: ${error.message}`);
