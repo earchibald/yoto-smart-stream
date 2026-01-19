@@ -2,14 +2,12 @@
 
 import logging
 import time
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
-from ...database import get_db
 from ...models import User
 from ..dependencies import get_yoto_client
 from .user_auth import require_auth
@@ -19,7 +17,7 @@ router = APIRouter()
 
 # Volume change cache: {player_id: (volume, timestamp)}
 # This prevents volume changes from being overridden by stale MQTT/API data
-_volume_cache: Dict[str, Tuple[int, float]] = {}
+_volume_cache: dict[str, tuple[int, float]] = {}
 VOLUME_CACHE_TTL = 5.0  # seconds
 
 
@@ -148,7 +146,7 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
         else:
             # Cache expired, remove it
             del _volume_cache[player_id]
-    
+
     # If no valid cached volume, get from player object
     if volume is None:
         # Get volume - prioritize MQTT data (real-time) over REST API (slow to update):
@@ -156,7 +154,7 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
         # 1. Try MQTT volume first (player.volume, 0-16 scale) - real-time from device
         # 2. Fall back to REST API (player.user_volume, 0-100 scale) - slow (30-60s lag)
         # 3. Fall back to system volume (player.system_volume, 0-100 scale)
-        # 
+        #
         # Hardware supports 0-16 (17 levels total)
         mqtt_volume = getattr(player, 'volume', None)
         if mqtt_volume is not None:
@@ -226,8 +224,17 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
                 card = manager.library[active_card]
                 card_title = getattr(card, 'title', None)
                 card_author = getattr(card, 'author', None)
-                # yoto_ha uses cover_image_large
-                card_cover_url = getattr(card, 'cover_image_large', None)
+                # Check both card.metadata.cover_image_large and card.cover_image_large
+                card_cover_url = None
+                if hasattr(card, 'metadata') and hasattr(card.metadata, 'cover_image_large'):
+                    card_cover_url = card.metadata.cover_image_large
+                elif hasattr(card, 'cover_image_large'):
+                    card_cover_url = card.cover_image_large
+                # Validate it's a proper URL
+                if card_cover_url:
+                    cover_str = str(card_cover_url).strip()
+                    if not (cover_str.startswith('http://') or cover_str.startswith('https://')):
+                        card_cover_url = None
                 logger.debug(f"Found card info: title={card_title}, author={card_author}")
             else:
                 logger.warning(f"Card {active_card} not found in library")
@@ -350,8 +357,17 @@ def extract_player_detail_info(player_id: str, player, manager=None) -> PlayerDe
             if card:
                 card_title = getattr(card, 'title', None)
                 card_author = getattr(card, 'author', None)
-                # yoto_ha uses cover_image_large
-                card_cover_url = getattr(card, 'cover_image_large', None)
+                # Check both card.metadata.cover_image_large and card.cover_image_large
+                card_cover_url = None
+                if hasattr(card, 'metadata') and hasattr(card.metadata, 'cover_image_large'):
+                    card_cover_url = card.metadata.cover_image_large
+                elif hasattr(card, 'cover_image_large'):
+                    card_cover_url = card.cover_image_large
+                # Validate it's a proper URL
+                if card_cover_url:
+                    cover_str = str(card_cover_url).strip()
+                    if not (cover_str.startswith('http://') or cover_str.startswith('https://')):
+                        card_cover_url = None
                 logger.debug(f"[Detail] Found card info: title={card_title}, author={card_author}")
             else:
                 logger.warning(f"[Detail] Card {active_card} not found in library")
@@ -594,13 +610,13 @@ async def get_player_config(player_id: str, user: User = Depends(require_auth)):
 async def control_player(player_id: str, control: PlayerControl, user: User = Depends(require_auth)):
     """
     Control a Yoto player via MQTT using official Yoto command topics.
-    
+
     Uses official Yoto MQTT commands:
     - pause: /device/{id}/command/card/pause
-    - play: /device/{id}/command/card/resume  
+    - play: /device/{id}/command/card/resume
     - stop: /device/{id}/command/card/stop
     - volume: /device/{id}/command/volume/set
-    
+
     Supported actions:
     - play: Resume playback
     - pause: Pause playback
@@ -613,7 +629,7 @@ async def control_player(player_id: str, control: PlayerControl, user: User = De
     - volume: Set volume level (0-100)
     """
     import json
-    
+
     client = get_yoto_client()
     manager = client.get_manager()
 
@@ -635,25 +651,25 @@ async def control_player(player_id: str, control: PlayerControl, user: User = De
             topic = f"device/{player_id}/command/card/pause"
             logger.info(f"Publishing MQTT pause command to {topic}")
             manager.mqtt_client.client.publish(topic, "")
-            
+
         elif control.action == "play":
             topic = f"device/{player_id}/command/card/resume"
             logger.info(f"Publishing MQTT resume command to {topic}")
             manager.mqtt_client.client.publish(topic, "")
-            
+
         elif control.action == "stop":
             topic = f"device/{player_id}/command/card/stop"
             logger.info(f"Publishing MQTT stop command to {topic}")
             manager.mqtt_client.client.publish(topic, "")
-            
+
         elif control.action == "skip_forward":
             # Skip forward uses the library method (no official MQTT topic documented)
             manager.skip_chapter(player_id, direction="forward")
-            
+
         elif control.action == "skip_backward":
             # Skip backward uses the library method (no official MQTT topic documented)
             manager.skip_chapter(player_id, direction="backward")
-            
+
         elif control.action == "volume":
             # Volume-only action
             if control.volume is None:
@@ -666,7 +682,7 @@ async def control_player(player_id: str, control: PlayerControl, user: User = De
             payload = json.dumps({"volume": control.volume})
             logger.info(f"Publishing MQTT volume command to {topic}: {payload}")
             manager.mqtt_client.client.publish(topic, payload)
-            
+
             # Cache the volume change to prevent stale MQTT data from overriding it
             _volume_cache[player_id] = (control.volume, time.time())
             logger.info(f"Cached volume {control.volume} for player {player_id}")
@@ -681,7 +697,7 @@ async def control_player(player_id: str, control: PlayerControl, user: User = De
             payload = json.dumps({"volume": control.volume})
             logger.info(f"Publishing MQTT volume command with action to {topic}: {payload}")
             manager.mqtt_client.client.publish(topic, payload)
-            
+
             # Cache the volume change
             _volume_cache[player_id] = (control.volume, time.time())
             logger.info(f"Cached volume {control.volume} for player {player_id}")
@@ -702,21 +718,21 @@ async def control_player(player_id: str, control: PlayerControl, user: User = De
 async def play_card(player_id: str, card_id: str, chapter: int = 1, user: User = Depends(require_auth)):
     """
     Play a specific card and chapter on a Yoto player via MQTT.
-    
+
     Uses the official Yoto MQTT command format:
     Topic: /device/{id}/command/card/start
     Payload: {"uri": "https://yoto.io/{card_id}", "chapterKey": "01"}
-    
+
     Args:
         player_id: The player ID
         card_id: The card ID from the library
         chapter: Chapter number to start from (default: 1)
-    
+
     Returns:
         Success status
     """
     import json
-    
+
     client = get_yoto_client()
     manager = client.get_manager()
 
@@ -735,24 +751,24 @@ async def play_card(player_id: str, card_id: str, chapter: int = 1, user: User =
     try:
         # Format chapter key with zero-padding (e.g., "01", "02", "10")
         chapter_key = str(chapter).zfill(2)
-        
+
         # Build MQTT payload per official Yoto MQTT documentation
         # https://yoto.dev/players-mqtt/mqtt-docs/
         payload = {
             "uri": f"https://yoto.io/{card_id}",
             "chapterKey": chapter_key
         }
-        
+
         # Official MQTT topic format: device/{id}/command/card/start
         topic = f"device/{player_id}/command/card/start"
-        
+
         logger.info(f"Publishing to MQTT - Topic: {topic}, Payload: {payload}")
-        
+
         # Publish directly to MQTT
         manager.mqtt_client.client.publish(topic, json.dumps(payload))
-        
+
         logger.info(f"Successfully published card play command for player {player_id}")
-        
+
         return {
             "success": True,
             "player_id": player_id,

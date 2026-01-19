@@ -4,12 +4,10 @@ import logging
 import re
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from ..dependencies import get_yoto_client
-from ...database import get_db
 from ...models import User
+from ..dependencies import get_yoto_client
 from .user_auth import require_auth
 
 router = APIRouter()
@@ -23,7 +21,7 @@ async def get_library(
 ):
     """
     Get user's Yoto library including cards and MYO (Make Your Own) content/playlists.
-    
+
     Returns:
         Dictionary with cards and playlists from the user's Yoto library
     """
@@ -33,11 +31,11 @@ async def get_library(
 
         # Update library from Yoto API (with cache clear via YotoClient)
         client.update_library()
-        
+
         # Get library data - library is a dict with card IDs as keys
         library_dict = manager.library
         logger.info(f"Library contains {len(library_dict)} total items")
-        
+
         # Log detailed information about the first few items to understand their structure
         if library_dict:
             sample_size = min(5, len(library_dict))
@@ -47,7 +45,7 @@ async def get_library(
                 logger.info(f"  card_id (key): {card_id}")
                 logger.info(f"  type: {type(card)}")
                 logger.info(f"  card object attributes: {dir(card)}")
-                
+
                 # Log all non-private attributes and their values
                 card_attrs = {}
                 for attr in dir(card):
@@ -56,10 +54,10 @@ async def get_library(
                             value = getattr(card, attr)
                             if not callable(value):
                                 card_attrs[attr] = value
-                        except:
+                        except Exception:
                             pass
                 logger.info(f"  card attributes and values: {card_attrs}")
-        
+
         def _safe_attr(obj, *names):
             for name in names:
                 if hasattr(obj, name):
@@ -75,6 +73,23 @@ async def get_library(
                 card_identifier = _safe_attr(card, 'cardId', 'id') or card_id
                 content_id = _safe_attr(card, 'contentId', 'content_id', 'card_id') or card_identifier
 
+                # Get cover image URL - check both root and metadata.cover_image_large
+                cover_url = None
+                cover_value = None
+
+                # Try card.metadata.cover_image_large first (common structure)
+                if hasattr(card, 'metadata') and hasattr(card.metadata, 'cover_image_large'):
+                    cover_value = card.metadata.cover_image_large
+                # Fall back to card.cover_image_large
+                elif hasattr(card, 'cover_image_large'):
+                    cover_value = card.cover_image_large
+
+                # Validate it's a proper URL
+                if cover_value:
+                    cover_str = str(cover_value).strip()
+                    if cover_str and (cover_str.startswith('http://') or cover_str.startswith('https://')):
+                        cover_url = cover_str
+
                 card_info = {
                     'id': card_identifier,
                     'cardId': card_identifier,
@@ -83,15 +98,15 @@ async def get_library(
                     'description': card.description if hasattr(card, 'description') else '',
                     'author': card.author if hasattr(card, 'author') else '',
                     'icon': None,
-                    'cover': card.cover_image_large if hasattr(card, 'cover_image_large') else None,
+                    'cover': cover_url,
                     'type': _safe_attr(card, 'type', 'cardType') or 'card',
                     'source': 'card',
                 }
-                
+
                 cards.append(card_info)
-        
+
         logger.info(f"Processed {len(cards)} cards from library")
-        
+
         # Extract playlists (MYO content) - fetch from /content/mine endpoint
         playlists = []
         existing_content_ids = set()
@@ -109,11 +124,11 @@ async def get_library(
                 logger.info("Fetching MYO content from /content/mine endpoint...")
                 response = requests.get('https://api.yotoplay.com/content/mine', headers=headers, timeout=10)
                 logger.info(f"MYO content endpoint response status: {response.status_code}")
-                
+
                 if response.status_code == 200:
                     myo_data = response.json()
                     logger.info(f"MYO response type: {type(myo_data)}, keys: {myo_data.keys() if isinstance(myo_data, dict) else 'not a dict'}")
-                    
+
                     # MYO content may be in different formats - handle both list and dict with items
                     items = []
                     if isinstance(myo_data, list):
@@ -122,7 +137,7 @@ async def get_library(
                         items = myo_data['items']
                     elif isinstance(myo_data, dict) and 'content' in myo_data:
                         items = myo_data['content']
-                    
+
                     logger.info(f"Found {len(items)} MYO content items")
                     for item in items:
                         playlist_id = item.get('id') or item.get('cardId') or item.get('contentId')
@@ -146,7 +161,7 @@ async def get_library(
                 logger.warning(f"Token not available or missing access_token: token={token}, has_access_token={hasattr(token, 'access_token') if token else False}")
         except Exception as e:
             logger.error(f"Could not fetch MYO content/playlists: {e}", exc_info=True)
-        
+
         # When fresh is requested, prune stale MYO-backed cards no longer present
         if fresh:
             pruned_cards = []
@@ -165,7 +180,7 @@ async def get_library(
             'totalCards': len(cards),
             'totalPlaylists': len(playlists),
         }
-        
+
     except RuntimeError as e:
         # Not authenticated
         raise HTTPException(
@@ -184,10 +199,10 @@ async def get_library(
 async def get_content_details(content_id: str, user: User = Depends(require_auth)):
     """
     Get detailed information about a specific card or MYO content.
-    
+
     Args:
         content_id: The ID of the card or MYO content
-        
+
     Returns:
         Dictionary with detailed content information including chapters/tracks
     """
@@ -198,10 +213,10 @@ async def get_content_details(content_id: str, user: User = Depends(require_auth
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid content ID format"
             )
-        
+
         client = get_yoto_client()
         manager = client.get_manager()
-        
+
         # Get token for authentication
         token = manager.token
         if not token or not hasattr(token, 'access_token'):
@@ -209,39 +224,39 @@ async def get_content_details(content_id: str, user: User = Depends(require_auth
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Not authenticated. Please log in to Yoto first."
             )
-        
+
         # Make direct API call to content endpoint
         headers = {
             'User-Agent': 'Yoto/2.73 (com.yotoplay.Yoto; build:10405; iOS 17.4.0) Alamofire/5.6.4',
             'Content-Type': 'application/json',
             'Authorization': f'{token.token_type} {token.access_token}',
         }
-        
+
         logger.info(f"Fetching content details for ID: {content_id}")
         response = requests.get(
             f'https://api.yotoplay.com/content/{content_id}',
             headers=headers,
             timeout=10
         )
-        
+
         if response.status_code == 404:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Content with ID {content_id} not found"
             )
-        
+
         if response.status_code != 200:
             logger.warning(f"Failed to fetch content details: HTTP {response.status_code}")
             raise HTTPException(
                 status_code=response.status_code,
                 detail=f"Failed to fetch content details: {response.text[:200]}"
             )
-        
+
         content_data = response.json()
         logger.info(f"Successfully fetched content details for {content_id}")
-        
+
         return content_data
-        
+
     except HTTPException:
         raise
     except RuntimeError as e:
@@ -333,35 +348,35 @@ async def delete_library_item(content_id: str, user: User = Depends(require_auth
 async def get_card_chapters(card_id: str, user: User = Depends(require_auth)):
     """
     Get chapters for a specific card from the library.
-    
+
     Args:
         card_id: The card ID
-        
+
     Returns:
         List of chapters with their metadata
     """
     try:
         client = get_yoto_client()
         manager = client.get_manager()
-        
+
         # Ensure library is loaded
         if not manager.library:
             manager.update_library()
-        
+
         # Check if card exists in library
         if card_id not in manager.library:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Card {card_id} not found in library"
             )
-        
+
         card = manager.library[card_id]
-        
+
         # Update card details to get chapters if not already loaded
         if not card.chapters or len(card.chapters) == 0:
             logger.info(f"Fetching chapter details for card {card_id}")
             manager.update_card_detail(card_id)
-        
+
         # Extract chapter information
         chapters = []
         if card.chapters:
@@ -373,16 +388,33 @@ async def get_card_chapters(card_id: str, user: User = Depends(require_auth)):
                     'icon': chapter.icon if hasattr(chapter, 'icon') else None,
                 }
                 chapters.append(chapter_info)
-        
+
+        # Get cover image URL - check both root and metadata.cover_image_large
+        cover_url = None
+        cover_value = None
+
+        # Try card.metadata.cover_image_large first (common structure)
+        if hasattr(card, 'metadata') and hasattr(card.metadata, 'cover_image_large'):
+            cover_value = card.metadata.cover_image_large
+        # Fall back to card.cover_image_large
+        elif hasattr(card, 'cover_image_large'):
+            cover_value = card.cover_image_large
+
+        # Validate it's a proper URL
+        if cover_value:
+            cover_str = str(cover_value).strip()
+            if cover_str and (cover_str.startswith('http://') or cover_str.startswith('https://')):
+                cover_url = cover_str
+
         return {
             'card_id': card_id,
             'card_title': card.title if hasattr(card, 'title') else 'Unknown',
             'card_author': card.author if hasattr(card, 'author') else '',
-            'card_cover': card.cover_image_large if hasattr(card, 'cover_image_large') else None,
+            'card_cover': cover_url,
             'chapters': chapters,
             'total_chapters': len(chapters)
         }
-        
+
     except HTTPException:
         raise
     except RuntimeError as e:
@@ -403,34 +435,34 @@ async def get_card_raw_data(card_id: str, user: User = Depends(require_auth)):
     """
     Get comprehensive raw data for a card including all metadata, chapters, and attributes.
     Useful for debugging and inspecting interactive cards.
-    
+
     Args:
         card_id: The card ID
-        
+
     Returns:
         Dictionary with all available card data
     """
     try:
         client = get_yoto_client()
         manager = client.get_manager()
-        
+
         # Ensure library is loaded
         if not manager.library:
             manager.update_library()
-        
+
         # Check if card exists in library
         if card_id not in manager.library:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Card {card_id} not found in library"
             )
-        
+
         card = manager.library[card_id]
-        
+
         # Update card details to get all information
         logger.info(f"Fetching comprehensive raw data for card {card_id}")
         manager.update_card_detail(card_id)
-        
+
         # Extract all attributes from the card object
         raw_data = {
             'card_id': card_id,
@@ -439,16 +471,16 @@ async def get_card_raw_data(card_id: str, user: User = Depends(require_auth)):
             'attributes': {},
             'raw_object': {}
         }
-        
+
         # Get all card attributes
         for attr_name in dir(card):
             # Skip private/magic methods and callables
             if attr_name.startswith('_') or callable(getattr(card, attr_name)):
                 continue
-            
+
             try:
                 attr_value = getattr(card, attr_name)
-                
+
                 # Convert to serializable format
                 if isinstance(attr_value, (str, int, float, bool, type(None))):
                     raw_data['attributes'][attr_name] = attr_value
@@ -462,15 +494,15 @@ async def get_card_raw_data(card_id: str, user: User = Depends(require_auth)):
             except Exception as e:
                 logger.warning(f"Could not serialize attribute {attr_name}: {e}")
                 raw_data['attributes'][attr_name] = f"<Error: {str(e)}>"
-        
+
         # Extract standard metadata fields
-        standard_fields = ['title', 'author', 'description', 'language', 'duration', 
+        standard_fields = ['title', 'author', 'description', 'language', 'duration',
                           'cover_image', 'cover_image_large', 'card_type', 'content_type',
                           'interactive', 'is_interactive', 'is_myo', 'is_podcast']
         for field in standard_fields:
             if hasattr(card, field):
                 raw_data['metadata'][field] = getattr(card, field)
-        
+
         # Extract chapters with full details
         if hasattr(card, 'chapters') and card.chapters:
             for chapter_key, chapter in card.chapters.items():
@@ -480,22 +512,22 @@ async def get_card_raw_data(card_id: str, user: User = Depends(require_auth)):
                         continue
                     try:
                         chapter_data[attr] = getattr(chapter, attr)
-                    except:
+                    except Exception:
                         pass
                 raw_data['chapters'][chapter_key] = chapter_data
-        
+
         # Try to get the raw JSON representation if available
         if hasattr(card, '__dict__'):
             try:
                 raw_data['raw_object'] = {
-                    k: v for k, v in card.__dict__.items() 
+                    k: v for k, v in card.__dict__.items()
                     if not k.startswith('_')
                 }
-            except:
+            except Exception:
                 pass
-        
+
         return raw_data
-        
+
     except HTTPException:
         raise
     except RuntimeError as e:
