@@ -659,11 +659,18 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
                             elif track.get("url"):
                                 clean_track["trackUrl"] = track["url"]
                             
+                            # Type field is REQUIRED by POST /content endpoint
+                            # Must be 'audio' or 'stream' - default to 'stream' for streaming URLs
+                            if track.get("type"):
+                                clean_track["type"] = track["type"]
+                            else:
+                                clean_track["type"] = "stream"  # Default for our streaming service
+                            
                             # Add optional track fields if present and not None
                             if track.get("channels") is not None:
                                 clean_track["channels"] = track["channels"]
                             
-                            # Exclude response-only fields: type, display, ambient, fileSize, duration
+                            # Exclude response-only fields: display, ambient, fileSize, duration
                             
                             clean_chapter["tracks"].append(clean_track)
                     
