@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from elevenlabs.client import ElevenLabs
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -20,7 +21,6 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse
-from gtts import gTTS
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
 from sqlalchemy.orm import Session
@@ -129,6 +129,9 @@ class GenerateTTSRequest(BaseModel):
 
     filename: str = Field(..., description="Output filename (without extension)")
     text: str = Field(..., description="Text to convert to speech", min_length=1)
+    voice_id: Optional[str] = Field(
+        None, description="ElevenLabs voice ID (if not provided, uses default)"
+    )
 
 
 # Audio streaming endpoints
@@ -180,6 +183,15 @@ async def list_audio_files(user: User = Depends(require_auth), db: Session = Dep
             "has_transcript": bool(audio_record and audio_record.transcript),
         }
 
+        # Get TTS metadata if available
+        tts_metadata = None
+        if audio_record and audio_record.tts_provider:
+            tts_metadata = {
+                "provider": audio_record.tts_provider,
+                "voice_id": audio_record.tts_voice_id,
+                "model": audio_record.tts_model,
+            }
+
         # Get file size from storage
         file_size = await storage.get_file_size(filename)
 
@@ -191,10 +203,55 @@ async def list_audio_files(user: User = Depends(require_auth), db: Session = Dep
                 "url": f"/api/audio/{filename}",
                 "is_static": is_static,
                 "transcript": transcript_info,
+                "tts_metadata": tts_metadata,
+                "created_at": audio_record.created_at.isoformat() if audio_record else None,
+                "updated_at": audio_record.updated_at.isoformat() if audio_record else None,
             }
         )
 
     return {"files": audio_files, "count": len(audio_files)}
+
+
+@router.get("/audio/tts/voices")
+async def get_tts_voices(user: User = Depends(require_auth)):
+    """
+    Get available TTS voices from ElevenLabs.
+
+    Returns:
+        List of available voices with their IDs and names
+    """
+    settings = get_settings()
+
+    if not settings.elevenlabs_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ElevenLabs API key not configured",
+        )
+
+    try:
+        client = ElevenLabs(api_key=settings.elevenlabs_api_key)
+        voices = client.voices.get_all()
+
+        # Format voices for frontend consumption
+        voice_list = [
+            {
+                "voice_id": voice.voice_id,
+                "name": voice.name,
+                "category": getattr(voice, "category", "premade"),
+                "description": getattr(voice, "description", ""),
+                "labels": getattr(voice, "labels", {}),
+            }
+            for voice in voices.voices
+        ]
+
+        return {"voices": voice_list, "count": len(voice_list)}
+
+    except Exception as e:
+        logger.error(f"Failed to fetch ElevenLabs voices: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch available voices from ElevenLabs",
+        ) from e
 
 
 @router.post("/audio/generate-tts")
@@ -204,21 +261,29 @@ async def generate_tts_audio(
     """
     Generate text-to-speech audio and save to storage.
 
-    This endpoint creates an MP3 file from the provided text using Google Text-to-Speech.
+    This endpoint creates an MP3 file from the provided text using ElevenLabs Text-to-Speech.
     The generated file is saved to storage (local filesystem or S3) and can be used
     in MYO cards or accessed via the audio streaming endpoint.
 
     A transcript record is automatically created, and since we have the source text,
     we can store it directly without needing to run speech-to-text.
+    TTS metadata (provider, voice_id, model) is also stored.
 
     Args:
-        request: GenerateTTSRequest with filename and text
+        request: GenerateTTSRequest with filename, text, and optional voice_id
 
     Returns:
         Success message with filename and file information
     """
     settings = get_settings()
     storage = settings.get_storage()
+
+    # Check if ElevenLabs API key is configured
+    if not settings.elevenlabs_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ElevenLabs API key not configured. Please contact the administrator.",
+        )
 
     # Sanitize filename - remove any path separators and special chars
     filename = request.filename.strip()
@@ -251,16 +316,30 @@ async def generate_tts_audio(
     logger.info(f"Generating TTS audio for: {final_filename}")
 
     try:
-        # Create a temporary file for the initial TTS output
+        # Initialize ElevenLabs client
+        client = ElevenLabs(api_key=settings.elevenlabs_api_key)
+
+        # Use provided voice_id or default to a popular voice
+        voice_id = request.voice_id or "21m00Tcm4TlvDq8ikWAM"  # Rachel voice (default)
+
+        # Generate speech using ElevenLabs
+        logger.info(f"Generating speech with ElevenLabs voice: {voice_id}")
+        audio_generator = client.text_to_speech.convert(
+            voice_id=voice_id,
+            text=request.text,
+            model_id="eleven_monolingual_v1",  # Using the standard model
+        )
+
+        # Collect audio bytes from the generator
+        audio_bytes = b"".join(audio_generator)
+
+        # Create a temporary file to process the audio
         with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_file:
             temp_path = temp_file.name
+            temp_file.write(audio_bytes)
 
         try:
-            # Generate speech using gTTS
-            tts = gTTS(text=request.text, lang="en", slow=False)
-            tts.save(temp_path)
-
-            # Load and optimize with pydub
+            # Load and optimize with pydub for Yoto compatibility
             audio = AudioSegment.from_mp3(temp_path)
 
             # Convert to mono and set appropriate settings for Yoto compatibility
@@ -287,11 +366,23 @@ async def generate_tts_audio(
             )
 
             # Create database record with the source text as transcript
-            from ...core.audio_db import get_or_create_audio_file, update_transcript
+            from ...core.audio_db import (
+                get_or_create_audio_file,
+                update_transcript,
+                update_tts_metadata,
+            )
 
             get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
             # Store the original text as the transcript since we already have it
             update_transcript(db, final_filename, request.text, "completed", None)
+            # Store TTS metadata
+            update_tts_metadata(
+                db,
+                final_filename,
+                provider="elevenlabs",
+                voice_id=voice_id,
+                model="eleven_monolingual_v1",
+            )
 
             return {
                 "success": True,
@@ -301,6 +392,8 @@ async def generate_tts_audio(
                 "url": f"/api/audio/{final_filename}",
                 "message": f"Successfully generated '{final_filename}'",
                 "transcript_status": "completed",
+                "tts_provider": "elevenlabs",
+                "tts_voice_id": voice_id,
             }
 
         finally:
@@ -312,7 +405,7 @@ async def generate_tts_audio(
         logger.error(f"Failed to generate TTS audio: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate TTS audio. Please try again.",
+            detail=f"Failed to generate TTS audio: {str(e)}",
         ) from e
 
 
@@ -632,7 +725,9 @@ async def delete_audio_file(
         deleted_from_storage = await storage.delete(filename)
 
         if not deleted_from_storage:
-            logger.warning(f"Failed to delete {filename} from storage, but continuing with DB cleanup")
+            logger.warning(
+                f"Failed to delete {filename} from storage, but continuing with DB cleanup"
+            )
 
         # Delete from database (including transcripts)
         deleted_from_db = delete_audio_record(db, filename)
@@ -640,7 +735,9 @@ async def delete_audio_file(
         if deleted_from_storage:
             logger.info(f"✓ Deleted audio file: {filename} (storage + database)")
         else:
-            logger.info(f"⚠ Deleted audio file: {filename} (database only, storage deletion failed)")
+            logger.info(
+                f"⚠ Deleted audio file: {filename} (database only, storage deletion failed)"
+            )
 
         return {
             "success": True,
@@ -771,25 +868,25 @@ async def create_streaming_card(request: CreateCardRequest, user: User = Depends
 async def update_card(card_id: str, card_data: dict, user: User = Depends(require_auth)):
     """
     Update an existing Yoto MYO card.
-    
+
     Only MYO (Make Your Own) cards can be updated. Commercial cards will return an error.
-    
+
     Args:
         card_id: The ID of the card to update
         card_data: The complete card data (same format as create)
-    
+
     Returns:
         Updated card information
     """
     client = get_yoto_client()
     manager = client.get_manager()
-    
+
     logger.info(f"[UPDATE CARD] Starting update for card {card_id}")
     logger.info(f"[UPDATE CARD] Request payload: {card_data}")
-    
+
     # Ensure cardId is in the payload for update operation
     update_payload = {**card_data, "cardId": card_id}
-    
+
     try:
         response = requests.post(
             "https://api.yotoplay.com/card",
@@ -800,32 +897,32 @@ async def update_card(card_id: str, card_data: dict, user: User = Depends(requir
             json=update_payload,
             timeout=30,
         )
-        
+
         logger.info(f"[UPDATE CARD] Yoto API response status: {response.status_code}")
         logger.info(f"[UPDATE CARD] Yoto API response body: {response.text}")
-        
+
         response.raise_for_status()
         card = response.json()
-        
+
         logger.info(f"✓ Updated card: {card_id}")
         return {
             "success": True,
             "card_id": card.get("id") or card.get("cardId"),
             "message": "Card updated successfully!",
-            "card": card
+            "card": card,
         }
-        
+
     except requests.exceptions.HTTPError as e:
         error_detail = e.response.text
         logger.error(f"[UPDATE CARD] Yoto API error: {error_detail}")
-        
+
         # Check if it's a 404 (likely a commercial card that can't be edited)
         if e.response.status_code == 404:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot update this card. It may be a commercial card (not MYO).",
             ) from e
-        
+
         raise HTTPException(
             status_code=e.response.status_code,
             detail=f"Failed to update card: {error_detail}",
@@ -842,20 +939,20 @@ async def update_card(card_id: str, card_data: dict, user: User = Depends(requir
 async def delete_card(card_id: str, user: User = Depends(require_auth)):
     """
     Delete a Yoto MYO card.
-    
+
     Only MYO (Make Your Own) cards can be deleted. Commercial cards will return an error.
-    
+
     Args:
         card_id: The ID of the card to delete
-    
+
     Returns:
         Success confirmation
     """
     client = get_yoto_client()
     manager = client.get_manager()
-    
+
     logger.info(f"[DELETE CARD] Starting deletion for card {card_id}")
-    
+
     try:
         response = requests.delete(
             f"https://api.yotoplay.com/content/{card_id}",
@@ -864,30 +961,30 @@ async def delete_card(card_id: str, user: User = Depends(require_auth)):
             },
             timeout=30,
         )
-        
+
         logger.info(f"[DELETE CARD] Yoto API response status: {response.status_code}")
         logger.info(f"[DELETE CARD] Yoto API response body: {response.text}")
-        
+
         response.raise_for_status()
-        
+
         logger.info(f"✓ Deleted card: {card_id}")
         return {
             "success": True,
             "card_id": card_id,
             "message": "Card deleted successfully!",
         }
-        
+
     except requests.exceptions.HTTPError as e:
         error_detail = e.response.text
         logger.error(f"[DELETE CARD] Yoto API error: {error_detail}")
-        
+
         # Check if it's a 404 (likely a commercial card that can't be deleted)
         if e.response.status_code == 404:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot delete this card. It may be a commercial card (not MYO).",
             ) from e
-        
+
         raise HTTPException(
             status_code=e.response.status_code,
             detail=f"Failed to delete card: {error_detail}",

@@ -6,7 +6,6 @@ This module provides helper functions for managing AudioFile records.
 
 import logging
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -16,7 +15,9 @@ from ..models import AudioFile
 logger = logging.getLogger(__name__)
 
 
-def get_or_create_audio_file(db: Session, filename: str, size: int, duration: Optional[int] = None) -> AudioFile:
+def get_or_create_audio_file(
+    db: Session, filename: str, size: int, duration: Optional[int] = None
+) -> AudioFile:
     """
     Get existing AudioFile record or create a new one.
 
@@ -43,10 +44,7 @@ def get_or_create_audio_file(db: Session, filename: str, size: int, duration: Op
     else:
         # Create new record
         audio_file = AudioFile(
-            filename=filename,
-            size=size,
-            duration=duration,
-            transcript_status="pending"
+            filename=filename, size=size, duration=duration, transcript_status="pending"
         )
         db.add(audio_file)
         db.commit()
@@ -57,11 +55,7 @@ def get_or_create_audio_file(db: Session, filename: str, size: int, duration: Op
 
 
 def update_transcript(
-    db: Session,
-    filename: str,
-    transcript: Optional[str],
-    status: str,
-    error: Optional[str] = None
+    db: Session, filename: str, transcript: Optional[str], status: str, error: Optional[str] = None
 ) -> Optional[AudioFile]:
     """
     Update transcript for an audio file.
@@ -133,3 +127,43 @@ def delete_audio_file(db: Session, filename: str) -> bool:
 
     logger.info(f"Deleted AudioFile record: {filename}")
     return True
+
+
+def update_tts_metadata(
+    db: Session,
+    filename: str,
+    provider: str,
+    voice_id: Optional[str] = None,
+    model: Optional[str] = None,
+) -> Optional[AudioFile]:
+    """
+    Update TTS metadata for an audio file.
+
+    Args:
+        db: Database session
+        filename: Audio filename
+        provider: TTS provider (e.g., 'elevenlabs', 'gtts')
+        voice_id: Voice ID used for generation
+        model: Model used for generation
+
+    Returns:
+        Updated AudioFile instance or None if not found
+    """
+    audio_file = db.query(AudioFile).filter(AudioFile.filename == filename).first()
+
+    if not audio_file:
+        logger.warning(f"AudioFile record not found: {filename}")
+        return None
+
+    audio_file.tts_provider = provider
+    audio_file.tts_voice_id = voice_id
+    audio_file.tts_model = model
+    audio_file.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(audio_file)
+
+    logger.info(
+        f"Updated TTS metadata for {filename}: provider={provider}, voice_id={voice_id}, model={model}"
+    )
+    return audio_file
