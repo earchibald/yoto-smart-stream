@@ -19,6 +19,14 @@ jobs:
       contents: read
 
     steps:
+      - name: Export PR Number
+        run: echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+        # Add a conditional check if the PR number is null (e.g., if triggered by push or workflow_dispatch)
+        if: github.event_name == 'pull_request'
+
+      - name: Verify PR Number (Optional)
+        run: echo "The PR number is ${PR_NUMBER:-N/A}"
+
       - name: Checkout code
         uses: actions/checkout@v5
 
