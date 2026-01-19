@@ -884,16 +884,24 @@ function formatFileSize(bytes) {
 function adjustEnvironmentFontSize(element) {
     const parentWidth = element.parentElement.offsetWidth;
     let fontSize = 1.75; // Start with default 1.75rem
-    const minFontSize = 0.875; // Minimum 0.875rem (14px)
+    const minFontSize = 0.75; // Minimum 0.75rem (12px)
+
+    // Temporarily remove overflow hidden to get accurate measurements
+    const originalOverflow = element.style.overflow;
+    element.style.overflow = 'visible';
 
     // Set initial font size
     element.style.fontSize = `${fontSize}rem`;
 
     // Reduce font size until text fits or we reach minimum
-    while (element.scrollWidth > parentWidth && fontSize > minFontSize) {
+    // Use a small buffer (2px) to account for rounding
+    while (element.scrollWidth > (parentWidth - 2) && fontSize > minFontSize) {
         fontSize -= 0.0625; // Reduce by 1px (0.0625rem)
         element.style.fontSize = `${fontSize}rem`;
     }
+
+    // Restore overflow
+    element.style.overflow = originalOverflow;
 }
 
 // Copy audio URL to clipboard

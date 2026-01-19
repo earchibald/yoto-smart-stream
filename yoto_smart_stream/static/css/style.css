@@ -499,7 +499,6 @@ header h2 {
     color: #667eea;
     margin-bottom: 0.25rem;
     white-space: nowrap;
-    overflow: hidden;
 }
 
 /* Dynamic font sizing for environment card */
