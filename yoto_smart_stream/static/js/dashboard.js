@@ -883,14 +883,23 @@ function formatFileSize(bytes) {
  * Uses iterative approach: starts small and increases until text fits
  */
 function adjustEnvironmentFontSize(element) {
-    const parent = element.parentElement;
+    const statContent = element.parentElement; // .stat-content
+    const statCard = statContent.parentElement; // .stat-card
+    const statIcon = statCard.querySelector('.stat-icon');
+
+    // Calculate available space: card width - icon width - gap
+    const cardStyle = window.getComputedStyle(statCard);
+    const gap = parseInt(cardStyle.gap) || 16;
+    const cardPadding = parseInt(cardStyle.paddingLeft) + parseInt(cardStyle.paddingRight);
+    const availableWidth = statCard.offsetWidth - statIcon.offsetWidth - gap - cardPadding;
+
     let fontSize = 12; // Start with minimum font size
     const maxSize = 28; // Maximum font size (1.75rem = 28px)
     let overflow = false;
 
-    // Helper function to check if element overflows its parent
+    // Helper function to check if element overflows available space
     function isOverflown(el) {
-        return el.scrollWidth > parent.offsetWidth;
+        return el.scrollWidth > availableWidth;
     }
 
     // Start with minimum and increase until overflow or max reached
