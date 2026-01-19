@@ -4,7 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yoto Library - Yoto Smart Stream</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
+    <link rel="stylesheet" href="/static/css/modern-enhancements.css?v=20260119-1">
+    <style>
+        /* Critical overrides to ensure correct library card rendering even if external CSS is stale */
+        .library-card-image { position: relative; }
+        .library-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain !important;
+            display: block;
+        }
+        .library-card-image .library-card-info-btn {
+            position: absolute !important;
+            top: 8px;
+            right: 8px;
+            z-index: 20;
+        }
+    </style>
 </head>
 <body>
     <nav class="sidebar">
@@ -14,8 +31,9 @@
         <ul class="nav-menu">
             <li><a href="/">🏠 Dashboard</a></li>
             <li><a href="/streams">✨ Smart Streams</a></li>
-            <li class="active"><a href="/library">📚 Library</a></li>
-            <li><a href="/docs" target="_blank">📖 API Docs</a></li>
+            <li class="active"><a href="/library">📚 Yoto Library</a></li>
+            <li><a href="/audio-library">🎙️ Audio Library</a></li>
+            <li><a href="/admin">⚙️ Admin</a></li>
         </ul>
         <div class="sidebar-footer">
             <p id="app-version">Loading...</p>
@@ -70,7 +88,16 @@
                 </div>
             </div>
             <div id="cards-grid" class="library-grid">
-                <p class="loading">Loading cards...</p>
+                <!-- Skeleton loading state -->
+                <div class="skeleton-loader" id="cards-skeleton">
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                </div>
+                <p class="loading" id="cards-loading" style="display: none;">Loading cards...</p>
             </div>
         </section>
 
@@ -81,6 +108,7 @@
                     <h3>Your Playlists</h3>
                     <input type="text" id="playlists-filter" placeholder="🔍 Filter playlists..." class="filter-input" style="flex-grow: 1; max-width: 300px;">
                 </div>
+                <button class="btn-danger" onclick="openDeletePlaylistModal()" style="white-space: nowrap;">🗑️ Delete Playlist</button>
             </div>
             <div id="playlists-list" class="list-container">
                 <p class="loading">Loading playlists...</p>
@@ -93,7 +121,6 @@
             <div class="actions-grid">
                 <a href="/" class="action-button">🏠 Back to Dashboard</a>
                 <a href="/streams" class="action-button">🎵 View Streams</a>
-                <button class="action-button" onclick="openCoverArtManager()">🖼️ Manage Cover Art</button>
                 <a href="/docs" target="_blank" class="action-button">📖 API Documentation</a>
             </div>
         </section>
@@ -108,63 +135,6 @@
             </div>
             <div class="modal-body" id="modal-content-body">
                 <p class="loading">Loading...</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cover Art Manager Modal -->
-    <div id="cover-art-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 900px;">
-            <div class="modal-header">
-                <h3>🖼️ Cover Art Manager</h3>
-                <span class="modal-close" onclick="closeCoverArtManager()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="info-box" style="margin-bottom: 1.5rem;">
-                    <p><strong>Yoto Cover Art Requirements:</strong></p>
-                    <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                        <li>Recommended sizes: 661×1054 or 784×1248 pixels</li>
-                        <li>Aspect ratio: 3:5 (vertical/portrait)</li>
-                        <li>Formats: PNG or JPEG</li>
-                    </ul>
-                </div>
-
-                <div class="tabs-container" style="margin-bottom: 1rem;">
-                    <button class="tab-btn active" onclick="switchTab('upload')">📤 Upload</button>
-                    <button class="tab-btn" onclick="switchTab('remote')">🌐 From URL</button>
-                </div>
-
-                <!-- Upload Tab -->
-                <div id="upload-tab" class="tab-content">
-                    <div class="form-group">
-                        <label for="cover-art-file">Select Image File</label>
-                        <input type="file" id="cover-art-file" accept=".png,.jpg,.jpeg" />
-                    </div>
-                    <button class="btn-primary" onclick="uploadCoverArt()">Upload Image</button>
-                </div>
-
-                <!-- Remote URL Tab -->
-                <div id="remote-tab" class="tab-content" style="display: none;">
-                    <div class="form-group">
-                        <label for="remote-image-url">Image URL</label>
-                        <input type="url" id="remote-image-url" placeholder="https://example.com/image.png" />
-                    </div>
-                    <div class="form-group">
-                        <label for="remote-filename">Filename (optional)</label>
-                        <input type="text" id="remote-filename" placeholder="my-cover.png" />
-                    </div>
-                    <button class="btn-primary" onclick="fetchRemoteCoverArt()">Fetch Image</button>
-                </div>
-
-                <div id="cover-art-result" class="result-message" style="display: none; margin-top: 1rem;"></div>
-
-                <!-- Existing Cover Art -->
-                <div style="margin-top: 2rem;">
-                    <h4>Your Cover Art</h4>
-                    <div id="cover-art-grid" class="cover-art-grid">
-                        <p class="loading">Loading cover art...</p>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -185,21 +155,74 @@
         </div>
     </div>
 
-    <!-- Image Preview Modal -->
-    <div id="image-preview-modal" class="modal" style="display: none;">
+    <!-- Delete Yoto Playlist Modal -->
+    <div id="delete-playlist-modal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header">
-                <h3 id="preview-title">Image Preview</h3>
-                <span class="modal-close" onclick="closeImagePreview()">&times;</span>
+                <h3>🗑️ Delete Yoto Playlist</h3>
+                <button class="close-btn" onclick="closeDeletePlaylistModal()">✕</button>
             </div>
-            <div class="modal-body" style="text-align: center;">
-                <img id="preview-image" style="max-width: 100%; max-height: 70vh; border-radius: 8px;" />
-                <div id="preview-info" style="margin-top: 1rem; text-align: left;"></div>
+            <div class="modal-body">
+                <p class="info-text" style="margin-bottom: 1rem;">Search for playlists by name and delete them from your Yoto library. If multiple playlists match, you can select which ones to delete.</p>
+
+                <div class="form-group">
+                    <label for="delete-playlist-search">Search Playlist Name</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="delete-playlist-search" placeholder="Enter playlist name to search..." style="flex: 1;">
+                        <button class="btn-primary" onclick="searchPlaylistsForDelete()">🔍 Search</button>
+                    </div>
+                </div>
+
+                <div id="delete-playlist-search-results" style="display: none; margin-top: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <h4 style="margin: 0;">Search Results (<span id="delete-playlist-count">0</span>)</h4>
+                        <button class="btn-small" onclick="toggleSelectAllDelete()" id="select-all-delete-btn" style="display: none;">Select All</button>
+                    </div>
+                    <div id="delete-playlist-list" class="playlist-selection-list">
+                        <!-- Results will be populated here -->
+                    </div>
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd;">
+                        <p><strong id="delete-selected-count">0</strong> playlist(s) selected</p>
+                        <div class="form-actions">
+                            <button class="btn-danger" onclick="deleteSelectedPlaylists()" id="delete-confirm-btn" disabled style="opacity: 0.5; cursor: not-allowed;">🗑️ Delete Selected</button>
+                            <button class="btn-secondary" onclick="closeDeletePlaylistModal()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="delete-playlist-result" class="result-message" style="display: none;"></div>
+
+                <div id="delete-playlist-loading" class="loading" style="display: none;">Searching for playlists...</div>
             </div>
         </div>
     </div>
-    <script src="/static/js/library.js"></script>
-    <script src="/static/js/cover-art.js"></script>
 
+    <script src="/static/js/library.js"></script>
+    <script>
+        // Hide admin nav for non-admin users
+        async function checkAdminStatusNav() {
+            try {
+                const response = await fetch('/api/user/session', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Session data:', data);
+                    if (data.is_admin) {
+                        console.log('User is admin, showing admin nav');
+                    } else {
+                        console.log('User is not admin, hiding admin nav');
+                        const adminLink = document.querySelector('a[href="/admin"]');
+                        if (adminLink) {
+                            adminLink.parentElement.style.display = 'none';
+                        }
+                    }
+                } else {
+                    console.log('Session check failed with status:', response.status);
+                }
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+            }
+        }
+        checkAdminStatusNav();
+    </script>
 </body>
 </html>
