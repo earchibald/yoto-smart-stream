@@ -652,11 +652,12 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
                                 "format": track.get("format", "mp3"),
                             }
                             
-                            # Use 'url' field (request) not 'trackUrl' (response)
+                            # POST /content uses 'trackUrl', POST /card uses 'url'
+                            # Since we're using /content endpoint, preserve trackUrl
                             if track.get("trackUrl"):
-                                clean_track["url"] = track["trackUrl"]
+                                clean_track["trackUrl"] = track["trackUrl"]
                             elif track.get("url"):
-                                clean_track["url"] = track["url"]
+                                clean_track["trackUrl"] = track["url"]
                             
                             # Add optional track fields if present and not None
                             if track.get("channels") is not None:
