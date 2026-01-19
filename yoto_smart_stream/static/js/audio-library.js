@@ -15,6 +15,47 @@ let audioContext = null;
 let analyser = null;
 let animationFrameId = null;
 let recordedBlob = null;
+let recorderModalKeyHandler = null;
+
+// ============================================================================
+// Recorder Modal Functions (defined early for global access)
+// ============================================================================
+
+// Open recorder modal
+function openRecorderModal() {
+    const modal = document.getElementById('recorderModal');
+    if (modal) {
+        modal.style.display = 'flex';
+
+        // Setup keyboard handler for Escape key
+        recorderModalKeyHandler = (e) => {
+            if (e.key === 'Escape') {
+                closeRecorderModal();
+            }
+        };
+        document.addEventListener('keydown', recorderModalKeyHandler);
+    }
+}
+
+// Close recorder modal
+function closeRecorderModal() {
+    const modal = document.getElementById('recorderModal');
+
+    // Remove keyboard handler
+    if (recorderModalKeyHandler) {
+        document.removeEventListener('keydown', recorderModalKeyHandler);
+        recorderModalKeyHandler = null;
+    }
+
+    if (modal) {
+        modal.style.display = 'none';
+
+        // Reset recorder if not recording
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            reRecord();
+        }
+    }
+}
 
 // Check user authentication first
 async function checkUserAuth() {
@@ -1340,46 +1381,6 @@ function showUploadError(message) {
     errorMessage.textContent = message;
     errorDiv.style.display = 'block';
     result.style.display = 'block';
-}
-
-// Playlist functionality
-let playlistChapters = [];
-let recorderModalKeyHandler = null;
-
-// Open recorder modal
-function openRecorderModal() {
-    const modal = document.getElementById('recorderModal');
-    if (modal) {
-        modal.style.display = 'flex';
-
-        // Setup keyboard handler for Escape key
-        recorderModalKeyHandler = (e) => {
-            if (e.key === 'Escape') {
-                closeRecorderModal();
-            }
-        };
-        document.addEventListener('keydown', recorderModalKeyHandler);
-    }
-}
-
-// Close recorder modal
-function closeRecorderModal() {
-    const modal = document.getElementById('recorderModal');
-
-    // Remove keyboard handler
-    if (recorderModalKeyHandler) {
-        document.removeEventListener('keydown', recorderModalKeyHandler);
-        recorderModalKeyHandler = null;
-    }
-
-    if (modal) {
-        modal.style.display = 'none';
-
-        // Reset recorder if not recording
-        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-            reRecord();
-        }
-    }
 }
 
 // Playlist functionality
