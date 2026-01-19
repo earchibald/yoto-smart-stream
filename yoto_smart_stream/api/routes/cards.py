@@ -1254,7 +1254,10 @@ async def _create_streaming_playlist(
     card_data = {
         "title": request.title,
         "content": {"chapters": chapters},
-        "metadata": {"description": request.description or ""},
+        "metadata": {
+            "description": request.description or "",
+            "author": request.author,
+        },
     }
 
     # Add cover image if provided
