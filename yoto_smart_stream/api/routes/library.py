@@ -604,8 +604,20 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
         # Extract the card data (it's nested under 'card' key)
         card_data = card_json.get('card', {}) if isinstance(card_json, dict) else {}
         
-        # Build the update payload with cardId included
-        update_payload = {**card_data, "cardId": card_id}
+        # Build the update payload with only editable fields
+        # Remove read-only fields that API returns but shouldn't be sent back
+        update_payload = {
+            "title": card_data.get("title"),
+            "content": card_data.get("content"),
+            "metadata": card_data.get("metadata"),
+            "cardId": card_id
+        }
+        
+        # Add optional fields if they exist
+        if "description" in card_data:
+            update_payload["description"] = card_data["description"]
+        if "author" in card_data:
+            update_payload["author"] = card_data["author"]
         
         logger.info(f"[EDIT CHECK] Attempting update with payload keys: {update_payload.keys()}")
         
