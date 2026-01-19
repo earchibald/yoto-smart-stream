@@ -557,8 +557,8 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
     Check if a card is editable (MYO card) by attempting to update it with no changes.
     
     This endpoint:
-    1. Fetches the card's raw data
-    2. Attempts to update the card with the exact same data
+    1. Fetches the card's raw JSON from the Yoto API
+    2. Attempts to update the card with the exact same JSON
     3. Returns success if it's a MYO card, error if it's a commercial card
     
     Args:
@@ -584,96 +584,32 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
                 detail=f"Card {card_id} not found in library"
             )
         
-        card = manager.library[card_id]
+        # Get the card's current JSON data directly from the API
+        logger.info(f"[EDIT CHECK] Fetching card JSON from API for {card_id}")
         
-        # Get the card's current data
-        logger.info(f"[EDIT CHECK] Fetching current card data for {card_id}")
-        manager.update_card_detail(card_id)
+        get_response = requests.get(
+            f"https://api.yotoplay.com/content/{card_id}",
+            headers={
+                "Authorization": f"Bearer {manager.token.access_token}",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+        )
         
-        # Build the card payload (same format as Yoto API expects)
-        # We need to construct this from the card object attributes
-        card_payload = {
-            "title": getattr(card, 'title', ''),
-        }
+        get_response.raise_for_status()
+        card_json = get_response.json()
         
-        # Add optional fields if they exist
-        if hasattr(card, 'description') and card.description:
-            card_payload["description"] = card.description
-        if hasattr(card, 'author') and card.author:
-            card_payload["author"] = card.author
-            
-        # Add metadata
-        metadata = {}
-        if hasattr(card, 'cover') and card.cover:
-            # Try to extract imageId from cover URL or metadata
-            cover_val = card.cover
-            if isinstance(cover_val, dict) and 'imageId' in cover_val:
-                metadata['cover'] = {'imageId': cover_val['imageId']}
-            elif isinstance(cover_val, str) and '/image/' in cover_val:
-                # Extract imageId from URL like https://cdn.yoto.dev/image/abc123/
-                image_id = cover_val.split('/image/')[-1].rstrip('/')
-                if image_id:
-                    metadata['cover'] = {'imageId': image_id}
+        logger.info(f"[EDIT CHECK] Fetched card JSON: {card_json}")
         
-        if metadata:
-            card_payload["metadata"] = metadata
+        # Extract the card data (it's nested under 'card' key)
+        card_data = card_json.get('card', {}) if isinstance(card_json, dict) else {}
         
-        # Add content structure if available
-        if hasattr(card, 'chapters') and card.chapters:
-            logger.info(f"[EDIT CHECK] Card chapters type: {type(card.chapters)}, value: {card.chapters}")
-            content_chapters = []
-            for chapter in card.chapters:
-                logger.info(f"[EDIT CHECK] Chapter type: {type(chapter)}, value: {chapter}")
-                # Handle both dict and object types
-                if isinstance(chapter, dict):
-                    chapter_data = {
-                        "key": chapter.get('key', ''),
-                        "title": chapter.get('title', ''),
-                    }
-                else:
-                    chapter_data = {
-                        "key": getattr(chapter, 'key', ''),
-                        "title": getattr(chapter, 'title', ''),
-                    }
-                
-                # Add tracks if available
-                tracks_list = chapter.get('tracks') if isinstance(chapter, dict) else getattr(chapter, 'tracks', None)
-                if tracks_list:
-                    tracks = []
-                    for track in tracks_list:
-                        if isinstance(track, dict):
-                            track_data = {
-                                "key": track.get('key', ''),
-                                "title": track.get('title', ''),
-                                "format": track.get('format', 'mp3'),
-                                "url": track.get('url', ''),
-                            }
-                            if 'channels' in track:
-                                track_data["channels"] = track['channels']
-                        else:
-                            track_data = {
-                                "key": getattr(track, 'key', ''),
-                                "title": getattr(track, 'title', ''),
-                                "format": getattr(track, 'format', 'mp3'),
-                                "url": getattr(track, 'url', ''),
-                            }
-                            if hasattr(track, 'channels'):
-                                track_data["channels"] = track.channels
-                        tracks.append(track_data)
-                    chapter_data["tracks"] = tracks
-                
-                content_chapters.append(chapter_data)
-            
-            if content_chapters:
-                card_payload["content"] = {"chapters": content_chapters}
+        # Build the update payload with cardId included
+        update_payload = {**card_data, "cardId": card_id}
         
-        logger.info(f"[EDIT CHECK] Card payload: {card_payload}")
+        logger.info(f"[EDIT CHECK] Attempting update with payload keys: {update_payload.keys()}")
         
-        # Attempt to update the card with the same data (including cardId)
-        update_payload = {**card_payload, "cardId": card_id}
-        
-        logger.info(f"[EDIT CHECK] Attempting update with cardId: {card_id}")
-        
+        # Attempt to update the card with the same data
         response = requests.post(
             "https://api.yotoplay.com/content",
             headers={
@@ -696,7 +632,7 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
             "editable": True,
             "card_id": card_id,
             "message": "Card is editable (MYO card)",
-            "card_data": card_payload
+            "card_data": card_data
         }
         
     except requests.exceptions.HTTPError as e:
