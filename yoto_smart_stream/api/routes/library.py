@@ -620,14 +620,6 @@ def _clean_card_payload_for_update(payload: dict) -> dict:
 
 
 @router.post("/library/{card_id}/edit-check")
-        logger.error(f"Error fetching raw card data: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch raw card data: {str(e)}",
-        ) from e
-
-
-@router.post("/library/{card_id}/edit-check")
 async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
     """
     Check if a card is editable (MYO card) by attempting to update it with no changes.
