@@ -196,6 +196,24 @@
         </div>
     </div>
 
+    <!-- Metadata Modal -->
+    <div id="metadataModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📊 Audio File Metadata</h3>
+                <span class="modal-close" onclick="closeMetadataModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="metadataContent">
+                    <p class="loading">Loading metadata...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeMetadataModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MQTT Analyzer Modal (shared) -->
     <div id="mqttAnalyzerModal" class="modal">
         <div class="modal-content mqtt-modal-content">

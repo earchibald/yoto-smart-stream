@@ -183,6 +183,15 @@ async def list_audio_files(user: User = Depends(require_auth), db: Session = Dep
             "has_transcript": bool(audio_record and audio_record.transcript),
         }
 
+        # Get TTS metadata if available
+        tts_metadata = None
+        if audio_record and audio_record.tts_provider:
+            tts_metadata = {
+                "provider": audio_record.tts_provider,
+                "voice_id": audio_record.tts_voice_id,
+                "model": audio_record.tts_model,
+            }
+
         # Get file size from storage
         file_size = await storage.get_file_size(filename)
 
@@ -194,6 +203,9 @@ async def list_audio_files(user: User = Depends(require_auth), db: Session = Dep
                 "url": f"/api/audio/{filename}",
                 "is_static": is_static,
                 "transcript": transcript_info,
+                "tts_metadata": tts_metadata,
+                "created_at": audio_record.created_at.isoformat() if audio_record else None,
+                "updated_at": audio_record.updated_at.isoformat() if audio_record else None,
             }
         )
 

@@ -299,6 +299,9 @@ async function loadAudioFiles() {
                             <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
                                 📋
                             </button>
+                            <button class="control-btn" onclick="viewMetadata('${escapeHtml(file.filename)}', event)" title="View Metadata">
+                                📊
+                            </button>
                             ${!file.is_static ? `<button class="control-btn control-btn-danger" onclick="deleteAudioFile('${escapeHtml(file.filename)}', event)" title="Delete Audio File">
                                 🗑️
                             </button>` : ''}
@@ -1196,6 +1199,168 @@ function closeTranscriptModal() {
     const modal = document.getElementById('transcriptModal');
     modal.style.display = 'none';
 }
+
+// ============================================================================
+// Metadata Modal Functions
+// ============================================================================
+
+let metadataModalKeyHandler = null;
+
+async function viewMetadata(filename, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const modal = document.getElementById('metadataModal');
+    const content = document.getElementById('metadataContent');
+
+    modal.style.display = 'flex';
+    content.innerHTML = '<p class="loading">Loading metadata...</p>';
+
+    // Setup keyboard handler for Escape key
+    metadataModalKeyHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeMetadataModal();
+        }
+    };
+    document.addEventListener('keydown', metadataModalKeyHandler);
+
+    try {
+        // Fetch the audio file list to get metadata
+        const response = await fetch(`${API_BASE}/audio/list`);
+        if (!response.ok) throw new Error('Failed to fetch metadata');
+
+        const data = await response.json();
+        const file = data.files.find(f => f.filename === filename);
+
+        if (!file) {
+            content.innerHTML = '<p class="error-message">File not found</p>';
+            return;
+        }
+
+        // Format metadata for display
+        let html = `
+            <div class="metadata-section">
+                <h4>📄 File Information</h4>
+                <table class="metadata-table">
+                    <tr>
+                        <td class="metadata-label">Filename:</td>
+                        <td class="metadata-value">${escapeHtml(file.filename)}</td>
+                    </tr>
+                    <tr>
+                        <td class="metadata-label">Size:</td>
+                        <td class="metadata-value">${formatFileSize(file.size)} (${file.size.toLocaleString()} bytes)</td>
+                    </tr>
+                    <tr>
+                        <td class="metadata-label">Duration:</td>
+                        <td class="metadata-value">${file.duration} seconds</td>
+                    </tr>
+                    <tr>
+                        <td class="metadata-label">Static File:</td>
+                        <td class="metadata-value">${file.is_static ? 'Yes' : 'No'}</td>
+                    </tr>
+                    ${file.created_at ? `
+                    <tr>
+                        <td class="metadata-label">Created:</td>
+                        <td class="metadata-value">${formatDateTime(file.created_at)}</td>
+                    </tr>
+                    ` : ''}
+                    ${file.updated_at ? `
+                    <tr>
+                        <td class="metadata-label">Updated:</td>
+                        <td class="metadata-value">${formatDateTime(file.updated_at)}</td>
+                    </tr>
+                    ` : ''}
+                </table>
+            </div>
+        `;
+
+        // Add TTS metadata if available
+        if (file.tts_metadata) {
+            html += `
+                <div class="metadata-section">
+                    <h4>🎤 Text-to-Speech Generation</h4>
+                    <table class="metadata-table">
+                        <tr>
+                            <td class="metadata-label">Provider:</td>
+                            <td class="metadata-value">${escapeHtml(file.tts_metadata.provider || 'N/A')}</td>
+                        </tr>
+                        ${file.tts_metadata.voice_id ? `
+                        <tr>
+                            <td class="metadata-label">Voice ID:</td>
+                            <td class="metadata-value">${escapeHtml(file.tts_metadata.voice_id)}</td>
+                        </tr>
+                        ` : ''}
+                        ${file.tts_metadata.model ? `
+                        <tr>
+                            <td class="metadata-label">Model:</td>
+                            <td class="metadata-value">${escapeHtml(file.tts_metadata.model)}</td>
+                        </tr>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        }
+
+        // Add transcript metadata if available
+        if (file.transcript) {
+            html += `
+                <div class="metadata-section">
+                    <h4>📝 Transcript Information</h4>
+                    <table class="metadata-table">
+                        <tr>
+                            <td class="metadata-label">Status:</td>
+                            <td class="metadata-value">${formatTranscriptStatus(file.transcript.status)}</td>
+                        </tr>
+                        <tr>
+                            <td class="metadata-label">Has Transcript:</td>
+                            <td class="metadata-value">${file.transcript.has_transcript ? 'Yes' : 'No'}</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+        }
+
+        content.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading metadata:', error);
+        content.innerHTML = '<p class="error-message">Failed to load metadata</p>';
+    }
+}
+
+function closeMetadataModal() {
+    const modal = document.getElementById('metadataModal');
+    modal.style.display = 'none';
+
+    // Remove keyboard handler
+    if (metadataModalKeyHandler) {
+        document.removeEventListener('keydown', metadataModalKeyHandler);
+        metadataModalKeyHandler = null;
+    }
+}
+
+function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleString();
+}
+
+function formatTranscriptStatus(status) {
+    const statusMap = {
+        'pending': '⏸️ Pending',
+        'processing': '⏳ Processing',
+        'completed': '✅ Completed',
+        'error': '❌ Error',
+        'cancelled': '🚫 Cancelled',
+        'disabled': '🔒 Disabled'
+    };
+    return statusMap[status] || status;
+}
+
+// ============================================================================
+// Transcription Functions
+// ============================================================================
 
 async function startTranscription(filename, event) {
     if (event) event.preventDefault();
