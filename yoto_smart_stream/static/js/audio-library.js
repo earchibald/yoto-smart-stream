@@ -147,6 +147,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         openRecorderBtn.addEventListener('click', openRecorderModal);
     }
 
+    // Setup audio editor
+    const openAudioEditorBtn = document.getElementById('open-audio-editor-btn');
+    if (openAudioEditorBtn) {
+        openAudioEditorBtn.addEventListener('click', openAudioEditor);
+    }
+
     // Setup playlist mode selector
     const playlistMode = document.getElementById('playlist-mode');
     if (playlistMode) {
@@ -1643,6 +1649,11 @@ window.onclick = function(event) {
     if (event.target === recorderModal) {
         closeRecorderModal();
     }
+
+    const audioEditorModal = document.getElementById('audioEditorModal');
+    if (event.target === audioEditorModal) {
+        closeAudioEditor();
+    }
 }
 
 // ============================================================================
@@ -2098,15 +2109,280 @@ function formatDuration(seconds) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Helper function to format file size
-function formatFileSize(bytes) {
-    if (!bytes) return '0 B';
-    const units = ['B', 'KB', 'MB'];
-    let size = bytes;
-    let unitIndex = 0;
-    while (size >= 1024 && unitIndex < units.length - 1) {
-        size /= 1024;
-        unitIndex++;
+// (use existing formatFileSize defined earlier in file)
+
+// ============================================================================
+// Audio Editor Functions
+// ============================================================================
+
+let editorFiles = []; // [{filename, delaySeconds}]
+let activeStitchTaskId = null;
+let stitchWS = null;
+let editorModalKeyHandler = null;
+
+function openAudioEditor() {
+    const modal = document.getElementById('audioEditorModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    editorFiles = [];
+    activeStitchTaskId = null;
+    renderEditorSelected();
+    const searchInput = document.getElementById('editor-audio-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', searchEditorAudioFiles);
+        searchInput.value = '';
     }
-    return `${size.toFixed(1)} ${units[unitIndex]}`;
+    // Setup keyboard handler for Escape key
+    editorModalKeyHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeAudioEditor();
+        }
+    };
+    document.addEventListener('keydown', editorModalKeyHandler);
+    // Check for active stitch task to reconnect
+    checkActiveStitchTask();
+}
+
+function closeAudioEditor() {
+    const modal = document.getElementById('audioEditorModal');
+    // Remove keyboard handler
+    if (editorModalKeyHandler) {
+        document.removeEventListener('keydown', editorModalKeyHandler);
+        editorModalKeyHandler = null;
+    }
+    if (modal) modal.style.display = 'none';
+    // Cleanup preview
+    const previewAudio = document.getElementById('editor-preview-audio');
+    const previewContainer = document.getElementById('editor-preview-player');
+    if (previewAudio && previewAudio.dataset.previewId) {
+        fetch(`${API_BASE}/audio/preview-stitch/${encodeURIComponent(previewAudio.dataset.previewId)}`, { method: 'DELETE' })
+            .catch(() => {});
+        previewAudio.removeAttribute('data-preview-id');
+    }
+    if (previewContainer) previewContainer.style.display = 'none';
+    // Close websocket
+    if (stitchWS) {
+        try { stitchWS.close(); } catch (e) {}
+        stitchWS = null;
+    }
+}
+
+async function searchEditorAudioFiles() {
+    const query = document.getElementById('editor-audio-search').value.trim();
+    const resultsDiv = document.getElementById('editor-search-results');
+    if (!query) {
+        resultsDiv.innerHTML = '<p class="placeholder">Type to search audio files...</p>';
+        return;
+    }
+    try {
+        const response = await fetch(`${API_BASE}/audio/search?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Search failed');
+        if (!data.results || data.results.length === 0) {
+            resultsDiv.innerHTML = '<p class="placeholder">No files found.</p>';
+            return;
+        }
+        let html = '<div class="search-results-list">';
+        for (const file of data.results) {
+            const isAdded = editorFiles.some(f => f.filename === file.filename);
+            html += `
+                <div class="search-result-item ${isAdded ? 'added' : ''}">
+                    <div class="result-info">
+                        <div class="result-filename">${escapeHtml(file.filename.replace('.mp3',''))}</div>
+                        <div class="result-meta">
+                            <span class="result-duration">⏱️ ${formatDuration(file.duration)}</span>
+                            <span class="result-size">📦 ${formatFileSize(file.size)}</span>
+                        </div>
+                        ${file.transcript ? `<div class="result-transcript"><strong>Transcript:</strong> ${escapeHtml((file.transcript||'').substring(0,100))}...</div>` : ''}
+                    </div>
+                    <button class="btn-small ${isAdded ? 'btn-disabled' : 'btn-add'}" onclick="addFileToEditor('${file.filename.replace(/'/g, "\\'")}')" ${isAdded ? 'disabled' : ''}>${isAdded ? '✓ Added' : '+ Add'}</button>
+                </div>`;
+        }
+        html += '</div>';
+        resultsDiv.innerHTML = html;
+    } catch (error) {
+        console.error('Editor search error:', error);
+        resultsDiv.innerHTML = `<p class="error-message">${error.message}</p>`;
+    }
+}
+
+function addFileToEditor(filename) {
+    editorFiles.push({ filename, delaySeconds: 1.0 });
+    renderEditorSelected();
+    // Enable create if at least 2 files
+    const createBtn = document.getElementById('editor-create-btn');
+    if (createBtn) createBtn.disabled = editorFiles.length < 2;
+}
+
+function renderEditorSelected() {
+    const list = document.getElementById('editor-selected-list');
+    const count = document.getElementById('editor-file-count');
+    count.textContent = editorFiles.length;
+    if (editorFiles.length === 0) {
+        list.innerHTML = '<p class="placeholder">No files added yet. Search and add above.</p>';
+        return;
+    }
+    let html = '<div class="chapters-items">';
+    editorFiles.forEach((item, idx) => {
+        html += `
+            <div class="chapter-item" draggable="true" ondragstart="editorDragStart(event, ${idx})" ondragover="editorDragOver(event, ${idx})" ondrop="editorDrop(event, ${idx})">
+                <div class="chapter-number"><span class="chapter-index">${idx+1}</span></div>
+                <div class="chapter-details">
+                    <div class="chapter-filename">${escapeHtml(item.filename)}</div>
+                    <div class="chapter-title-input">
+                        <label>Delay after file (seconds):</label>
+                        <input type="number" min="0.1" max="10.0" step="0.1" value="${item.delaySeconds}" onchange="updateEditorDelay(${idx}, parseFloat(this.value))">
+                    </div>
+                </div>
+                <div class="chapter-actions">
+                    <button class="btn-remove" onclick="removeEditorFile(${idx})">🗑️ Remove</button>
+                </div>
+            </div>`;
+    });
+    html += '</div>';
+    list.innerHTML = html;
+}
+
+function updateEditorDelay(index, value) {
+    if (isNaN(value) || value < 0.1 || value > 10.0) {
+        alert('Delay must be between 0.1 and 10.0 seconds');
+        return;
+    }
+    editorFiles[index].delaySeconds = value;
+}
+
+function removeEditorFile(index) {
+    editorFiles.splice(index, 1);
+    renderEditorSelected();
+    const createBtn = document.getElementById('editor-create-btn');
+    if (createBtn) createBtn.disabled = editorFiles.length < 2;
+}
+
+let dragIndex = null;
+function editorDragStart(e, idx) { dragIndex = idx; e.dataTransfer.effectAllowed = 'move'; }
+function editorDragOver(e, idx) { e.preventDefault(); }
+function editorDrop(e, idx) {
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === idx) return;
+    const [moved] = editorFiles.splice(dragIndex, 1);
+    editorFiles.splice(idx, 0, moved);
+    dragIndex = null;
+    renderEditorSelected();
+}
+
+async function generatePreview() {
+    if (editorFiles.length === 0) return;
+    const previewSeconds = parseInt(document.getElementById('preview-duration').value, 10) || 5;
+    const files = editorFiles.map(f => f.filename);
+    const delays = editorFiles.map(f => f.delaySeconds);
+    try {
+        const response = await fetch(`${API_BASE}/audio/preview-stitch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files, delays, preview_duration_seconds: previewSeconds })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Failed to generate preview');
+        const audioEl = document.getElementById('editor-preview-audio');
+        const container = document.getElementById('editor-preview-player');
+        audioEl.src = data.url;
+        audioEl.dataset.previewId = data.preview_id;
+        container.style.display = 'block';
+        audioEl.play().catch(() => {});
+    } catch (error) {
+        console.error('Preview error:', error);
+        alert(error.message);
+    }
+}
+
+async function submitStitch() {
+    const outputName = document.getElementById('editor-output-filename').value.trim();
+    if (!outputName) { alert('Please enter an output filename'); return; }
+    if (editorFiles.length < 2) { alert('Add at least two files'); return; }
+    const payload = {
+        files: editorFiles.map(f => f.filename),
+        delays: editorFiles.map(f => f.delaySeconds),
+        output_filename: outputName
+    };
+    try {
+        const response = await fetch(`${API_BASE}/audio/stitch`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Failed to start stitching');
+        activeStitchTaskId = data.task_id;
+        connectStitchWS();
+        const progress = document.getElementById('editor-progress');
+        const cancelBtn = document.getElementById('editor-cancel-task-btn');
+        if (progress) progress.style.display = 'block';
+        if (cancelBtn) cancelBtn.style.display = 'inline-block';
+        document.getElementById('editor-status').textContent = 'Processing';
+    } catch (error) {
+        console.error('Stitch start error:', error);
+        alert(error.message);
+    }
+}
+
+function connectStitchWS() {
+    if (!activeStitchTaskId) return;
+    const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/stitch/${activeStitchTaskId}`;
+    stitchWS = new WebSocket(wsUrl);
+    const fill = document.getElementById('editor-progress-fill');
+    const statusEl = document.getElementById('editor-status');
+    const currentFileEl = document.getElementById('editor-current-file');
+    stitchWS.onmessage = (evt) => {
+        try {
+            const msg = JSON.parse(evt.data);
+            console.debug('Stitch WS:', msg);
+            if (msg.event === 'snapshot' || msg.event === 'heartbeat' || msg.event === 'progress') {
+                if (typeof msg.progress === 'number' && fill) fill.style.width = `${msg.progress}%`;
+                if (msg.current_file && currentFileEl) currentFileEl.textContent = msg.current_file;
+            } else if (msg.event === 'loading' && msg.file && currentFileEl) {
+                currentFileEl.textContent = `Loading ${msg.file}`;
+            } else if (msg.event === 'finalizing') {
+                statusEl.textContent = 'Finalizing';
+            } else if (msg.event === 'completed') {
+                statusEl.textContent = 'Completed';
+                fill.style.width = '100%';
+                // Refresh list and close editor after brief delay
+                setTimeout(() => { loadAudioFiles(); }, 1000);
+            } else if (msg.event === 'error') {
+                statusEl.textContent = `Error: ${msg.message || ''}`;
+            } else if (msg.event === 'cancelled') {
+                statusEl.textContent = 'Cancelled';
+            }
+        } catch (e) { console.warn('WS parse error', e); }
+    };
+    stitchWS.onclose = () => { stitchWS = null; };
+}
+
+async function cancelStitchTask() {
+    if (!activeStitchTaskId) return;
+    try {
+        const response = await fetch(`${API_BASE}/audio/stitch/${encodeURIComponent(activeStitchTaskId)}/cancel`, { method: 'POST' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Failed to cancel');
+        document.getElementById('editor-status').textContent = 'Cancelling';
+    } catch (error) {
+        console.error('Cancel error:', error);
+        alert(error.message);
+    }
+}
+
+async function checkActiveStitchTask() {
+    try {
+        const response = await fetch(`${API_BASE}/audio/stitch/status`);
+        const data = await response.json();
+        if (data.active && data.task_id) {
+            activeStitchTaskId = data.task_id;
+            connectStitchWS();
+            const progress = document.getElementById('editor-progress');
+            const cancelBtn = document.getElementById('editor-cancel-task-btn');
+            if (progress) progress.style.display = 'block';
+            if (cancelBtn) cancelBtn.style.display = 'inline-block';
+            document.getElementById('editor-status').textContent = data.status || 'Processing';
+            document.getElementById('editor-progress-fill').style.width = `${data.progress || 0}%`;
+            if (data.current_file) document.getElementById('editor-current-file').textContent = data.current_file;
+        }
+    } catch (e) { console.debug('No active stitch task'); }
 }
