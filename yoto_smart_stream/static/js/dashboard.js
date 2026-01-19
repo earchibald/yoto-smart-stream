@@ -880,28 +880,30 @@ function formatFileSize(bytes) {
 
 /**
  * Dynamically adjust font size of environment text to fit without wrapping
+ * Uses iterative approach: starts small and increases until text fits
  */
 function adjustEnvironmentFontSize(element) {
-    const parentWidth = element.parentElement.offsetWidth;
-    let fontSize = 1.75; // Start with default 1.75rem
-    const minFontSize = 0.75; // Minimum 0.75rem (12px)
+    const parent = element.parentElement;
+    let fontSize = 12; // Start with minimum font size
+    const maxSize = 28; // Maximum font size (1.75rem = 28px)
+    let overflow = false;
 
-    // Temporarily remove overflow hidden to get accurate measurements
-    const originalOverflow = element.style.overflow;
-    element.style.overflow = 'visible';
-
-    // Set initial font size
-    element.style.fontSize = `${fontSize}rem`;
-
-    // Reduce font size until text fits or we reach minimum
-    // Allow up to 10px from the right edge
-    while (element.scrollWidth > (parentWidth - 10) && fontSize > minFontSize) {
-        fontSize -= 0.0625; // Reduce by 1px (0.0625rem)
-        element.style.fontSize = `${fontSize}rem`;
+    // Helper function to check if element overflows its parent
+    function isOverflown(el) {
+        return el.scrollWidth > parent.offsetWidth;
     }
 
-    // Restore overflow
-    element.style.overflow = originalOverflow;
+    // Start with minimum and increase until overflow or max reached
+    while (!overflow && fontSize < maxSize) {
+        element.style.fontSize = `${fontSize}px`;
+        overflow = isOverflown(element);
+        if (!overflow) fontSize++;
+    }
+
+    // Revert to the last state where no overflow happened
+    if (overflow) {
+        element.style.fontSize = `${fontSize - 1}px`;
+    }
 }
 
 // Copy audio URL to clipboard

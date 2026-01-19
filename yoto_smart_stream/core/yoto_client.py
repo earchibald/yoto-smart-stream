@@ -1,14 +1,13 @@
 """Core Yoto API client wrapper with enhanced features."""
 
-import json
 import logging
 from datetime import datetime
 from typing import Optional
 
 from yoto_api import YotoManager
 
-from ..config import Settings
 from ..api.mqtt_event_store import MQTTEvent, get_mqtt_event_store
+from ..config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +125,7 @@ class YotoClient:
     def _mqtt_event_callback(self) -> None:
         """
         Callback for MQTT events - triggered when real-time events are received.
-        
+
         The yoto_api library has already updated the manager.players dict with
         the MQTT event data BEFORE this callback is invoked. We extract the
         current player state and store it in the MQTT event store for correlation
@@ -135,33 +134,33 @@ class YotoClient:
         logger.info("MQTT Callback: Event received, processing...")
         try:
             mqtt_store = get_mqtt_event_store()
-            
+
             # The yoto_api library updates manager.players during MQTT events
-            if not hasattr(self.manager, 'players') or not self.manager.players:
+            if not hasattr(self.manager, "players") or not self.manager.players:
                 logger.debug("No players available in manager, skipping MQTT event store")
                 return
-            
+
             # Extract event data from the latest manager state
             for player_id, player in self.manager.players.items():
                 # Create MQTT event from player state
                 # The player object may have various attribute names depending on the yoto_api version
                 mqtt_event = MQTTEvent(
-                    timestamp=datetime.now(),
+                    timestamp=datetime.utcnow(),
                     device_id=player_id,
-                    raw_payload=getattr(player, '__dict__', {}),
-                    volume=getattr(player, 'volume', None),
-                    volume_max=getattr(player, 'volume_max', None),
-                    card_id=getattr(player, 'card_id', None),
-                    playback_status=getattr(player, 'playback_status', None),
-                    streaming=getattr(player, 'streaming', None),
-                    playback_wait=getattr(player, 'playback_wait', None),
-                    sleep_timer_active=getattr(player, 'sleep_timer_active', None),
-                    repeat_all=getattr(player, 'repeat_all', None),
+                    raw_payload=getattr(player, "__dict__", {}),
+                    volume=getattr(player, "volume", None),
+                    volume_max=getattr(player, "volume_max", None),
+                    card_id=getattr(player, "card_id", None),
+                    playback_status=getattr(player, "playback_status", None),
+                    streaming=getattr(player, "streaming", None),
+                    playback_wait=getattr(player, "playback_wait", None),
+                    sleep_timer_active=getattr(player, "sleep_timer_active", None),
+                    repeat_all=getattr(player, "repeat_all", None),
                 )
-                
+
                 # Store the event
                 mqtt_store.add_event(mqtt_event)
-                
+
                 logger.debug(
                     f"MQTT event stored for {player_id}: "
                     f"status={mqtt_event.playback_status}, volume={mqtt_event.volume}"
@@ -217,9 +216,9 @@ class YotoClient:
             raise RuntimeError("Client not authenticated. Call authenticate() first.")
 
         # The yoto_api library stores tokens in manager.token object
-        if hasattr(self.manager, 'token') and self.manager.token:
+        if hasattr(self.manager, "token") and self.manager.token:
             # token object should have access_token attribute
-            if hasattr(self.manager.token, 'access_token'):
+            if hasattr(self.manager.token, "access_token"):
                 return self.manager.token.access_token
             # Or it might be stored as 'token' string directly
             elif isinstance(self.manager.token, str):
