@@ -633,20 +633,11 @@ let confirmModalKeyHandler = null;
 let confirmModalCallback = null;
 
 function showConfirmModal(title, message, onConfirm) {
-    console.log('showConfirmModal called', {title, message, hasCallback: !!onConfirm});
     const modal = document.getElementById('confirmModal');
     const header = document.getElementById('confirmModalHeader');
     const titleEl = document.getElementById('confirmModalTitle');
     const messageEl = document.getElementById('confirmModalMessage');
     const confirmBtn = document.getElementById('confirmModalBtn');
-
-    console.log('Modal elements:', {
-        modal: !!modal,
-        header: !!header,
-        titleEl: !!titleEl,
-        messageEl: !!messageEl,
-        confirmBtn: !!confirmBtn
-    });
 
     // Set content
     titleEl.textContent = title;
@@ -657,7 +648,6 @@ function showConfirmModal(title, message, onConfirm) {
 
     // Store callback
     confirmModalCallback = onConfirm;
-    console.log('Stored callback, confirmModalCallback is now:', !!confirmModalCallback);
 
     // Remove previous keyboard handler if exists
     if (confirmModalKeyHandler) {
@@ -685,25 +675,10 @@ function showConfirmModal(title, message, onConfirm) {
 }
 
 function handleConfirmModalOk() {
-    console.log('handleConfirmModalOk called');
-    console.log('confirmModalCallback exists:', !!confirmModalCallback);
-    console.log('typeof confirmModalCallback:', typeof confirmModalCallback);
-
-    // Save callback reference before closeConfirmModal clears it
-    const callback = confirmModalCallback;
-
     closeConfirmModal();
-
-    if (callback) {
-        console.log('Executing callback');
-        try {
-            callback();
-            console.log('Callback executed successfully');
-        } catch (error) {
-            console.error('Error executing callback:', error);
-        }
-    } else {
-        console.warn('No callback to execute!');
+    if (confirmModalCallback) {
+        confirmModalCallback();
+        confirmModalCallback = null;
     }
 }
 
@@ -1461,7 +1436,6 @@ function formatTranscriptStatus(status) {
 // ============================================================================
 
 async function startTranscription(filename, event) {
-    console.log('startTranscription called for:', filename);
     if (event) event.preventDefault();
 
     // Check if modal function exists
@@ -1471,44 +1445,32 @@ async function startTranscription(filename, event) {
             return;
         }
         // Fall back to direct API call without modal
-        console.log('Calling executeTranscription (fallback)');
         await executeTranscription(filename);
         return;
     }
 
-    console.log('Showing confirmation modal');
     showConfirmModal(
         '🎤 Start Transcription',
         `Start transcription for ${filename}? This may take a few moments.`,
         async () => {
-            console.log('Modal confirmed, calling executeTranscription');
             await executeTranscription(filename);
         }
     );
 }
 
-
 async function executeTranscription(filename) {
-    console.log('executeTranscription starting for:', filename);
-    console.log('API_BASE:', API_BASE);
-    console.log('Making fetch request to:', `${API_BASE}/audio/${encodeURIComponent(filename)}/transcribe`);
-
     try {
         const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}/transcribe`, {
             method: 'POST'
         });
 
-        console.log('Fetch response received:', response.status, response.statusText);
-
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const errorMessage = errorData.detail || 'Failed to start transcription';
-            console.error('Transcription request failed:', errorMessage, errorData);
             throw new Error(errorMessage);
         }
 
         const data = await response.json();
-        console.log('Transcription response data:', data);
 
         if (data.success) {
             if (typeof showResultMessage === 'function') {
@@ -1527,11 +1489,10 @@ async function executeTranscription(filename) {
         }
 
         // Reload the audio files list to update button states
-        console.log('Reloading audio files list');
         await loadAudioFiles();
 
     } catch (error) {
-        console.error('Error in executeTranscription:', error);
+        console.error('Error starting transcription:', error);
         if (typeof showResultMessage === 'function') {
             showResultMessage('error', '❌ Transcription Failed',
                 error.message || 'Failed to start transcription. Please try again.');
@@ -1540,7 +1501,6 @@ async function executeTranscription(filename) {
         }
     }
 }
-
 
 async function retryTranscription(filename, event) {
     return startTranscription(filename, event);

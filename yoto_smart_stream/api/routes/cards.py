@@ -1047,15 +1047,22 @@ async def trigger_transcription(
     Returns:
         Success message with status
     """
+    logger.info(f"=== Transcription request received for: {filename} by user: {user.username} ===")
     settings = get_settings()
     storage = settings.get_storage()
 
+    logger.info(f"Checking if file exists: {filename}")
     if not await storage.exists(filename):
+        logger.error(f"File not found: {filename}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file '{filename}' not found"
         )
+    logger.info(f"File exists: {filename}")
 
+    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
+    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
     if not settings.transcription_enabled:
+        logger.warning(f"Transcription disabled for {filename}")
         from ...core.audio_db import get_or_create_audio_file, update_transcript
 
         # Ensure record exists even when transcription is disabled
@@ -1070,9 +1077,10 @@ async def trigger_transcription(
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Transcription disabled in this environment. Set TRANSCRIPTION_ENABLED=true and install whisper dependencies to enable.",
+            detail="Transcription disabled in this environment. Set transcription_enabled=true and configure ELEVENLABS_API_KEY to enable.",
         )
 
+    logger.info(f"Transcription enabled, proceeding with transcription for {filename}")
     # Get or create audio file record
     from pydub import AudioSegment
 
@@ -1080,7 +1088,9 @@ async def trigger_transcription(
 
     try:
         # Get file info
+        logger.info(f"Getting file size for {filename}")
         file_size = await storage.get_file_size(filename)
+        logger.info(f"File size: {file_size} bytes")
 
         # For S3 storage, download file to temp location for transcription
         # For local storage, use the existing path
@@ -1088,38 +1098,61 @@ async def trigger_transcription(
             # Download file to temp location
             import tempfile
 
+            logger.info(f"S3 storage detected, downloading {filename} to temp file")
             with tempfile.NamedTemporaryFile(suffix=f"_{filename}", delete=False) as temp_file:
                 transcription_path = temp_file.name
                 file_data = await storage.read(filename)
                 temp_file.write(file_data)
             audio_path = transcription_path
+            logger.info(f"Downloaded to: {audio_path}")
         else:
             audio_path = str(settings.audio_files_dir / filename)
+            logger.info(f"Local storage, using path: {audio_path}")
 
         try:
+            logger.info(f"Loading audio file to get duration: {audio_path}")
             audio = AudioSegment.from_mp3(audio_path)
             duration_seconds = int(len(audio) / 1000)
-        except Exception:
+            logger.info(f"Audio duration: {duration_seconds} seconds")
+        except Exception as e:
+            logger.warning(f"Could not get audio duration: {e}")
             duration_seconds = None
 
         # Ensure database record exists
+        logger.info(f"Creating/updating database record for {filename}")
         get_or_create_audio_file(db, filename, file_size, duration_seconds)
 
         # Update status to processing
+        logger.info(f"Setting status to 'processing' for {filename}")
         update_transcript(db, filename, None, "processing", None)
 
         # Perform transcription
+        from pathlib import Path
+
         from ...core.transcription import get_transcription_service
 
+        logger.info("Getting transcription service...")
         transcription_service = get_transcription_service()
-        transcript_text, error_msg = transcription_service.transcribe_audio(audio_path)
+        logger.info(
+            f"Transcription service: enabled={transcription_service.enabled}, model={transcription_service.model_name}"
+        )
+
+        logger.info(f"Starting transcription for {filename} (path: {audio_path})")
+        transcript_text, error_msg = transcription_service.transcribe_audio(Path(audio_path))
+        logger.info(
+            f"Transcription completed. Success: {transcript_text is not None}, Error: {error_msg}"
+        )
 
         # Clean up temp file for S3
         if settings.storage_backend == "s3" and os.path.exists(audio_path):
+            logger.info(f"Cleaning up temp file: {audio_path}")
             os.remove(audio_path)
 
         if transcript_text:
             # Success
+            logger.info(
+                f"Transcription successful for {filename}, length: {len(transcript_text)} characters"
+            )
             update_transcript(db, filename, transcript_text, "completed", None)
             return {
                 "success": True,
@@ -1130,6 +1163,7 @@ async def trigger_transcription(
             }
         else:
             # Error
+            logger.error(f"Transcription failed for {filename}: {error_msg}")
             update_transcript(db, filename, None, "error", error_msg)
             return {
                 "success": False,
@@ -1140,7 +1174,7 @@ async def trigger_transcription(
             }
 
     except Exception as e:
-        logger.error(f"Error during transcription: {e}", exc_info=True)
+        logger.error(f"Exception during transcription for {filename}: {e}", exc_info=True)
         # Update record with error (import already done above)
         update_transcript(db, filename, None, "error", str(e))
 
