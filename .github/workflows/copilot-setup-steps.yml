@@ -110,7 +110,7 @@ jobs:
             echo "✅ Railway CLI configured and linked"
           else
             echo "ℹ️  RAILWAY_API_TOKEN not set"
-            echo "   Railway MCP tools will have limited functionality"
+            echo "   Railway CLI tools will not function."
           fi
 
       # Step 7: Install Python package with development dependencies
