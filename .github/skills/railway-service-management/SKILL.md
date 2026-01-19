@@ -26,16 +26,6 @@ railway var list --json
 railway deployment list --json
 ```
 
-<<<<<<< ours
-The script automatically:
-- Verifies RAILWAY_API_TOKEN is configured
-- Logs in to Railway using `railway login`
-- Identifies the correct environment (PR or production)
-- Links to project: yoto, service: yoto-smart-stream
-- Configures Railway CLI for immediate use
-
-=======
->>>>>>> theirs
 **For detailed instructions**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-railway_api_token-mode)
 
 ## Quick Start
