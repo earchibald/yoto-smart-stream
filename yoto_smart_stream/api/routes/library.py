@@ -620,25 +620,45 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
         
         # Add content structure if available
         if hasattr(card, 'chapters') and card.chapters:
+            logger.info(f"[EDIT CHECK] Card chapters type: {type(card.chapters)}, value: {card.chapters}")
             content_chapters = []
             for chapter in card.chapters:
-                chapter_data = {
-                    "key": getattr(chapter, 'key', ''),
-                    "title": getattr(chapter, 'title', ''),
-                }
+                logger.info(f"[EDIT CHECK] Chapter type: {type(chapter)}, value: {chapter}")
+                # Handle both dict and object types
+                if isinstance(chapter, dict):
+                    chapter_data = {
+                        "key": chapter.get('key', ''),
+                        "title": chapter.get('title', ''),
+                    }
+                else:
+                    chapter_data = {
+                        "key": getattr(chapter, 'key', ''),
+                        "title": getattr(chapter, 'title', ''),
+                    }
                 
                 # Add tracks if available
-                if hasattr(chapter, 'tracks') and chapter.tracks:
+                tracks_list = chapter.get('tracks') if isinstance(chapter, dict) else getattr(chapter, 'tracks', None)
+                if tracks_list:
                     tracks = []
-                    for track in chapter.tracks:
-                        track_data = {
-                            "key": getattr(track, 'key', ''),
-                            "title": getattr(track, 'title', ''),
-                            "format": getattr(track, 'format', 'mp3'),
-                            "url": getattr(track, 'url', ''),
-                        }
-                        if hasattr(track, 'channels'):
-                            track_data["channels"] = track.channels
+                    for track in tracks_list:
+                        if isinstance(track, dict):
+                            track_data = {
+                                "key": track.get('key', ''),
+                                "title": track.get('title', ''),
+                                "format": track.get('format', 'mp3'),
+                                "url": track.get('url', ''),
+                            }
+                            if 'channels' in track:
+                                track_data["channels"] = track['channels']
+                        else:
+                            track_data = {
+                                "key": getattr(track, 'key', ''),
+                                "title": getattr(track, 'title', ''),
+                                "format": getattr(track, 'format', 'mp3'),
+                                "url": getattr(track, 'url', ''),
+                            }
+                            if hasattr(track, 'channels'):
+                                track_data["channels"] = track.channels
                         tracks.append(track_data)
                     chapter_data["tracks"] = tracks
                 
