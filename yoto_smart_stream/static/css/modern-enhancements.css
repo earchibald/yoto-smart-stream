@@ -540,15 +540,15 @@ header h2 {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-4) var(--space-6);
+    padding: 0.6rem 1rem;
     border: none;
     border-radius: var(--radius-lg);
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--shadow-md);
-    min-width: 140px;
+    min-width: 100px;
     justify-content: center;
 }
 
@@ -595,17 +595,17 @@ header h2 {
 }
 
 .btn-icon {
-    font-size: 1.25rem;
+    font-size: 1rem;
     line-height: 1;
 }
 
 .btn-text {
-    font-size: 1rem;
+    font-size: 0.85rem;
     font-weight: 600;
 }
 
 .btn-shortcut {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     opacity: 0.8;
     font-weight: 400;
 }
