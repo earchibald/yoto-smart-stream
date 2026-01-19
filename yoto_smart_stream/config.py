@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -30,7 +31,8 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
     log_full_streams_requests: bool = Field(
-        default=False, description="Log full HTTP requests (headers and body) for audio stream endpoints"
+        default=False,
+        description="Log full HTTP requests (headers and body) for audio stream endpoints",
     )
     environment: str = Field(
         default="development",
@@ -101,19 +103,34 @@ class Settings(BaseSettings):
 
     # Storage settings
     audio_files_dir: Path = Field(default=Path("audio_files"), description="Audio files directory")
-    
+
+    # Storage backend configuration
+    storage_backend: str = Field(default="local", description="Storage backend: 'local' or 's3'")
+
+    # Railway Bucket credentials (S3-compatible)
+    bucket_name: Optional[str] = Field(default=None, alias="AWS_S3_BUCKET_NAME")
+    bucket_access_key_id: Optional[str] = Field(default=None, alias="AWS_ACCESS_KEY_ID")
+    bucket_secret_access_key: Optional[str] = Field(default=None, alias="AWS_SECRET_ACCESS_KEY")
+    bucket_endpoint: str = Field(default="https://storage.railway.app", alias="AWS_ENDPOINT_URL")
+    bucket_region: str = Field(default="auto", alias="AWS_DEFAULT_REGION")
+
+    # Presigned URL expiry (7 days default)
+    presigned_url_expiry: int = Field(
+        default=604800, description="Presigned URL expiry in seconds (default: 7 days)"
+    )
+
     @field_validator("audio_files_dir", mode="before")
     @classmethod
     def get_audio_files_dir(cls, v):
         """
         Get audio files directory based on environment.
-        
+
         Uses /data directory for Railway deployments (persistent volume) so TTS
         files survive restarts. Falls back to local path for development.
         """
         # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
         railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
-        
+
         if railway_env:
             # On Railway, use persistent volume at /data/audio_files
             data_dir = Path("/data/audio_files")
@@ -125,15 +142,31 @@ class Settings(BaseSettings):
                     f"Could not create {data_dir} during validation (expected in tests): {e}"
                 )
             return data_dir
-        
+
         # Local development - use provided value or default
         if v and str(v) != "audio_files":
             return v if isinstance(v, Path) else Path(v)
         return Path("audio_files")
-    
-    cover_images_dir: Path = Field(
-        default=Path("cover_images"), description="Cover images directory"
-    )
+
+    @field_validator("storage_backend", mode="after")
+    @classmethod
+    def validate_storage_backend(cls, v):
+        """Validate storage backend value."""
+        if v not in ["local", "s3"]:
+            raise ValueError("storage_backend must be 'local' or 's3'")
+        return v
+
+    @field_validator("bucket_name", mode="after")
+    @classmethod
+    def validate_s3_config(cls, v, info):
+        """Validate S3 configuration when S3 backend is enabled."""
+        if info.data.get("storage_backend") == "s3":
+            if not v:
+                raise ValueError("bucket_name required when storage_backend='s3'")
+            # Note: bucket_access_key_id and bucket_secret_access_key will be checked
+            # by model validation after all fields are populated
+        return v
+
     database_url: str = Field(
         default="sqlite:///./yoto_smart_stream.db", description="Database connection URL"
     )
@@ -182,6 +215,22 @@ class Settings(BaseSettings):
         le=23,
     )
 
+    # Transcription settings (disabled by default to speed container builds)
+    transcription_enabled: bool = Field(
+        default=False,
+        description="Enable speech-to-text transcription (requires Whisper + Torch)",
+    )
+    transcription_model: str = Field(
+        default="base",
+        description="Whisper model name (tiny, base, small, medium, large)",
+    )
+
+    # ElevenLabs TTS settings
+    elevenlabs_api_key: Optional[str] = Field(
+        default=None,
+        description="ElevenLabs API key for text-to-speech generation",
+    )
+
     # Railway startup settings
     railway_startup_wait_seconds: int = Field(
         default=0,
@@ -191,10 +240,7 @@ class Settings(BaseSettings):
     )
     log_env_on_startup: bool = Field(
         default=False,
-        description=(
-            "Log all environment variables on startup "
-            "(useful for debugging Railway variables)"
-        ),
+        description="Log all environment variables on startup (useful for debugging Railway variables)",
     )
 
     # CORS settings
@@ -206,8 +252,45 @@ class Settings(BaseSettings):
     def __init__(self, **kwargs):
         """Initialize settings and create required directories."""
         super().__init__(**kwargs)
-        self.audio_files_dir.mkdir(exist_ok=True)
-        self.cover_images_dir.mkdir(exist_ok=True)
+
+        # Validate S3 configuration if S3 backend is enabled
+        if self.storage_backend == "s3":
+            if not self.bucket_name:
+                raise ValueError(
+                    "bucket_name (AWS_S3_BUCKET_NAME) required when storage_backend='s3'"
+                )
+            if not self.bucket_access_key_id:
+                raise ValueError(
+                    "bucket_access_key_id (AWS_ACCESS_KEY_ID) required when storage_backend='s3'"
+                )
+            if not self.bucket_secret_access_key:
+                raise ValueError(
+                    "bucket_secret_access_key (AWS_SECRET_ACCESS_KEY) required when storage_backend='s3'"
+                )
+
+        self.audio_files_dir.mkdir(parents=True, exist_ok=True)
+
+    def get_storage(self):
+        """
+        Get storage backend instance based on configuration.
+
+        Returns:
+            LocalStorage or S3Storage instance depending on storage_backend setting
+        """
+        if self.storage_backend == "s3":
+            from yoto_smart_stream.storage.s3 import S3Storage
+
+            return S3Storage(
+                bucket_name=self.bucket_name,
+                access_key_id=self.bucket_access_key_id,
+                secret_access_key=self.bucket_secret_access_key,
+                endpoint_url=self.bucket_endpoint,
+                region=self.bucket_region,
+            )
+        else:
+            from yoto_smart_stream.storage.local import LocalStorage
+
+            return LocalStorage(base_path=self.audio_files_dir)
 
 
 # Global settings instance

@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     loadSystemStatus();
     loadAudioFiles();
+    loadTTSVoices(); // Load available voices from ElevenLabs
 
     // Setup TTS form
     const ttsForm = document.getElementById('tts-form');
@@ -191,6 +192,79 @@ async function loadSystemStatus() {
     }
 }
 
+// Load TTS voices from ElevenLabs
+async function loadTTSVoices() {
+    const voiceSelect = document.getElementById('tts-voice');
+    const voiceDescription = document.getElementById('voice-description');
+
+    if (!voiceSelect) {
+        console.warn('TTS voice select element not found');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/audio/tts/voices`);
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch voices');
+        }
+
+        const data = await response.json();
+
+        // Clear loading option
+        voiceSelect.innerHTML = '';
+
+        if (data.voices && data.voices.length > 0) {
+            // Add voices to select
+            data.voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.voice_id;
+                option.textContent = voice.name;
+                option.dataset.description = voice.description || '';
+                option.dataset.category = voice.category || '';
+                voiceSelect.appendChild(option);
+            });
+
+            // Set default voice (Rachel)
+            const defaultVoice = data.voices.find(v => v.voice_id === '21m00Tcm4TlvDq8ikWAM');
+            if (defaultVoice) {
+                voiceSelect.value = defaultVoice.voice_id;
+                if (voiceDescription) {
+                    voiceDescription.textContent = defaultVoice.description || 'Professional female voice';
+                }
+            }
+
+            // Add change listener to update description
+            voiceSelect.addEventListener('change', (e) => {
+                const selectedOption = e.target.options[e.target.selectedIndex];
+                if (voiceDescription && selectedOption) {
+                    const desc = selectedOption.dataset.description || '';
+                    const category = selectedOption.dataset.category || '';
+                    voiceDescription.textContent = desc || (category ? `${category} voice` : '');
+                }
+            });
+
+        } else {
+            // No voices available
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No voices available';
+            voiceSelect.appendChild(option);
+            voiceSelect.disabled = true;
+        }
+
+    } catch (error) {
+        console.error('Error loading TTS voices:', error);
+        voiceSelect.innerHTML = '<option value="">Failed to load voices</option>';
+        voiceSelect.disabled = true;
+
+        if (voiceDescription) {
+            voiceDescription.textContent = 'Unable to load voices. Please check your connection.';
+            voiceDescription.style.color = '#d32f2f';
+        }
+    }
+}
+
 // Load audio files
 async function loadAudioFiles() {
     const container = document.getElementById('audio-list');
@@ -224,6 +298,9 @@ async function loadAudioFiles() {
                         <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
                             <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
                                 📋
+                            </button>
+                            <button class="control-btn" onclick="viewMetadata('${escapeHtml(file.filename)}', event)" title="View Metadata">
+                                📊
                             </button>
                             ${!file.is_static ? `<button class="control-btn control-btn-danger" onclick="deleteAudioFile('${escapeHtml(file.filename)}', event)" title="Delete Audio File">
                                 🗑️
@@ -592,9 +669,15 @@ async function handleTTSSubmit(event) {
     // Get form data
     const filename = document.getElementById('tts-filename').value.trim();
     const text = document.getElementById('tts-text').value.trim();
+    const voiceId = document.getElementById('tts-voice').value;
 
     if (!filename || !text) {
         showTTSError('Please fill in all fields');
+        return;
+    }
+
+    if (!voiceId) {
+        showTTSError('Please select a voice');
         return;
     }
 
@@ -615,6 +698,7 @@ async function handleTTSSubmit(event) {
             body: JSON.stringify({
                 filename: filename,
                 text: text,
+                voice_id: voiceId,
             }),
         });
 
@@ -629,8 +713,10 @@ async function handleTTSSubmit(event) {
         successDiv.style.display = 'block';
         result.style.display = 'block';
 
-        // Reset form
+        // Reset form (but preserve voice selection)
+        const selectedVoice = document.getElementById('tts-voice').value;
         form.reset();
+        document.getElementById('tts-voice').value = selectedVoice;
         updateFilenamePreview();
         updateTextLength();
 
@@ -1113,6 +1199,168 @@ function closeTranscriptModal() {
     const modal = document.getElementById('transcriptModal');
     modal.style.display = 'none';
 }
+
+// ============================================================================
+// Metadata Modal Functions
+// ============================================================================
+
+let metadataModalKeyHandler = null;
+
+async function viewMetadata(filename, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    const modal = document.getElementById('metadataModal');
+    const content = document.getElementById('metadataContent');
+
+    modal.style.display = 'flex';
+    content.innerHTML = '<p class="loading">Loading metadata...</p>';
+
+    // Setup keyboard handler for Escape key
+    metadataModalKeyHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeMetadataModal();
+        }
+    };
+    document.addEventListener('keydown', metadataModalKeyHandler);
+
+    try {
+        // Fetch the audio file list to get metadata
+        const response = await fetch(`${API_BASE}/audio/list`);
+        if (!response.ok) throw new Error('Failed to fetch metadata');
+
+        const data = await response.json();
+        const file = data.files.find(f => f.filename === filename);
+
+        if (!file) {
+            content.innerHTML = '<p class="error-message">File not found</p>';
+            return;
+        }
+
+        // Format metadata for display
+        let html = `
+            <div class="metadata-section">
+                <h4>📄 File Information</h4>
+                <table class="metadata-table">
+                    <tr>
+                        <td class="metadata-label">Filename:</td>
+                        <td class="metadata-value">${escapeHtml(file.filename)}</td>
+                    </tr>
+                    <tr>
+                        <td class="metadata-label">Size:</td>
+                        <td class="metadata-value">${formatFileSize(file.size)} (${file.size.toLocaleString()} bytes)</td>
+                    </tr>
+                    <tr>
+                        <td class="metadata-label">Duration:</td>
+                        <td class="metadata-value">${file.duration} seconds</td>
+                    </tr>
+                    <tr>
+                        <td class="metadata-label">Static File:</td>
+                        <td class="metadata-value">${file.is_static ? 'Yes' : 'No'}</td>
+                    </tr>
+                    ${file.created_at ? `
+                    <tr>
+                        <td class="metadata-label">Created:</td>
+                        <td class="metadata-value">${formatDateTime(file.created_at)}</td>
+                    </tr>
+                    ` : ''}
+                    ${file.updated_at ? `
+                    <tr>
+                        <td class="metadata-label">Updated:</td>
+                        <td class="metadata-value">${formatDateTime(file.updated_at)}</td>
+                    </tr>
+                    ` : ''}
+                </table>
+            </div>
+        `;
+
+        // Add TTS metadata if available
+        if (file.tts_metadata) {
+            html += `
+                <div class="metadata-section">
+                    <h4>🎤 Text-to-Speech Generation</h4>
+                    <table class="metadata-table">
+                        <tr>
+                            <td class="metadata-label">Provider:</td>
+                            <td class="metadata-value">${escapeHtml(file.tts_metadata.provider || 'N/A')}</td>
+                        </tr>
+                        ${file.tts_metadata.voice_id ? `
+                        <tr>
+                            <td class="metadata-label">Voice ID:</td>
+                            <td class="metadata-value">${escapeHtml(file.tts_metadata.voice_id)}</td>
+                        </tr>
+                        ` : ''}
+                        ${file.tts_metadata.model ? `
+                        <tr>
+                            <td class="metadata-label">Model:</td>
+                            <td class="metadata-value">${escapeHtml(file.tts_metadata.model)}</td>
+                        </tr>
+                        ` : ''}
+                    </table>
+                </div>
+            `;
+        }
+
+        // Add transcript metadata if available
+        if (file.transcript) {
+            html += `
+                <div class="metadata-section">
+                    <h4>📝 Transcript Information</h4>
+                    <table class="metadata-table">
+                        <tr>
+                            <td class="metadata-label">Status:</td>
+                            <td class="metadata-value">${formatTranscriptStatus(file.transcript.status)}</td>
+                        </tr>
+                        <tr>
+                            <td class="metadata-label">Has Transcript:</td>
+                            <td class="metadata-value">${file.transcript.has_transcript ? 'Yes' : 'No'}</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+        }
+
+        content.innerHTML = html;
+
+    } catch (error) {
+        console.error('Error loading metadata:', error);
+        content.innerHTML = '<p class="error-message">Failed to load metadata</p>';
+    }
+}
+
+function closeMetadataModal() {
+    const modal = document.getElementById('metadataModal');
+    modal.style.display = 'none';
+
+    // Remove keyboard handler
+    if (metadataModalKeyHandler) {
+        document.removeEventListener('keydown', metadataModalKeyHandler);
+        metadataModalKeyHandler = null;
+    }
+}
+
+function formatDateTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleString();
+}
+
+function formatTranscriptStatus(status) {
+    const statusMap = {
+        'pending': '⏸️ Pending',
+        'processing': '⏳ Processing',
+        'completed': '✅ Completed',
+        'error': '❌ Error',
+        'cancelled': '🚫 Cancelled',
+        'disabled': '🔒 Disabled'
+    };
+    return statusMap[status] || status;
+}
+
+// ============================================================================
+// Transcription Functions
+// ============================================================================
 
 async function startTranscription(filename, event) {
     if (event) event.preventDefault();
