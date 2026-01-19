@@ -1067,117 +1067,120 @@ curl -H "Authorization: Bearer $GITHUB_TOKEN" \
   jq '.statuses[] | select(.context | contains("railway"))'
 ```
 
-### Using with GitHub MCP
+### Using with GitHub CLI
 
 **Step 1: Get PR information**
-```python
-pr = mcp_github_pull_request_read(
-    method="get",
-    owner="earchibald",
-    repo="yoto-smart-stream",
-    pullNumber=61
-)
+```bash
+# Get PR details
+gh pr view 61 --json headRefOid,number --jq '.'
 
-commit_sha = pr["head"]["sha"]
+# Extract commit SHA
+commit_sha=$(gh pr view 61 --json headRefOid --jq -r '.headRefOid')
 ```
 
 **Step 2: Query deployment status via GitHub API**
-```python
-import requests
-
-response = requests.get(
-    f"https://api.github.com/repos/earchibald/yoto-smart-stream/commits/{commit_sha}/status",
-    headers={"Authorization": f"Bearer {github_token}"}
-)
-statuses = response.json()["statuses"]
+```bash
+# Get commit status
+gh api repos/earchibald/yoto-smart-stream/commits/$commit_sha/status --jq '.statuses'
 
 # Find Railway deployment status
-railway_status = next(
-    (s for s in statuses if "railway" in s["context"].lower() or "yoto-smart-stream" in s["context"]),
-    None
-)
+railway_status=$(gh api repos/earchibald/yoto-smart-stream/commits/$commit_sha/status --jq '.statuses[] | select(.context | contains("railway") or contains("yoto-smart-stream"))')
 ```
 
 **Step 3: Make decisions based on status**
-```python
-if railway_status:
-    if railway_status["state"] == "success":
-        print(f"✅ Deployment succeeded: {railway_status['description']}")
-        deployment_url = railway_status["target_url"]
+```bash
+# Extract state from railway_status
+state=$(echo "$railway_status" | jq -r '.state')
+description=$(echo "$railway_status" | jq -r '.description')
+target_url=$(echo "$railway_status" | jq -r '.target_url')
+
+if [[ -n "$railway_status" ]]; then
+    if [[ "$state" == "success" ]]; then
+        echo "✅ Deployment succeeded: $description"
         # Proceed with testing or merge
-    elif railway_status["state"] == "pending":
-        print(f"⏳ Deployment in progress, waiting...")
+    elif [[ "$state" == "pending" ]]; then
+        echo "⏳ Deployment in progress, waiting..."
         # Wait and retry after delay
-    elif railway_status["state"] in ["failure", "error"]:
-        print(f"❌ Deployment failed")
-        print(f"Logs: {railway_status['target_url']}")
+    elif [[ "$state" == "failure" || "$state" == "error" ]]; then
+        echo "❌ Deployment failed"
+        echo "Logs: $target_url"
         # Investigate and fix issues
 ```
 
 ### Agent Workflow Pattern
 
 **Wait for deployment before testing:**
-```python
-def wait_for_railway_deployment(owner, repo, commit_sha, timeout=600):
-    """Wait for Railway deployment to complete before running tests"""
-    import time
+```bash
+wait_for_railway_deployment() {
+    # Wait for Railway deployment to complete before running tests
+    local owner=$1
+    local repo=$2
+    local commit_sha=$3
+    local timeout=${4:-600}
     
-    start = time.time()
-    while time.time() - start < timeout:
+    local start=$(date +%s)
+    
+    while true; do
+        local now=$(date +%s)
+        local elapsed=$((now - start))
+        
+        if [ $elapsed -gt $timeout ]; then
+            echo "❌ Timeout waiting for Railway deployment"
+            return 1
+        fi
+        
         # Query status
-        response = requests.get(
-            f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}/status",
-            headers={"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"}
-        )
-        statuses = response.json()["statuses"]
+        local railway_status=$(gh api repos/$owner/$repo/commits/$commit_sha/status \
+            --jq '.statuses[] | select(.context | contains("railway"))')
         
-        railway = next(
-            (s for s in statuses if "railway" in s["context"].lower()),
-            None
-        )
-        
-        if not railway:
-            time.sleep(10)
+        if [ -z "$railway_status" ]; then
+            sleep 10
             continue
+        fi
         
-        if railway["state"] == "success":
-            return railway["description"]  # Return deployment URL
-        elif railway["state"] in ["failure", "error"]:
-            raise Exception(f"Railway deployment failed: {railway['description']}")
+        local state=$(echo "$railway_status" | jq -r '.state')
+        local description=$(echo "$railway_status" | jq -r '.description')
         
-        time.sleep(10)  # Check every 10 seconds
-    
-    raise TimeoutError("Railway deployment timed out")
+        if [ "$state" = "success" ]; then
+            echo "$description"  # Return deployment URL
+            return 0
+        elif [ "$state" = "failure" ] || [ "$state" = "error" ]; then
+            echo "❌ Railway deployment failed: $description" >&2
+            return 1
+        fi
+        
+        sleep 10  # Check every 10 seconds
+    done
+}
 
 # Usage
-deployment_url = wait_for_railway_deployment("earchibald", "yoto-smart-stream", commit_sha)
-run_integration_tests(deployment_url)
+deployment_url=$(wait_for_railway_deployment "earchibald" "yoto-smart-stream" "$commit_sha")
+run_integration_tests "$deployment_url"
 ```
 
 **Check status before merge:**
-```python
-def can_merge_pr(owner, repo, pr_number):
-    """Verify Railway deployment succeeded before allowing merge"""
-    pr = mcp_github_pull_request_read(
-        method="get",
-        owner=owner,
-        repo=repo,
-        pullNumber=pr_number
-    )
+```bash
+# Function to verify Railway deployment succeeded before allowing merge
+can_merge_pr() {
+    local owner=$1
+    local repo=$2
+    local pr_number=$3
     
-    commit_sha = pr["head"]["sha"]
-    response = requests.get(
-        f"https://api.github.com/repos/{owner}/{repo}/commits/{commit_sha}/status",
-        headers={"Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}"}
-    )
+    # Get PR head commit SHA
+    commit_sha=$(gh pr view $pr_number --json headRefOid --jq -r '.headRefOid')
     
-    statuses = response.json()["statuses"]
-    railway = next(
-        (s for s in statuses if "railway" in s["context"].lower()),
-        None
-    )
+    # Get Railway deployment status
+    railway_state=$(gh api repos/$owner/$repo/commits/$commit_sha/status --jq -r '.statuses[] | select(.context | contains("railway")) | .state')
     
-    return railway and railway["state"] == "success"
+    [[ "$railway_state" == "success" ]]
+}
+
+# Usage
+if can_merge_pr "earchibald" "yoto-smart-stream" 61; then
+    echo "PR can be merged"
+else
+    echo "Railway deployment not ready"
+fi
 ```
 
 ### Using in GitHub Actions

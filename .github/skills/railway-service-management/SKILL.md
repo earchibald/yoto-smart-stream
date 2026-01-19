@@ -9,27 +9,22 @@ Complete guide for managing Railway.app deployments across multiple environments
 
 ## Quick Start for Cloud Agents
 
-**If you're a Cloud Agent (GitHub Copilot Workspace), use the setup script:**
+**Railway CLI is automatically configured for Cloud Agents (GitHub Copilot Workspace).**
+
+The Railway CLI is installed and configured during workspace setup via `.github/workflows/copilot-setup-steps.yml`:
+- Installs Railway CLI via npm
+- Authenticates using RAILWAY_API_TOKEN
+- Auto-detects and links to the correct environment (PR or production)
+- Links to project: yoto, service: yoto-smart-stream
+
+You can immediately use Railway CLI commands:
 
 ```bash
-# Run the automated setup script
-bash .github/skills/railway-service-management/scripts/setup_cloud_agent.sh
-
-# Then use Railway CLI commands
 railway status --json
 railway logs --lines 50 --filter "@level:error" --json
 railway var list --json
 railway deployment list --json
 ```
-
-The script automatically:
-- Verifies RAILWAY_API_TOKEN is configured
-- Logs in to Railway using `railway login`
-- Identifies the correct environment (PR or production)
-- Links to project: yoto, service: yoto-smart-stream
-- Configures Railway CLI for immediate use
-
-**Important:** Railway CLI works with full privileges in Cloud Agent runtime. Railway MCP tools **will not work** because MCP servers run in a separate process context and cannot access Railway authentication.
 
 **For detailed instructions**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-railway_api_token-mode)
 
@@ -107,6 +102,5 @@ Load these files as needed for detailed guidance:
 
 1. **Always filter logs** when using Railway CLI for efficiency
 2. **Prefer auto-detection** for build configuration (Railpack)
-3. **Use Railway CLI** commands (not MCP tools) in Cloud Agent sessions
-4. **Verify environment link** before CLI operations: `railway status --json`
-5. **Check health checks** are properly configured for all services
+3. **Verify environment link** before CLI operations: `railway status --json`
+4. **Check health checks** are properly configured for all services

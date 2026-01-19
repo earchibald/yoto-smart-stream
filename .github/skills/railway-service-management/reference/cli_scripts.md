@@ -82,7 +82,6 @@ railway whoami
 - ✅ Railway CLI works with full privileges in Cloud Agent runtime
 - ✅ Use `railway login` (automatically detects `RAILWAY_API_TOKEN`)
 - ✅ All Railway CLI commands function normally after authentication
-- ❌ Railway MCP tools **WILL NOT WORK** - MCP servers run in separate process context and cannot access Railway authentication
 - ⚠️ Token must have appropriate project/environment permissions
 
 ### Local User Setup (One-time)
