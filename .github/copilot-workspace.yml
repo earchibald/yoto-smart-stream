@@ -12,7 +12,7 @@ setup:
       echo "Railway Setup for Copilot Agent Sessions"
       echo "=================================================="
       echo ""
-      
+
       # Step 1: Install Railway CLI if not already installed
       if ! command -v railway > /dev/null 2>&1; then
         echo "📦 Installing Railway CLI..."
@@ -30,7 +30,7 @@ setup:
         echo "✅ Railway CLI already installed: $(railway --version)"
       fi
       echo ""
-      
+
       # Step 2: Check Railway authentication
       echo "🔐 Checking Railway authentication..."
       if railway whoami > /dev/null 2>&1; then
@@ -41,16 +41,38 @@ setup:
         echo "   Authentication token should be available via RAILWAY_API_TOKEN"
       fi
       echo ""
-      
+
       # Step 3: Automatically link to Railway project and environment
       # This enables Railway MCP tools to work with the correct context
       echo "🔗 Setting up Railway project linking..."
-      
-      # Check if we're in a PR context or main branch
+
+      # Detect PR number if in PR context
+      PR_NUMBER=""
       if [ -n "$GITHUB_HEAD_REF" ]; then
-        # We're in a PR - use development environment
+        # Try to extract PR number from GitHub context
+        # In GitHub Actions, PR number is in GITHUB_REF (refs/pull/123/merge)
+        if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]]; then
+          PR_NUMBER="${BASH_REMATCH[1]}"
+          echo "📋 Detected PR context: PR #$PR_NUMBER ($GITHUB_HEAD_REF)"
+        else
+          echo "📋 Detected PR context: $GITHUB_HEAD_REF"
+        fi
+      fi
+
+      # Determine target environment based on context
+      if [ -n "$PR_NUMBER" ]; then
+        # We're in a PR with a number - use PR-specific environment
+        TARGET_ENV="pr-${PR_NUMBER}"
+        echo "   Using PR-specific environment: $TARGET_ENV"
+        echo ""
+        echo "   ℹ️  PR Environment Token Setup:"
+        echo "      For full Railway access (deploy, logs, variables),"
+        echo "      provision a Railway token for this PR environment."
+        echo "      See: docs/CLOUD_AGENT_RAILWAY_TOKENS.md"
+        echo "      Run: scripts/provision_pr_railway_token.sh --pr $PR_NUMBER"
+      elif [ -n "$GITHUB_HEAD_REF" ]; then
+        # We're in a PR but couldn't get number - use development environment
         TARGET_ENV="development"
-        echo "📋 Detected PR context: $GITHUB_HEAD_REF"
         echo "   Linking to shared development environment"
       elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
         # We're on main branch - use production
@@ -68,7 +90,7 @@ setup:
         echo "📋 Using default development environment"
       fi
       echo ""
-      
+
       # Link to the Railway project
       # Note: The Railway CLI will auto-discover the project if already linked
       # or can be manually linked with `railway link` if needed
@@ -83,7 +105,7 @@ setup:
         echo "   railway link"
       fi
       echo ""
-      
+
       # Try to link to the target environment
       echo "🌍 Setting active environment to: $TARGET_ENV"
       if railway environment $TARGET_ENV > /dev/null 2>&1; then
@@ -94,7 +116,7 @@ setup:
         echo "   Railway MCP tools will still work but may need environment specification"
       fi
       echo ""
-      
+
       echo "=================================================="
       echo "Railway Setup Complete"
       echo "=================================================="
@@ -110,7 +132,15 @@ setup:
       echo "  • Configuration: list-variables, set-variables, generate-domain"
       echo "  • Monitoring: get-logs"
       echo ""
-      echo "Note: Full functionality requires RAILWAY_API_TOKEN"
+      if [ -n "$PR_NUMBER" ]; then
+        echo "⚠️  PR Environment Detected:"
+        echo "   For full Railway access in PR #$PR_NUMBER:"
+        echo "   1. Provision Railway token (see docs/CLOUD_AGENT_RAILWAY_TOKENS.md)"
+        echo "   2. Run: scripts/provision_pr_railway_token.sh --pr $PR_NUMBER"
+        echo "   3. Token will enable deploy, logs, and variable management"
+        echo ""
+      fi
+      echo "Note: Full functionality requires RAILWAY_API_TOKEN or PR-specific token"
       echo "=================================================="
 
 # Network Configuration
@@ -122,18 +152,18 @@ network:
     - "railway.app"              # Railway dashboard and API
     - "backboard.railway.app"    # Railway GraphQL API (legacy/docs)
     - "backboard.railway.com"    # Railway GraphQL API (current CLI endpoint)
-    
+
     # Yoto API URLs (for testing and development)
     - "api.yoto.io"              # Yoto REST API
     - "mqtt.yoto.io"             # Yoto MQTT broker
     - "yoto.dev"                 # Yoto developer portal
-    
+
   description: |
     This configuration allows GitHub Copilot Workspace to access:
     - Railway deployment URLs (*.up.railway.app) for testing and validation
     - Railway platform APIs for deployment management
     - Yoto APIs for development and testing
-    
+
     Railway URL patterns used in this project:
     - Production: https://yoto-smart-stream-production.up.railway.app
     - Staging: https://yoto-smart-stream-staging.up.railway.app

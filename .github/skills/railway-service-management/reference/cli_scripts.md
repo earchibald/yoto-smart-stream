@@ -2,9 +2,9 @@
 
 ## Table of Contents
 
-- [Railway MCP Server](#railway-mcp-server)
 - [Railway CLI Installation](#railway-cli-installation)
 - [Authentication](#authentication)
+- [Cloud Agent Authentication (RAILWAY_API_TOKEN Mode)](#cloud-agent-authentication-railway_api_token-mode)
 - [Essential Commands](#essential-commands)
 - [Automation Scripts](#automation-scripts)
 - [Makefile for Common Tasks](#makefile-for-common-tasks)
@@ -12,129 +12,7 @@
 
 ## Overview
 
-This guide covers the Railway CLI, Railway MCP Server, common commands, and automation scripts for managing Railway deployments efficiently.
-
-## Railway MCP Server
-
-### What is Railway MCP Server?
-
-The Railway MCP (Model Context Protocol) Server provides specialized Railway management tools that can be used directly from AI coding agents like GitHub Copilot Workspace. It enables natural language interaction with Railway infrastructure.
-
-**Official Repository**: https://github.com/railwayapp/railway-mcp-server
-
-### Configuration
-
-The Railway MCP Server is configured in `.github/copilot-workspace.yml`:
-
-```yaml
-mcp_servers:
-  railway-mcp-server:
-    command: npx
-    args:
-      - "-y"
-      - "@railway/mcp-server"
-```
-
-For other editors:
-
-**Cursor** (`.cursor/mcp.json`):
-```json
-{
-  "mcpServers": {
-    "railway-mcp-server": {
-      "command": "npx",
-      "args": ["-y", "@railway/mcp-server"]
-    }
-  }
-}
-```
-
-**VS Code** (`.vscode/mcp.json`):
-```json
-{
-  "servers": {
-    "railway-mcp-server": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@railway/mcp-server"]
-    }
-  }
-}
-```
-
-### Available MCP Tools
-
-The Railway MCP Server provides these tools:
-
-**Project Management:**
-- `list-projects` - List all Railway projects
-- `create-project-and-link` - Create and link new projects
-
-**Service Management:**
-- `list-services` - List services in a project
-- `link-service` - Link a service to current directory
-- `deploy` - Deploy a service
-- `deploy-template` - Deploy from Railway Template Library
-
-**Environment Management:**
-- `create-environment` - Create new environments
-- `link-environment` - Link environment to directory
-
-**Configuration & Variables:**
-- `list-variables` - List environment variables
-- `set-variables` - Set environment variables
-- `generate-domain` - Generate railway.app domains
-
-**Monitoring & Logs:**
-- `get-logs` - Retrieve build/deployment logs
-  - Railway CLI v4.9.0+: Supports line limits and filtering
-  - Older versions: Stream logs without filtering
-
-**Status Check:**
-- `check-railway-status` - Verify CLI installation and login
-
-### Usage Examples
-
-Use natural language commands with the MCP server:
-
-```
-# Deploy from template
-"Deploy a Postgres database for my application"
-
-# Create and deploy
-"Create a Next.js app in this directory and deploy it to Railway. 
-Also assign it a domain."
-
-# Environment management
-"Create a development environment that duplicates production settings"
-
-# Variable management
-"Pull environment variables for my project and save them in .env"
-
-# Logs
-"Show me the last 100 lines of deployment logs"
-"Show me error logs from the last deployment"
-```
-
-### Prerequisites
-
-The Railway MCP Server requires:
-- Railway CLI installed and accessible in PATH
-- User logged in (`railway login` or `RAILWAY_TOKEN` set)
-- npx available (comes with Node.js)
-
-### Security Considerations
-
-- **No Destructive Actions**: By design, the MCP server doesn't include destructive operations (no delete commands)
-- **Authentication Required**: All operations require valid Railway authentication
-- **Permission Respect**: Railway's existing permission model is enforced
-- **Monitoring**: Always review commands before execution
-
-### Documentation References
-
-- **MCP Server GitHub**: https://github.com/railwayapp/railway-mcp-server
-- **Copilot Workspace Config**: See `docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md` for full documentation
-- **Railway CLI Reference**: https://docs.railway.com/reference/cli
+This guide covers the Railway CLI, common commands, and automation scripts for managing Railway deployments efficiently.
 
 ## Railway CLI Installation
 
@@ -192,6 +70,281 @@ railway whoami
 # 2. Click "Create Token"
 # 3. Copy token
 # 4. Add to GitHub Secrets as RAILWAY_TOKEN
+```
+
+## Cloud Agent Authentication (RAILWAY_API_TOKEN Mode)
+
+### Overview
+
+**Cloud Agents** (e.g., GitHub Copilot Workspace) use `RAILWAY_API_TOKEN` for authentication. The Railway CLI automatically detects this token and uses it for authentication via `railway login`.
+
+**Key Points:**
+- ✅ Railway CLI works with full privileges in Cloud Agent runtime
+- ✅ Use `railway login` (automatically detects `RAILWAY_API_TOKEN`)
+- ✅ All Railway CLI commands function normally after authentication
+- ❌ Railway MCP tools **WILL NOT WORK** - MCP servers run in separate process context and cannot access Railway authentication
+- ⚠️ Token must have appropriate project/environment permissions
+
+### Local User Setup (One-time)
+
+**Step 1: Login to Railway locally (browserless mode)**
+
+```bash
+# Browserless login displays a link to copy/paste
+railway login --browserless
+# Click the displayed link and authenticate via GitHub OAuth in your browser
+```
+
+**Step 2: Set RAILWAY_API_TOKEN as GitHub Secret**
+
+```bash
+# Extract token from Railway config and set as GitHub Secret for copilot environment
+gh secret set --env copilot RAILWAY_API_TOKEN --body="$(jq -r '.user.token' ~/.railway/config.json)"
+```
+
+This one-time setup provides Cloud Agents with Railway access.
+
+### Quick Start for Cloud Agents
+
+**Step 1: Login to Railway**
+
+```bash
+# RAILWAY_API_TOKEN is automatically detected and used
+railway login
+```
+
+**Step 2: Link project, service, and environment**
+
+```bash
+# Link to project, service, and environment in one command
+railway link --project yoto --service yoto-smart-stream --environment yoto-smart-stream-pr-88
+
+# Or link separately:
+railway service link yoto-smart-stream
+railway environment link yoto-smart-stream-pr-88
+
+# Verify linking
+railway status --json
+```
+
+### Complete Setup Script for Cloud Agents
+
+Copy and run this script at the start of your session:
+
+```bash
+#!/bin/bash
+# Railway CLI setup for Cloud Agent sessions
+
+echo "🔧 Setting up Railway CLI for Cloud Agent..."
+
+# 1. Verify RAILWAY_TOKEN is set
+if [ -z "$RAILWAY_TOKEN" ]; then
+  echo "❌ Error: RAILWAY_TOKEN not configured"
+  echo "Cloud Agent environment must have RAILWAY_TOKEN set"
+  exit 1
+fi
+echo "✅ RAILWAY_TOKEN is set"
+
+# 2. Determine environment from branch/PR context
+if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/merge ]]; then
+  PR_NUMBER="${BASH_REMATCH[1]}"
+  ENV_NAME="pr-${PR_NUMBER}"
+  echo "📋 Detected PR #${PR_NUMBER} → Environment: ${ENV_NAME}"
+elif [[ "$GITHUB_REF_NAME" =~ pr-([0-9]+) ]]; then
+  PR_NUMBER="${BASH_REMATCH[1]}"
+  ENV_NAME="pr-${PR_NUMBER}"
+  echo "📋 Detected PR #${PR_NUMBER} from branch → Environment: ${ENV_NAME}"
+elif [ "$GITHUB_REF" == "refs/heads/main" ]; then
+  ENV_NAME="production"
+  echo "📋 Detected main branch → Environment: ${ENV_NAME}"
+else
+  ENV_NAME="production"
+  echo "📋 Using default → Environment: ${ENV_NAME}"
+fi
+
+# 3. Link service and environment
+echo ""
+echo "🔗 Linking to Railway service: yoto-smart-stream"
+if railway service link yoto-smart-stream; then
+  echo "✅ Service linked"
+else
+  echo "⚠️  Service link failed, but may already be linked"
+fi
+
+echo ""
+echo "🔗 Linking to environment: ${ENV_NAME}"
+if railway environment link "$ENV_NAME"; then
+  echo "✅ Environment linked"
+else
+  echo "⚠️  Environment link failed, but may already be linked"
+fi
+
+# 4. Verify setup
+echo ""
+echo "📊 Verifying Railway CLI setup..."
+if railway status --json > /dev/null 2>&1; then
+  echo "✅ Railway CLI is ready!"
+  echo ""
+  echo "Available commands:"
+  echo "  railway status --json          # Project/service info"
+  echo "  railway logs --lines 50 --json # Recent logs"
+  echo "  railway var list --json        # Environment variables"
+  echo "  railway deployment list --json # Deployments"
+else
+  echo "⚠️  Railway CLI setup incomplete"
+  echo "Try running: railway whoami"
+fi
+```
+
+**Save as `setup_railway.sh` and run:**
+```bash
+chmod +x setup_railway.sh
+./setup_railway.sh
+```
+
+### Available Commands (Cloud Agent Mode)
+
+Once linked, these commands work without interactive login:
+
+#### Deployment Commands
+
+```bash
+# List deployments (JSON format recommended)
+railway deployment list --json
+
+# Upload and deploy from current directory
+# --json implies CI mode (stream build logs, then exit)
+railway up --json
+
+# Redeploy latest deployment
+railway deployment redeploy --yes --json
+
+# Restart service (without rebuilding)
+railway restart --yes --json
+
+# Remove most recent deployment
+railway down --yes
+```
+
+#### Log Commands
+
+```bash
+# View logs (extensive options available)
+railway logs                              # Stream live logs
+railway logs --build                      # Show build logs
+railway logs --deployment                 # Show deployment logs
+railway logs --json                       # JSON format
+railway logs --lines 100                  # Last 100 lines (no streaming)
+railway logs --filter "@level:error"      # Filter by level
+railway logs --filter "@level:warn AND rate limit"  # Complex filters
+railway logs --since 1h                   # Time-based
+railway logs --latest                     # Latest deployment (even if failed)
+```
+
+**Log Filter Syntax:**
+- `@level:error` - Error logs only
+- `@level:warn` - Warning logs
+- `"search term"` - Text search
+- `AND`, `OR` - Combine filters
+- `-@level:debug` - Exclude debug logs
+
+**Examples:**
+```bash
+# Last 10 error logs in JSON
+railway logs --lines 10 --filter "@level:error" --json
+
+# Stream logs from latest deployment
+railway logs --latest --json
+
+# Logs from last hour
+railway logs --since 1h --json
+```
+
+#### Status & Info Commands
+
+```bash
+# Show project/service information
+railway status --json
+
+# List environment variables
+railway var list --json
+
+# Set environment variable
+railway var set KEY="VALUE"
+
+# Delete environment variable
+railway var delete KEY
+```
+
+#### SSH Access
+
+```bash
+# Connect to service instance (for debugging)
+railway ssh
+```
+
+### Complete Cloud Agent Workflow Example
+
+```bash
+# 1. Verify RAILWAY_TOKEN is set
+if [ -z "$RAILWAY_TOKEN" ]; then
+  echo "Error: RAILWAY_TOKEN not set"
+  exit 1
+fi
+
+# 2. Link service and environment (once per session)
+railway service link yoto-smart-stream
+railway environment link yoto-smart-stream-pr-88
+
+# 3. Check status
+railway status --json
+
+# 4. Deploy
+railway up --json
+
+# 5. View logs
+railway logs --lines 50 --filter "@level:error" --json
+
+# 6. Check environment variables
+railway var list --json
+```
+
+### Best Practices for Cloud Agents
+
+1. **Always use `--json` flag** for machine-readable output
+2. **Filter logs aggressively** with `--filter` and `--lines` to reduce output
+3. **Use `--yes` flag** to skip confirmations (non-interactive)
+4. **Link service/environment at session start** to avoid repeated `-s`/`-e` flags
+5. **Prefer `--latest` for logs** when debugging failed deployments
+6. **Use time-based log queries** (`--since`, `--until`) for specific windows
+
+### Troubleshooting
+
+**"Not logged in" errors:**
+```bash
+# Verify RAILWAY_TOKEN is set
+echo $RAILWAY_TOKEN
+
+# Should show token UUID
+# If empty, token needs to be provisioned
+```
+
+**"No service linked" errors:**
+```bash
+# Re-link service
+railway service link yoto-smart-stream
+
+# Verify with status
+railway status --json
+```
+
+**"No environment linked" errors:**
+```bash
+# Re-link environment
+railway environment link yoto-smart-stream-pr-88
+
+# Verify
+railway status --json
 ```
 
 ## Essential Commands
@@ -339,7 +492,7 @@ Railway supports powerful filter syntax for querying logs:
 - `"<search term>"` - Filter for partial substring match
 - `@attribute:value` - Filter by custom attribute
 - `@level:error` - Filter by error level
-- `@level:warn` - Filter by warning level  
+- `@level:warn` - Filter by warning level
 - `@level:info` - Filter by info level
 - `@level:debug` - Filter by debug level
 - `AND`, `OR` - Combine filters
@@ -651,17 +804,17 @@ echo ""
 
 for ENV in "${ENVIRONMENTS[@]}"; do
     echo "Checking $ENV..."
-    
+
     # Get service URL
     URL="https://yoto-${ENV}.up.railway.app/health"
-    
+
     # Check health
     if curl -f -s "$URL" > /dev/null; then
         echo "  ✅ $ENV is healthy"
     else
         echo "  ❌ $ENV is unhealthy"
     fi
-    
+
     echo ""
 done
 

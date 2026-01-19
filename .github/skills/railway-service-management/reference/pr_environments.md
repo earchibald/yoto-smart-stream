@@ -199,6 +199,122 @@ Configuration:
 startCommand = "python manage.py migrate && uvicorn main:app --host 0.0.0.0 --port $PORT"
 ```
 
+## Provisioning Environment Tokens for PR Environments
+
+When you need to provision Railway environment tokens for PR environments (e.g., for Cloud Agent or CI/CD workflows):
+
+### Quick Process
+
+```bash
+# 1. Get PR number from GitHub
+PR_NUMBER=$(gh pr view --json number -q .number)
+
+# 2. Calculate environment name
+RAILWAY_ENV="yoto-smart-stream-pr-${PR_NUMBER}"
+
+# 3. Link workspace to PR environment
+railway link --project yoto --service yoto-smart-stream --environment ${RAILWAY_ENV}
+
+# 4. Get Railway dashboard URL
+RAILWAY_URL=$(railway open --print)
+
+# 5. Use Playwright to provision token via browser
+# Navigate to ${RAILWAY_URL} → Settings → Tokens
+# Create token named "pr-${PR_NUMBER}-token" for environment ${RAILWAY_ENV}
+
+# 6. Set environment variables with token value
+railway variables set RAILWAY_TOKEN=<token-value> -e ${RAILWAY_ENV}
+railway variables set RAILWAY_API_TOKEN=<token-value> -e ${RAILWAY_ENV}
+```
+
+### Detailed Steps
+
+**1. Determine PR Number**
+```bash
+# Using GitHub CLI
+gh pr view --json number -q .number
+
+# Or from GitHub MCP
+# Use mcp_github_pull_request_read tool
+```
+
+**2. Calculate Environment Name**
+
+Railway uses pattern: `{service-name}-pr-{number}`
+
+```bash
+# For service "yoto-smart-stream" and PR #88:
+RAILWAY_ENV="yoto-smart-stream-pr-88"
+```
+
+**3. Link to Environment**
+
+Use long-form flags with names (no UUIDs needed):
+
+```bash
+railway link --project yoto --service yoto-smart-stream --environment yoto-smart-stream-pr-88
+```
+
+This links your workspace to the specific PR environment.
+
+**4. Get Dashboard URL**
+
+```bash
+railway open --print
+```
+
+Returns URL like: `https://railway.com/project/f92d5fa2-484e-4d93-9b1f-91c33cc33d0e?environmentId=...`
+
+**5. Provision Token via Browser**
+
+Using Playwright MCP or manual browser:
+
+1. Navigate to URL from step 4
+2. Click **Settings** → **Tokens**
+3. Click **Create Token**
+4. Fill form:
+   - **Token Name**: `pr-{number}-token` (e.g., `pr-88-token`)
+   - **Environment**: Select `yoto-smart-stream-pr-{number}`
+5. Click **Create**
+6. **Copy token value immediately** (shown only once)
+7. Click **Got it** to close dialog
+
+**Token format:** `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` (UUID)
+
+**6. Set Environment Variables**
+
+```bash
+# Set both variables with the copied token value
+railway variables set RAILWAY_TOKEN=a1f80cde-030f-4b4f-84aa-07b00c2aa54f -e yoto-smart-stream-pr-88
+railway variables set RAILWAY_API_TOKEN=a1f80cde-030f-4b4f-84aa-07b00c2aa54f -e yoto-smart-stream-pr-88
+
+# Verify variables are set
+railway variables list -e yoto-smart-stream-pr-88 | grep -E "(RAILWAY_TOKEN|RAILWAY_API_TOKEN)"
+```
+
+### Why This Process
+
+**Pattern-Based Naming**: No need to query Railway API for environment names—they follow predictable pattern
+
+**Long-Form Flags**: Using `--project yoto --service yoto-smart-stream` instead of UUIDs makes commands readable and maintainable
+
+**`railway open --print`**: Automatically generates correct dashboard URL with environment context, avoiding manual navigation
+
+**Browser-Based Token Creation**: Railway doesn't expose API for creating project tokens, so Playwright automation provides reliable token provisioning
+
+### Verification
+
+```bash
+# Check environment is linked
+railway status --json
+
+# List all variables (check for RAILWAY_TOKEN and RAILWAY_API_TOKEN)
+railway variables list -e yoto-smart-stream-pr-88
+
+# Test deployment with new tokens
+railway up -e yoto-smart-stream-pr-88
+```
+
 ## Usage
 
 ### For Developers

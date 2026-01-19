@@ -1,11 +1,37 @@
 ---
 name: railway-service-management
-description: Specialized knowledge for managing multi-environment Railway deployments. Use when: (1) Setting up Railway projects/environments/services, (2) Configuring deployments and builds (NIXPACKS/Railpack/Dockerfile), (3) Managing Railway CLI operations and logs, (4) Implementing PR environments or branch-based workflows, (5) Troubleshooting deployment failures or health checks, (6) Managing secrets/variables across environments, (7) Optimizing Railway costs and resources, (8) Configuring databases/volumes/networking, (9) Setting up CI/CD with GitHub Actions, (10) Using Railway MCP Server tools.
+description: Specialized knowledge for managing multi-environment Railway deployments. Use when: (1) Setting up Railway projects/environments/services, (2) Configuring deployments and builds (NIXPACKS/Railpack/Dockerfile), (3) Managing Railway CLI operations and logs, (4) Implementing PR environments or branch-based workflows, (5) Troubleshooting deployment failures or health checks, (6) Managing secrets/variables across environments, (7) Optimizing Railway costs and resources, (8) Configuring databases/volumes/networking, (9) Setting up CI/CD with GitHub Actions, (10) Cloud Agent sessions needing Railway CLI access with RAILWAY_API_TOKEN-based authentication.
 ---
 
 # Railway Service Management
 
 Complete guide for managing Railway.app deployments across multiple environments with automated workflows.
+
+## Quick Start for Cloud Agents
+
+**If you're a Cloud Agent (GitHub Copilot Workspace), use the setup script:**
+
+```bash
+# Run the automated setup script
+bash .github/skills/railway-service-management/scripts/setup_cloud_agent.sh
+
+# Then use Railway CLI commands
+railway status --json
+railway logs --lines 50 --filter "@level:error" --json
+railway var list --json
+railway deployment list --json
+```
+
+The script automatically:
+- Verifies RAILWAY_API_TOKEN is configured
+- Logs in to Railway using `railway login`
+- Identifies the correct environment (PR or production)
+- Links to project: yoto, service: yoto-smart-stream
+- Configures Railway CLI for immediate use
+
+**Important:** Railway CLI works with full privileges in Cloud Agent runtime. Railway MCP tools **will not work** because MCP servers run in a separate process context and cannot access Railway authentication.
+
+**For detailed instructions**: See [Cloud Agent Authentication](reference/cli_scripts.md#cloud-agent-authentication-railway_api_token-mode)
 
 ## Quick Start
 
@@ -24,7 +50,7 @@ railway link --project <project_id>
 railway environment --environment develop
 ```
 
-**For complete CLI reference and Railway MCP Server usage**: See [cli_scripts.md](reference/cli_scripts.md)
+**For complete CLI reference**: See [cli_scripts.md](reference/cli_scripts.md)
 
 ## Essential Workflows
 
@@ -48,7 +74,7 @@ railway environment --environment develop
 
 Typical structure:
 - **Production** (main branch) - Customer-facing
-- **Staging** (develop branch) - Pre-production testing  
+- **Staging** (develop branch) - Pre-production testing
 - **PR Environments** - Automatic ephemeral environments per PR
 
 **For complete multi-environment architecture**: See [multi_environment_architecture.md](reference/multi_environment_architecture.md)
@@ -66,7 +92,7 @@ Common issues:
 
 Load these files as needed for detailed guidance:
 
-- **[cli_scripts.md](reference/cli_scripts.md)** - Complete Railway CLI reference, MCP Server tools, automation scripts
+- **[cli_scripts.md](reference/cli_scripts.md)** - Complete Railway CLI reference, Cloud Agent authentication, automation scripts
 - **[configuration_management.md](reference/configuration_management.md)** - Railpack, NIXPACKS, Dockerfile builds, railway.toml
 - **[deployment_workflows.md](reference/deployment_workflows.md)** - GitHub Actions, CI/CD, PR workflows, rollback strategies
 - **[multi_environment_architecture.md](reference/multi_environment_architecture.md)** - Environment setup, branch mapping, isolation patterns
@@ -81,6 +107,6 @@ Load these files as needed for detailed guidance:
 
 1. **Always filter logs** when using Railway CLI for efficiency
 2. **Prefer auto-detection** for build configuration (Railpack)
-3. **Use Railway MCP Server** tools when available for Railway management
+3. **Use Railway CLI** commands (not MCP tools) in Cloud Agent sessions
 4. **Verify environment link** before CLI operations: `railway status --json`
 5. **Check health checks** are properly configured for all services

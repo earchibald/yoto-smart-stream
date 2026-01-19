@@ -129,27 +129,27 @@ sequenceDiagram
     participant Player as Yoto Player
     participant MQTT as MQTT Broker<br/>(Yoto Cloud)
     participant Server as Your Streaming<br/>Server
-    
+
     Note over User,Server: Card Insertion & Initial Setup
     User->>Player: Inserts chapter book card
     activate Player
     Player->>MQTT: Publish: Card inserted event
     MQTT->>Server: Forward: Card inserted
     Server->>Server: Load card metadata<br/>(3 chapters)
-    
+
     Note over User,Server: Chapter 1 Playback Begins
     Player->>Server: HTTP GET: /audio/chapter1.mp3
     Server-->>Player: Stream audio (Chapter 1)
     Player->>Player: Begin playback
     Player->>MQTT: Publish: Playback started<br/>Chapter 1
     MQTT->>Server: Forward: Status update
-    
+
     Note over User,Server: Real-time Status Updates
     loop Every few seconds during playback
         Player->>MQTT: Publish: Track position,<br/>battery level, volume
         MQTT->>Server: Forward: Status updates
     end
-    
+
     Note over User,Server: User Navigation - Skip to Chapter 2
     User->>Player: Presses "Next Chapter" button
     Player->>MQTT: Publish: Button press event<br/>(next chapter)
@@ -159,31 +159,31 @@ sequenceDiagram
     Server-->>Player: Stream audio (Chapter 2)
     Player->>Player: Begin playback
     Player->>MQTT: Publish: Now playing<br/>Chapter 2
-    
+
     Note over User,Server: Pause & Resume
     User->>Player: Presses "Pause" button
     Player->>Player: Pause playback
     Player->>MQTT: Publish: Playback paused
     MQTT->>Server: Forward: Paused status
-    
+
     User->>Player: Presses "Play" button
     Player->>Player: Resume playback
     Player->>MQTT: Publish: Playback resumed
-    
+
     Note over User,Server: Chapter 2 Completes
     Player->>Player: Chapter 2 ends
     Player->>MQTT: Publish: Chapter complete
     Player->>Server: HTTP GET: /audio/chapter3.mp3
     Server-->>Player: Stream audio (Chapter 3)
     Player->>MQTT: Publish: Now playing<br/>Chapter 3
-    
+
     Note over User,Server: Book Completion
     Player->>Player: Chapter 3 ends
     Player->>MQTT: Publish: Playback complete<br/>All chapters finished
     MQTT->>Server: Forward: Complete event
     Player->>Player: Return to idle state
     deactivate Player
-    
+
     Note over User,Server: Card Removed
     User->>Player: Removes card
     Player->>MQTT: Publish: Card removed
@@ -277,6 +277,8 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md)**: Configure separate tokens per environment
 - **[Codespaces Railway Setup](docs/CODESPACES_RAILWAY_SETUP.md)**: Configure Railway access for GitHub Codespaces
 - **[Copilot Workspace Configuration](docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md)**: Network access and Railway MCP server for GitHub Copilot Workspace (NEW)
+- **[Cloud Agent Railway Tokens](docs/CLOUD_AGENT_RAILWAY_TOKENS.md)**: Provision Railway tokens for Cloud Agents (GitHub Copilot Workspace) (NEW)
+- **[Cloud Agent Quick Reference](docs/CLOUD_AGENT_QUICK_REF.md)**: Quick guide for enabling Cloud Agent Railway access (NEW)
 - **[AWS Cost-Optimization Report](docs/AWS_COST_OPTIMIZATION_REPORT.md)**: Complete AWS architecture analysis with cost breakdowns ($5-47/month options) (NEW)
 - **[AWS Cost Quick Reference](docs/AWS_COST_QUICK_REFERENCE.md)**: Fast decision matrix for AWS deployment options (NEW)
 
@@ -353,7 +355,7 @@ git push origin develop
 
 **Token Security**: Production uses a single Railway token (`RAILWAY_TOKEN_PROD`). Application secrets like `YOTO_CLIENT_ID` are stored as Railway Shared Variables. See [GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md).
 
-**Status**: 
+**Status**:
 - ✅ Production (main branch) - Auto-deployed with `RAILWAY_TOKEN_PROD`
 - ✅ PR Environments (all PRs) - Auto-created by Railway native feature, inherits secrets via Shared Variables
 
