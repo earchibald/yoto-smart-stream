@@ -67,8 +67,28 @@ function applyPlaylistsFilter() {
     }
 }
 
+// Check if user is admin and hide admin nav if not
+async function checkAdminStatus() {
+    try {
+        const response = await fetch('/api/user/session', { credentials: 'include' });
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.is_admin) {
+                // Hide admin nav link for non-admin users
+                const adminLink = document.querySelector('a[href="/admin"]');
+                if (adminLink) {
+                    adminLink.parentElement.style.display = 'none';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error checking admin status:', error);
+    }
+}
+
 // Load initial data
 document.addEventListener('DOMContentLoaded', () => {
+    checkAdminStatus();
     loadSystemStatus();
     loadLibrary();
     
@@ -99,6 +119,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (playlistsFilter) {
         playlistsFilter.addEventListener('input', applyPlaylistsFilter);
     }
+    
+    // Add keyboard shortcut: '/' key focuses the filter input
+    document.addEventListener('keydown', (event) => {
+        // Check if '/' key is pressed and not in an input field
+        if (event.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+            event.preventDefault();
+            // Focus the cards filter if visible, otherwise the playlists filter
+            const cardsFilter = document.getElementById('cards-filter');
+            const playlistsFilter = document.getElementById('playlists-filter');
+            if (cardsFilter && cardsFilter.offsetParent !== null) {
+                cardsFilter.focus();
+            } else if (playlistsFilter && playlistsFilter.offsetParent !== null) {
+                playlistsFilter.focus();
+            }
+        }
+        
+        // Add Escape key listener to close modals
+        if (event.key === 'Escape') {
+            const contentModal = document.getElementById('content-modal');
+            const rawDataModal = document.getElementById('raw-data-modal');
+            
+            // Close whichever modal is currently open
+            if (contentModal && contentModal.style.display === 'flex') {
+                closeContentModal();
+            }
+            if (rawDataModal && rawDataModal.style.display === 'flex') {
+                closeRawDataModal();
+            }
+        }
+    });
 });
 
 // Load system status
@@ -170,13 +220,34 @@ async function loadLibrary() {
         statusTextEl.textContent = 'Error Loading Library';
         
         const cardsGrid = document.getElementById('cards-grid');
-        cardsGrid.innerHTML = '<p class="error-message">Failed to load library. Please try again.</p>';
+        const skeleton = document.getElementById('cards-skeleton');
+        
+        // Hide skeleton and show error message
+        if (skeleton) {
+            skeleton.style.display = 'none';
+        }
+        
+        cardsGrid.innerHTML = `
+            <div class="error-boundary error">
+                <div class="icon">⚠️</div>
+                <div class="content">
+                    <strong>Failed to load library</strong>
+                    <p>${error.message || 'An unexpected error occurred'}</p>
+                </div>
+            </div>
+        `;
     }
 }
 
 // Display cards in grid
 function displayCards(cards) {
     const cardsGrid = document.getElementById('cards-grid');
+    const skeleton = document.getElementById('cards-skeleton');
+    
+    // Hide skeleton loader once data is ready
+    if (skeleton) {
+        skeleton.style.display = 'none';
+    }
     
     if (!cards || cards.length === 0) {
         cardsGrid.innerHTML = '<p class="loading">No cards found in your library.</p>';
@@ -191,13 +262,13 @@ function displayCards(cards) {
             <div class="library-card" data-content-id="${escapeHtml(card.id)}" data-content-title="${escapeHtml(card.title)}">
                 <div class="library-card-image">
                     <img src="${escapeHtml(coverImage)}" alt="${escapeHtml(card.title)}" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+                    <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data" aria-label="View Raw Data"></button>
                 </div>
                 <div class="library-card-content">
                     <h4 class="library-card-title">${escapeHtml(card.title)}</h4>
                     ${card.author ? `<p class="library-card-author">by ${escapeHtml(card.author)}</p>` : ''}
                     ${card.description ? `<p class="library-card-description">${escapeHtml(card.description)}</p>` : ''}
                 </div>
-                <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data">ℹ️</button>
             </div>
         `;
     }).join('');
@@ -415,3 +486,225 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+// Delete Playlist Modal Functions for library.js
+
+// Open delete playlist modal
+function openDeletePlaylistModal() {
+    const modal = document.getElementById('delete-playlist-modal');
+    modal.style.display = 'flex';
+    
+    // Reset the modal state
+    document.getElementById('delete-playlist-search').value = '';
+    document.getElementById('delete-playlist-search-results').style.display = 'none';
+    document.getElementById('delete-playlist-result').style.display = 'none';
+}
+
+// Close delete playlist modal
+function closeDeletePlaylistModal() {
+    const modal = document.getElementById('delete-playlist-modal');
+    modal.style.display = 'none';
+}
+
+// Search for playlists to delete
+async function searchPlaylistsForDelete() {
+    const playlistName = document.getElementById('delete-playlist-search').value.trim();
+    
+    if (!playlistName) {
+        alert('Please enter a playlist name to search for');
+        return;
+    }
+    
+    const loadingDiv = document.getElementById('delete-playlist-loading');
+    const resultsDiv = document.getElementById('delete-playlist-search-results');
+    const resultMessageDiv = document.getElementById('delete-playlist-result');
+    
+    loadingDiv.style.display = 'block';
+    resultsDiv.style.display = 'none';
+    resultMessageDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch(`${API_BASE}/streams/playlists/search/${encodeURIComponent(playlistName)}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.detail || 'Failed to search playlists');
+        }
+        
+        loadingDiv.style.display = 'none';
+        
+        if (result.count === 0) {
+            resultMessageDiv.textContent = `No playlists found matching "${playlistName}"`;
+            resultMessageDiv.className = 'result-message info-message';
+            resultMessageDiv.style.display = 'block';
+            return;
+        }
+        
+        // Display results
+        displayPlaylistSearchResults(result.playlists);
+        resultsDiv.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Failed to search playlists:', error);
+        loadingDiv.style.display = 'none';
+        resultMessageDiv.textContent = 'Failed to search playlists: ' + error.message;
+        resultMessageDiv.className = 'result-message error-message';
+        resultMessageDiv.style.display = 'block';
+    }
+}
+
+function displayPlaylistSearchResults(playlists) {
+    const listDiv = document.getElementById('delete-playlist-list');
+    const countSpan = document.getElementById('delete-playlist-count');
+    const selectAllBtn = document.getElementById('select-all-delete-btn');
+    
+    countSpan.textContent = playlists.length;
+    selectAllBtn.style.display = playlists.length > 1 ? 'block' : 'none';
+    
+    listDiv.innerHTML = playlists.map((playlist, index) => `
+        <div class="playlist-item" style="padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem;">
+            <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                <input 
+                    type="checkbox" 
+                    id="playlist-${index}" 
+                    data-playlist-id="${escapeHtml(playlist.id)}"
+                    data-playlist-title="${escapeHtml(playlist.title)}"
+                    onchange="updateDeleteSelection()"
+                    style="margin-top: 0.25rem; cursor: pointer;"
+                />
+                <div style="flex: 1;">
+                    <label for="playlist-${index}" style="cursor: pointer; font-weight: 500; margin-bottom: 0.25rem;">
+                        ${escapeHtml(playlist.title)}
+                    </label>
+                    ${playlist.description ? `<p style="margin: 0.25rem 0; color: #666; font-size: 0.9rem;">${escapeHtml(playlist.description)}</p>` : ''}
+                    <p style="margin: 0.25rem 0; color: #999; font-size: 0.85rem;">ID: ${escapeHtml(playlist.id)}</p>
+                    ${playlist.created_at ? `<p style="margin: 0.25rem 0; color: #999; font-size: 0.85rem;">Created: ${new Date(playlist.created_at).toLocaleDateString()}</p>` : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateDeleteSelection() {
+    const checkboxes = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]');
+    const selectedCount = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]:checked').length;
+    const selectedCountSpan = document.getElementById('delete-selected-count');
+    const deleteBtn = document.getElementById('delete-confirm-btn');
+    
+    selectedCountSpan.textContent = selectedCount;
+    
+    if (selectedCount > 0) {
+        deleteBtn.disabled = false;
+        deleteBtn.style.opacity = '1';
+        deleteBtn.style.cursor = 'pointer';
+    } else {
+        deleteBtn.disabled = true;
+        deleteBtn.style.opacity = '0.5';
+        deleteBtn.style.cursor = 'not-allowed';
+    }
+}
+
+function toggleSelectAllDelete() {
+    const checkboxes = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+    });
+    
+    updateDeleteSelection();
+}
+
+async function deleteSelectedPlaylists() {
+    const checkboxes = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]:checked');
+    
+    if (checkboxes.length === 0) {
+        alert('Please select at least one playlist to delete');
+        return;
+    }
+    
+    const playlistIds = Array.from(checkboxes).map(cb => cb.dataset.playlistId);
+    const playlistTitles = Array.from(checkboxes).map(cb => cb.dataset.playlistTitle);
+    
+    const confirmMessage = `Are you sure you want to delete ${playlistIds.length} playlist(s)?\n\n` +
+        playlistTitles.slice(0, 5).map(t => `• ${t}`).join('\n') +
+        (playlistTitles.length > 5 ? `\n... and ${playlistTitles.length - 5} more` : '') +
+        '\n\nThis action cannot be undone.';
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    const deleteBtn = document.getElementById('delete-confirm-btn');
+    const originalText = deleteBtn.textContent;
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = '⏳ Deleting...';
+    
+    try {
+        const response = await fetch(`${API_BASE}/streams/playlists/delete-multiple`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                playlist_ids: playlistIds,
+            }),
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.detail || 'Failed to delete playlists');
+        }
+        
+        // Show results
+        const resultDiv = document.getElementById('delete-playlist-result');
+        const successCount = result.success.length;
+        const failedCount = result.failed.length;
+        
+        let message = `✓ Successfully deleted ${successCount} playlist(s)`;
+        if (failedCount > 0) {
+            message += `\n\n✗ Failed to delete ${failedCount} playlist(s):\n`;
+            result.failed.forEach(f => {
+                message += `• ${f.playlist_id}: ${f.error}\n`;
+            });
+        }
+        
+        resultDiv.textContent = message;
+        resultDiv.className = 'result-message ' + (failedCount > 0 ? 'error-message' : 'success-message');
+        resultDiv.style.display = 'block';
+        
+        // Refresh the library after successful deletion
+        if (successCount > 0) {
+            setTimeout(() => {
+                refreshLibrary();
+                closeDeletePlaylistModal();
+            }, 2000);
+        }
+        
+    } catch (error) {
+        console.error('Failed to delete playlists:', error);
+        const resultDiv = document.getElementById('delete-playlist-result');
+        resultDiv.textContent = 'Failed to delete playlists: ' + error.message;
+        resultDiv.className = 'result-message error-message';
+        resultDiv.style.display = 'block';
+    } finally {
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = originalText;
+    }
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('delete-playlist-modal');
+    if (event.target === modal) {
+        closeDeletePlaylistModal();
+    }
+});

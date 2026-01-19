@@ -1,8 +1,43 @@
 # Deployment Workflows for Railway
 
+## Table of Contents
+
+- [Quick Fixes: Env Linking + Static Cache Busting](#quick-fixes-env-linking--static-cache-busting)
+- [Railway Native PR Environments](#railway-native-pr-environments)
+- [Automated Deployment via GitHub Integration](#automated-deployment-via-github-integration)
+- [GitHub Actions Integration](#github-actions-integration)
+- [Manual Deployment Workflows](#manual-deployment-workflows)
+- [Checklist](#checklist)
+- [Database Migration Workflows](#database-migration-workflows)
+- [Rollback Workflows](#rollback-workflows)
+- [Environment-Specific Deployment Strategies](#environment-specific-deployment-strategies)
+- [Monitoring & Notifications](#monitoring--notifications)
+- [Deployment Checklist](#deployment-checklist)
+- [Railway.toml Configuration Synchronization](#railwaytoml-configuration-synchronization)
+- [GitHub Deployment Status Checks](#github-deployment-status-checks-authoritative-process)
+- [Best Practices](#best-practices)
+
 ## Overview
 
 This guide covers automated deployment workflows for Railway, including GitHub Actions integration, CI/CD pipelines, Railway's native PR Environments, and deployment automation strategies.
+
+## Quick Fixes: Env Linking + Static Cache Busting
+
+When deploys appear to succeed but the live app serves stale assets or old pages, verify these two areas first:
+
+- Environment link reset: Re-link the workspace and select the correct environment (e.g., `develop`).
+  - Commands:
+    - `railway link --project <project_id>`
+    - `railway environment --environment develop`
+    - `railway status --json`
+  - Symptom addressed: CLI errors like “Environment is deleted. Run railway environment to connect to an environment.”
+
+- Static asset cache busting: Ensure clients fetch updated CSS/JS after deploys.
+  - Pattern: Add a version query param to stylesheet/script URLs, e.g. `/static/css/style.css?v=YYYYMMDD`.
+  - Fallback: For critical fixes, add a small inline `<style>` block after the external link to override stale rules with `!important` until cache expires.
+  - Symptom addressed: Browser shows old computed styles despite new code being deployed.
+
+These fixes are safe, reversible, and helpful during fast UI iteration.
 
 ## Railway Native PR Environments
 
@@ -979,6 +1014,317 @@ Solution:
    - Always commit railway.toml changes
    - Review changes in PRs
    - Document reasons for configuration changes in commit messages
+
+## GitHub Deployment Status Checks (Authoritative Process)
+
+### Overview
+
+Railway automatically posts **GitHub commit status checks** when deploying your code. This is the authoritative way for GitHub agents and CI/CD workflows to track Railway deployment status without polling or manual checks.
+
+### What Railway Posts
+
+When Railway deploys, it creates a GitHub commit status with:
+
+- **Context**: `{service-name}` or `zippy-encouragement - {service-name}`
+- **State**: `pending`, `success`, `failure`, or `error`
+- **Description**: Human-readable status (e.g., "Success - yoto-smart-stream-pr-61.up.railway.app")
+- **Target URL**: Direct link to Railway deployment logs
+- **Timestamps**: `created_at` and `updated_at` in ISO 8601 format
+
+### Status Check States
+
+| State | Meaning | Agent Action |
+|-------|---------|--------------|
+| `pending` | Build/Deploy in progress | Wait and retry |
+| `success` | Deployment successful and healthy | Proceed with tests/merge |
+| `failure` | Build or deploy failed | Investigate logs, fix issues |
+| `error` | Health check failed | Check application logs |
+
+### Querying Status via GitHub API
+
+**Using GitHub CLI:**
+```bash
+# Check deployment status for a commit
+gh api repos/OWNER/REPO/commits/COMMIT_SHA/status --jq '.statuses'
+
+# Filter for Railway status only
+gh api repos/OWNER/REPO/commits/COMMIT_SHA/status --jq '.statuses[] | select(.context | contains("railway") or contains("yoto-smart-stream"))'
+
+# Example output:
+{
+  "context": "zippy-encouragement - yoto-smart-stream",
+  "state": "success",
+  "description": "Success - yoto-smart-stream-pr-61.up.railway.app",
+  "target_url": "https://railway.com/project/.../deployments/560ed5ff...",
+  "created_at": "2026-01-14T06:43:15Z"
+}
+```
+
+**Using REST API directly:**
+```bash
+curl -H "Authorization: Bearer $GITHUB_TOKEN" \
+  "https://api.github.com/repos/OWNER/REPO/commits/COMMIT_SHA/status" | \
+  jq '.statuses[] | select(.context | contains("railway"))'
+```
+
+### Using with GitHub CLI
+
+**Step 1: Get PR information**
+```bash
+# Get PR details
+gh pr view 61 --json headRefOid,number --jq '.'
+
+# Extract commit SHA
+commit_sha=$(gh pr view 61 --json headRefOid --jq -r '.headRefOid')
+```
+
+**Step 2: Query deployment status via GitHub API**
+```bash
+# Get commit status
+gh api repos/earchibald/yoto-smart-stream/commits/$commit_sha/status --jq '.statuses'
+
+# Find Railway deployment status
+railway_status=$(gh api repos/earchibald/yoto-smart-stream/commits/$commit_sha/status --jq '.statuses[] | select(.context | contains("railway") or contains("yoto-smart-stream"))')
+```
+
+**Step 3: Make decisions based on status**
+```bash
+# Extract state from railway_status
+state=$(echo "$railway_status" | jq -r '.state')
+description=$(echo "$railway_status" | jq -r '.description')
+target_url=$(echo "$railway_status" | jq -r '.target_url')
+
+if [[ -n "$railway_status" ]]; then
+    if [[ "$state" == "success" ]]; then
+        echo "✅ Deployment succeeded: $description"
+        # Proceed with testing or merge
+    elif [[ "$state" == "pending" ]]; then
+        echo "⏳ Deployment in progress, waiting..."
+        # Wait and retry after delay
+    elif [[ "$state" == "failure" || "$state" == "error" ]]; then
+        echo "❌ Deployment failed"
+        echo "Logs: $target_url"
+        # Investigate and fix issues
+```
+
+### Agent Workflow Pattern
+
+**Wait for deployment before testing:**
+```bash
+wait_for_railway_deployment() {
+    # Wait for Railway deployment to complete before running tests
+    local owner=$1
+    local repo=$2
+    local commit_sha=$3
+    local timeout=${4:-600}
+    
+    local start=$(date +%s)
+    
+    while true; do
+        local now=$(date +%s)
+        local elapsed=$((now - start))
+        
+        if [ $elapsed -gt $timeout ]; then
+            echo "❌ Timeout waiting for Railway deployment"
+            return 1
+        fi
+        
+        # Query status
+        local railway_status=$(gh api repos/$owner/$repo/commits/$commit_sha/status \
+            --jq '.statuses[] | select(.context | contains("railway"))')
+        
+        if [ -z "$railway_status" ]; then
+            sleep 10
+            continue
+        fi
+        
+        local state=$(echo "$railway_status" | jq -r '.state')
+        local description=$(echo "$railway_status" | jq -r '.description')
+        
+        if [ "$state" = "success" ]; then
+            echo "$description"  # Return deployment URL
+            return 0
+        elif [ "$state" = "failure" ] || [ "$state" = "error" ]; then
+            echo "❌ Railway deployment failed: $description" >&2
+            return 1
+        fi
+        
+        sleep 10  # Check every 10 seconds
+    done
+}
+
+# Usage
+deployment_url=$(wait_for_railway_deployment "earchibald" "yoto-smart-stream" "$commit_sha")
+run_integration_tests "$deployment_url"
+```
+
+**Check status before merge:**
+```bash
+# Function to verify Railway deployment succeeded before allowing merge
+can_merge_pr() {
+    local owner=$1
+    local repo=$2
+    local pr_number=$3
+    
+    # Get PR head commit SHA
+    commit_sha=$(gh pr view $pr_number --json headRefOid --jq -r '.headRefOid')
+    
+    # Get Railway deployment status
+    railway_state=$(gh api repos/$owner/$repo/commits/$commit_sha/status --jq -r '.statuses[] | select(.context | contains("railway")) | .state')
+    
+    [[ "$railway_state" == "success" ]]
+}
+
+# Usage
+if can_merge_pr "earchibald" "yoto-smart-stream" 61; then
+    echo "PR can be merged"
+else
+    echo "Railway deployment not ready"
+fi
+```
+
+### Using in GitHub Actions
+
+**Wait for deployment before running tests:**
+```yaml
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Wait for Railway deployment
+        timeout-minutes: 10
+        run: |
+          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          MAX_ATTEMPTS=60
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            STATUS=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA/status \
+              --jq '.statuses[] | select(.context | contains("railway")) | .state' 2>/dev/null)
+            
+            if [ "$STATUS" = "success" ]; then
+              echo "✅ Railway deployment succeeded"
+              break
+            elif [ "$STATUS" = "failure" ] || [ "$STATUS" = "error" ]; then
+              echo "❌ Railway deployment failed"
+              exit 1
+            fi
+            
+            echo "⏳ Waiting for Railway deployment... (attempt $((ATTEMPT+1))/$MAX_ATTEMPTS)"
+            sleep 10
+            ATTEMPT=$((ATTEMPT+1))
+          done
+          
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "⏱️  Timeout waiting for Railway deployment"
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Get deployment URL
+        id: deployment
+        run: |
+          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          URL=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA/status \
+            --jq '.statuses[] | select(.context | contains("railway")) | .target_url')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run integration tests
+        env:
+          TEST_URL: ${{ steps.deployment.outputs.url }}
+        run: |
+          pytest tests/integration/ -v --base-url=$TEST_URL
+```
+
+### Best Practices for Status Checks
+
+1. **Always query for Railway status before deployment decisions**
+   - Don't rely on git push timestamps
+   - Don't poll Railway API directly
+   - Use GitHub's authoritative status checks
+
+2. **Handle all status states gracefully**
+   - `pending`: Implement exponential backoff retry
+   - `success`: Proceed with confidence
+   - `failure`/`error`: Log and investigate
+
+3. **Set appropriate timeouts**
+   - Allow 5-10 minutes for builds (depends on image size)
+   - Allow 2-5 minutes for deployments (depends on app startup)
+   - Use total timeout of 10-15 minutes
+
+4. **Log deployment information**
+   - Record commit SHA, PR number, timestamp
+   - Store target_url for investigation
+   - Include in agent decision logs
+
+5. **Combine with other checks**
+   - Use "Wait for CI" feature (GitHub Actions)
+   - Only deploy after Railway + your tests pass
+   - Document the order of checks
+
+### Troubleshooting Status Checks
+
+**Problem: No Railway status appears**
+- Deployment may not have started yet
+- Check if Railway integration is properly connected
+- Verify service is configured for auto-deploy
+
+**Problem: Status stuck in "pending"**
+- Check Railway dashboard for build errors
+- Verify healthcheck configuration
+- Check service logs via `railway logs`
+- May indicate build timeout
+
+**Problem: Status shows "failure" without details**
+- Click target_url to see full Railway logs
+- Check build logs vs deploy logs
+- Verify all environment variables are set
+
+**Problem: Old PR status interfering**
+- Status checks accumulate; most recent takes precedence
+- Each new push updates the status
+- Manual redeploy also updates status
+
+### Example: Real-World Implementation
+
+For PR #61 (`yoto-smart-stream`):
+
+```bash
+# Check latest deployment status
+gh api repos/earchibald/yoto-smart-stream/commits/53db1fc/status \
+  --jq '.statuses[] | select(.context | contains("yoto-smart-stream"))'
+
+# Output:
+{
+  "context": "zippy-encouragement - yoto-smart-stream",
+  "state": "success",
+  "description": "Success - yoto-smart-stream-yoto-smart-stream-pr-61.up.railway.app",
+  "target_url": "https://railway.com/project/.../deployments/560ed5ff...",
+  "created_at": "2026-01-14T06:43:15Z",
+  "updated_at": "2026-01-14T06:43:15Z"
+}
+
+# Access deployed application
+curl https://yoto-smart-stream-yoto-smart-stream-pr-61.up.railway.app/health
+
+# View deployment logs
+open https://railway.com/project/.../deployments/560ed5ff...
+```
+
+---
 
 ## Best Practices
 

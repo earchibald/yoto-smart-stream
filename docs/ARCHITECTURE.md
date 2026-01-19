@@ -1,3 +1,9 @@
+> **⚠️ DEPRECATED**: This documentation has been consolidated into the [yoto-smart-stream skill](../.github/skills/yoto-smart-stream/SKILL.md). Please refer to the skill for current information.
+>
+> **New location:** `.github/skills/yoto-smart-stream/reference/architecture.md`
+
+---
+
 # Yoto Smart Stream - Architecture & Implementation Plan
 
 ## Executive Summary

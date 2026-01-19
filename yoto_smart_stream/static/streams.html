@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Streams - Yoto Smart Stream</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
 </head>
 <body>
     <nav class="sidebar">
@@ -14,8 +14,9 @@
         <ul class="nav-menu">
             <li><a href="/">🏠 Dashboard</a></li>
             <li class="active"><a href="/streams">✨ Smart Streams</a></li>
-            <li><a href="/library">📚 Library</a></li>
-            <li><a href="/docs" target="_blank">📖 API Docs</a></li>
+            <li><a href="/library">📚 Yoto Library</a></li>
+            <li><a href="/audio-library">🎙️ Audio Library</a></li>
+            <li><a href="/admin">⚙️ Admin</a></li>
         </ul>
         <div class="sidebar-footer">
             <p id="app-version">Loading...</p>
@@ -26,7 +27,6 @@
         <header>
             <h2>Smart Streams</h2>
             <div style="display: flex; gap: 0.5rem;">
-                <button class="action-button" onclick="openDeletePlaylistModal()">🗑️ Delete Yoto Playlist</button>
                 <button class="refresh-btn" onclick="loadAudioFiles()">🔄 Refresh</button>
             </div>
         </header>
@@ -182,48 +182,26 @@
         </div>
     </div>
 
-    <!-- Delete Yoto Playlist Modal -->
-    <div id="delete-playlist-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 700px;">
-            <div class="modal-header">
-                <h3>🗑️ Delete Yoto Playlist</h3>
-                <button class="close-btn" onclick="closeDeletePlaylistModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <p class="info-text" style="margin-bottom: 1rem;">Search for playlists by name and delete them from your Yoto library. If multiple playlists match, you can select which ones to delete.</p>
-
-                <div class="form-group">
-                    <label for="delete-playlist-search">Search Playlist Name</label>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <input type="text" id="delete-playlist-search" placeholder="Enter playlist name to search..." style="flex: 1;">
-                        <button class="btn-primary" onclick="searchPlaylistsForDelete()">🔍 Search</button>
-                    </div>
-                </div>
-
-                <div id="delete-playlist-search-results" style="display: none; margin-top: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <h4 style="margin: 0;">Search Results (<span id="delete-playlist-count">0</span>)</h4>
-                        <button class="btn-small" onclick="toggleSelectAllDelete()" id="select-all-delete-btn" style="display: none;">Select All</button>
-                    </div>
-                    <div id="delete-playlist-list" class="playlist-selection-list">
-                        <!-- Results will be populated here -->
-                    </div>
-                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd;">
-                        <p><strong id="delete-selected-count">0</strong> playlist(s) selected</p>
-                        <div class="form-actions">
-                            <button class="btn-danger" onclick="deleteSelectedPlaylists()" id="delete-confirm-btn" disabled style="opacity: 0.5; cursor: not-allowed;">🗑️ Delete Selected</button>
-                            <button class="btn-secondary" onclick="closeDeletePlaylistModal()">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="delete-playlist-result" class="result-message" style="display: none;"></div>
-
-                <div id="delete-playlist-loading" class="loading" style="display: none;">Searching for playlists...</div>
-            </div>
-        </div>
-    </div>
-
     <script src="/static/js/streams.js"></script>
+    <script>
+        // Hide admin nav for non-admin users
+        async function checkAdminStatusNav() {
+            try {
+                const response = await fetch('/api/user/session', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (!data.is_admin) {
+                        const adminLink = document.querySelector('a[href="/admin"]');
+                        if (adminLink) {
+                            adminLink.parentElement.style.display = 'none';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking admin status:', error);
+            }
+        }
+        checkAdminStatusNav();
+    </script>
 </body>
 </html>

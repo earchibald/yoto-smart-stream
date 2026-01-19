@@ -1,35 +1,16 @@
 # Railway.app Configuration for Yoto Smart Stream
 # https://docs.railway.app/reference/config-as-code
-
-[build]
-# Use Nixpacks for automatic Python environment detection
-builder = "NIXPACKS"
-# Install dependencies from requirements.txt
-buildCommand = "pip install -r requirements.txt"
+# Build configuration is handled by railpack.json
+# This file handles volumes and healthcheck configuration
 
 [deploy]
-# Start the production FastAPI server
-# Railway provides $PORT environment variable automatically
-# Using production entry point: yoto_smart_stream.api:app
-startCommand = "uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT"
-
 # Health check endpoint
 healthcheckPath = "/api/health"
 healthcheckTimeout = 100
 
-# Restart policy
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
-
-# Watch patterns - trigger rebuild on changes to these files
-watchPatterns = [
-    "yoto_smart_stream/**/*.py",
-    "requirements.txt",
-    "pyproject.toml"
-]
-
 # Persistent volumes - survive deployments and restarts
-# Store Yoto auth tokens and other persistent data
+# Stores: SQLite database, stream queues, OAuth tokens
+# Audio files migrated to Railway Bucket (S3-compatible storage) for cost efficiency
 [[deploy.volumes]]
 name = "data"
 mountPath = "/data"

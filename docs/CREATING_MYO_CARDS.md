@@ -1,3 +1,9 @@
+> **⚠️ DEPRECATED**: This documentation has been consolidated into the [yoto-smart-stream skill](../.github/skills/yoto-smart-stream/SKILL.md). Please refer to the skill for current information.
+>
+> **New location:** `.github/skills/yoto-smart-stream/reference/myo_cards.md`
+
+---
+
 # Creating Yoto MYO (Make Your Own) Cards
 
 This guide explains the complete procedure for creating custom Yoto MYO Cards using the Yoto API. MYO Cards allow you to create your own audio content that can be played on Yoto devices.

@@ -1,3 +1,9 @@
+> **⚠️ DEPRECATED**: This documentation has been consolidated into the [yoto-smart-stream skill](../.github/skills/yoto-smart-stream/SKILL.md). Please refer to the skill for current information.
+>
+> **New location:** Content merged into `.github/skills/yoto-smart-stream/SKILL.md` and reference files
+
+---
+
 # Yoto Smart Stream - Open Planning Questions
 
 This document captures key questions and decisions that need to be made during the implementation of Yoto Smart Stream.

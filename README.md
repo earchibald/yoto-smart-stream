@@ -24,6 +24,7 @@ For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 - **Web UI**: Manage your audio library, configure cards, and write interactive scripts
 - **Card Management**: Upload, organize, and configure custom Yoto cards
 - **Multi-format Support**: Automatic audio conversion to Yoto-compatible formats
+- **Speech-to-Text Transcription**: Automatic transcription of audio files using OpenAI Whisper
 - **Automatic Token Refresh**: Background task keeps OAuth tokens valid indefinitely ([details](docs/OAUTH_TOKEN_PERSISTENCE.md))
 
 ## 🏗️ Architecture
@@ -128,27 +129,27 @@ sequenceDiagram
     participant Player as Yoto Player
     participant MQTT as MQTT Broker<br/>(Yoto Cloud)
     participant Server as Your Streaming<br/>Server
-    
+
     Note over User,Server: Card Insertion & Initial Setup
     User->>Player: Inserts chapter book card
     activate Player
     Player->>MQTT: Publish: Card inserted event
     MQTT->>Server: Forward: Card inserted
     Server->>Server: Load card metadata<br/>(3 chapters)
-    
+
     Note over User,Server: Chapter 1 Playback Begins
     Player->>Server: HTTP GET: /audio/chapter1.mp3
     Server-->>Player: Stream audio (Chapter 1)
     Player->>Player: Begin playback
     Player->>MQTT: Publish: Playback started<br/>Chapter 1
     MQTT->>Server: Forward: Status update
-    
+
     Note over User,Server: Real-time Status Updates
     loop Every few seconds during playback
         Player->>MQTT: Publish: Track position,<br/>battery level, volume
         MQTT->>Server: Forward: Status updates
     end
-    
+
     Note over User,Server: User Navigation - Skip to Chapter 2
     User->>Player: Presses "Next Chapter" button
     Player->>MQTT: Publish: Button press event<br/>(next chapter)
@@ -158,31 +159,31 @@ sequenceDiagram
     Server-->>Player: Stream audio (Chapter 2)
     Player->>Player: Begin playback
     Player->>MQTT: Publish: Now playing<br/>Chapter 2
-    
+
     Note over User,Server: Pause & Resume
     User->>Player: Presses "Pause" button
     Player->>Player: Pause playback
     Player->>MQTT: Publish: Playback paused
     MQTT->>Server: Forward: Paused status
-    
+
     User->>Player: Presses "Play" button
     Player->>Player: Resume playback
     Player->>MQTT: Publish: Playback resumed
-    
+
     Note over User,Server: Chapter 2 Completes
     Player->>Player: Chapter 2 ends
     Player->>MQTT: Publish: Chapter complete
     Player->>Server: HTTP GET: /audio/chapter3.mp3
     Server-->>Player: Stream audio (Chapter 3)
     Player->>MQTT: Publish: Now playing<br/>Chapter 3
-    
+
     Note over User,Server: Book Completion
     Player->>Player: Chapter 3 ends
     Player->>MQTT: Publish: Playback complete<br/>All chapters finished
     MQTT->>Server: Forward: Complete event
     Player->>Player: Return to idle state
     deactivate Player
-    
+
     Note over User,Server: Card Removed
     User->>Player: Removes card
     Player->>MQTT: Publish: Card removed
@@ -265,6 +266,8 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Production Server Guide](PRODUCTION_SERVER_COMPLETE.md)**: Complete guide to the production server implementation
 - **[Migration Guide](MIGRATION_GUIDE_EXAMPLES_TO_PROD.md)**: Migrate from examples to production server
 - **[Testing Guide](docs/TESTING_GUIDE.md)**: Comprehensive testing instructions, coverage reports, and quality checks
+
+### Cloud Deployment
 - **[Railway Deployment Guide](docs/RAILWAY_DEPLOYMENT.md)**: Deploy to Railway.app with automated CI/CD
 - **[Railway Direct Inspection](docs/RAILWAY_DIRECT_INSPECTION.md)**: Direct API access for service inspection and troubleshooting (NEW)
 - **[Railway PR Environments](docs/RAILWAY_PR_ENVIRONMENTS_NATIVE.md)**: Automatic ephemeral environments for pull requests
@@ -274,12 +277,17 @@ Visit http://localhost:8080/docs for interactive API documentation.
 - **[Railway Token Setup](docs/RAILWAY_TOKEN_SETUP.md)**: Configure separate tokens per environment
 - **[Codespaces Railway Setup](docs/CODESPACES_RAILWAY_SETUP.md)**: Configure Railway access for GitHub Codespaces
 - **[Copilot Workspace Configuration](docs/COPILOT_WORKSPACE_NETWORK_CONFIG.md)**: Network access and Railway MCP server for GitHub Copilot Workspace (NEW)
+- **[Cloud Agent Railway Tokens](docs/CLOUD_AGENT_RAILWAY_TOKENS.md)**: Provision Railway tokens for Cloud Agents (GitHub Copilot Workspace) (NEW)
+- **[Cloud Agent Quick Reference](docs/CLOUD_AGENT_QUICK_REF.md)**: Quick guide for enabling Cloud Agent Railway access (NEW)
+- **[AWS Cost-Optimization Report](docs/AWS_COST_OPTIMIZATION_REPORT.md)**: Complete AWS architecture analysis with cost breakdowns ($5-47/month options) (NEW)
+- **[AWS Cost Quick Reference](docs/AWS_COST_QUICK_REFERENCE.md)**: Fast decision matrix for AWS deployment options (NEW)
 
 ### Creating Content
 - **[Streaming from Your Own Service](docs/STREAMING_FROM_OWN_SERVICE.md)**: Stream audio from your server (recommended approach)
 - **[Dynamic Audio Streaming](docs/DYNAMIC_STREAMING.md)**: Create server-controlled playlists that stream multiple files sequentially (NEW)
 - **[Creating MYO Cards](docs/CREATING_MYO_CARDS.md)**: Traditional approach - upload audio to Yoto's servers
 - **[Icon Management Guide](docs/ICON_MANAGEMENT.md)**: Working with display icons for Yoto Mini
+- **[Speech-to-Text Transcription](#speech-to-text-transcription)**: Automatic transcription of audio files (NEW)
 
 ### API & Implementation
 - **[Yoto API Reference](docs/YOTO_API_REFERENCE.md)**: Complete API specification with endpoints, MQTT topics, and code examples
@@ -347,7 +355,7 @@ git push origin develop
 
 **Token Security**: Production uses a single Railway token (`RAILWAY_TOKEN_PROD`). Application secrets like `YOTO_CLIENT_ID` are stored as Railway Shared Variables. See [GitHub Secrets Setup](GITHUB_SECRETS_SETUP.md).
 
-**Status**: 
+**Status**:
 - ✅ Production (main branch) - Auto-deployed with `RAILWAY_TOKEN_PROD`
 - ✅ PR Environments (all PRs) - Auto-created by Railway native feature, inherits secrets via Shared Variables
 
@@ -566,17 +574,137 @@ This project is not affiliated with, endorsed by, or sponsored by Yoto Play. It'
 - [x] Icon management module (100% complete, 96% test coverage)
 - [x] FastAPI server implementation with lifespan management
 - [x] MQTT event monitoring
-- [x] Comprehensive testing suite (79 tests passing)
+- [x] Comprehensive testing suite (137 tests passing)
 - [x] Code quality tooling (ruff, black, pytest, mypy)
 - [x] Quick start and testing guides
 - [x] Dynamic audio streaming with queue management
 - [x] Text-to-speech integration
+- [x] Speech-to-text transcription (OpenAI Whisper)
 - [ ] Audio management system (basic upload/conversion)
 - [ ] Interactive script engine
 - [ ] Web UI for queue management
 - [ ] Queue persistence (database storage)
 - [ ] Cloud deployment guides
 - [ ] Mobile app (future consideration)
+
+## Speech-to-Text Transcription
+
+Yoto Smart Stream supports automatic transcription of audio files using OpenAI Whisper. Transcription is **disabled by default** to keep container builds fast; enable it only when you need STT.
+
+### Features
+
+- **Automatic Transcription**: Audio files are automatically transcribed when uploaded (when enabled)
+- **Manual Transcription**: Trigger transcription on-demand for any audio file
+- **Transcript Storage**: Transcripts are stored in the database and associated with audio files
+- **UI Integration**: View, manage, and retry transcriptions from the Audio Library page
+- **TTS Integration**: Text-to-speech generated audio automatically stores the source text as transcript
+
+### Usage
+
+### Enabling transcription
+
+1. Install optional dependencies (not included by default to keep builds small):
+  ```bash
+  pip install openai-whisper torch torchaudio
+  ```
+2. Set the feature flag:
+  ```bash
+  export TRANSCRIPTION_ENABLED=true
+  ```
+3. (Optional) Choose a model:
+  ```bash
+  export TRANSCRIPTION_MODEL=base  # tiny|base|small|medium|large
+  ```
+4. Restart the app so the settings take effect.
+
+#### Automatic Transcription
+
+When you upload an audio file via the Audio Library page and transcription is enabled, it starts automatically:
+
+1. Navigate to the Audio Library page
+2. Upload or record an audio file
+3. The system will automatically transcribe the audio in the background
+4. Once complete, a "📝 Transcript" button appears next to the audio file
+
+#### Manual Transcription
+
+To manually trigger transcription for an existing audio file:
+
+1. Navigate to the Audio Library page
+2. Find the audio file you want to transcribe
+3. Click the "📝 Transcribe" button
+4. Wait for the transcription to complete
+5. Click "📝 Transcript" to view the result
+
+#### Viewing Transcripts
+
+1. Click the "📝 Transcript" button next to any audio file with a completed transcription
+2. The transcript will appear in a modal dialog
+3. You can copy the text or close the modal
+
+### API Endpoints
+
+#### Get Transcript
+
+```bash
+GET /api/audio/{filename}/transcript
+```
+
+Returns the transcript for a specific audio file.
+
+**Response:**
+```json
+{
+  "filename": "my-audio.mp3",
+  "transcript": "This is the transcribed text...",
+  "status": "completed",
+  "error": null,
+  "transcribed_at": "2026-01-14T08:00:00Z"
+}
+```
+
+#### Trigger Transcription
+
+```bash
+POST /api/audio/{filename}/transcribe
+```
+
+Manually trigger transcription for an audio file.
+
+**Response:**
+```json
+{
+  "success": true,
+  "filename": "my-audio.mp3",
+  "status": "completed",
+  "transcript_length": 1234,
+  "message": "Transcription completed successfully"
+}
+```
+
+### Configuration
+
+The transcription service uses the OpenAI Whisper "base" model by default, which provides a good balance between speed and accuracy. You can configure this in the transcription service if needed.
+
+**Model Options:**
+- `tiny` - Fastest, lowest accuracy
+- `base` - Good balance (default)
+- `small` - Better accuracy, slower
+- `medium` - High accuracy, much slower
+- `large` - Best accuracy, very slow
+
+### Technical Details
+
+- **Model**: OpenAI Whisper (base)
+- **Dependencies**: `openai-whisper`, `torch`, `torchaudio`
+- **Storage**: SQLite database with transcript text, status, and metadata
+- **Processing**: Currently synchronous (TODO: move to background queue for production)
+
+### Limitations
+
+- Transcription currently runs synchronously and may cause request timeouts for very long audio files
+- For production deployments, consider implementing a background task queue (Celery, RQ, or FastAPI BackgroundTasks)
+- Whisper models require significant CPU/GPU resources for faster transcription
 
 ---
 

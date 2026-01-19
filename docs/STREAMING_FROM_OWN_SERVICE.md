@@ -1,3 +1,9 @@
+> **⚠️ DEPRECATED**: This documentation has been consolidated into the [yoto-smart-stream skill](../.github/skills/yoto-smart-stream/SKILL.md). Please refer to the skill for current information.
+>
+> **New location:** `.github/skills/yoto-smart-stream/reference/streaming_patterns.md`
+
+---
+
 # Streaming Audio from Your Own Service
 
 This guide explains how to create Yoto MYO Cards that stream audio directly from your own server instead of uploading files to Yoto's servers.
