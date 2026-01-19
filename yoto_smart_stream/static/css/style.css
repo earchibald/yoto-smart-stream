@@ -495,7 +495,6 @@ header h2 {
 }
 
 .stat-content h3 {
-    font-size: 1.75rem;
     color: #667eea;
     margin-bottom: 0.25rem;
     white-space: nowrap;
@@ -503,6 +502,7 @@ header h2 {
 
 /* Dynamic font sizing for environment card */
 #environment {
+    font-size: 12px; /* Start with minimum, will be adjusted by JS */
     transition: font-size 0.2s ease;
 }
 
