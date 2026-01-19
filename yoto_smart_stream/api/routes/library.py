@@ -606,23 +606,36 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
         
         # Build the update payload with only editable fields
         # Remove read-only fields that API returns but shouldn't be sent back
+        # NOTE: metadata structure is different in API response vs API request:
+        # - API RETURNS: metadata contains description, author, media, etc.
+        # - API EXPECTS: metadata should be minimal/empty, with description/author at top level
+        metadata_response = card_data.get("metadata", {})
+        
+        # Extract description and author from metadata for top-level placement
+        description = metadata_response.get("description")
+        author = metadata_response.get("author")
+        
+        # Build clean metadata object (remove description/author that should be top-level)
+        # Keep other metadata fields like cover image if present
+        clean_metadata = {}
+        if "cover" in metadata_response:
+            clean_metadata["cover"] = metadata_response["cover"]
+        
         update_payload = {
             "title": card_data.get("title"),
             "content": card_data.get("content"),
-            "metadata": card_data.get("metadata"),
+            "metadata": clean_metadata,  # Clean metadata without description/author
             "cardId": card_id
         }
         
-        # Add optional fields if they exist
-        # NOTE: API returns description/author inside metadata object, but they need to be
-        # at the top level in the update payload (same as create payload structure)
-        metadata = card_data.get("metadata", {})
-        if "description" in metadata:
-            update_payload["description"] = metadata["description"]
-        if "author" in metadata:
-            update_payload["author"] = metadata["author"]
+        # Add description and author at top level if they exist
+        if description:
+            update_payload["description"] = description
+        if author:
+            update_payload["author"] = author
         
         logger.info(f"[EDIT CHECK] Attempting update with payload keys: {update_payload.keys()}")
+        logger.info(f"[EDIT CHECK] Full update payload: {update_payload}")
         
         # Attempt to update the card with the same data
         response = requests.post(
