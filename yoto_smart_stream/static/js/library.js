@@ -816,7 +816,36 @@ async function editCard(cardId, cardTitle) {
         
         console.log('[EDIT CARD] ✓ Managed stream created/updated:', streamName);
         
-        // Step 5: Navigate to Stream Scripter with this stream selected
+        // Step 5: Extract metadata from card for Stream Scripter
+        console.log('[EDIT CARD] Extracting card metadata...');
+        const cardMetadata = {
+            title: cardData.title || cardTitle,
+            description: cardData.description || cardData.metadata?.description || '',
+            author: cardData.author || 'Yoto Smart Stream',
+            coverImageId: cardData.metadata?.cover?.imageId || null,
+            chapters: []
+        };
+        
+        // Extract chapter titles and structure
+        for (const chapter of chapters) {
+            cardMetadata.chapters.push({
+                title: chapter.title || `Chapter ${chapter.key}`,
+                tracks: (chapter.tracks || []).map(track => ({
+                    title: track.title || 'Track',
+                    filename: audioFiles[chapters.indexOf(chapter)] || ''
+                }))
+            });
+        }
+        
+        console.log('[EDIT CARD] Metadata extracted:', cardMetadata);
+        
+        // Store metadata for Stream Scripter to retrieve
+        if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem(`stream_metadata_${streamName}`, JSON.stringify(cardMetadata));
+            console.log('[EDIT CARD] ✓ Metadata stored for Stream Scripter');
+        }
+        
+        // Step 6: Navigate to Stream Scripter with this stream selected
         console.log('[EDIT CARD] Navigating to Stream Scripter...');
         
         // Switch to Streams tab
@@ -835,13 +864,21 @@ async function editCard(cardId, cardTitle) {
                 openStreamScripter();
                 console.log('[EDIT CARD] ✓ Stream Scripter opened');
                 
-                // Wait for the scripter to load, then select our stream
+                // Wait for the scripter to load, then select our stream and populate metadata
                 setTimeout(() => {
                     const queueSelector = document.getElementById('queue-selector');
                     if (queueSelector) {
                         queueSelector.value = streamName;
                         queueSelector.dispatchEvent(new Event('change'));
                         console.log('[EDIT CARD] ✓ Stream selected in scripter:', streamName);
+                        
+                        // Populate metadata fields from extracted card data
+                        setTimeout(() => {
+                            if (typeof populateMetadataFromImport === 'function') {
+                                populateMetadataFromImport(streamName);
+                                console.log('[EDIT CARD] ✓ Metadata populated in Stream Scripter');
+                            }
+                        }, 300);
                     } else {
                         console.error('[EDIT CARD] Could not find queue selector');
                     }

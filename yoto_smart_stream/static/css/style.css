@@ -225,6 +225,85 @@ body {
     color: white;
 }
 
+/* Chapter structure styles */
+.chapter-item {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    background: #f9f9f9;
+}
+
+.chapter-item input[type="text"] {
+    flex: 1;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 0.9rem;
+}
+
+.chapter-item input[type="text"]:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.chapter-tracks {
+    margin-left: 1rem;
+}
+
+.track-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem;
+    background: white;
+    border-radius: 3px;
+    margin-bottom: 0.25rem;
+}
+
+.track-item input[type="text"] {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 0.85rem;
+}
+
+.track-item input[type="text"]:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 1px rgba(102, 126, 234, 0.1);
+}
+
+/* Editable chapter title inputs in flat mode */
+.chapter-title-input {
+    width: 100%;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.chapter-title-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+/* Form sections */
+.form-section {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+
+.form-section h4 {
+    margin-bottom: 1rem;
+    color: #333;
+    font-size: 1.1rem;
+}
+
 .btn-danger {
     background: #dc3545;
     color: white;
@@ -944,14 +1023,24 @@ label[title]:not([title=""]):hover::before,
     border-radius: 8px;
 }
 
-.result-message.success {
+.result-message.success, .result-message.success-message {
     background: #c6f6d5;
     color: #22543d;
 }
 
-.result-message.error {
+.result-message.error, .result-message.error-message {
     background: #fed7d7;
     color: #742a2a;
+}
+
+.result-message.warning-message {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.result-message.info-message {
+    background: #d1ecf1;
+    color: #0c5460;
 }
 
 .refresh-btn {

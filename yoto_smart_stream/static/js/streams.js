@@ -403,8 +403,16 @@ function formatFileSize(bytes) {
 
 // Stream Scripter Functions
 let currentQueueName = null;
-let currentQueueFiles = [];
+let currentQueueFiles = []; // Legacy: flat file list
+let currentChapters = []; // New: structured chapters with tracks
 let availableFiles = [];
+let cardMetadata = {
+    title: '',
+    description: '',
+    author: 'Yoto Smart Stream',
+    coverImageId: null
+};
+let useChapterStructure = false; // Toggle between flat and chapter structure
 
 async function deleteStreamFromCard(queueName) {
     if (!confirm(`Are you sure you want to delete the queue "${queueName}"? This action cannot be undone.`)) {
@@ -459,6 +467,13 @@ function closeStreamScripter() {
     modal.style.display = 'none';
     currentQueueName = null;
     currentQueueFiles = [];
+    currentChapters = [];
+    cardMetadata = {
+        title: '',
+        description: '',
+        author: 'Yoto Smart Stream',
+        coverImageId: null
+    };
     document.getElementById('scripter-result').style.display = 'none';
 }
 
@@ -521,13 +536,29 @@ async function loadAvailableFilesForScripter() {
 async function startNewQueue() {
     currentQueueName = null;
     currentQueueFiles = [];
+    currentChapters = [];
+    cardMetadata = {
+        title: '',
+        description: '',
+        author: 'Yoto Smart Stream',
+        coverImageId: null
+    };
     
     // Refresh queue list to ensure it's up to date
     await loadStreamQueues();
     
+    const queueNameValue = `stream-${crypto.randomUUID().split('-')[0]}`;
     document.getElementById('queue-selector').value = '';
-    document.getElementById('queue-name').value = `stream-${crypto.randomUUID().split('-')[0]}`;
+    document.getElementById('queue-name').value = queueNameValue;
     document.getElementById('delete-queue-btn').style.display = 'none';
+    
+    // Reset metadata fields
+    document.getElementById('card-title').value = '';
+    document.getElementById('card-description').value = '';
+    document.getElementById('card-author').value = 'Yoto Smart Stream';
+    document.getElementById('card-cover-image').value = '';
+    document.getElementById('cover-image-preview').style.display = 'none';
+    document.getElementById('cover-image-status').style.display = 'none';
     
     updateQueueDisplay();
     clearFileCheckboxes();
@@ -547,6 +578,98 @@ async function loadQueueForEditing(queueName) {
         const data = await response.json();
         currentQueueName = queueName;
         currentQueueFiles = [...data.files];
+        
+        document.getElementById('queue-name').value = queueName;
+        document.getElementById('delete-queue-btn').style.display = 'inline-block';
+        
+        // Try to load metadata from session storage (from library import)
+        if (typeof sessionStorage !== 'undefined') {
+            const storedMetadata = sessionStorage.getItem(`stream_metadata_${queueName}`);
+            if (storedMetadata) {
+                try {
+                    const metadata = JSON.parse(storedMetadata);
+                    populateMetadataFromImport(queueName, metadata);
+                    // Clear the stored metadata after loading
+                    sessionStorage.removeItem(`stream_metadata_${queueName}`);
+                } catch (e) {
+                    console.error('Failed to parse stored metadata:', e);
+                }
+            }
+        }
+        
+        updateQueueDisplay();
+        clearFileCheckboxes();
+    } catch (error) {
+        console.error('Failed to load queue for editing:', error);
+        showScripterResult('Failed to load queue: ' + error.message, 'error');
+    }
+}
+
+// Populate metadata fields from imported library card
+function populateMetadataFromImport(streamName, metadataParam = null) {
+    console.log('[POPULATE METADATA] Starting for stream:', streamName);
+    
+    let metadata = metadataParam;
+    
+    // If no metadata provided, try to load from session storage
+    if (!metadata && typeof sessionStorage !== 'undefined') {
+        const storedMetadata = sessionStorage.getItem(`stream_metadata_${streamName}`);
+        if (storedMetadata) {
+            try {
+                metadata = JSON.parse(storedMetadata);
+                console.log('[POPULATE METADATA] Loaded from session storage:', metadata);
+            } catch (e) {
+                console.error('[POPULATE METADATA] Failed to parse stored metadata:', e);
+                return;
+            }
+        }
+    }
+    
+    if (!metadata) {
+        console.log('[POPULATE METADATA] No metadata found');
+        return;
+    }
+    
+    // Populate form fields
+    if (metadata.title) {
+        document.getElementById('card-title').value = metadata.title;
+        console.log('[POPULATE METADATA] ✓ Title:', metadata.title);
+    }
+    
+    if (metadata.description) {
+        document.getElementById('card-description').value = metadata.description;
+        console.log('[POPULATE METADATA] ✓ Description:', metadata.description);
+    }
+    
+    if (metadata.author) {
+        document.getElementById('card-author').value = metadata.author;
+        console.log('[POPULATE METADATA] ✓ Author:', metadata.author);
+    }
+    
+    if (metadata.coverImageId) {
+        cardMetadata.coverImageId = metadata.coverImageId;
+        console.log('[POPULATE METADATA] ✓ Cover image ID stored:', metadata.coverImageId);
+        // Note: Cover image display requires fetching from Yoto API (future enhancement)
+    }
+    
+    // If we have chapter structure with titles, apply them
+    if (metadata.chapters && metadata.chapters.length > 0) {
+        console.log('[POPULATE METADATA] Applying chapter titles...');
+        
+        // Wait a bit for the queue display to render
+        setTimeout(() => {
+            metadata.chapters.forEach((chapter, index) => {
+                const titleInput = document.querySelector(`.chapter-title-input[data-index="${index}"]`);
+                if (titleInput && chapter.title) {
+                    titleInput.value = chapter.title;
+                    console.log(`[POPULATE METADATA] ✓ Chapter ${index + 1} title: ${chapter.title}`);
+                }
+            });
+        }, 100);
+    }
+    
+    console.log('[POPULATE METADATA] ✓✓✓ Metadata population complete! ✓✓✓');
+}
         
         document.getElementById('queue-name').value = queueName;
         document.getElementById('delete-queue-btn').style.display = 'inline-block';
@@ -589,39 +712,180 @@ function updateQueueDisplay() {
     const container = document.getElementById('queue-list');
     const countSpan = document.getElementById('queue-count');
     
-    countSpan.textContent = currentQueueFiles.length;
+    // Use chapter structure if available, otherwise fall back to flat file list
+    const itemCount = useChapterStructure ? currentChapters.length : currentQueueFiles.length;
+    countSpan.textContent = itemCount;
     
-    if (currentQueueFiles.length === 0) {
+    if (itemCount === 0) {
         container.innerHTML = '<p style="color: #999; text-align: center; padding: 2rem;">No files added yet. Select files above to add them.</p>';
         return;
     }
     
     container.innerHTML = '';
-    currentQueueFiles.forEach((file, index) => {
-        const item = document.createElement('div');
-        item.className = 'queue-file-item';
-        item.draggable = true;
-        item.dataset.index = index;
-        
-        item.innerHTML = `
-            <span class="drag-handle">☰</span>
-            <span class="file-name">${escapeHtml(file)}</span>
-            <div class="file-actions">
-                <button class="btn-icon" onclick="moveFileInQueue(${index}, ${Math.max(0, index - 1)})" ${index === 0 ? 'disabled' : ''}>↑</button>
-                <button class="btn-icon" onclick="moveFileInQueue(${index}, ${Math.min(currentQueueFiles.length - 1, index + 1)})" ${index === currentQueueFiles.length - 1 ? 'disabled' : ''}>↓</button>
-                <button class="btn-icon btn-remove" onclick="removeFileFromQueue(${index})">✕</button>
-            </div>
-        `;
-        
-        // Drag and drop handlers
-        item.addEventListener('dragstart', handleDragStart);
-        item.addEventListener('dragover', handleDragOver);
-        item.addEventListener('drop', handleDrop);
-        item.addEventListener('dragend', handleDragEnd);
-        item.addEventListener('dragleave', handleDragLeave);
-        
-        container.appendChild(item);
-    });
+    
+    if (useChapterStructure) {
+        // Display chapter structure with tracks
+        currentChapters.forEach((chapter, chapterIndex) => {
+            const chapterDiv = document.createElement('div');
+            chapterDiv.className = 'chapter-item';
+            chapterDiv.style.cssText = 'border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.75rem; padding: 0.75rem; background: #f9f9f9;';
+            
+            chapterDiv.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600; color: #666; font-size: 0.85rem;">Chapter ${chapterIndex + 1}</span>
+                    <input 
+                        type="text" 
+                        value="${escapeHtml(chapter.title)}" 
+                        onchange="updateChapterTitle(${chapterIndex}, this.value)"
+                        onclick="this.select()"
+                        style="flex: 1; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 3px; font-size: 0.9rem;"
+                        placeholder="Chapter Title"
+                    >
+                    <button class="btn-icon" onclick="addTrackToChapter(${chapterIndex})" title="Add track">+</button>
+                    <button class="btn-icon btn-remove" onclick="removeChapter(${chapterIndex})" title="Remove chapter">✕</button>
+                </div>
+                <div class="chapter-tracks" style="margin-left: 1rem;">
+                    ${chapter.tracks.map((track, trackIndex) => `
+                        <div class="track-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem; background: white; border-radius: 3px; margin-bottom: 0.25rem;">
+                            <span style="color: #999; font-size: 0.85rem; width: 60px;">Track ${trackIndex + 1}</span>
+                            <input 
+                                type="text" 
+                                value="${escapeHtml(track.title)}" 
+                                onchange="updateTrackTitle(${chapterIndex}, ${trackIndex}, this.value)"
+                                onclick="this.select()"
+                                style="flex: 1; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 3px; font-size: 0.85rem;"
+                                placeholder="Track Title"
+                            >
+                            <span style="color: #999; font-size: 0.8rem;">${escapeHtml(track.filename)}</span>
+                            <button class="btn-icon btn-remove" onclick="removeTrack(${chapterIndex}, ${trackIndex})">✕</button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            container.appendChild(chapterDiv);
+        });
+    } else {
+        // Display flat file list (legacy mode) with editable "chapter" titles
+        currentQueueFiles.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'queue-file-item';
+            item.draggable = true;
+            item.dataset.index = index;
+            
+            // Extract clean filename without extension for default title
+            const defaultTitle = file.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+            
+            item.innerHTML = `
+                <span class="drag-handle">☰</span>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 0.25rem;">
+                    <input 
+                        type="text" 
+                        class="chapter-title-input" 
+                        data-index="${index}"
+                        value="${escapeHtml(defaultTitle)}" 
+                        onchange="updateFileChapterTitle(${index}, this.value)"
+                        onclick="this.select()"
+                        style="padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 3px; font-size: 0.9rem; font-weight: 500;"
+                        placeholder="Chapter Title"
+                    >
+                    <span class="file-name" style="font-size: 0.8rem; color: #999;">${escapeHtml(file)}</span>
+                </div>
+                <div class="file-actions">
+                    <button class="btn-icon" onclick="moveFileInQueue(${index}, ${Math.max(0, index - 1)})" ${index === 0 ? 'disabled' : ''}>↑</button>
+                    <button class="btn-icon" onclick="moveFileInQueue(${index}, ${Math.min(currentQueueFiles.length - 1, index + 1)})" ${index === currentQueueFiles.length - 1 ? 'disabled' : ''}>↓</button>
+                    <button class="btn-icon btn-remove" onclick="removeFileFromQueue(${index})">✕</button>
+                </div>
+            `;
+            
+            // Drag and drop handlers
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('drop', handleDrop);
+            item.addEventListener('dragend', handleDragEnd);
+            item.addEventListener('dragleave', handleDragLeave);
+            
+            container.appendChild(item);
+        });
+    }
+}
+
+// Chapter/Track management functions
+function updateChapterTitle(chapterIndex, newTitle) {
+    if (currentChapters[chapterIndex]) {
+        currentChapters[chapterIndex].title = newTitle;
+    }
+}
+
+function updateTrackTitle(chapterIndex, trackIndex, newTitle) {
+    if (currentChapters[chapterIndex] && currentChapters[chapterIndex].tracks[trackIndex]) {
+        currentChapters[chapterIndex].tracks[trackIndex].title = newTitle;
+    }
+}
+
+function updateFileChapterTitle(index, newTitle) {
+    // Store custom title in a parallel array or convert to chapter structure
+    if (!currentQueueFiles._titles) {
+        currentQueueFiles._titles = [];
+    }
+    currentQueueFiles._titles[index] = newTitle;
+}
+
+function addTrackToChapter(chapterIndex) {
+    // Prompt user to select a file
+    const filename = prompt('Enter audio filename to add as a track:');
+    if (filename && currentChapters[chapterIndex]) {
+        const defaultTitle = filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        currentChapters[chapterIndex].tracks.push({
+            filename: filename,
+            title: defaultTitle
+        });
+        updateQueueDisplay();
+    }
+}
+
+function removeChapter(chapterIndex) {
+    if (confirm('Remove this chapter and all its tracks?')) {
+        currentChapters.splice(chapterIndex, 1);
+        updateQueueDisplay();
+    }
+}
+
+function removeTrack(chapterIndex, trackIndex) {
+    if (currentChapters[chapterIndex]) {
+        currentChapters[chapterIndex].tracks.splice(trackIndex, 1);
+        // Remove chapter if it has no tracks
+        if (currentChapters[chapterIndex].tracks.length === 0) {
+            currentChapters.splice(chapterIndex, 1);
+        }
+        updateQueueDisplay();
+    }
+}
+
+function toggleChapterStructure() {
+    if (useChapterStructure) {
+        // Convert from chapter structure to flat list
+        currentQueueFiles = [];
+        currentChapters.forEach(chapter => {
+            chapter.tracks.forEach(track => {
+                currentQueueFiles.push(track.filename);
+            });
+        });
+        useChapterStructure = false;
+    } else {
+        // Convert from flat list to chapter structure (1 file per chapter)
+        currentChapters = currentQueueFiles.map(filename => {
+            const defaultTitle = filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+            return {
+                title: defaultTitle,
+                tracks: [{
+                    filename: filename,
+                    title: defaultTitle
+                }]
+            };
+        });
+        useChapterStructure = true;
+    }
+    updateQueueDisplay();
 }
 
 let draggedElement = null;
@@ -799,6 +1063,178 @@ async function confirmDeleteQueue() {
     }
 }
 
+// Cover image handling
+function previewCoverImage(input) {
+    const preview = document.getElementById('cover-image-preview');
+    const previewImg = document.getElementById('cover-image-preview-img');
+    const statusDiv = document.getElementById('cover-image-status');
+    
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            statusDiv.textContent = '⚠️ Please select an image file';
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fff3cd';
+            statusDiv.style.color = '#856404';
+            return;
+        }
+        
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            statusDiv.textContent = '⚠️ Image must be smaller than 5MB';
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#fff3cd';
+            statusDiv.style.color = '#856404';
+            input.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+            statusDiv.textContent = '✓ Image ready for upload';
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#d4edda';
+            statusDiv.style.color = '#155724';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        preview.style.display = 'none';
+        statusDiv.style.display = 'none';
+    }
+}
+
+async function uploadCoverImage() {
+    const fileInput = document.getElementById('card-cover-image');
+    if (!fileInput.files || !fileInput.files[0]) {
+        return null;
+    }
+    
+    const formData = new FormData();
+    formData.append('image', fileInput.files[0]);
+    
+    try {
+        const response = await fetch(`${API_BASE}/media/cover-image`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to upload cover image');
+        }
+        
+        const data = await response.json();
+        return data.image_id;
+    } catch (error) {
+        console.error('Failed to upload cover image:', error);
+        throw error;
+    }
+}
+
+// Create card from queue with full metadata
+async function createCardFromQueue() {
+    const queueNameInput = document.getElementById('queue-name');
+    const queueName = queueNameInput.value.trim();
+    
+    // Validation
+    if (!queueName) {
+        showScripterResult('Please enter a queue name', 'error');
+        return;
+    }
+    
+    if (currentQueueFiles.length === 0 && currentChapters.length === 0) {
+        showScripterResult('Please add at least one file to the queue', 'error');
+        return;
+    }
+    
+    // Get metadata from form
+    const title = document.getElementById('card-title').value.trim() || queueName;
+    const description = document.getElementById('card-description').value.trim();
+    const author = document.getElementById('card-author').value.trim() || 'Yoto Smart Stream';
+    
+    try {
+        showScripterResult('Creating card... Please wait', 'info');
+        
+        // Upload cover image if provided
+        let coverImageId = null;
+        const fileInput = document.getElementById('card-cover-image');
+        if (fileInput.files && fileInput.files[0]) {
+            showScripterResult('Uploading cover image...', 'info');
+            try {
+                coverImageId = await uploadCoverImage();
+            } catch (error) {
+                showScripterResult(`⚠️ Cover image upload failed: ${error.message}. Creating card without cover...`, 'warning');
+            }
+        }
+        
+        // Build chapters array with custom titles
+        const chapters = [];
+        
+        if (useChapterStructure) {
+            // Use structured chapter data
+            currentChapters.forEach(chapter => {
+                chapter.tracks.forEach(track => {
+                    chapters.push({
+                        filename: track.filename,
+                        chapter_title: chapter.title || track.title
+                        // Future: Add track_title for multi-track chapters
+                        // Future: Add display icons, ambient colors, overlay labels
+                    });
+                });
+            });
+        } else {
+            // Build from flat file list with custom titles
+            currentQueueFiles.forEach((filename, index) => {
+                const titleInput = document.querySelector(`.chapter-title-input[data-index="${index}"]`);
+                const customTitle = titleInput ? titleInput.value.trim() : '';
+                const defaultTitle = filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+                
+                chapters.push({
+                    filename: filename,
+                    chapter_title: customTitle || defaultTitle
+                });
+            });
+        }
+        
+        // Call playlist creation API
+        const response = await fetch(`${API_BASE}/cards/create-playlist-from-audio`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                title: title,
+                description: description,
+                author: author,
+                chapters: chapters,
+                mode: 'streaming',
+                cover_image_id: coverImageId
+            }),
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to create card');
+        }
+        
+        const result = await response.json();
+        showScripterResult(`✓ Card "${title}" created successfully! Card ID: ${result.card_id}`, 'success');
+        
+        // Refresh managed streams
+        await loadManagedStreams();
+        
+    } catch (error) {
+        console.error('Failed to create card:', error);
+        showScripterResult('Failed to create card: ' + error.message, 'error');
+    }
+}
+
 // Handle play mode selection for managed streams
 document.addEventListener('DOMContentLoaded', () => {
     // Delegate click handler for mode buttons
@@ -845,12 +1281,28 @@ function selectPlayMode(queue, mode, button) {
 function showScripterResult(message, type) {
     const resultDiv = document.getElementById('scripter-result');
     resultDiv.textContent = message;
-    resultDiv.className = `result-message ${type === 'error' ? 'error-message' : 'success-message'}`;
+    
+    // Support info, warning, error, and success types
+    let className = 'result-message';
+    if (type === 'error') {
+        className += ' error-message';
+    } else if (type === 'success') {
+        className += ' success-message';
+    } else if (type === 'warning') {
+        className += ' warning-message';
+    } else if (type === 'info') {
+        className += ' info-message';
+    }
+    
+    resultDiv.className = className;
     resultDiv.style.display = 'block';
     
-    setTimeout(() => {
-        resultDiv.style.display = 'none';
-    }, 5000);
+    // Auto-hide after 5 seconds for non-error messages
+    if (type !== 'info') {
+        setTimeout(() => {
+            resultDiv.style.display = 'none';
+        }, 5000);
+    }
 }
 
 
