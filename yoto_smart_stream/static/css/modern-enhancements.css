@@ -525,3 +525,305 @@ header h2 {
         transform: translateY(-2px);
     }
 }
+
+/* ===== Form Enhancements ===== */
+.upload-form,
+.form-container {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    border: 1px solid var(--gray-200);
+}
+
+.form-group {
+    margin-bottom: var(--space-4);
+}
+
+.form-group label {
+    font-weight: 600;
+    color: var(--gray-900);
+    display: block;
+    margin-bottom: var(--space-2);
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"],
+.form-group input[type="number"],
+.form-group input[type="file"],
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+    border-color: var(--primary-300);
+}
+
+/* ===== Button Enhancements ===== */
+.btn-primary,
+.btn-secondary {
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-500) 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(6, 182, 212, 0.35);
+}
+
+.btn-secondary {
+    background: white;
+    border-color: var(--gray-300);
+    color: var(--gray-700);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--primary-100);
+    border-color: var(--primary-300);
+    color: var(--primary-700);
+}
+
+.refresh-btn {
+    background: var(--primary-100);
+    border: 1px solid var(--primary-300);
+    color: var(--primary-700);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.refresh-btn:hover {
+    background: var(--primary-600);
+    border-color: var(--primary-700);
+    color: white;
+}
+
+/* ===== Grid and List Enhancements ===== */
+.streams-grid,
+.library-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-5);
+}
+
+.audio-item,
+.stream-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    transition: all 0.2s ease;
+}
+
+.audio-item:hover,
+.stream-card:hover {
+    border-color: var(--primary-300);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* ===== Upload Container ===== */
+.upload-container {
+    background: var(--gray-50);
+    border: 2px dashed var(--gray-300);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    transition: all 0.2s ease;
+}
+
+.upload-container:hover {
+    border-color: var(--primary-400);
+    background: var(--primary-50);
+}
+
+/* ===== Section Actions ===== */
+.section-actions {
+    display: flex;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+}
+
+/* ===== Progress Bar ===== */
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--gray-200);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-500) 0%, var(--primary-400) 100%);
+    transition: width 0.3s ease;
+}
+
+/* ===== Error and Success Messages ===== */
+.error-message,
+.success-message,
+.warning-message {
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    margin: var(--space-4) 0;
+    font-weight: 500;
+}
+
+.error-message {
+    background: var(--error-bg);
+    color: var(--error-text);
+    border-left: 4px solid #dc2626;
+}
+
+.success-message {
+    background: var(--success-bg);
+    color: var(--success-text);
+    border-left: 4px solid #059669;
+}
+
+.warning-message {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+    border-left: 4px solid #d97706;
+}
+
+/* ===== Loading States ===== */
+.loading {
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--gray-600);
+    font-style: italic;
+}
+
+.skeleton-loader {
+    background: linear-gradient(90deg, var(--gray-200) 25%, var(--gray-100) 50%, var(--gray-200) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s infinite;
+    border-radius: var(--radius-md);
+}
+
+@keyframes skeleton-pulse {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* ===== Public URL Display ===== */
+.public-url {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--gray-700);
+}
+
+#url-display {
+    color: var(--primary-600);
+    font-weight: 600;
+}
+
+/* ===== Stream Info ===== */
+.stream-info {
+    padding: var(--space-4);
+    background: var(--primary-50);
+    border-left: 4px solid var(--primary-500);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-4);
+}
+
+.stream-info p {
+    color: var(--gray-700);
+    margin: var(--space-2) 0;
+}
+
+/* ===== Table Enhancements ===== */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+table thead {
+    background: var(--gray-100);
+}
+
+table th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-weight: 700;
+    color: var(--gray-900);
+    border-bottom: 2px solid var(--gray-200);
+}
+
+table td {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+table tr:hover {
+    background: var(--gray-50);
+}
+
+/* ===== Audio Player Enhancements ===== */
+audio {
+    width: 100%;
+    border-radius: var(--radius-md);
+}
+
+/* ===== Tooltip ===== */
+[title] {
+    position: relative;
+    cursor: help;
+}
+
+/* ===== File Input Enhancement ===== */
+input[type="file"] {
+    cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+    background: var(--primary-100);
+    border: 1px solid var(--primary-300);
+    color: var(--primary-700);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-right: var(--space-3);
+}
+
+input[type="file"]::file-selector-button:hover {
+    background: var(--primary-600);
+    border-color: var(--primary-700);
+    color: white;
+}
+}
