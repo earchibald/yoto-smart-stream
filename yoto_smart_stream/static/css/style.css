@@ -975,29 +975,29 @@ label[title]:not([title=""]):hover::before,
     body {
         flex-direction: column;
     }
-    
+
     .sidebar {
         width: 100%;
         padding: 1rem 0;
     }
-    
+
     .nav-menu {
         display: flex;
         overflow-x: auto;
     }
-    
+
     .nav-menu li {
         margin: 0;
     }
-    
+
     .content {
         padding: 1rem;
     }
-    
+
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .streams-grid {
         grid-template-columns: 1fr;
     }
@@ -1265,42 +1265,29 @@ label[title]:not([title=""]):hover::before,
 }
 
 /* Container for card action buttons */
-.library-card-buttons {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    display: flex;
-    gap: 6px;
-    z-index: 20;
-}
-
-/* Update info button positioning when in container */
-.library-card-buttons .library-card-info-btn {
-    position: static;
-    top: auto;
-    right: auto;
-    z-index: auto; /* Remove z-index when in container */
-}
-
-/* Edit button styling */
+/* Edit button styling - positioned at bottom right of card image */
 .library-card-edit-btn {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
     background: rgba(255, 255, 255, 0.9);
     border: 2px solid #cbd5e0;
     border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
-    min-height: 24px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 1rem;
     color: #4a5568;
     transition: all 0.2s;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     pointer-events: auto; /* Ensure clickable */
+    z-index: 20;
 }
 
 .library-card-edit-btn:hover {
@@ -1493,20 +1480,20 @@ label[title]:not([title=""]):hover::before,
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 1rem;
     }
-    
+
     .library-card-image {
         height: 150px;
     }
-    
+
     .modal-content {
         width: 95%;
         max-height: 90vh;
     }
-    
+
     .modal-header {
         padding: 1rem;
     }
-    
+
     .modal-body {
         padding: 1rem;
     }
@@ -1688,7 +1675,7 @@ label[title]:not([title=""]):hover::before,
     .player-modal-content {
         max-width: 95%;
     }
-    
+
     .player-detail-grid {
         grid-template-columns: 1fr;
     }
@@ -1770,7 +1757,7 @@ label[title]:not([title=""]):hover::before,
     .technical-info-content {
         gap: 1rem;
     }
-    
+
     .code-content {
         font-size: 0.75rem;
         padding: 0.75rem;
