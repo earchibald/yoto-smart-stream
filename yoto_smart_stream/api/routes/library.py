@@ -621,9 +621,67 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
         if "cover" in metadata_response:
             clean_metadata["cover"] = metadata_response["cover"]
         
+        # Clean the content structure - API response includes extra fields that shouldn't be in request
+        # Response has: type, trackUrl, display, ambient, fileSize, duration (all None values)
+        # Request expects: key, title, format, channels (optional), url (not trackUrl)
+        def clean_content_structure(content):
+            """Remove response-only fields and None values from content structure"""
+            if not content or not isinstance(content, dict):
+                return content
+                
+            cleaned = {}
+            if "chapters" in content:
+                cleaned["chapters"] = []
+                for chapter in content["chapters"]:
+                    clean_chapter = {
+                        "key": chapter.get("key"),
+                        "title": chapter.get("title"),
+                    }
+                    
+                    # Add optional chapter fields if present and not None
+                    if chapter.get("overlayLabel") is not None:
+                        clean_chapter["overlayLabel"] = chapter["overlayLabel"]
+                    
+                    # Clean tracks - remove response-only fields
+                    if "tracks" in chapter:
+                        clean_chapter["tracks"] = []
+                        for track in chapter["tracks"]:
+                            clean_track = {
+                                "key": track.get("key"),
+                                "title": track.get("title"),
+                                "format": track.get("format", "mp3"),
+                            }
+                            
+                            # Use 'url' field (request) not 'trackUrl' (response)
+                            if track.get("trackUrl"):
+                                clean_track["url"] = track["trackUrl"]
+                            elif track.get("url"):
+                                clean_track["url"] = track["url"]
+                            
+                            # Add optional track fields if present and not None
+                            if track.get("channels") is not None:
+                                clean_track["channels"] = track["channels"]
+                            
+                            # Exclude response-only fields: type, display, ambient, fileSize, duration
+                            
+                            clean_chapter["tracks"].append(clean_track)
+                    
+                    cleaned["chapters"].append(clean_chapter)
+            
+            # Preserve playbackType and config if present
+            if "playbackType" in content:
+                cleaned["playbackType"] = content["playbackType"]
+            if "config" in content:
+                cleaned["config"] = content["config"]
+            
+            return cleaned
+        
+        content_response = card_data.get("content", {})
+        clean_content = clean_content_structure(content_response)
+        
         update_payload = {
             "title": card_data.get("title"),
-            "content": card_data.get("content"),
+            "content": clean_content,  # Clean content without response-only fields
             "metadata": clean_metadata,  # Clean metadata without description/author
             "cardId": card_id
         }
