@@ -285,7 +285,14 @@ async function loadSystemStatus() {
 
         // Update stats
         document.getElementById('mqtt-status').textContent = data.features?.mqtt_events ? 'Enabled' : 'Disabled';
-        document.getElementById('environment').textContent = data.environment || 'Unknown';
+
+        // Update environment with dynamic font sizing
+        const envElement = document.getElementById('environment');
+        envElement.textContent = data.environment || 'Unknown';
+        // Use requestAnimationFrame to ensure DOM has updated before measuring
+        requestAnimationFrame(() => {
+            adjustEnvironmentFontSize(envElement);
+        });
 
     } catch (error) {
         console.error('Error loading status:', error);
@@ -367,6 +374,35 @@ async function loadPlayers() {
 
         // Update player count
         document.getElementById('player-count').textContent = players.length;
+
+        // Update player dots summary - one dot per player
+        const dotsContainer = document.getElementById('player-dots-container');
+        if (dotsContainer) {
+            // Clear existing dots
+            dotsContainer.innerHTML = '';
+
+            if (players.length === 0) {
+                // Show single gray dot for no players
+                const dot = document.createElement('span');
+                dot.className = 'status-dot status-gray';
+                dot.title = 'No players connected';
+                dotsContainer.appendChild(dot);
+                dotsContainer.title = 'No players connected';
+            } else {
+                // Create one dot per player
+                players.forEach(player => {
+                    const dot = document.createElement('span');
+                    dot.className = player.online ? 'status-dot status-green' : 'status-dot status-red';
+                    dot.title = `${player.name}: ${player.online ? 'Online' : 'Offline'}`;
+                    dotsContainer.appendChild(dot);
+                });
+
+                // Update container title with summary
+                const onlineCount = players.filter(p => p.online).length;
+                const offlineCount = players.length - onlineCount;
+                dotsContainer.title = `${onlineCount} online, ${offlineCount} offline`;
+            }
+        }
 
         if (players.length === 0) {
             container.innerHTML = '<p class="loading">No players connected</p>';
@@ -843,6 +879,45 @@ function formatFileSize(bytes) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+/**
+ * Dynamically adjust font size of environment text to fit without wrapping
+ * Uses iterative approach: starts small and increases until text fits
+ */
+function adjustEnvironmentFontSize(element) {
+    const statContent = element.parentElement; // .stat-content
+    const statCard = statContent.parentElement; // .stat-card
+    const statIcon = statCard.querySelector('.stat-icon');
+
+    // Calculate available space: card clientWidth - icon width - gap
+    // clientWidth already excludes padding, so we don't subtract it again
+    const cardStyle = window.getComputedStyle(statCard);
+    const gap = parseInt(cardStyle.gap) || 16;
+    const availableWidth = statCard.clientWidth - statIcon.offsetWidth - gap;
+
+    let fontSize = 12; // Start with minimum font size
+    const maxSize = 28; // Maximum font size (1.75rem = 28px)
+    let overflow = false;
+
+    // Helper function to check if element overflows available space
+    function isOverflown(el) {
+        return el.scrollWidth > availableWidth;
+    }
+
+    // Start with minimum and increase until overflow or max reached
+    while (!overflow && fontSize < maxSize) {
+        element.style.fontSize = `${fontSize}px`;
+        // Force reflow by reading offsetHeight
+        void element.offsetHeight;
+        overflow = isOverflown(element);
+        if (!overflow) fontSize++;
+    }
+
+    // Revert to the last state where no overflow happened
+    if (overflow) {
+        element.style.fontSize = `${fontSize - 1}px`;
+    }
 }
 
 // Copy audio URL to clipboard

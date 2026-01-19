@@ -1,10 +1,9 @@
 """MQTT event tracking and correlation with stream requests."""
 
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +14,8 @@ class MQTTEvent:
 
     timestamp: datetime
     device_id: Optional[str] = None
-    raw_payload: Dict = field(default_factory=dict)
-    
+    raw_payload: dict = field(default_factory=dict)
+
     # Common fields from payload
     volume: Optional[int] = None
     volume_max: Optional[int] = None
@@ -26,11 +25,11 @@ class MQTTEvent:
     playback_wait: Optional[bool] = None
     sleep_timer_active: Optional[bool] = None
     repeat_all: Optional[bool] = None
-    
+
     # Button events
     button_left_clicked: bool = False
     button_right_clicked: bool = False
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -52,13 +51,13 @@ class MQTTEvent:
 @dataclass
 class StreamRequestEvent:
     """Represents a stream request with context."""
-    
+
     timestamp: datetime
     stream_name: str
     device_ip: Optional[str] = None
     user_agent: Optional[str] = None
-    preceding_mqtt_events: List[MQTTEvent] = field(default_factory=list)
-    
+    preceding_mqtt_events: list[MQTTEvent] = field(default_factory=list)
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -72,34 +71,34 @@ class StreamRequestEvent:
 
 class MQTTEventStore:
     """Stores and manages MQTT events with correlation to stream requests."""
-    
+
     def __init__(self, max_events: int = 500, device_id: Optional[str] = None):
         """
         Initialize the MQTT event store.
-        
+
         Args:
             max_events: Maximum number of events to keep in memory
             device_id: Optional device identifier for filtering
         """
         self.max_events = max_events
         self.device_id = device_id
-        self.events: List[MQTTEvent] = []
-        self.stream_requests: List[StreamRequestEvent] = []
-        
+        self.events: list[MQTTEvent] = []
+        self.stream_requests: list[StreamRequestEvent] = []
+
     def add_event(self, event: MQTTEvent) -> None:
         """Add an MQTT event to the store."""
         self.events.append(event)
-        
+
         # Trim to max_events
         if len(self.events) > self.max_events:
-            self.events = self.events[-self.max_events:]
-        
+            self.events = self.events[-self.max_events :]
+
         logger.debug(
             f"MQTT Event stored: {event.device_id} - "
             f"status={event.playback_status}, volume={event.volume}/{event.volume_max}, "
             f"streaming={event.streaming}"
         )
-    
+
     def add_stream_request(
         self,
         stream_name: str,
@@ -109,22 +108,22 @@ class MQTTEventStore:
     ) -> StreamRequestEvent:
         """
         Add a stream request with preceding MQTT events.
-        
+
         Args:
             stream_name: Name of the stream being requested
             device_ip: IP address of requesting device
             user_agent: User-Agent header from request
             lookback_seconds: How far back to include MQTT events
-            
+
         Returns:
             StreamRequestEvent with correlated MQTT events
         """
-        now = datetime.now()
+        now = datetime.utcnow()
         cutoff = datetime.fromtimestamp(now.timestamp() - lookback_seconds)
-        
+
         # Find recent MQTT events
         recent_events = [e for e in self.events if e.timestamp >= cutoff]
-        
+
         request = StreamRequestEvent(
             timestamp=now,
             stream_name=stream_name,
@@ -132,35 +131,35 @@ class MQTTEventStore:
             user_agent=user_agent,
             preceding_mqtt_events=recent_events,
         )
-        
+
         self.stream_requests.append(request)
-        
+
         # Trim stream requests
         if len(self.stream_requests) > self.max_events:
-            self.stream_requests = self.stream_requests[-self.max_events:]
-        
+            self.stream_requests = self.stream_requests[-self.max_events :]
+
         return request
-    
+
     def get_device_state(self) -> Optional[MQTTEvent]:
         """Get the most recent device state event."""
         if self.events:
             return self.events[-1]
         return None
-    
-    def get_recent_events(self, count: int = 20) -> List[MQTTEvent]:
+
+    def get_recent_events(self, count: int = 20) -> list[MQTTEvent]:
         """Get the most recent N events."""
         return self.events[-count:]
-    
-    def get_events_since(self, seconds_ago: int = 60) -> List[MQTTEvent]:
+
+    def get_events_since(self, seconds_ago: int = 60) -> list[MQTTEvent]:
         """Get all events from the last N seconds."""
-        cutoff = datetime.fromtimestamp(datetime.now().timestamp() - seconds_ago)
+        cutoff = datetime.fromtimestamp(datetime.utcnow().timestamp() - seconds_ago)
         return [e for e in self.events if e.timestamp >= cutoff]
-    
-    def get_stream_requests_since(self, seconds_ago: int = 60) -> List[StreamRequestEvent]:
+
+    def get_stream_requests_since(self, seconds_ago: int = 60) -> list[StreamRequestEvent]:
         """Get all stream requests from the last N seconds."""
-        cutoff = datetime.fromtimestamp(datetime.now().timestamp() - seconds_ago)
+        cutoff = datetime.fromtimestamp(datetime.utcnow().timestamp() - seconds_ago)
         return [r for r in self.stream_requests if r.timestamp >= cutoff]
-    
+
     def to_dict(self) -> dict:
         """Export store state as dictionary."""
         current_state = self.get_device_state()
