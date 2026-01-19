@@ -747,15 +747,10 @@ async function editCard(cardId, cardTitle) {
         
         console.log('[EDIT CARD] ✓ Card is editable! (MYO card confirmed)');
         
-        // Step 2: Fetch the full card data to extract audio files
-        console.log('[EDIT CARD] Fetching full card details...');
-        const detailsResponse = await fetch(`${API_BASE}/library/content/${cardId}`);
-        if (!detailsResponse.ok) {
-            throw new Error(`Failed to fetch card details: ${detailsResponse.statusText}`);
-        }
-        
-        const cardData = await detailsResponse.json();
-        console.log('[EDIT CARD] Card data fetched:', cardData);
+        // Step 2: Use card data from edit-check response
+        console.log('[EDIT CARD] Using card data from edit-check response...');
+        const cardData = checkResult.card_data;
+        console.log('[EDIT CARD] Card data:', cardData);
         
         // Step 3: Extract audio files from the card's chapters/tracks
         console.log('[EDIT CARD] Extracting audio files from card...');
