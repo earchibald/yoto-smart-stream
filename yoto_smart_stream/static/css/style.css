@@ -448,6 +448,35 @@ header h2 {
 
 .stat-icon {
     font-size: 2.5rem;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Status dot indicator for player count */
+.status-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 4px rgba(0,0,0,0.2);
+    transition: background-color 0.3s ease;
+}
+
+.status-dot.status-green {
+    background-color: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.status-dot.status-red {
+    background-color: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+.status-dot.status-gray {
+    background-color: #94a3b8;
+    box-shadow: 0 0 4px rgba(148, 163, 184, 0.3);
 }
 
 .stat-content h3 {

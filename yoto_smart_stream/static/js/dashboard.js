@@ -368,6 +368,28 @@ async function loadPlayers() {
         // Update player count
         document.getElementById('player-count').textContent = players.length;
 
+        // Update player status indicator
+        const statusIndicator = document.getElementById('player-status-indicator');
+        if (statusIndicator) {
+            if (players.length === 0) {
+                // Gray - no players connected
+                statusIndicator.className = 'status-dot status-gray';
+                statusIndicator.title = 'No players connected';
+            } else {
+                // Check if any player is online
+                const hasOnlinePlayers = players.some(player => player.online);
+                if (hasOnlinePlayers) {
+                    // Green - at least one player is online
+                    statusIndicator.className = 'status-dot status-green';
+                    statusIndicator.title = 'Players online';
+                } else {
+                    // Red - players exist but all are offline
+                    statusIndicator.className = 'status-dot status-red';
+                    statusIndicator.title = 'All players offline';
+                }
+            }
+        }
+
         if (players.length === 0) {
             container.innerHTML = '<p class="loading">No players connected</p>';
             return;
