@@ -641,9 +641,7 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
             else:
                 # Response is the card data directly
                 card_data = card_json
-                logger.info(
-                    "[EDIT CHECK] Using response as card data directly (no 'card' wrapper)"
-                )
+                logger.info("[EDIT CHECK] Using response as card data directly (no 'card' wrapper)")
         else:
             card_data = {}
             logger.error(f"[EDIT CHECK] Unexpected response type: {type(card_json)}")
@@ -685,16 +683,32 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
 
     except requests.exceptions.HTTPError as e:
         error_detail = e.response.text if hasattr(e, "response") else str(e)
+        status_code = e.response.status_code if hasattr(e, "response") else 500
+
         logger.error(
-            f"[EDIT CHECK] Card {card_id} is NOT editable (commercial card): {error_detail}"
+            f"[EDIT CHECK] Card {card_id} update failed with HTTP {status_code}: {error_detail}"
         )
 
-        # This is a commercial card - can't be edited
+        # Determine if this is truly a commercial card or another issue
+        if status_code == 404:
+            # 404 typically means the card doesn't exist or is a commercial card that can't be updated
+            message = "This is a commercial card and cannot be edited. Only MYO (Make Your Own) cards can be edited."
+        elif status_code == 400:
+            # 400 might mean malformed request - the card MIGHT be editable but our payload is wrong
+            message = f"Card update failed - possibly incorrect payload format. Error: {error_detail[:200]}"
+        elif status_code == 403:
+            # 403 means forbidden - could be permissions or commercial card
+            message = f"Access forbidden - this might be a commercial card or a permissions issue. Error: {error_detail[:200]}"
+        else:
+            # Other errors
+            message = f"Card update failed with HTTP {status_code}. Error: {error_detail[:200]}"
+
         return {
             "success": False,
             "editable": False,
             "card_id": card_id,
-            "message": "This is a commercial card and cannot be edited. Only MYO (Make Your Own) cards can be edited.",
+            "status_code": status_code,
+            "message": message,
             "error": error_detail,
         }
 
