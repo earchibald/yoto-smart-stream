@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yoto Smart Stream - Admin Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
+    <link rel="stylesheet" href="/static/css/modern-enhancements.css?v=20260119-1">
 </head>
 <body>
     <nav class="sidebar">
@@ -38,7 +39,7 @@
                 <div class="auth-icon">🔐</div>
                 <h3>Connect Your Yoto Account</h3>
                 <p id="auth-message">To access your Yoto players, please authenticate with your Yoto account.</p>
-                
+
                 <div id="auth-waiting" style="display: none;">
                     <div class="auth-code-display">
                         <p><strong>1. Go to:</strong></p>
@@ -51,7 +52,7 @@
                         <p>Waiting for authorization...</p>
                     </div>
                 </div>
-                
+
                 <div id="auth-actions">
                     <button id="login-button" class="action-button primary" onclick="startAuth()">
                         🔑 Connect Yoto Account
@@ -190,7 +191,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Audio Connections -->
                     <div class="player-detail-section">
                         <h4>Audio Connections</h4>
@@ -205,7 +206,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Sleep Timer -->
                     <div class="player-detail-section" id="modalSleepTimerSection" style="display: none;">
                         <h4>Sleep Timer</h4>
@@ -247,7 +248,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Technical Information (API Details) -->
                     <div class="player-detail-section technical-info-section" id="modalTechnicalInfo" style="display: none;">
                         <h4>Technical Information</h4>
@@ -353,7 +354,7 @@
                 <!-- Auto-Refresh Control -->
                 <div class="analyzer-section">
                     <label>
-                        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)"> 
+                        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)">
                         Auto-refresh (2 seconds)
                     </label>
                 </div>
