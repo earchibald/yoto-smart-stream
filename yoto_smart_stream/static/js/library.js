@@ -265,10 +265,8 @@ function displayCards(cards) {
             <div class="library-card" data-content-id="${escapeHtml(card.id)}" data-content-title="${escapeHtml(card.title)}">
                 <div class="library-card-image">
                     <img src="${escapeHtml(coverImage)}" alt="${escapeHtml(card.title)}" onerror="this.src='${placeholderSVG}'">
-                    <div class="library-card-buttons">
-                        <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data" aria-label="View Raw Data"></button>
-                        <button class="library-card-edit-btn" onclick="event.stopPropagation(); editCard('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="Edit Card" aria-label="Edit Card">✏️</button>
-                    </div>
+                    <button class="library-card-info-btn" onclick="event.stopPropagation(); showCardRawData('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="View Raw Data" aria-label="View Raw Data"></button>
+                    <button class="library-card-edit-btn" onclick="event.stopPropagation(); editCard('${escapeHtml(card.id)}', '${escapeHtml(card.title)}');" title="Edit Card" aria-label="Edit Card">✏️</button>
                 </div>
                 <div class="library-card-content">
                     <h4 class="library-card-title">${escapeHtml(card.title)}</h4>
@@ -718,46 +716,46 @@ window.addEventListener('click', function(event) {
 // Edit card - test if it's a MYO card, load it to managed streams, and open Stream Scripter
 async function editCard(cardId, cardTitle) {
     console.log('[EDIT CARD] Starting edit for card:', cardId, cardTitle);
-    
+
     try {
         // Step 1: Check if card is editable (MYO card) using the edit-check endpoint
         // This endpoint attempts to update the card with NO CHANGES
         console.log('[EDIT CARD] Checking if card is editable (testing with no-change update)...');
-        
+
         const checkResponse = await fetch(`${API_BASE}/library/${cardId}/edit-check`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
         });
-        
+
         if (!checkResponse.ok) {
             throw new Error(`Failed to check card editability: ${checkResponse.statusText}`);
         }
-        
+
         const checkResult = await checkResponse.json();
         console.log('[EDIT CARD] Edit check response:', checkResult);
-        
+
         // Check if the card is editable
         if (!checkResult.editable) {
             console.error('[EDIT CARD] Card is not editable (commercial card)');
             alert(`Cannot edit "${cardTitle}".\n\n${checkResult.message}`);
             return;
         }
-        
+
         console.log('[EDIT CARD] ✓ Card is editable! (MYO card confirmed)');
-        
+
         // Step 2: Use card data from edit-check response
         console.log('[EDIT CARD] Using card data from edit-check response...');
         const cardData = checkResult.card_data;
         console.log('[EDIT CARD] Card data:', cardData);
-        
+
         // Step 3: Extract audio files from the card's chapters/tracks
         console.log('[EDIT CARD] Extracting audio files from card...');
-        
+
         const chapters = cardData.content?.chapters || [];
         const audioFiles = [];
-        
+
         // Extract audio filenames from tracks in chapters
         for (const chapter of chapters) {
             const tracks = chapter.tracks || [];
@@ -765,7 +763,7 @@ async function editCard(cardId, cardTitle) {
                 // Check for trackUrl or url field
                 const trackUrl = track.trackUrl || track.url || '';
                 console.log('[EDIT CARD] Processing track URL:', trackUrl);
-                
+
                 if (trackUrl.startsWith('yoto:#')) {
                     // Yoto-hosted content - pass through as-is
                     audioFiles.push(trackUrl);
@@ -783,19 +781,19 @@ async function editCard(cardId, cardTitle) {
                 }
             }
         }
-        
+
         console.log('[EDIT CARD] Total audio files extracted:', audioFiles.length, audioFiles);
-        
+
         if (audioFiles.length === 0) {
             console.warn('[EDIT CARD] No audio files found in card');
             alert(`No audio files found in card "${cardTitle}".\n\nThis card may not contain any playable audio content.`);
             return;
         }
-        
+
         // Step 4: Create or update a managed stream with this card's content
         const streamName = `edit_${cardId}`;
         console.log('[EDIT CARD] Creating/updating managed stream:', streamName);
-        
+
         // Create the stream with the extracted files
         const createStreamResponse = await fetch(`${API_BASE}/streams/${streamName}`, {
             method: 'POST',
@@ -807,13 +805,13 @@ async function editCard(cardId, cardTitle) {
                 mode: 'sequential'  // Default to sequential playback
             }),
         });
-        
+
         if (!createStreamResponse.ok) {
             const errorText = await createStreamResponse.text();
             console.error('[EDIT CARD] Failed to create stream:', errorText);
             throw new Error(`Failed to create managed stream: ${createStreamResponse.statusText}`);
         }
-        
+
         console.log('[EDIT CARD] ✓ Managed stream created/updated:', streamName);
         
         // Step 5: Extract metadata from card for Stream Scripter
@@ -847,7 +845,7 @@ async function editCard(cardId, cardTitle) {
         
         // Step 6: Navigate to Stream Scripter with this stream selected
         console.log('[EDIT CARD] Navigating to Stream Scripter...');
-        
+
         // Switch to Streams tab
         const streamsTab = document.querySelector('[data-tab="streams"]');
         if (streamsTab) {
@@ -856,7 +854,7 @@ async function editCard(cardId, cardTitle) {
         } else {
             console.error('[EDIT CARD] Could not find Streams tab');
         }
-        
+
         // Wait a moment for the tab to load
         setTimeout(() => {
             // Open the Stream Scripter modal
@@ -888,12 +886,11 @@ async function editCard(cardId, cardTitle) {
                 alert('Stream created, but could not open Stream Scripter. Please navigate to Streams tab manually.');
             }
         }, 300);
-        
+
         console.log('[EDIT CARD] ✓✓✓ Edit workflow complete! ✓✓✓');
-        
+
     } catch (error) {
         console.error('[EDIT CARD] Error:', error);
         alert(`Failed to edit card: ${error.message}`);
     }
 }
-
