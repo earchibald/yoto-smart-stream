@@ -218,15 +218,11 @@ class Settings(BaseSettings):
     # Transcription settings (disabled by default to speed container builds)
     transcription_enabled: bool = Field(
         default=False,
-        description="Enable speech-to-text transcription (requires Whisper + Torch or ElevenLabs)",
-    )
-    transcription_provider: str = Field(
-        default="whisper",
-        description="Transcription provider: 'whisper' or 'elevenlabs'",
+        description="Enable speech-to-text transcription using ElevenLabs",
     )
     transcription_model: str = Field(
         default="scribe_v2",
-        description="Model name: Whisper (tiny, base, small, medium, large) or ElevenLabs (scribe_v2)",
+        description="ElevenLabs model name (default: scribe_v2)",
     )
 
     # ElevenLabs TTS settings
