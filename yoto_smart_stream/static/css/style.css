@@ -3150,3 +3150,57 @@ audio::-webkit-media-controls-pause-button {
     color: #718096;
     white-space: nowrap;
 }
+
+/* Metadata Modal Styles */
+.metadata-section {
+    margin-bottom: 1.5rem;
+}
+
+.metadata-section:last-child {
+    margin-bottom: 0;
+}
+
+.metadata-section h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.metadata-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.metadata-table tr {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.metadata-table tr:last-child {
+    border-bottom: none;
+}
+
+.metadata-label {
+    padding: 0.75rem 0.5rem;
+    font-weight: 600;
+    color: #4a5568;
+    width: 35%;
+    vertical-align: top;
+}
+
+.metadata-value {
+    padding: 0.75rem 0.5rem;
+    color: #2d3748;
+    word-break: break-word;
+}
+
+.metadata-value code {
+    background: #f7fafc;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #2d3748;
+}

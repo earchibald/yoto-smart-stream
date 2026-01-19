@@ -24,7 +24,7 @@ class User(Base):
     is_admin = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
+
     # Yoto OAuth tokens associated with this user
     yoto_access_token = Column(Text, nullable=True)
     yoto_refresh_token = Column(Text, nullable=True)
@@ -51,6 +51,11 @@ class AudioFile(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     transcribed_at = Column(DateTime, nullable=True)  # When transcription completed
+
+    # TTS metadata fields
+    tts_provider = Column(String(50), nullable=True)  # e.g., 'elevenlabs', 'gtts'
+    tts_voice_id = Column(String(255), nullable=True)  # Voice ID used for generation
+    tts_model = Column(String(100), nullable=True)  # Model used for generation
 
     def __repr__(self):
         return f"<AudioFile(id={self.id}, filename={self.filename}, transcript_status={self.transcript_status})>"

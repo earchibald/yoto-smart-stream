@@ -225,6 +225,12 @@ class Settings(BaseSettings):
         description="Whisper model name (tiny, base, small, medium, large)",
     )
 
+    # ElevenLabs TTS settings
+    elevenlabs_api_key: Optional[str] = Field(
+        default=None,
+        description="ElevenLabs API key for text-to-speech generation",
+    )
+
     # Railway startup settings
     railway_startup_wait_seconds: int = Field(
         default=0,
@@ -246,16 +252,22 @@ class Settings(BaseSettings):
     def __init__(self, **kwargs):
         """Initialize settings and create required directories."""
         super().__init__(**kwargs)
-        
+
         # Validate S3 configuration if S3 backend is enabled
         if self.storage_backend == "s3":
             if not self.bucket_name:
-                raise ValueError("bucket_name (AWS_S3_BUCKET_NAME) required when storage_backend='s3'")
+                raise ValueError(
+                    "bucket_name (AWS_S3_BUCKET_NAME) required when storage_backend='s3'"
+                )
             if not self.bucket_access_key_id:
-                raise ValueError("bucket_access_key_id (AWS_ACCESS_KEY_ID) required when storage_backend='s3'")
+                raise ValueError(
+                    "bucket_access_key_id (AWS_ACCESS_KEY_ID) required when storage_backend='s3'"
+                )
             if not self.bucket_secret_access_key:
-                raise ValueError("bucket_secret_access_key (AWS_SECRET_ACCESS_KEY) required when storage_backend='s3'")
-        
+                raise ValueError(
+                    "bucket_secret_access_key (AWS_SECRET_ACCESS_KEY) required when storage_backend='s3'"
+                )
+
         self.audio_files_dir.mkdir(parents=True, exist_ok=True)
 
     def get_storage(self):
