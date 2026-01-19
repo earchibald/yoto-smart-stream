@@ -235,6 +235,10 @@ async function loadManagedStreams() {
 // Setup form handler
 function setupFormHandler() {
     const form = document.getElementById('create-card-form');
+    if (!form) {
+        // Old form removed - Stream Scripter is the new way to create cards
+        return;
+    }
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
