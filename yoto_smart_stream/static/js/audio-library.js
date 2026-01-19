@@ -633,11 +633,20 @@ let confirmModalKeyHandler = null;
 let confirmModalCallback = null;
 
 function showConfirmModal(title, message, onConfirm) {
+    console.log('showConfirmModal called', {title, message, hasCallback: !!onConfirm});
     const modal = document.getElementById('confirmModal');
     const header = document.getElementById('confirmModalHeader');
     const titleEl = document.getElementById('confirmModalTitle');
     const messageEl = document.getElementById('confirmModalMessage');
     const confirmBtn = document.getElementById('confirmModalBtn');
+
+    console.log('Modal elements:', {
+        modal: !!modal,
+        header: !!header,
+        titleEl: !!titleEl,
+        messageEl: !!messageEl,
+        confirmBtn: !!confirmBtn
+    });
 
     // Set content
     titleEl.textContent = title;
@@ -648,6 +657,7 @@ function showConfirmModal(title, message, onConfirm) {
 
     // Store callback
     confirmModalCallback = onConfirm;
+    console.log('Stored callback, confirmModalCallback is now:', !!confirmModalCallback);
 
     // Remove previous keyboard handler if exists
     if (confirmModalKeyHandler) {
@@ -675,10 +685,23 @@ function showConfirmModal(title, message, onConfirm) {
 }
 
 function handleConfirmModalOk() {
+    console.log('handleConfirmModalOk called');
+    console.log('confirmModalCallback exists:', !!confirmModalCallback);
+    console.log('typeof confirmModalCallback:', typeof confirmModalCallback);
+
     closeConfirmModal();
+
     if (confirmModalCallback) {
-        confirmModalCallback();
+        console.log('Executing callback');
+        try {
+            confirmModalCallback();
+            console.log('Callback executed successfully');
+        } catch (error) {
+            console.error('Error executing callback:', error);
+        }
         confirmModalCallback = null;
+    } else {
+        console.warn('No callback to execute!');
     }
 }
 
