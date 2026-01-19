@@ -696,8 +696,9 @@ async def check_card_editable(card_id: str, user: User = Depends(require_auth)):
         logger.info(f"[EDIT CHECK] Full update payload: {update_payload}")
         
         # Attempt to update the card with the same data
+        # Use /content endpoint (for Stream Scripter cards) instead of /card (for Card Creator cards)
         response = requests.post(
-            "https://api.yotoplay.com/card",
+            "https://api.yotoplay.com/content",
             headers={
                 "Authorization": f"Bearer {manager.token.access_token}",
                 "Content-Type": "application/json",
