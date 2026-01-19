@@ -39,6 +39,9 @@
                 <button id="create-playlist-btn" class="btn-secondary">
                     📋 Create Playlist
                 </button>
+                <button id="open-recorder-btn" class="btn-secondary">
+                    🎙️ Record Audio
+                </button>
             </div>
             <div id="audio-list" class="list-container">
                 <p class="loading">Loading audio files...</p>
@@ -107,76 +110,7 @@
             </div>
         </section>
 
-        <section class="section">
-            <h3>Record Audio</h3>
-            <div class="recorder-container">
-                <div class="recorder-controls">
-                    <div class="recorder-status">
-                        <span id="recorder-status" class="recorder-status-text">Ready to record</span>
-                        <span id="recorder-timer" class="recorder-timer">00:00</span>
-                    </div>
-                    <div class="recorder-visualization">
-                        <canvas id="waveform" width="600" height="100"></canvas>
-                    </div>
-                    <div class="recorder-buttons">
-                        <button id="record-btn" class="btn-record" title="Start recording (Ctrl/Cmd + R)">
-                            <span class="btn-icon">🎙️</span>
-                            <span class="btn-text">Record</span>
-                            <span class="btn-shortcut">(Ctrl+R)</span>
-                        </button>
-                        <button id="stop-btn" class="btn-stop" disabled title="Stop recording (Ctrl/Cmd + S)">
-                            <span class="btn-icon">⏹️</span>
-                            <span class="btn-text">Stop</span>
-                            <span class="btn-shortcut">(Ctrl+S)</span>
-                        </button>
-                        <button id="rerecord-btn" class="btn-rerecord" disabled title="Re-record (Ctrl/Cmd + Delete)">
-                            <span class="btn-icon">🔄</span>
-                            <span class="btn-text">Re-record</span>
-                            <span class="btn-shortcut">(Ctrl+Del)</span>
-                        </button>
-                    </div>
-                    <div id="recorder-preview" class="recorder-preview" style="display: none;">
-                        <h4>Preview Recording</h4>
-                        <audio id="preview-audio" controls></audio>
-                        <div class="recorder-metadata">
-                            <div class="form-group">
-                                <label for="recording-filename">Filename (without extension):</label>
-                                <input
-                                    type="text"
-                                    id="recording-filename"
-                                    placeholder="e.g., my-recording"
-                                    pattern="[a-zA-Z0-9\s_-]+"
-                                    title="Only letters, numbers, spaces, hyphens, and underscores allowed"
-                                />
-                            </div>
-                            <div class="form-group">
-                                <label for="recording-description">Description (optional):</label>
-                                <textarea
-                                    id="recording-description"
-                                    rows="3"
-                                    placeholder="Add a description for this recording..."
-                                ></textarea>
-                            </div>
-                            <div class="form-actions">
-                                <button id="save-btn" class="btn-primary" title="Save recording (Ctrl/Cmd + Enter)">
-                                    <span id="save-text">💾 Save Recording</span>
-                                    <span id="save-spinner" style="display: none;">⏳ Saving...</span>
-                                    <span class="btn-shortcut">(Ctrl+Enter)</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="recorder-result" style="display: none; margin-top: 20px;">
-                        <div id="recorder-success" class="success-message" style="display: none;">
-                            ✓ <span id="recorder-success-message"></span>
-                        </div>
-                        <div id="recorder-error" class="error-message" style="display: none;">
-                            ✗ <span id="recorder-error-message"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+
 
         <section class="section">
             <h3>Generate Text-to-Speech Audio</h3>
@@ -365,6 +299,85 @@
                 <button class="btn-primary" id="create-playlist-submit-btn" onclick="submitPlaylist()" disabled>
                     ✓ Create Playlist
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Recorder Modal -->
+    <div id="recorderModal" class="modal">
+        <div class="modal-content recorder-modal-content">
+            <div class="modal-header">
+                <h3>🎙️ Record Audio</h3>
+                <span class="modal-close" onclick="closeRecorderModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="recorder-container">
+                    <div class="recorder-controls">
+                        <div class="recorder-status">
+                            <span id="recorder-status" class="recorder-status-text">Ready to record</span>
+                            <span id="recorder-timer" class="recorder-timer">00:00</span>
+                        </div>
+                        <div class="recorder-visualization">
+                            <canvas id="waveform" width="600" height="100"></canvas>
+                        </div>
+                        <div class="recorder-buttons">
+                            <button id="record-btn" class="btn-record" title="Start recording (Ctrl/Cmd + R)">
+                                <span class="btn-icon">🎙️</span>
+                                <span class="btn-text">Record</span>
+                                <span class="btn-shortcut">(Ctrl+R)</span>
+                            </button>
+                            <button id="stop-btn" class="btn-stop" disabled title="Stop recording (Ctrl/Cmd + S)">
+                                <span class="btn-icon">⏹️</span>
+                                <span class="btn-text">Stop</span>
+                                <span class="btn-shortcut">(Ctrl+S)</span>
+                            </button>
+                            <button id="rerecord-btn" class="btn-rerecord" disabled title="Re-record (Ctrl/Cmd + Delete)">
+                                <span class="btn-icon">🔄</span>
+                                <span class="btn-text">Re-record</span>
+                                <span class="btn-shortcut">(Ctrl+Del)</span>
+                            </button>
+                        </div>
+                        <div id="recorder-preview" class="recorder-preview" style="display: none;">
+                            <h4>Preview Recording</h4>
+                            <audio id="preview-audio" controls></audio>
+                            <div class="recorder-metadata">
+                                <div class="form-group">
+                                    <label for="recording-filename">Filename (without extension):</label>
+                                    <input
+                                        type="text"
+                                        id="recording-filename"
+                                        placeholder="e.g., my-recording"
+                                        pattern="[a-zA-Z0-9\s_-]+"
+                                        title="Only letters, numbers, spaces, hyphens, and underscores allowed"
+                                    />
+                                </div>
+                                <div class="form-group">
+                                    <label for="recording-description">Description (optional):</label>
+                                    <textarea
+                                        id="recording-description"
+                                        rows="3"
+                                        placeholder="Add a description for this recording..."
+                                    ></textarea>
+                                </div>
+                                <div class="form-actions">
+                                    <button id="save-btn" class="btn-primary" title="Save recording (Ctrl/Cmd + Enter)">
+                                        <span id="save-text">💾 Save Recording</span>
+                                        <span id="save-spinner" style="display: none;">⏳ Saving...</span>
+                                        <span class="btn-shortcut">(Ctrl+Enter)</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="recorder-result" style="display: none; margin-top: 20px;">
+                            <div id="recorder-success" class="success-message" style="display: none;">
+                                ✓ <span id="recorder-success-message"></span>
+                            </div>
+                            <div id="recorder-error" class="error-message" style="display: none;">
+                                ✗ <span id="recorder-error-message"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
