@@ -887,11 +887,11 @@ function adjustEnvironmentFontSize(element) {
     const statCard = statContent.parentElement; // .stat-card
     const statIcon = statCard.querySelector('.stat-icon');
 
-    // Calculate available space: card width - icon width - gap
+    // Calculate available space: card clientWidth - icon width - gap
+    // clientWidth already excludes padding, so we don't subtract it again
     const cardStyle = window.getComputedStyle(statCard);
     const gap = parseInt(cardStyle.gap) || 16;
-    const cardPadding = parseInt(cardStyle.paddingLeft) + parseInt(cardStyle.paddingRight);
-    const availableWidth = statCard.offsetWidth - statIcon.offsetWidth - gap - cardPadding;
+    const availableWidth = statCard.clientWidth - statIcon.offsetWidth - gap;
 
     let fontSize = 12; // Start with minimum font size
     const maxSize = 28; // Maximum font size (1.75rem = 28px)
