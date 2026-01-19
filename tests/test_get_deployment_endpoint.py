@@ -11,7 +11,17 @@ import sys
 import pytest
 
 # Add parent directory to path to import the script
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+sys.path.insert(
+    0,
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        ".github",
+        "skills",
+        "railway-service-management",
+        "scripts",
+    ),
+)
 from get_deployment_endpoint import RailwayDeploymentInfo  # noqa: E402
 
 
