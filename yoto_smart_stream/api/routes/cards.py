@@ -1109,10 +1109,12 @@ async def trigger_transcription(
         update_transcript(db, filename, None, "processing", None)
 
         # Perform transcription
+        from pathlib import Path
+
         from ...core.transcription import get_transcription_service
 
         transcription_service = get_transcription_service()
-        transcript_text, error_msg = transcription_service.transcribe_audio(audio_path)
+        transcript_text, error_msg = transcription_service.transcribe_audio(Path(audio_path))
 
         # Clean up temp file for S3
         if settings.storage_backend == "s3" and os.path.exists(audio_path):
