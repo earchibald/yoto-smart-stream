@@ -100,19 +100,22 @@
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label for="queue-selector">Queue</label>
+                    <label for="queue-selector">
+                        Load Existing Stream
+                        <button class="help-icon-btn" onclick="openStreamScripterHelp()" title="Help - Stream Scripter Guide">❓</button>
+                    </label>
                     <div style="display: flex; gap: 0.5rem;">
                         <select id="queue-selector" style="flex: 1;">
-                            <option value="">-- Select Queue --</option>
+                            <option value="">-- Create New or Select Existing --</option>
                         </select>
-                        <button class="btn-secondary" onclick="startNewQueue()">New Queue</button>
+                        <button class="btn-secondary" onclick="startNewQueue()">+ New Stream</button>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="queue-name">Queue Name</label>
-                    <input type="text" id="queue-name" placeholder="my-awesome-queue" pattern="[a-zA-Z0-9\-]+" required>
-                    <small style="color: #666;">Only alphanumeric characters and hyphens allowed</small>
+                    <label for="queue-name">Stream ID (URL-friendly name)</label>
+                    <input type="text" id="queue-name" placeholder="my-awesome-stream" pattern="[a-zA-Z0-9\-]+" required>
+                    <small style="color: #666;">Only alphanumeric characters and hyphens allowed. This becomes the URL path.</small>
                 </div>
 
                 <!-- Card Metadata Section -->
@@ -220,6 +223,185 @@
                 <div class="form-actions">
                     <button class="btn-primary" onclick="createPlaylist()">Create Playlist</button>
                     <button class="btn-secondary" onclick="closePlaylistModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stream Scripter Help Modal -->
+    <div id="stream-scripter-help-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h3>🎬 Stream Scripter Help</h3>
+                <button class="close-btn" onclick="closeStreamScripterHelp()">✕</button>
+            </div>
+            <div style="padding: 0 1.5rem 0.5rem;">
+                <input
+                    type="text"
+                    id="help-search-input"
+                    placeholder="Search help... (press '/' to focus)"
+                    style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.95rem;"
+                    oninput="searchHelpContent(this.value)"
+                >
+                <div id="help-search-status" style="margin-top: 0.5rem; font-size: 0.85rem; color: #666; display: none;">
+                    <span id="help-match-count">0</span> matches found
+                    <span id="help-nav-controls" style="margin-left: 1rem; display: none;">
+                        <button onclick="navigateHelpMatches('prev')" style="padding: 0.25rem 0.5rem; margin: 0 0.25rem;">← Prev</button>
+                        <span id="help-match-position">1 / 1</span>
+                        <button onclick="navigateHelpMatches('next')" style="padding: 0.25rem 0.5rem; margin: 0 0.25rem;">Next →</button>
+                    </span>
+                </div>
+            </div>
+            <div class="modal-body" id="help-modal-content" style="overflow-y: auto; flex: 1;">
+                <div id="help-content">
+                    <h3>What is Stream Scripter?</h3>
+                    <p>Stream Scripter is a powerful tool for creating custom audio streams (playlists) that can be played on your Yoto devices. Think of it as a playlist builder that creates streaming URLs you can use in Yoto MYO (Make Your Own) cards.</p>
+
+                    <h3>Key Concepts</h3>
+
+                    <h4>Stream (formerly "Queue")</h4>
+                    <p>A stream is a named collection of audio files that play sequentially. Each stream has a unique ID that becomes part of its URL. For example, a stream named "bedtime-stories" creates the URL: <code>/api/streams/bedtime-stories/stream.mp3</code></p>
+
+                    <h4>Stream ID</h4>
+                    <p>The URL-friendly identifier for your stream. It can only contain letters, numbers, and hyphens. This ID is used in the streaming URL that clients (like Yoto players) use to access your audio.</p>
+
+                    <h4>Chapters & Tracks</h4>
+                    <p>Each audio file in your stream becomes a chapter in the Yoto card. You can customize chapter titles to make them more meaningful than the original filenames.</p>
+
+                    <h4>Card Metadata</h4>
+                    <p>When you create a Yoto card from your stream, you can set:</p>
+                    <ul>
+                        <li><strong>Title:</strong> The name shown in your Yoto library</li>
+                        <li><strong>Description:</strong> Additional details about the content</li>
+                        <li><strong>Author:</strong> Content creator name</li>
+                        <li><strong>Cover Image:</strong> Custom artwork for your card</li>
+                    </ul>
+
+                    <h3>How to Use Stream Scripter</h3>
+
+                    <h4>Creating a New Stream</h4>
+                    <ol>
+                        <li>Click "🎬 Stream Scripter" button on the Streams page</li>
+                        <li>The "Stream ID" field will be auto-populated with a random name like "stream-abc123"</li>
+                        <li>Change the Stream ID to something memorable (e.g., "kids-bedtime-stories")</li>
+                        <li>Select audio files from the "Available Files" section by checking the boxes</li>
+                        <li>Files appear in the "Chapters & Tracks" section below</li>
+                        <li>Click chapter titles to edit them (they default to filename without extension)</li>
+                        <li>Drag files to reorder them, or use ↑↓ buttons</li>
+                        <li>Fill in Card Metadata fields if you plan to create a Yoto card</li>
+                        <li>Click "Save Stream" to save just the streaming playlist</li>
+                        <li>Or click "Create Card" to both save the stream AND create a Yoto card</li>
+                    </ol>
+
+                    <h4>Editing an Existing Stream</h4>
+                    <ol>
+                        <li>Open Stream Scripter</li>
+                        <li>Use the "Load Existing Stream" dropdown to select a stream</li>
+                        <li>The stream's files and settings will load</li>
+                        <li>Make your changes</li>
+                        <li>Click "Save Stream" to update</li>
+                    </ol>
+
+                    <h4>Play Modes</h4>
+                    <p>After creating a stream, you can set how it plays on the Streams page:</p>
+                    <ul>
+                        <li><strong>📻 Sequential:</strong> Play files in order, once through</li>
+                        <li><strong>🔁 Loop:</strong> Repeat the playlist indefinitely</li>
+                        <li><strong>🔀 Shuffle:</strong> Random order, once through</li>
+                        <li><strong>♾️ Endless Shuffle:</strong> Random order, repeating forever</li>
+                    </ul>
+
+                    <h3>Working with Audio Files</h3>
+
+                    <h4>File Requirements</h4>
+                    <ul>
+                        <li>Format: MP3 (recommended 128-256 kbps)</li>
+                        <li>Files must be uploaded to the server first (via Audio Library)</li>
+                        <li>Use descriptive filenames - they become default chapter titles</li>
+                    </ul>
+
+                    <h4>Organizing Your Stream</h4>
+                    <ul>
+                        <li>Drag and drop files to reorder them</li>
+                        <li>Use the ✕ button to remove files</li>
+                        <li>Click chapter titles to rename them</li>
+                        <li>Add multiple files at once by checking several boxes</li>
+                    </ul>
+
+                    <h3>Creating Yoto Cards</h3>
+
+                    <h4>Two Ways to Create Cards</h4>
+                    <ol>
+                        <li><strong>From Stream Scripter:</strong> Click "Create Card" button after setting up your stream and metadata</li>
+                        <li><strong>From Streams Page:</strong> Click "📋 Create Playlist" on any existing stream card</li>
+                    </ol>
+
+                    <h4>Card Creation Tips</h4>
+                    <ul>
+                        <li>Use meaningful chapter titles - they appear in the Yoto app</li>
+                        <li>Add a cover image for visual appeal (max 5MB)</li>
+                        <li>Write a clear description to help identify the content later</li>
+                        <li>The author field helps you track who created the content</li>
+                    </ul>
+
+                    <h3>Advanced Features</h3>
+
+                    <h4>Cover Images</h4>
+                    <ul>
+                        <li>Upload images up to 5MB</li>
+                        <li>Supported formats: JPG, PNG, GIF</li>
+                        <li>Square images work best</li>
+                        <li>Images are uploaded to Yoto's servers when you create a card</li>
+                    </ul>
+
+                    <h4>Stream URLs</h4>
+                    <p>After saving a stream, its URL will be: <code>/api/streams/[your-stream-id]/stream.mp3</code></p>
+                    <p>You can use this URL in:</p>
+                    <ul>
+                        <li>Yoto MYO cards directly</li>
+                        <li>External audio players (for testing)</li>
+                        <li>Custom integrations</li>
+                    </ul>
+
+                    <h4>Reserved Streams</h4>
+                    <p>Some stream names are reserved for system use:</p>
+                    <ul>
+                        <li><strong>test-stream:</strong> Built-in test stream, cannot be edited</li>
+                    </ul>
+
+                    <h3>Troubleshooting</h3>
+
+                    <h4>Common Issues</h4>
+                    <ul>
+                        <li><strong>Stream ID already exists:</strong> Choose a different name or load the existing stream to edit it</li>
+                        <li><strong>No audio files available:</strong> Upload MP3 files via the Audio Library page first</li>
+                        <li><strong>Invalid Stream ID:</strong> Use only letters, numbers, and hyphens (no spaces or special characters)</li>
+                        <li><strong>Cover image upload fails:</strong> Check file size (max 5MB) and format (JPG/PNG/GIF)</li>
+                        <li><strong>Card creation fails:</strong> Ensure you're logged into your Yoto account</li>
+                    </ul>
+
+                    <h3>Tips & Best Practices</h3>
+                    <ul>
+                        <li>Use descriptive Stream IDs like "bedtime-stories-week1" instead of "stream-abc123"</li>
+                        <li>Keep chapter titles concise - they display on small Yoto screens</li>
+                        <li>Test streams with the Preview button before creating cards</li>
+                        <li>Save your stream before creating a card - you can always create cards later</li>
+                        <li>Use consistent naming schemes for related streams (e.g., "story-collection-01", "story-collection-02")</li>
+                        <li>Upload cover images that are recognizable at small sizes</li>
+                    </ul>
+
+                    <h3>Keyboard Shortcuts</h3>
+                    <ul>
+                        <li><strong>Escape:</strong> Close any open modal (including this help)</li>
+                        <li><strong>/ (forward slash):</strong> Focus the help search box</li>
+                    </ul>
+
+                    <h3>Related Documentation</h3>
+                    <ul>
+                        <li>See the Streams page for managing existing streams</li>
+                        <li>Visit Audio Library to upload new audio files</li>
+                        <li>Check Yoto Library to view created cards</li>
+                    </ul>
                 </div>
             </div>
         </div>
