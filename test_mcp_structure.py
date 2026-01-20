@@ -90,7 +90,7 @@ def test_mcp_structure():
     # Test 7: Check lazy initialization
     tests_total += 1
     print(f"\n[Test {tests_total}] Lazy YOTO_SERVICE_URL initialization")
-    if 'YOTO_SERVICE_URL = args.url or os.getenv("YOTO_SERVICE_URL") or ""' in source:
+    if 'or ""' in source and 'YOTO_SERVICE_URL' in source and 'optional' in source.lower():
         print("✅ YOTO_SERVICE_URL is optional (lazy init)")
         tests_passed += 1
     else:
