@@ -658,12 +658,7 @@ async def main():
             write_stream,
             InitializationOptions(
                 server_name="yoto-library",
-                server_version="0.1.0",
-                capabilities=app.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
-                ),
-            ),
+                    server_version="0.1.1",
         )
 
 
