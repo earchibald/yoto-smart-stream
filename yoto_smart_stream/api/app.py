@@ -358,9 +358,10 @@ def create_app() -> FastAPI:
 
     @app.get("/api/audio-preview/{preview_id}", tags=["Audio"])
     async def get_audio_preview(preview_id: str):
-        """Serve temporary preview audio stored in /tmp, auto-deleted via cleanup endpoint."""
+        """Serve temporary preview audio stored in workspace tmp/, auto-deleted via cleanup endpoint."""
         from pathlib import Path
-        temp_path = Path("/tmp") / f"preview_{preview_id}.mp3"
+        # Use workspace tmp/ directory instead of /tmp
+        temp_path = settings.audio_files_dir.parent / 'tmp' / f"preview_{preview_id}.mp3"
         if not temp_path.exists():
             return JSONResponse(status_code=404, content={"detail": "Preview not found"})
         return FileResponse(str(temp_path), media_type="audio/mpeg")

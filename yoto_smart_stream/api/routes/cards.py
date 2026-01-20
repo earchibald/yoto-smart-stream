@@ -861,7 +861,8 @@ async def preview_stitch_audio(request: PreviewStitchRequest, user: User = Depen
     preview_id = str(uuid.uuid4())
     try:
         combined = combined.set_channels(1).set_frame_rate(44100)
-        temp_dir = Path("/tmp")
+        # Use workspace tmp/ directory instead of /tmp
+        temp_dir = settings.audio_files_dir.parent / 'tmp'
         temp_dir.mkdir(parents=True, exist_ok=True)
         temp_path = temp_dir / f"preview_{preview_id}.mp3"
         combined.export(str(temp_path), format="mp3", bitrate="192k", parameters=["-ac", "1"])
@@ -877,7 +878,9 @@ async def preview_stitch_audio(request: PreviewStitchRequest, user: User = Depen
 
 @router.delete("/audio/preview-stitch/{preview_id}")
 async def delete_preview(preview_id: str, user: User = Depends(require_auth)):
-    temp_path = Path("/tmp") / f"preview_{preview_id}.mp3"
+    settings = get_settings()
+    # Use workspace tmp/ directory instead of /tmp
+    temp_path = settings.audio_files_dir.parent / 'tmp' / f"preview_{preview_id}.mp3"
     if temp_path.exists():
         try:
             temp_path.unlink()
