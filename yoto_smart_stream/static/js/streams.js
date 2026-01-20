@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     loadSystemInfo();
-    loadAudioFiles();
     loadManagedStreams();
     setupFormHandler();
 
