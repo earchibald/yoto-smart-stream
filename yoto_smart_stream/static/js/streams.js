@@ -31,7 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'audio-player-modal', element: document.getElementById('audio-player-modal'), close: closeAudioPlayer },
                 { id: 'create-playlist-modal', element: document.getElementById('create-playlist-modal'), close: closePlaylistModal },
                 { id: 'stream-scripter-modal', element: document.getElementById('stream-scripter-modal'), close: closeStreamScripter },
-                { id: 'delete-playlist-modal', element: document.getElementById('delete-playlist-modal'), close: closeDeletePlaylistModal }
+                { id: 'delete-playlist-modal', element: document.getElementById('delete-playlist-modal'), close: closeDeletePlaylistModal },
+                { id: 'stream-scripter-help-modal', element: document.getElementById('stream-scripter-help-modal'), close: closeStreamScripterHelp }
             ];
 
             // Filter to only visible modals
@@ -55,6 +56,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Close only the topmost modal
             topmostModal.close();
+        }
+
+        // Focus help search with '/' key
+        if (e.key === '/' && document.getElementById('stream-scripter-help-modal').style.display === 'flex') {
+            e.preventDefault();
+            document.getElementById('help-search-input').focus();
         }
     });
 });
@@ -503,7 +510,7 @@ async function loadStreamQueues() {
         const editableQueues = (data.queues || []).filter(name => !RESERVED_QUEUES.includes(name));
 
         const selector = document.getElementById('queue-selector');
-        selector.innerHTML = '<option value="">-- Select Queue --</option>';
+        selector.innerHTML = '<option value="">-- Create New or Select Existing --</option>';
 
         editableQueues.forEach(queueName => {
             const option = document.createElement('option');
@@ -1687,5 +1694,216 @@ async function deleteSelectedPlaylists() {
     } finally {
         deleteBtn.disabled = false;
         deleteBtn.textContent = originalText;
+    }
+}
+
+// Stream Scripter Help Functions
+let helpSearchMatches = [];
+let currentHelpMatchIndex = -1;
+
+function openStreamScripterHelp() {
+    const modal = document.getElementById('stream-scripter-help-modal');
+    modal.style.display = 'flex';
+
+    // Reset search
+    document.getElementById('help-search-input').value = '';
+    document.getElementById('help-search-status').style.display = 'none';
+    clearHelpHighlights();
+
+    // Focus search input after a brief delay
+    setTimeout(() => {
+        document.getElementById('help-search-input').focus();
+    }, 100);
+}
+
+function closeStreamScripterHelp() {
+    const modal = document.getElementById('stream-scripter-help-modal');
+    modal.style.display = 'none';
+    clearHelpHighlights();
+}
+
+function clearHelpHighlights() {
+    const content = document.getElementById('help-content');
+    if (!content) return;
+
+    // Remove all highlight spans
+    const highlights = content.querySelectorAll('.help-highlight, .help-highlight-current');
+    highlights.forEach(span => {
+        const parent = span.parentNode;
+        parent.replaceChild(document.createTextNode(span.textContent), span);
+        parent.normalize();
+    });
+
+    helpSearchMatches = [];
+    currentHelpMatchIndex = -1;
+}
+
+function searchHelpContent(query) {
+    const content = document.getElementById('help-content');
+    const statusDiv = document.getElementById('help-search-status');
+    const matchCountSpan = document.getElementById('help-match-count');
+    const navControls = document.getElementById('help-nav-controls');
+
+    // Clear previous highlights
+    clearHelpHighlights();
+
+    if (!query || query.trim().length < 2) {
+        statusDiv.style.display = 'none';
+        return;
+    }
+
+    const searchTerm = query.trim().toLowerCase();
+
+    // Fuzzy search: split into words and search for each
+    const searchWords = searchTerm.split(/\s+/);
+
+    // Get all text nodes
+    const walker = document.createTreeWalker(
+        content,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+    );
+
+    const textNodes = [];
+    let node;
+    while (node = walker.nextNode()) {
+        // Skip empty text nodes and nodes inside script/style
+        if (node.textContent.trim() &&
+            !['SCRIPT', 'STYLE'].includes(node.parentNode.nodeName)) {
+            textNodes.push(node);
+        }
+    }
+
+    helpSearchMatches = [];
+
+    // Search through text nodes
+    textNodes.forEach(textNode => {
+        const text = textNode.textContent;
+        const lowerText = text.toLowerCase();
+
+        // Find all matches for any search word
+        searchWords.forEach(word => {
+            let index = 0;
+            while ((index = lowerText.indexOf(word, index)) !== -1) {
+                helpSearchMatches.push({
+                    node: textNode,
+                    start: index,
+                    end: index + word.length,
+                    text: text.substring(index, index + word.length)
+                });
+                index++;
+            }
+        });
+    });
+
+    // Sort matches by document order
+    helpSearchMatches.sort((a, b) => {
+        if (a.node === b.node) {
+            return a.start - b.start;
+        }
+        return a.node.compareDocumentPosition(b.node) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    });
+
+    // Apply highlights
+    if (helpSearchMatches.length > 0) {
+        highlightHelpMatches();
+        currentHelpMatchIndex = 0;
+        scrollToCurrentHelpMatch();
+
+        statusDiv.style.display = 'block';
+        matchCountSpan.textContent = helpSearchMatches.length;
+        navControls.style.display = helpSearchMatches.length > 1 ? 'inline' : 'none';
+        updateHelpMatchPosition();
+    } else {
+        statusDiv.style.display = 'block';
+        matchCountSpan.textContent = '0';
+        navControls.style.display = 'none';
+    }
+}
+
+function highlightHelpMatches() {
+    // Group matches by node for efficient processing
+    const matchesByNode = new Map();
+    helpSearchMatches.forEach((match, index) => {
+        if (!matchesByNode.has(match.node)) {
+            matchesByNode.set(match.node, []);
+        }
+        matchesByNode.get(match.node).push({ ...match, index });
+    });
+
+    // Process each node's matches in reverse order to maintain indices
+    matchesByNode.forEach((matches, textNode) => {
+        matches.sort((a, b) => b.start - a.start);
+
+        matches.forEach(match => {
+            const parent = textNode.parentNode;
+            const text = textNode.textContent;
+
+            // Split text node
+            const before = text.substring(0, match.start);
+            const matchText = text.substring(match.start, match.end);
+            const after = text.substring(match.end);
+
+            // Create highlight span
+            const span = document.createElement('span');
+            span.className = match.index === currentHelpMatchIndex ? 'help-highlight-current' : 'help-highlight';
+            span.textContent = matchText;
+            span.dataset.matchIndex = match.index;
+
+            // Replace text node with highlighted version
+            const beforeNode = document.createTextNode(before);
+            const afterNode = document.createTextNode(after);
+
+            parent.insertBefore(beforeNode, textNode);
+            parent.insertBefore(span, textNode);
+            parent.insertBefore(afterNode, textNode);
+            parent.removeChild(textNode);
+
+            // Update textNode reference for next iteration
+            textNode = afterNode;
+        });
+    });
+}
+
+function navigateHelpMatches(direction) {
+    if (helpSearchMatches.length === 0) return;
+
+    // Update current match class
+    const currentSpan = document.querySelector('.help-highlight-current');
+    if (currentSpan) {
+        currentSpan.className = 'help-highlight';
+    }
+
+    // Move to next/prev match
+    if (direction === 'next') {
+        currentHelpMatchIndex = (currentHelpMatchIndex + 1) % helpSearchMatches.length;
+    } else {
+        currentHelpMatchIndex = currentHelpMatchIndex <= 0
+            ? helpSearchMatches.length - 1
+            : currentHelpMatchIndex - 1;
+    }
+
+    // Highlight new current match
+    const newSpan = document.querySelector(`[data-match-index="${currentHelpMatchIndex}"]`);
+    if (newSpan) {
+        newSpan.className = 'help-highlight-current';
+    }
+
+    updateHelpMatchPosition();
+    scrollToCurrentHelpMatch();
+}
+
+function updateHelpMatchPosition() {
+    const positionSpan = document.getElementById('help-match-position');
+    if (positionSpan && helpSearchMatches.length > 0) {
+        positionSpan.textContent = `${currentHelpMatchIndex + 1} / ${helpSearchMatches.length}`;
+    }
+}
+
+function scrollToCurrentHelpMatch() {
+    const currentSpan = document.querySelector('.help-highlight-current');
+    if (currentSpan) {
+        currentSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 }
