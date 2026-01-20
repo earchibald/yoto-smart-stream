@@ -21,6 +21,7 @@ For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 - **Dynamic Playlists**: Server-controlled playlists that stream multiple files sequentially ([details](docs/DYNAMIC_STREAMING.md))
 - **Real-time Monitoring**: Track player events via MQTT (play/pause, button presses, battery status)
 - **Interactive Cards**: Create Choose Your Own Adventure style experiences using physical button controls
+- **Progressive Web App (PWA)**: Install on mobile devices for an app-like experience ([Mobile Guide](docs/PWA_MOBILE_GUIDE.md))
 - **Web UI**: Manage your audio library, configure cards, and write interactive scripts
 - **Card Management**: Upload, organize, and configure custom Yoto cards
 - **Multi-format Support**: Automatic audio conversion to Yoto-compatible formats
@@ -33,7 +34,7 @@ For general project setup: See our **[Quick Start Guide](docs/QUICK_START.md)**
 graph TB
     subgraph "Client Layer"
         WebUI[Web Browser / UI]
-        MobileApp[Mobile App<br/><i>future</i>]
+        PWAMobile[📱 PWA Mobile App<br/><i>installed on device</i>]
     end
 
     subgraph "Application Layer"
@@ -64,7 +65,7 @@ graph TB
     end
 
     WebUI -->|HTTP/WebSocket| API
-    MobileApp -.->|HTTP/WebSocket| API
+    PWAMobile -->|HTTP/WebSocket| API
 
     API --> AudioMgr
     API --> ScriptEngine
@@ -591,9 +592,36 @@ This project is not affiliated with, endorsed by, or sponsored by Yoto Play. It'
 - [ ] Audio management system (basic upload/conversion)
 - [ ] Interactive script engine
 - [ ] Web UI for queue management
-- [ ] Queue persistence (database storage)
-- [ ] Cloud deployment guides
-- [ ] Mobile app (future consideration)
+- [x] Queue persistence (database storage)
+- [x] Cloud deployment guides
+- [x] Progressive Web App (PWA) for mobile devices
+
+## 📱 Progressive Web App (PWA)
+
+Yoto Smart Stream is now available as a Progressive Web App! Install it on your mobile device for an app-like experience without going through an app store.
+
+### Features
+
+- ✅ **Install on iOS/Android**: Add to home screen for quick access
+- ✅ **Offline Support**: Core features work without internet connection
+- ✅ **Native Feel**: Full-screen app experience without browser UI
+- ✅ **Auto Updates**: Always get the latest version automatically
+- ✅ **Mobile Optimized**: Touch-friendly interface with 44px touch targets
+- ✅ **Cross-Platform**: Works on iOS, Android, and Desktop
+
+### Quick Installation
+
+**iOS (Safari):**
+1. Visit your Yoto Smart Stream URL
+2. Tap Share → "Add to Home Screen"
+3. Launch from your home screen
+
+**Android (Chrome):**
+1. Visit your Yoto Smart Stream URL
+2. Tap "Install" prompt or Menu → "Install app"
+3. Launch from your app drawer
+
+For detailed installation instructions, troubleshooting, and technical details, see the **[PWA Mobile Installation Guide](docs/PWA_MOBILE_GUIDE.md)**.
 
 ## Speech-to-Text Transcription
 

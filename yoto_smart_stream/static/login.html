@@ -4,8 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Yoto Smart Stream</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Stream audio to Yoto devices with MQTT monitoring and interactive audio experiences">
+    <meta name="theme-color" content="#4A90E2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Yoto Stream">
+
+    <!-- PWA Icons and Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+
     <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
     <link rel="stylesheet" href="/static/css/modern-enhancements.css?v=20260119-1">
+    <link rel="stylesheet" href="/static/css/pwa.css">
     <style>
         body {
             display: flex;
@@ -214,5 +228,6 @@
             })
             .catch(err => console.error('Session check error:', err));
     </script>
+    <script src="/static/js/pwa.js"></script>
 </body>
 </html>

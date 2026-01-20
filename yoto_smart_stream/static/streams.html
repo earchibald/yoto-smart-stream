@@ -4,8 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Streams - Yoto Smart Stream</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Stream audio to Yoto devices with MQTT monitoring and interactive audio experiences">
+    <meta name="theme-color" content="#4A90E2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Yoto Stream">
+
+    <!-- PWA Icons and Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+
     <link rel="stylesheet" href="/static/css/style.css?v=20260114-2">
     <link rel="stylesheet" href="/static/css/modern-enhancements.css?v=20260119-1">
+    <link rel="stylesheet" href="/static/css/pwa.css">
 </head>
 <body>
     <nav class="sidebar">
@@ -104,7 +118,7 @@
                 <!-- Card Metadata Section -->
                 <div class="form-section" style="border-top: 1px solid #e0e0e0; padding-top: 1rem; margin-top: 1rem;">
                     <h4 style="margin-bottom: 1rem;">📋 Card Metadata</h4>
-                    
+
                     <div class="form-group">
                         <label for="card-title">Card Title</label>
                         <input type="text" id="card-title" placeholder="My Awesome Playlist">
@@ -141,7 +155,7 @@
                     <!-- TODO: Add hex color picker for chapter/track ambient lighting
                          Example: <input type="color" id="default-ambient" value="#FF6B6B">
                          See Yoto API docs for ambient field on chapters/tracks -->
-                    
+
                     <!-- Future: Interactive Card Mode -->
                     <!-- TODO: Add toggle for interactive cards with event configuration
                          Requires: onLhb, onRhb, onEnd event handlers for branching narratives
@@ -212,6 +226,7 @@
     </div>
 
     <script src="/static/js/streams.js"></script>
+    <script src="/static/js/pwa.js"></script>
     <script>
         // Hide admin nav for non-admin users
         async function checkAdminStatusNav() {
