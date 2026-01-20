@@ -247,5 +247,24 @@
         }
         checkAdminStatusNav();
     </script>
+    
+    <!-- Dark Mode Support -->
+    <script src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js"></script>
+    <script>
+        const darkmode = new Darkmode({
+            bottom: '64px',
+            right: '32px',
+            left: 'unset',
+            time: '0.3s',
+            mixColor: '#fff',
+            backgroundColor: '#f8fafc',
+            buttonColorDark: '#0891b2',
+            buttonColorLight: '#06b6d4',
+            saveInCookies: true,
+            label: '🌓',
+            autoMatchOsTheme: true
+        });
+        darkmode.showWidget();
+    </script>
 </body>
 </html>
