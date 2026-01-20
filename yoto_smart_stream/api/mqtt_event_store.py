@@ -146,6 +146,21 @@ class MQTTEventStore:
             return self.events[-1]
         return None
 
+    def get_device_state_for(self, device_id: str) -> Optional[MQTTEvent]:
+        """Get the most recent event for a specific device.
+
+        Args:
+            device_id: The device identifier to filter by
+
+        Returns:
+            Most recent MQTTEvent for the device, or None if none exist
+        """
+        # Iterate backwards through events to find the latest for this device
+        for event in reversed(self.events):
+            if event.device_id == device_id:
+                return event
+        return None
+
     def get_recent_events(self, count: int = 20) -> list[MQTTEvent]:
         """Get the most recent N events."""
         return self.events[-count:]

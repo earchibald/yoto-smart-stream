@@ -215,6 +215,31 @@ def extract_player_info(player_id: str, player, manager=None) -> PlayerInfo:
     chapter_title = getattr(player, 'chapter_title', None)
     track_title = getattr(player, 'track_title', None)
 
+    # Fallbacks: use keys when titles are missing
+    try:
+        chapter_key = getattr(player, 'chapter_key', None) or getattr(player, 'current_chapter', None)
+    except Exception:
+        chapter_key = None
+    try:
+        track_key = getattr(player, 'track_key', None) or getattr(player, 'current_track', None)
+    except Exception:
+        track_key = None
+
+    def _normalize_key(k: Optional[str]) -> Optional[str]:
+        if k is None:
+            return None
+        ks = str(k).strip()
+        # Drop leading zeros if numeric
+        try:
+            return str(int(ks))
+        except Exception:
+            return ks
+
+    if chapter_title is None and chapter_key is not None:
+        chapter_title = f"Chapter {_normalize_key(chapter_key)}"
+    if track_title is None and track_key is not None:
+        track_title = f"Track {_normalize_key(track_key)}"
+
     # Card/Album info from library (like yoto_ha media_album_name, media_artist, media_image_url)
     card_title = None
     card_author = None
@@ -325,6 +350,21 @@ def extract_player_detail_info(player_id: str, player, manager=None) -> PlayerDe
     current_track = getattr(player, 'track_key', None)
     chapter_title = getattr(player, 'chapter_title', None)
     track_title = getattr(player, 'track_title', None)
+
+    # Fallback titles if missing
+    def _normalize_key(k: Optional[str]) -> Optional[str]:
+        if k is None:
+            return None
+        ks = str(k).strip()
+        try:
+            return str(int(ks))
+        except Exception:
+            return ks
+
+    if chapter_title is None and current_chapter is not None:
+        chapter_title = f"Chapter {_normalize_key(current_chapter)}"
+    if track_title is None and current_track is not None:
+        track_title = f"Track {_normalize_key(current_track)}"
 
     # Nightlight mode - yoto_ha uses player.night_light_mode
     nightlight_mode = getattr(player, 'night_light_mode', None)

@@ -968,11 +968,11 @@ async def detect_smart_stream(device_id: str, user: User = Depends(require_auth)
         mqtt_store = get_mqtt_event_store()
         stream_manager = get_stream_manager()
         
-        # Get the latest device state
-        device_state = mqtt_store.get_device_state()
+        # Get the latest device state for the requested device
+        device_state = mqtt_store.get_device_state_for(device_id)
         
-        # If no device state yet, return not playing
-        if not device_state or device_state.device_id != device_id:
+        # If no device state yet for this device, return not playing
+        if not device_state:
             return {
                 "is_playing_smart_stream": False,
                 "stream_name": None,
