@@ -663,5 +663,10 @@ async def main():
         )
 
 
+def sync_main():
+    """Synchronous entry point that runs the async main function."""
+    asyncio.run(main())
+
+
 if __name__ == "__main__":
     asyncio.run(main())
