@@ -70,7 +70,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     loadSystemStatus();
-    loadSettings();
+    await loadSettings();
+    // If redirected here to focus settings (e.g., from disabled transcription), scroll/highlight
+    try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('focus') === 'settings') {
+            const container = document.getElementById('settings-list');
+            if (container) {
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                container.style.outline = '3px solid #667eea';
+                container.style.borderRadius = '8px';
+                setTimeout(() => { container.style.outline = ''; }, 2000);
+                // Focus first interactive control
+                const firstControl = container.querySelector('input,button,select');
+                if (firstControl) setTimeout(() => firstControl.focus(), 400);
+            }
+        }
+    } catch (e) { /* no-op */ }
     loadUsers();
     
     // Setup create user form
