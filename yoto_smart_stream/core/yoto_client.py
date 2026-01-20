@@ -8,6 +8,7 @@ from yoto_api import YotoManager
 
 from ..api.mqtt_event_store import MQTTEvent, get_mqtt_event_store
 from ..config import Settings
+from ..database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +34,46 @@ class YotoClient:
         self.manager: Optional[YotoManager] = None
         self._authenticated = False
 
+    def _get_effective_client_id(self) -> Optional[str]:
+        """
+        Get effective client ID from settings database or environment/config.
+
+        Priority:
+        1. Environment variable YOTO_CLIENT_ID
+        2. Database setting yoto_client_id
+        3. Config file setting
+
+        Returns:
+            Client ID string or None if not configured
+        """
+        try:
+            # Import here to avoid circular dependency
+            from ..api.routes.settings import get_effective_setting_value
+
+            db = SessionLocal()
+            try:
+                effective_value = get_effective_setting_value("yoto_client_id", db)
+                # If the setting has a value (not empty string), use it
+                if effective_value:
+                    return effective_value
+            finally:
+                db.close()
+        except Exception as e:
+            # If we can't access the database yet (e.g., during startup),
+            # fall back to the config value
+            logger.debug(f"Could not get yoto_client_id from settings database: {e}")
+
+        # Fall back to config value
+        return self.settings.yoto_client_id
+
     def initialize(self) -> None:
         """Initialize YotoManager instance."""
         if self.manager is None:
-            self.manager = YotoManager(client_id=self.settings.yoto_client_id)
-            logger.info("YotoManager initialized")
+            client_id = self._get_effective_client_id()
+            self.manager = YotoManager(client_id=client_id)
+            logger.info(
+                f"YotoManager initialized with client_id: {client_id[:8] if client_id else 'None'}..."
+            )
 
     def is_authenticated(self) -> bool:
         """Check if client is authenticated."""
