@@ -84,7 +84,8 @@ For PR environments to inherit secrets like `YOTO_CLIENT_ID`:
 
 Railway automatically names PR environments using a consistent pattern:
 
-- Format: `pr-{number}`
+- Format: `yoto-smart-stream-pr-{PR_NUMBER}`
+  - where PR_NUMBER can be determined by listing PRs for our branch: `gh pr list --head YOUR_BRANCH_NAME`
 - Examples:
   - PR #123 → Environment `pr-123`
   - PR #456 → Environment `pr-456`
