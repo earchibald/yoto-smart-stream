@@ -138,14 +138,18 @@ export const Library: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {cards.map((card) => (
-                <Card key={card.id}>
+                <Card key={card.id} className="hover:shadow-lg transition-shadow">
                   <div className="space-y-3">
-                    {card.coverImageUrl && (
+                    {card.coverImageUrl ? (
                       <img
                         src={card.coverImageUrl}
                         alt={card.title}
                         className="w-full h-48 object-cover rounded-lg"
                       />
+                    ) : (
+                      <div className="w-full h-48 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center">
+                        <span className="text-6xl">📚</span>
+                      </div>
                     )}
                     <div>
                       <h4 className="font-semibold text-gray-900 line-clamp-2">
@@ -158,11 +162,30 @@ export const Library: React.FC = () => {
                       )}
                     </div>
                     {card.audioFiles && card.audioFiles.length > 0 && (
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <span>🎵</span>
-                        <span>{card.audioFiles.length} track{card.audioFiles.length !== 1 ? 's' : ''}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                          <span>🎵</span>
+                          <span>{card.audioFiles.length} track{card.audioFiles.length !== 1 ? 's' : ''}</span>
+                        </span>
                       </div>
                     )}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => alert('Card details coming soon!')}
+                      >
+                        View Details
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => alert('Opening in Yoto app...')}
+                      >
+                        🔗
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               ))}

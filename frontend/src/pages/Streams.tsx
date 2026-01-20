@@ -29,13 +29,16 @@ export const Streams: React.FC = () => {
     try {
       setError(null);
       const response = await audioApi.getAll();
-      setAudioFiles(response.data || []);
+      // Ensure audioFiles is always an array
+      const files = response.data;
+      setAudioFiles(Array.isArray(files) ? files : []);
     } catch (err: any) {
       console.error('Failed to load audio files:', err);
       // Only set error if it's a real error (not authentication or empty data)
       if (err.response?.status !== 404 && err.response?.status !== 401) {
         setError(err.response?.data?.detail || 'Failed to load audio files');
       }
+      setAudioFiles([]);
     } finally {
       setLoading(false);
     }
@@ -139,7 +142,7 @@ export const Streams: React.FC = () => {
           ) : (
             <Card>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {audioFiles.map((file) => (
+                {Array.isArray(audioFiles) && audioFiles.map((file) => (
                   <div
                     key={file.id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"

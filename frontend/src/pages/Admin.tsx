@@ -3,7 +3,7 @@ import { Header } from '@/components/Header';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { useAuth } from '@/contexts/AuthContext';
-import { healthApi } from '@/api/client';
+import { healthApi, authApi } from '@/api/client';
 
 interface SystemInfo {
   version: string;
@@ -29,6 +29,16 @@ export const Admin: React.FC = () => {
       console.error('Failed to load system info:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Failed to logout:', error);
+      window.location.href = '/';
     }
   };
 
@@ -70,8 +80,53 @@ export const Admin: React.FC = () => {
           )}
         </Card>
 
+        {/* User Management */}
+        <Card title="User Management">
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-900 mb-2">Yoto Account Authentication</h4>
+              <div className="space-y-2 text-sm text-blue-800">
+                <div className="flex justify-between py-1">
+                  <span>Status:</span>
+                  <span className={`font-medium ${authStatus?.authenticated ? 'text-green-700' : 'text-gray-600'}`}>
+                    {authStatus?.authenticated ? '✓ Authenticated' : 'Not authenticated'}
+                  </span>
+                </div>
+                {systemInfo && (
+                  <div className="flex justify-between py-1">
+                    <span>Environment:</span>
+                    <span className="font-medium">{systemInfo.environment}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {authStatus?.authenticated && (
+              <div className="flex gap-3">
+                <Button
+                  variant="danger"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2"
+                >
+                  <span>🚪</span>
+                  <span>Logout</span>
+                </Button>
+              </div>
+            )}
+
+            {!authStatus?.authenticated && (
+              <div className="text-center py-6">
+                <p className="text-gray-600 mb-4">No user is currently authenticated.</p>
+                <Button onClick={() => window.location.href = '/'}>
+                  Go to Dashboard to Login
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+
         {/* Authentication */}
-        <Card title="Yoto Account">
+        <Card title="Yoto Account Details">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -85,7 +140,7 @@ export const Admin: React.FC = () => {
                 </p>
               </div>
               {authStatus?.authenticated && (
-                <Button variant="danger" onClick={logout}>
+                <Button variant="danger" onClick={handleLogout}>
                   Disconnect Account
                 </Button>
               )}

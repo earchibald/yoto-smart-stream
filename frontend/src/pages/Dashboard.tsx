@@ -5,7 +5,7 @@ import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { MQTTEventLog } from '@/components/MQTTEventLog';
 import { useAuth } from '@/contexts/AuthContext';
-import { playersApi, healthApi, mqttApi } from '@/api/client';
+import { playersApi, healthApi, authApi } from '@/api/client';
 import type { Player, MQTTEvent } from '@/types';
 
 export const Dashboard: React.FC = () => {
@@ -77,11 +77,19 @@ export const Dashboard: React.FC = () => {
   };
 
   const loadMqttEvents = async () => {
+    // MQTT events endpoint not yet implemented in backend
+    // Placeholder for future implementation
+    setMqttEvents([]);
+  };
+
+  const handleLogout = async () => {
     try {
-      const response = await mqttApi.getRecentEvents(50);
-      setMqttEvents(response.data);
+      await authApi.logout();
+      window.location.href = '/';
     } catch (error) {
-      console.error('Failed to load MQTT events:', error);
+      console.error('Failed to logout:', error);
+      // Force logout on frontend even if API fails
+      window.location.href = '/';
     }
   };
 
@@ -247,6 +255,14 @@ export const Dashboard: React.FC = () => {
                   <span className="text-3xl mb-2">📡</span>
                   <span className="text-sm">{showMqttLog ? 'Hide' : 'Show'} Events</span>
                 </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleLogout}
+                  className="flex flex-col items-center justify-center p-4 h-auto"
+                >
+                  <span className="text-3xl mb-2">🚪</span>
+                  <span className="text-sm">Logout</span>
+                </Button>
               </div>
             </Card>
           </div>
@@ -257,16 +273,15 @@ export const Dashboard: React.FC = () => {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold">Recent MQTT Events</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={loadMqttEvents}
-              >
-                🔄 Refresh
-              </Button>
             </div>
             <Card>
-              <MQTTEventLog events={mqttEvents} />
+              <div className="text-center py-8">
+                <div className="text-5xl mb-4">📡</div>
+                <h3 className="text-lg font-semibold mb-2">MQTT Events</h3>
+                <p className="text-gray-600">
+                  MQTT event logging is coming soon. Events will be displayed here in real-time.
+                </p>
+              </div>
             </Card>
           </div>
         )}
