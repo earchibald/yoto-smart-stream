@@ -2,16 +2,15 @@
 
 import logging
 import os
-from typing import Dict, List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...models import Setting
+from ...models import Setting, User
 from ..routes.user_auth import require_auth
-from ...models import User
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class SettingUpdateRequest(BaseModel):
 class SettingsListResponse(BaseModel):
     """Settings list response model."""
 
-    settings: List[SettingResponse]
+    settings: list[SettingResponse]
 
 
 # Define available settings with their environment variable names
@@ -47,6 +46,11 @@ AVAILABLE_SETTINGS = {
         "env_var": "transcription_enabled",  # Pydantic reads both upper and lowercase
         "description": "Enable or disable automatic transcription of uploaded audio files",
         "default": "false",
+    },
+    "yoto_client_id": {
+        "env_var": "YOTO_CLIENT_ID",
+        "description": "Yoto API Client ID for OAuth authentication",
+        "default": "",
     },
 }
 
@@ -63,100 +67,87 @@ def get_env_var_value(env_var_name: str) -> Optional[str]:
 def get_setting_value(key: str, db: Session) -> tuple[str, Optional[str], bool]:
     """
     Get setting value, checking both database and environment variables.
-    
+
     Returns:
         tuple: (effective_value, env_var_value, is_overridden)
     """
     config = AVAILABLE_SETTINGS.get(key)
     if not config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{key}' not found"
         )
-    
+
     # Check environment variable first
     env_var_name = config["env_var"]
     env_var_value = get_env_var_value(env_var_name)
-    
+
     # Get database value
     setting = db.query(Setting).filter(Setting.key == key).first()
     db_value = str(setting.value) if setting else config["default"]
-    
+
     # Determine if overridden
     is_overridden = env_var_value is not None
     effective_value = env_var_value if is_overridden else db_value
-    
+
     return str(effective_value), env_var_value, is_overridden
 
 
 @router.get("/settings", response_model=SettingsListResponse)
-async def list_settings(
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db)
-):
+async def list_settings(user: User = Depends(require_auth), db: Session = Depends(get_db)):
     """
     List all available settings with their values and override status.
-    
+
     Requires admin authentication.
     """
     if not user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+
     logger.info(f"User {user.username} listing settings")
-    
+
     settings_list = []
-    
+
     for key, config in AVAILABLE_SETTINGS.items():
         value, env_override, is_overridden = get_setting_value(key, db)
-        
-        settings_list.append(SettingResponse(
-            key=key,
-            value=value,
-            description=config["description"],
-            env_var_override=env_override,
-            is_overridden=is_overridden
-        ))
-    
+
+        settings_list.append(
+            SettingResponse(
+                key=key,
+                value=value,
+                description=config["description"],
+                env_var_override=env_override,
+                is_overridden=is_overridden,
+            )
+        )
+
     return SettingsListResponse(settings=settings_list)
 
 
 @router.get("/settings/{key}", response_model=SettingResponse)
-async def get_setting(
-    key: str,
-    user: User = Depends(require_auth),
-    db: Session = Depends(get_db)
-):
+async def get_setting(key: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
     """
     Get a specific setting value.
-    
+
     Requires admin authentication.
     """
     if not user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+
     logger.info(f"User {user.username} getting setting: {key}")
-    
+
     config = AVAILABLE_SETTINGS.get(key)
     if not config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{key}' not found"
         )
-    
+
     value, env_override, is_overridden = get_setting_value(key, db)
-    
+
     return SettingResponse(
         key=key,
         value=value,
         description=config["description"],
         env_var_override=env_override,
-        is_overridden=is_overridden
+        is_overridden=is_overridden,
     )
 
 
@@ -165,53 +156,45 @@ async def update_setting(
     key: str,
     request: SettingUpdateRequest,
     user: User = Depends(require_auth),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Update a setting value in the database.
-    
+
     Note: If an environment variable override is set, it will take precedence
     over the database value.
-    
+
     Requires admin authentication.
     """
     if not user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+
     config = AVAILABLE_SETTINGS.get(key)
     if not config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{key}' not found"
         )
-    
+
     logger.info(f"User {user.username} updating setting {key} to: {request.value}")
-    
+
     # Get or create setting
     setting = db.query(Setting).filter(Setting.key == key).first()
     if setting:
         setting.value = request.value
     else:
-        setting = Setting(
-            key=key,
-            value=request.value,
-            description=config["description"]
-        )
+        setting = Setting(key=key, value=request.value, description=config["description"])
         db.add(setting)
-    
+
     db.commit()
     db.refresh(setting)
-    
+
     # Get current effective value
     value, env_override, is_overridden = get_setting_value(key, db)
-    
+
     return SettingResponse(
         key=key,
         value=value,
         description=config["description"],
         env_var_override=env_override,
-        is_overridden=is_overridden
+        is_overridden=is_overridden,
     )

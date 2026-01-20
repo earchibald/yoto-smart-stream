@@ -130,29 +130,28 @@ async def start_auth_flow():
     Returns:
         Device code and verification URL for user to authenticate
     """
-    import os
+    settings = get_settings()
 
-    # Read CLIENT_ID directly from environment to handle runtime variable changes
-    # (Settings are cached at startup and won't reflect runtime changes)
-    client_id = os.environ.get("YOTO_CLIENT_ID")
+    # Get CLIENT_ID with proper precedence (env var, database, initial value)
+    client_id = settings.get_yoto_client_id()
 
     if not client_id:
-        logger.error("YOTO_CLIENT_ID not configured in environment")
+        logger.error("YOTO_CLIENT_ID not configured")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="YOTO_CLIENT_ID not configured. Please ensure the environment variable is set correctly.",
+            detail="YOTO_CLIENT_ID not configured. Please set it via environment variable or Admin Settings.",
         )
 
     try:
-        # Create a new YotoClient with fresh CLIENT_ID from environment
+        # Create a new YotoClient with the CLIENT_ID from settings
         from yoto_api import YotoManager
 
         client = _get_or_create_client()
 
-        # Reinitialize the manager with the current CLIENT_ID from environment
-        # This ensures we use the latest value even if settings were cached at startup
+        # Initialize/reinitialize the manager with the CLIENT_ID from settings
+        # This ensures we use the correct value with proper precedence
         client.manager = YotoManager(client_id=client_id)
-        logger.info("YotoManager initialized with CLIENT_ID from environment")
+        logger.info("YotoManager initialized with CLIENT_ID from settings")
 
         # Start device code flow
         device_info = client.manager.device_code_flow_start()

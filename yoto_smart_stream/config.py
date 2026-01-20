@@ -292,6 +292,44 @@ class Settings(BaseSettings):
 
             return LocalStorage(base_path=self.audio_files_dir)
 
+    def get_yoto_client_id(self) -> Optional[str]:
+        """
+        Get Yoto CLIENT_ID with proper precedence:
+        1. Environment variable (YOTO_CLIENT_ID) - highest priority
+        2. Database setting (from Admin UI) - fallback
+        3. Initial value from Settings initialization - final fallback
+
+        This ensures environment variables always take precedence, even if set after app startup.
+        """
+        # Priority 1: Check current environment variable
+        env_client_id = os.environ.get("YOTO_CLIENT_ID")
+        if env_client_id:
+            logger.debug("Using YOTO_CLIENT_ID from environment variable")
+            return env_client_id
+
+        # Priority 2: Check database setting (from Admin UI)
+        try:
+            from .database import SessionLocal
+            from .models import Setting
+
+            db = SessionLocal()
+            try:
+                setting = db.query(Setting).filter(Setting.key == "yoto_client_id").first()
+                if setting and setting.value:
+                    logger.debug("Using yoto_client_id from database setting")
+                    return setting.value
+            finally:
+                db.close()
+        except Exception as e:
+            # Database might not be initialized yet or other error
+            # Fall through to initial value
+            logger.debug(f"Could not check database for yoto_client_id: {e}")
+
+        # Priority 3: Use initial value from Settings initialization
+        if self.yoto_client_id:
+            logger.debug("Using yoto_client_id from initial Settings")
+        return self.yoto_client_id
+
 
 # Global settings instance
 _settings: Optional[Settings] = None
