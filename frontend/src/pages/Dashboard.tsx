@@ -5,7 +5,7 @@ import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
 import { MQTTEventLog } from '@/components/MQTTEventLog';
 import { useAuth } from '@/contexts/AuthContext';
-import { playersApi, healthApi, mqttApi, systemApi } from '@/api/client';
+import { playersApi, healthApi, mqttApi } from '@/api/client';
 import type { Player, MQTTEvent } from '@/types';
 
 export const Dashboard: React.FC = () => {
@@ -41,10 +41,16 @@ export const Dashboard: React.FC = () => {
 
   const loadEnvironment = async () => {
     try {
-      const envName = import.meta.env.VITE_ENVIRONMENT || 'Live';
-      setEnvironment(envName);
+      const response = await healthApi.check();
+      setEnvironment(response.data.environment || 'unknown');
+      // Also set MQTT status from health check
+      setMqttConnected(response.data.mqtt_enabled || false);
+      setMqttStatus(response.data.mqtt_enabled ? 'Connected' : 'Disconnected');
     } catch (error) {
       console.error('Failed to load environment:', error);
+      setEnvironment('unknown');
+      setMqttConnected(false);
+      setMqttStatus('Disconnected');
     }
   };
 
@@ -61,9 +67,9 @@ export const Dashboard: React.FC = () => {
 
   const checkMqttStatus = async () => {
     try {
-      const response = await healthApi.getMqttStatus();
-      setMqttConnected(response.data.connected || false);
-      setMqttStatus(response.data.connected ? 'Connected' : 'Disconnected');
+      const response = await healthApi.check();
+      setMqttConnected(response.data.mqtt_enabled || false);
+      setMqttStatus(response.data.mqtt_enabled ? 'Connected' : 'Disconnected');
     } catch (error) {
       setMqttStatus('Disconnected');
       setMqttConnected(false);
