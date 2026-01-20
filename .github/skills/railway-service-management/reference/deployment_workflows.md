@@ -102,17 +102,31 @@ Railway automatically deploys when code is pushed to connected branches.
 ```
 Project Settings → GitHub
 ├── Repository: earchibald/yoto-smart-stream
-├── Production Environment
-│   ├── Branch: main
+├── Production Environment (production branch)
+│   ├── Branch: production
+│   ├── URL: https://yoto-smart-stream-production.up.railway.app
 │   └── Auto-deploy: ✓
-├── Staging Environment
+├── Staging Environment (staging branch)
+│   ├── Branch: staging
+│   ├── URL: https://yoto-smart-stream-staging.up.railway.app
+│   └── Auto-deploy: ✓
+├── Develop Environment (develop branch)
 │   ├── Branch: develop
+│   ├── URL: https://yoto-smart-stream-develop.up.railway.app
 │   └── Auto-deploy: ✓
 └── PR Deployments
     ├── Enabled: ✓
+    ├── Base Branch: develop
     ├── Create ephemeral environment: ✓
+    ├── URL Pattern: https://yoto-smart-stream-yoto-smart-stream-pr-${PR_ID}.up.railway.app
     └── Auto-destroy on close: ✓
 ```
+
+**Workflow:**
+- Feature branches (`copilot/TOPIC` or `copilot-worktree-TIMESTAMP`) merge into `develop`
+- `develop` merges into `staging` for integration testing
+- `staging` merges into `production` after successful testing
+- PR environments automatically created for `copilot/TOPIC` branches
 
 ### Deployment Trigger Flow
 

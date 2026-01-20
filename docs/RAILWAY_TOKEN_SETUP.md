@@ -1,317 +1,180 @@
-# Railway Token Setup - Separate Tokens per Environment
+# Railway Authentication Setup - OAuth-Based Token
 
 ## Overview
 
-This project uses **separate Railway tokens** for each environment to improve security and access control:
+This project uses **OAuth-based authentication** for Railway CLI access via a single `RAILWAY_API_TOKEN`. This provides a simpler, more secure authentication model compared to per-environment tokens.
 
-- `RAILWAY_TOKEN_PROD` - Production environment (restricted access)
-- `RAILWAY_TOKEN_STAGING` - Staging environment (QA/testing)
-- `RAILWAY_TOKEN_DEV` - Development environment (active development)
+**Key Benefits:**
 
-## Why Separate Tokens?
+✅ **Simplified Management** - One token for all environments (production, staging, develop, PR environments)  
+✅ **OAuth Security** - Uses GitHub OAuth flow, more secure than manually created tokens  
+✅ **Automatic Detection** - Railway CLI automatically detects and uses the token  
+✅ **Full Permissions** - User-level permissions apply across all projects and environments  
+✅ **No Rotation Required** - OAuth tokens are automatically refreshed by Railway
 
-✅ **Security Isolation**
-- Production compromises don't affect dev/staging
-- Limit blast radius of token leaks
+## Authentication Model
 
-✅ **Access Control**
-- Different team members can have different environment access
-- Junior developers can have dev access only
+Instead of creating separate tokens per environment, this project uses your personal Railway OAuth token extracted from a local login session. This token provides full access to all Railway resources associated with your account.
 
-✅ **Auditing**
-- Track which environment each deployment came from
-- Better compliance and security logging
+**Token Location:**
+- **Local development**: Stored in `~/.railway/config.json` as `user.token`
+- **Cloud Agents**: Stored in GitHub `copilot` environment as `RAILWAY_API_TOKEN`
 
-✅ **Token Rotation**
-- Rotate tokens per environment without global disruption
-- Revoke access to one environment independently
+**How it works:**
+1. Login to Railway on your local laptop using OAuth (`railway login --browserless`)
+2. Extract the `user.token` from Railway's config file
+3. Store it as `RAILWAY_API_TOKEN` in GitHub's `copilot` environment
+4. Cloud Agents automatically use this token for all Railway operations
 
-## Token Setup
+## One-Time Setup
 
-### 1. Create Railway Tokens
-
-Go to https://railway.app/account/tokens and create three tokens:
-
-**Production Token:**
-```
-Name: Production Deployments
-Description: For automated production deployments from main branch
-Access: Production project/environment only
-```
-
-**Staging Token:**
-```
-Name: Staging Deployments  
-Description: For automated staging deployments from develop branch
-Access: Staging project/environment only
-```
-
-**Development Token:**
-```
-Name: Development Deployments
-Description: For shared development environment with coordination
-Access: Development project/environment only
-```
-
-### 2. Add to GitHub Secrets
-
-**Repository Secrets** (for GitHub Actions):
-
-1. Go to: `https://github.com/earchibald/yoto-smart-stream/settings/secrets/actions`
-2. Click **"New repository secret"**
-3. Add each token:
-
-```
-Name: RAILWAY_TOKEN_PROD
-Value: [paste production token]
-
-Name: RAILWAY_TOKEN_STAGING  
-Value: [paste staging token]
-
-Name: RAILWAY_TOKEN_DEV
-Value: [paste development token]
-```
-
-**Codespaces Secrets** (for developers):
-
-1. Go to: `https://github.com/settings/codespaces`
-2. Click **"New secret"**
-3. Add development token (for local/Copilot work):
-
-```
-Name: RAILWAY_TOKEN
-Value: [paste development token - same as RAILWAY_TOKEN_DEV]
-Repository access: earchibald/yoto-smart-stream
-```
-
-Note: For Codespaces, use just `RAILWAY_TOKEN` (without suffix) for convenience.
-
-## Token Usage by Workflow
-
-### Production Deployments
-
-**Workflow:** `.github/workflows/railway-deploy.yml` (deploy-production job)
-**Token:** `RAILWAY_TOKEN_PROD`
-**Trigger:** Manual only (disabled by default)
-**Environment:** production
-
-```yaml
-env:
-  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PROD }}
-```
-
-### Staging Deployments
-
-**Workflow:** `.github/workflows/railway-deploy.yml` (deploy-staging job)
-**Token:** `RAILWAY_TOKEN_STAGING`
-**Trigger:** Automatic on push to `develop` branch
-**Environment:** staging
-
-```yaml
-env:
-  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
-```
-
-### Development Deployments
-
-**Workflow:** `.github/workflows/railway-development-shared.yml`
-**Token:** `RAILWAY_TOKEN_DEV`
-**Trigger:** Manual with coordination
-**Environment:** development
-
-```yaml
-env:
-  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_DEV }}
-```
-
-### Codespace/Local Development
-
-**Context:** GitHub Codespaces, local devcontainer
-**Token:** `RAILWAY_TOKEN` (user-level Codespaces secret)
-**Usage:** Manual deployments, CLI operations
-**Environment:** development (typically)
+### Step 1: Login to Railway (Local Laptop)
 
 ```bash
-# Automatically available in Codespace
-echo $RAILWAY_TOKEN
+# Browserless login displays a link to copy/paste
+railway login --browserless
 
-# Use with Railway CLI
-railway status -e development
+# Click the displayed link and authenticate via GitHub OAuth in your browser
+# Railway will store your OAuth token in ~/.railway/config.json
 ```
 
-## Token Permissions
+### Step 2: Extract Token and Set as GitHub Secret
 
-### Recommended Permissions per Token
-
-**Production Token (`RAILWAY_TOKEN_PROD`):**
-- ✅ Deploy to production environment
-- ✅ View production logs and status
-- ✅ Set production environment variables
-- ❌ No access to staging/development
-
-**Staging Token (`RAILWAY_TOKEN_STAGING`):**
-- ✅ Deploy to staging environment
-- ✅ View staging logs and status
-- ✅ Set staging environment variables
-- ❌ No access to production/development
-
-**Development Token (`RAILWAY_TOKEN_DEV`):**
-- ✅ Deploy to development environment
-- ✅ View development logs and status
-- ✅ Set development environment variables
-- ❌ No access to production/staging
-
-## Token Rotation
-
-When to rotate tokens:
-- Regular schedule (quarterly recommended)
-- After team member departure
-- Suspected compromise
-- After security incident
-
-### How to Rotate
-
-**1. Create new token:**
 ```bash
-# Go to https://railway.app/account/tokens
-# Create new token with same permissions
-# Copy the new token
+# Extract token from Railway config and set as GitHub Secret for copilot environment
+gh secret set --env copilot RAILWAY_API_TOKEN --body="$(jq -r '.user.token' ~/.railway/config.json)"
 ```
 
-**2. Update GitHub Secret:**
+**That's it!** Cloud Agents can now access Railway using this token.
+
+### Step 3: Verify (Optional)
+
 ```bash
-# Go to repository settings → Secrets
-# Edit the secret (e.g., RAILWAY_TOKEN_PROD)
-# Paste new token
-# Save
+# Check the token was set correctly
+gh secret list --env copilot
+
+# Should show:
+# RAILWAY_API_TOKEN  Updated YYYY-MM-DD
 ```
 
-**3. Update Codespaces (if needed):**
+## Usage
+
+### Local Development
+
 ```bash
-# Go to https://github.com/settings/codespaces
-# Edit RAILWAY_TOKEN secret
-# Paste new development token
-# Restart any active Codespaces
+# Railway CLI automatically uses credentials from ~/.railway/config.json
+railway status
+railway logs
+railway link
 ```
 
-**4. Revoke old token:**
+### Cloud Agents (GitHub Copilot Workspace)
+
 ```bash
-# Go to https://railway.app/account/tokens
-# Find old token
-# Click "Revoke"
+# Railway CLI automatically detects RAILWAY_API_TOKEN environment variable
+railway login  # Authenticates using RAILWAY_API_TOKEN
+railway status  # Works with full access to all environments
 ```
 
-**5. Test:**
-```bash
-# Trigger a deployment to verify new token works
-# Check workflow logs for authentication success
-```
+### All Environments Accessible
+
+With a single `RAILWAY_API_TOKEN`, you have access to:
+- **Production** environment (`production` branch)
+- **Staging** environment (`staging` branch)
+- **Develop** environment (`develop` branch)
+- **PR Environments** (feature branches)
+
+The Railway CLI automatically uses this token for all operations across all environments.
+
+## Railway Deployments
+
+**Important**: Deployments are handled automatically by Railway's native GitHub integration, **not** by GitHub Actions.
+
+- **Push to `develop`** → Railway automatically deploys to develop environment
+- **Push to `staging`** → Railway automatically deploys to staging environment  
+- **Push to `production`** → Railway automatically deploys to production environment
+- **Open PR to `develop`** → Railway automatically creates PR environment
+- **Close/merge PR** → Railway automatically destroys PR environment
+
+The `RAILWAY_API_TOKEN` is used for **CLI operations only** (logs, status, variables, etc.), not for deployments.
+
+## Security Considerations
+
+### Token Security
+
+✅ **DO:**
+- Keep token in GitHub `copilot` environment secrets only
+- Use OAuth login on trusted devices
+- Monitor Railway audit logs for unauthorized activity
+- Re-login and update token if you suspect compromise
+
+❌ **DON'T:**
+- Commit `~/.railway/config.json` to git
+- Share your Railway OAuth token
+- Store token in plain text files
+- Use token on untrusted devices
+
+### Why OAuth is More Secure
+
+- **No manual token creation**: Token generated by Railway's secure OAuth flow
+- **Automatic refresh**: Railway handles token refresh automatically
+- **GitHub-backed**: Uses your GitHub account for authentication
+- **Revocable**: Revoke access via GitHub or Railway if needed
 
 ## Troubleshooting
 
-### Authentication Failed
+### Authentication Failed in Cloud Agent
 
-**Error:** `401 Unauthorized` or `Invalid token`
-
-**Solution:**
-1. Check which workflow is failing
-2. Verify correct secret name is used (`_PROD`, `_STAGING`, or `_DEV`)
-3. Ensure token is not expired or revoked
-4. Regenerate token if needed
-
-### Wrong Environment Deployed
-
-**Error:** Deployment went to wrong environment
+**Error:** `railway login` fails or `401 Unauthorized`
 
 **Solution:**
-1. Check workflow file uses correct token for environment
-2. Verify `-e` flag matches token permissions
-3. Ensure token has access to target environment
+1. Verify `RAILWAY_API_TOKEN` is set in `copilot` environment (not repository secrets)
+2. Check token value was correctly extracted from `~/.railway/config.json`
+3. Re-run setup: `gh secret set --env copilot RAILWAY_API_TOKEN --body="$(jq -r '.user.token' ~/.railway/config.json)"`
 
-### Codespace Token Not Working
+### Token Not Working Locally
 
-**Error:** `railway whoami` fails in Codespace
+**Error:** Railway CLI can't authenticate
 
 **Solution:**
-1. Verify `RAILWAY_TOKEN` is set in Codespaces secrets
-2. Check repository access is granted for the secret
-3. Restart Codespace to load new secrets
-4. Test with: `echo $RAILWAY_TOKEN` (should show partial token)
+1. Run `railway login --browserless` again
+2. Complete OAuth flow in browser
+3. Verify `~/.railway/config.json` exists and contains `user.token`
 
-### Token Leaked
+### Need to Update Token
 
-**Immediate Actions:**
-1. Go to https://railway.app/account/tokens
-2. Revoke the compromised token immediately
-3. Generate new token
-4. Update GitHub secrets
-5. Check Railway audit logs for unauthorized activity
-6. Consider rotating all tokens if unsure which was leaked
+**When to update:**
+- Changed GitHub account
+- Railway requires re-authentication
+- Token appears expired or invalid
 
-## Security Best Practices
-
-✅ **DO:**
-- Use separate tokens per environment
-- Rotate tokens regularly (quarterly)
-- Revoke tokens when no longer needed
-- Use descriptive token names
-- Monitor Railway audit logs
-- Keep tokens in secrets managers only (GitHub Secrets, Codespaces)
-
-❌ **DON'T:**
-- Share tokens between environments
-- Commit tokens to git
-- Share tokens in chat/email
-- Use same token for all environments
-- Give production access to all developers
-- Store tokens in plain text files
+**How to update:**
+1. Run `railway login --browserless` on your local laptop
+2. Re-extract and set: `gh secret set --env copilot RAILWAY_API_TOKEN --body="$(jq -r '.user.token' ~/.railway/config.json)"`
+3. Existing Cloud Agent sessions may need to be restarted
 
 ## Validation Checklist
 
 After setup, verify:
 
-- [ ] Three tokens created in Railway
-- [ ] `RAILWAY_TOKEN_PROD` added to GitHub repository secrets
-- [ ] `RAILWAY_TOKEN_STAGING` added to GitHub repository secrets
-- [ ] `RAILWAY_TOKEN_DEV` added to GitHub repository secrets
-- [ ] `RAILWAY_TOKEN` added to Codespaces secrets (dev token)
-- [ ] Each token has access only to its respective environment
-- [ ] Test deployment to staging succeeds
-- [ ] Test deployment to development succeeds (manual)
-- [ ] Production deployment is disabled by default
-- [ ] Codespace can authenticate with development environment
+- [ ] Logged in to Railway locally: `railway whoami` shows your username
+- [ ] Token extracted: `jq -r '.user.token' ~/.railway/config.json` shows token
+- [ ] GitHub secret set: `gh secret list --env copilot` shows `RAILWAY_API_TOKEN`
+- [ ] Cloud Agent can authenticate: `railway login` succeeds (in Cloud Agent session)
+- [ ] CLI works: `railway status` shows project info
 
-## Migration from Single Token
+## For Detailed Railway CLI Operations
 
-If you previously used a single `RAILWAY_TOKEN`:
+This document covers authentication setup only. For Railway CLI usage, deployment workflows, and advanced operations, see:
 
-**Steps:**
-
-1. **Create new environment-specific tokens** (see "Create Railway Tokens" above)
-
-2. **Update GitHub repository secrets:**
-   - Rename `RAILWAY_TOKEN` → `RAILWAY_TOKEN_STAGING` (for backward compatibility)
-   - Add `RAILWAY_TOKEN_PROD`
-   - Add `RAILWAY_TOKEN_DEV`
-
-3. **Update Codespaces:**
-   - Keep `RAILWAY_TOKEN` in Codespaces (no suffix)
-   - Use development token as value
-
-4. **Test deployments:**
-   - Push to `develop` → staging should deploy with `RAILWAY_TOKEN_STAGING`
-   - Manual dev deployment → should use `RAILWAY_TOKEN_DEV`
-
-5. **Revoke old single token** (if it had broad access)
-
-## Support
-
-- **Railway Tokens:** https://railway.app/account/tokens
-- **GitHub Secrets:** https://docs.github.com/en/actions/security-guides/encrypted-secrets
-- **Codespaces Secrets:** https://docs.github.com/en/codespaces/managing-your-codespaces/managing-secrets-for-your-codespaces
+**[railway-service-management skill](/.github/skills/railway-service-management/SKILL.md)**
+- [Cloud Agent Authentication](/.github/skills/railway-service-management/reference/cli_scripts.md#cloud-agent-authentication-railway_api_token-mode)
+- [Essential Commands](/.github/skills/railway-service-management/reference/cli_scripts.md#essential-commands)
+- [Deployment Workflows](/.github/skills/railway-service-management/reference/deployment_workflows.md)
+- [Multi-Environment Architecture](/.github/skills/railway-service-management/reference/multi_environment_architecture.md)
 
 ---
 
-**Last Updated:** 2026-01-10  
-**Security Level:** High  
-**Compliance:** Follows least-privilege principle
+**Last Updated:** 2026-01-20  
+**Authentication Method:** OAuth-based (RAILWAY_API_TOKEN)  
+**Security Level:** High

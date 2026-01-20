@@ -1,37 +1,60 @@
 # GitHub Secrets Setup Guide for Railway Deployment
 
-This guide explains exactly what secrets to configure and where, to enable automated Railway deployments.
+This guide explains exactly what secrets to configure and where, to enable Railway CLI access for Cloud Agents and development workflows.
 
-## Simplified Deployment Model
+## Multi-Environment Deployment Model
 
-**Current Architecture**: The project uses ONLY two types of Railway environments:
-1. **Production** - Deployed from `main` branch
-2. **PR Environments** - Automatically created by Railway for each pull request
+**Current Architecture**: The project uses four Railway environments:
+1. **Production** (`production` branch) - https://yoto-smart-stream-production.up.railway.app
+2. **Staging** (`staging` branch) - https://yoto-smart-stream-staging.up.railway.app
+3. **Develop** (`develop` branch) - https://yoto-smart-stream-develop.up.railway.app
+4. **PR Environments** (feature branches) - https://yoto-smart-stream-yoto-smart-stream-pr-${PR_ID}.up.railway.app
 
-There are **NO** staging or development environments.
+**Workflow**:
+- Feature branches (`copilot/TOPIC` or `copilot-worktree-TIMESTAMP`) branch from and merge to `develop`
+- `develop` merges to `staging` for integration testing
+- `staging` merges to `production` after successful testing
+- PR environments automatically created for `copilot/TOPIC` branches
+- Railway deployments use native GitHub integration (automatic on push)
 
-## Required GitHub Secrets
+## Railway Authentication Setup
 
-You need to add these secrets to your GitHub repository:
+This project uses **OAuth-based authentication** for Railway CLI access, rather than per-environment tokens. This provides a simpler, more secure authentication model.
 
-### 1. RAILWAY_TOKEN_PROD (Required for production deployment)
+### One-Time Setup: Create RAILWAY_API_TOKEN
 
-**What it is**: An API token that allows GitHub Actions to deploy to Railway production environment on your behalf.
+**Step 1: Login to Railway on your local laptop (browserless mode)**
 
-**How to get it**:
-1. Go to https://railway.app/account/tokens
-2. Click "Create Token"
-3. Give it a name like "GitHub Actions Production"
-4. Copy the token (you'll only see it once!)
+```bash
+# Browserless login displays a link to copy/paste
+railway login --browserless
+# Click the displayed link and authenticate via GitHub OAuth in your browser
+```
 
-**Where to add it**:
-1. Go to your GitHub repository: https://github.com/earchibald/yoto-smart-stream
-2. Click **Settings** (top navigation)
-3. In the left sidebar, click **Secrets and variables** → **Actions**
-4. Click **New repository secret**
-5. Name: `RAILWAY_TOKEN_PROD` (exact name required)
-6. Value: Paste the token from Railway
-7. Click **Add secret**
+**Step 2: Extract user token and set as GitHub Secret**
+
+```bash
+# Extract token from Railway config and set as GitHub Secret for copilot environment
+gh secret set --env copilot RAILWAY_API_TOKEN --body="$(jq -r '.user.token' ~/.railway/config.json)"
+```
+
+This creates a `RAILWAY_API_TOKEN` in your GitHub repository's `copilot` environment that Cloud Agents can use for Railway CLI operations.
+
+### How It Works
+
+- **Local development**: Use `railway login` directly (stores credentials locally)
+- **Cloud Agents**: Automatically use `RAILWAY_API_TOKEN` from the `copilot` environment
+- **All environments**: Single token provides access to all Railway environments (production, staging, develop, PR environments)
+- **Railway CLI**: Automatically detects and uses `RAILWAY_API_TOKEN` when available
+
+### Benefits
+
+✅ **Simplified Management**: One token for all environments instead of per-environment tokens  
+✅ **OAuth Security**: Uses GitHub OAuth flow, more secure than manually created tokens  
+✅ **Automatic Detection**: Railway CLI automatically detects and uses the token  
+✅ **Full Permissions**: User-level permissions apply across all projects and environments
+
+**For detailed Railway authentication information**, see the [railway-service-management skill](/.github/skills/railway-service-management/SKILL.md), specifically the [Cloud Agent Authentication section](/.github/skills/railway-service-management/reference/cli_scripts.md#cloud-agent-authentication-railway_api_token-mode).
 
 ## YOTO_CLIENT_ID Configuration
 
@@ -55,16 +78,14 @@ PR Environments will automatically inherit this value through the `${{shared.YOT
 
 ## GitHub Environment: copilot
 
-To support Cloud Agent (GitHub Copilot Workspace) operations, you need to configure a GitHub Environment named `copilot` with secrets and variables that Cloud Agents can access.
+To support Cloud Agent (GitHub Copilot Workspace) operations, you need to configure a GitHub Environment named `copilot` with the Railway API token and other credentials.
 
 ### What is the copilot Environment?
 
-The `copilot` environment provides base secrets and variables for Cloud Agents running in GitHub Actions. These agents get access to:
+The `copilot` environment provides secrets and variables for Cloud Agents running in GitHub Actions. These agents get access to:
+- Railway authentication via `RAILWAY_API_TOKEN` (see above)
 - Yoto API credentials
-- Base Railway authentication (read-only)
 - Other service credentials needed for development
-
-**Note:** Railway PR environment tokens are **NOT** included in the copilot environment due to Railway API limitations. These must be provisioned manually per PR. See [Cloud Agent Railway Token Guide](docs/CLOUD_AGENT_RAILWAY_TOKENS.md) for details.
 
 ### Creating the copilot Environment
 
@@ -79,7 +100,13 @@ The `copilot` environment provides base secrets and variables for Cloud Agents r
 
 Add these secrets to the `copilot` environment:
 
-#### 1. YOTO_CLIENT_ID
+#### 1. RAILWAY_API_TOKEN (Required)
+
+**What it is**: OAuth token extracted from your local Railway login that provides full access to all Railway environments.
+
+**How to add it**: Follow the [Railway Authentication Setup](#railway-authentication-setup) section above. This is the primary authentication method for Railway CLI operations.
+
+#### 2. YOTO_CLIENT_ID
 
 **What it is**: Your Yoto API client ID for authentication
 
@@ -95,26 +122,6 @@ Add these secrets to the `copilot` environment:
 3. Name: `YOTO_CLIENT_ID`
 4. Value: Paste your Client ID
 5. Click **Add secret**
-
-#### 2. RAILWAY_API_TOKEN (Optional, for read-only Railway access)
-
-**What it is**: A base Railway token for read-only operations (viewing status, projects, etc.)
-
-**How to get it**:
-1. Go to https://railway.app/account/tokens
-2. Click "Create Token"
-3. Give it a name like "Copilot Read-Only"
-4. Scope: Account-wide (read-only is fine)
-5. Copy the token
-
-**How to add it**:
-1. In the `copilot` environment configuration page
-2. Click **Add secret** under "Environment secrets"
-3. Name: `RAILWAY_API_TOKEN`
-4. Value: Paste the token
-5. Click **Add secret**
-
-**Note**: This token provides basic Railway access. For full Railway access to PR environments (deploy, logs, variables), you need to provision PR-specific tokens. See [Cloud Agent Railway Token Guide](docs/CLOUD_AGENT_RAILWAY_TOKENS.md).
 
 ### Optional Secrets
 
@@ -145,94 +152,57 @@ After configuring the `copilot` environment:
    - ✅ Secrets configured (names visible, values hidden)
 3. Test by triggering a Copilot workflow (if available)
 
-### Railway PR Environment Tokens
+### Verification
 
-**Important**: The `copilot` environment does **NOT** include Railway tokens for specific PR environments. These must be provisioned manually due to Railway API limitations.
+After configuring the `copilot` environment:
 
-**Why?**
-- Railway doesn't provide an API to create environment-specific tokens
-- Each PR needs its own Railway token scoped to that PR's environment
-- Tokens must be created via Railway UI and manually configured
+1. Go to: Repository → Settings → Environments
+2. You should see:
+   - ✅ `copilot` environment listed
+   - ✅ `RAILWAY_API_TOKEN` configured (name visible, value hidden)
+   - ✅ `YOTO_CLIENT_ID` configured (name visible, value hidden)
 
-**How to provision:**
-1. See the complete guide: [Cloud Agent Railway Token Guide](docs/CLOUD_AGENT_RAILWAY_TOKENS.md)
-2. Use the helper script: `scripts/provision_pr_railway_token.sh`
-3. Follow the workflow when Cloud Agent needs Railway access for a PR
+## Automatic Railway Deployments
 
-## Visual Guide
+Railway deployments are handled automatically via Railway's native GitHub integration:
 
-### Step 1: Navigate to Repository Settings
-```
-GitHub Repository → Settings tab
-```
+- **Push to `develop`** → Automatic deploy to develop environment
+- **Push to `staging`** → Automatic deploy to staging environment  
+- **Push to `production`** → Automatic deploy to production environment
+- **Open PR to `develop`** → Railway automatically creates PR environment
+- **Close/merge PR** → Railway automatically destroys PR environment
 
-### Step 2: Find Secrets Section
-```
-Left sidebar → Secrets and variables → Actions
-```
-
-### Step 3: Add Secret
-```
-Click "New repository secret"
-Enter name: RAILWAY_TOKEN_PROD
-Paste value from Railway
-Click "Add secret"
-```
-
-## After Adding Secrets
-
-Once `RAILWAY_TOKEN_PROD` is added, production deployments will happen automatically when code is pushed to the `main` branch.
-
-**⚠️ Important**: Since production deployments are automatic on push to `main`, ensure:
-- All PRs are thoroughly tested in PR environments before merging
-- Code reviews are completed and approved
-- You have a rollback plan if issues occur (can redeploy previous commit)
-- Critical changes are tested with extra care
-
-### Production Deployment (Automatic)
-
-Deployments to production happen automatically when you merge to `main`:
-
-1. Merge your PR to `main` branch (after thorough testing and review)
-2. GitHub Actions automatically runs the deployment workflow
-3. The production environment at https://yoto-smart-stream-production.up.railway.app is updated
-
-### PR Environments (Automatic)
-
-Railway automatically creates ephemeral environments for every pull request:
-
-1. Open a PR targeting `main`
-2. Railway automatically creates a `pr-{number}` environment
-3. The PR environment inherits `YOTO_CLIENT_ID` from production via shared variables
-4. GitHub Actions validates the deployment
-5. When you close/merge the PR, Railway automatically destroys the environment
+No GitHub Actions workflows are required for deployments. Railway monitors the repository and deploys automatically when branches are updated.
 
 ## Verification
 
-After adding secrets, verify they're configured:
+After completing the setup:
 
-1. Go to: Repository → Settings → Secrets and variables → Actions
+1. Go to: Repository → Settings → Environments
 2. You should see:
-   - ✅ `RAILWAY_TOKEN_PROD` (required for production deployments)
+   - ✅ `copilot` environment with `RAILWAY_API_TOKEN` and `YOTO_CLIENT_ID`
 
-The values are hidden for security, but you should see the secret names listed.
+3. Test Railway CLI access (in a Cloud Agent session):
+```bash
+railway login  # Should authenticate using RAILWAY_API_TOKEN
+railway status  # Should show Railway project information
+```
 
 ## Troubleshooting
 
-### "Secret not found" error in workflow
+### "RAILWAY_API_TOKEN not found" error
 
-**Problem**: Workflow runs but can't find `RAILWAY_TOKEN_PROD`.
+**Problem**: Cloud Agent can't find the Railway token.
 
-**Solution**: Make sure you named it exactly `RAILWAY_TOKEN_PROD` (all caps, with underscores).
+**Solution**: Verify `RAILWAY_API_TOKEN` is added to the `copilot` environment (not repository secrets).
 
 ### Token doesn't work
 
-**Problem**: Deployment fails with authentication error.
+**Problem**: Railway CLI fails with authentication error.
 
 **Solution**:
-1. Generate a new token from Railway
-2. Update the secret in GitHub (you can edit existing secrets)
-3. Make sure the token has permissions for your Railway project
+1. Re-run the setup on your local laptop: `railway login --browserless`
+2. Re-extract and update the secret: `gh secret set --env copilot RAILWAY_API_TOKEN --body="$(jq -r '.user.token' ~/.railway/config.json)"`
 
 ### YOTO_CLIENT_ID not working in PR environments
 
@@ -243,49 +213,26 @@ The values are hidden for security, but you should see the secret names listed.
 2. Check that PR environment has `YOTO_CLIENT_ID` set to `${{shared.YOTO_CLIENT_ID}}`
 3. Ensure the production environment is named exactly "production" in Railway
 
-### Where are Codespace secrets different from repository secrets?
-
-**Codespaces Secrets** (for development in Codespaces):
-- Location: https://github.com/settings/codespaces (your personal settings)
-- Used by: Your personal Codespaces
-- Scope: User-level
-
-**Repository Secrets** (for GitHub Actions):
-- Location: Repository → Settings → Secrets and variables → Actions
-- Used by: GitHub Actions workflows
-- Scope: Repository-level
-
-For this project, you only need **repository secrets** for automated deployments via GitHub Actions.
-
 ## Summary
 
-**Quick checklist to enable production deployment:**
+**Quick checklist for Railway authentication setup:**
 
-- [ ] Get Railway token from https://railway.app/account/tokens
-- [ ] Add `RAILWAY_TOKEN_PROD` to repository secrets
-- [ ] Set `YOTO_CLIENT_ID` as a Shared Variable in Railway production environment
-- [ ] Create `copilot` GitHub environment with required secrets
-- [ ] Add `YOTO_CLIENT_ID` to copilot environment secrets
-- [ ] Add `RAILWAY_API_TOKEN` to copilot environment secrets (optional)
-- [ ] Merge to `main` branch to trigger automatic production deployment
-- [ ] Open a PR to test PR Environment creation
+- [ ] Login to Railway on local laptop: `railway login --browserless`
+- [ ] Extract and set `RAILWAY_API_TOKEN` in copilot environment
+- [ ] Set `YOTO_CLIENT_ID` as Shared Variable in Railway production environment
+- [ ] Create `copilot` GitHub environment
+- [ ] Add `YOTO_CLIENT_ID` to copilot environment
+- [ ] Verify Railway CLI works in Cloud Agent sessions
 
 **Important Notes:**
-- Production deployments are automatic on push to `main` branch
-- PR Environments are automatically created by Railway for each pull request
-- `YOTO_CLIENT_ID` is stored in Railway (as a Shared Variable), not in GitHub Secrets
-- There are no staging or development environments
-- Cloud Agents use the `copilot` environment for base secrets
-- Railway PR environment tokens must be provisioned manually (see docs/CLOUD_AGENT_RAILWAY_TOKENS.md)
+- Deployments are automatic via Railway's native GitHub integration
+- Single `RAILWAY_API_TOKEN` provides access to all environments
+- OAuth-based authentication is more secure than per-environment tokens
+- Cloud Agents use the `copilot` environment for credentials
+- Railway CLI automatically detects and uses `RAILWAY_API_TOKEN`
 
-**Still confused?**
-- Repository secrets location: https://github.com/earchibald/yoto-smart-stream/settings/secrets/actions
-- Environments location: https://github.com/earchibald/yoto-smart-stream/settings/environments
-- You need **repository-level** secrets for GitHub Actions to work
-- The secret must be named exactly: `RAILWAY_TOKEN_PROD`
-- Railway production environment must have `YOTO_CLIENT_ID` set as a Shared Variable
-- Cloud Agent environment must be named exactly: `copilot`
+**For detailed Railway CLI operations**, see the [railway-service-management skill](/.github/skills/railway-service-management/SKILL.md).
 
 ---
 
-Once secrets are configured, GitHub Actions will automatically deploy to Railway production when you push to `main`, and Railway will automatically create PR environments for pull requests!
+Once configured, Cloud Agents have full Railway CLI access, and all deployments happen automatically when code is pushed to the respective branches!

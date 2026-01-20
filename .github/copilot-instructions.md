@@ -118,6 +118,32 @@ This workspace contains locally-maintained custom skills in `.github/skills/`. T
 
 ## Development Workflow
 
+### Branch and Environment Strategy
+
+- **`develop` branch**: Primary development branch
+  - All feature work branches from `develop`
+  - Integration tested at: https://yoto-smart-stream-develop.up.railway.app
+  
+- **Feature branches**: Two patterns based on agent type:
+  - **Cloud Agents / @copilot issues**: Create `copilot/TOPIC` branches from `develop`
+    - Open PR to `develop`
+    - Automatic PR environment: https://yoto-smart-stream-yoto-smart-stream-pr-${PR_ID}.up.railway.app
+    - Normal PR review and merge lifecycle
+  - **VS Code Background Agents**: Create `copilot-worktree-TIMESTAMP` worktree branches from `develop`
+    - For work that doesn't require deployment to test
+    - Merge directly back to `develop` when complete
+    - No automatic Railway environment
+
+- **`staging` branch**: Pre-production testing
+  - `develop` merges into `staging` for integration testing
+  - Integration tested at: https://yoto-smart-stream-staging.up.railway.app
+  
+- **`production` branch**: Production deployment
+  - `staging` merges into `production` after successful integration testing
+  - Live at: https://yoto-smart-stream-production.up.railway.app
+
+### Development Best Practices
+
 1. **Testing First**: Write tests before implementing features (TDD approach)
 2. **Use Skills First**: ALWAYS check if a custom skill is available for your task before doing it yourself
    - Railway work? → Use `railway-service-management` skill
@@ -164,8 +190,13 @@ Use the yoto-smart-stream-testing skill to fix the failing authentication test
 ## Deployment
 
 - **Platform**: Railway.app with multi-environment setup
-- **Environments**: Production (main), Staging (develop), Development (shared)
+- **Environments**: 
+  - **Production** (`production` branch): https://yoto-smart-stream-production.up.railway.app
+  - **Staging** (`staging` branch): https://yoto-smart-stream-staging.up.railway.app
+  - **Develop** (`develop` branch): https://yoto-smart-stream-develop.up.railway.app
+  - **PR Environments** (feature branches): https://yoto-smart-stream-yoto-smart-stream-pr-${PR_ID}.up.railway.app
 - **Secrets**: Managed via GitHub Secrets and Railway environment variables
+- **Tokens**: Separate Railway tokens for each environment (RAILWAY_TOKEN_PROD, RAILWAY_TOKEN_STAGING, RAILWAY_TOKEN_DEV)
 - **Monitoring**: Use Railway CLI and dashboard for logs and metrics
 
 ## Key Resources

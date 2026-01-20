@@ -2,11 +2,11 @@
 
 ## Overview
 
-This guide outlines the simplified two-environment architecture used in this project: Production and automatic PR Environments. This approach leverages Railway's native features and Shared Variables for efficient deployment management.
+This guide outlines the multi-environment architecture used in this project: Production, Staging, Develop, and automatic PR Environments. This approach leverages Railway's native features for efficient deployment management across the software development lifecycle.
 
 ## Environment Strategy
 
-### Current Setup (Simplified)
+### Current Setup
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -16,18 +16,36 @@ This guide outlines the simplified two-environment architecture used in this pro
 │                                                      │
 │  ┌──────────────────────────────────────────────┐  │
 │  │  Production Environment                      │  │
-│  │  - Branch: main                              │  │
-│  │  - URL: yoto-smart-stream-production.up.railway.app                 │  │
+│  │  - Branch: production                        │  │
+│  │  - URL: yoto-smart-stream-production.up.railway.app │  │
 │  │  - Services: web, postgres (if needed)       │  │
-│  │  - Auto-deploy: ✓ (on push to main)         │  │
+│  │  - Auto-deploy: ✓ (on push to production)   │  │
 │  │  - Shared Variables: YOTO_CLIENT_ID          │  │
 │  └──────────────────────────────────────────────┘  │
 │                                                      │
 │  ┌──────────────────────────────────────────────┐  │
+│  │  Staging Environment                         │  │
+│  │  - Branch: staging                           │  │
+│  │  - URL: yoto-smart-stream-staging.up.railway.app │  │
+│  │  - Services: web (same as production)        │  │
+│  │  - Auto-deploy: ✓ (on push to staging)      │  │
+│  │  - Purpose: Pre-production testing           │  │
+│  └──────────────────────────────────────────────┘  │
+│                                                      │
+│  ┌──────────────────────────────────────────────┐  │
+│  │  Develop Environment                         │  │
+│  │  - Branch: develop                           │  │
+│  │  - URL: yoto-smart-stream-develop.up.railway.app │  │
+│  │  - Services: web                             │  │
+│  │  - Auto-deploy: ✓ (on push to develop)      │  │
+│  │  - Purpose: Integration testing              │  │
+│  └──────────────────────────────────────────────┘  │
+│                                                      │
+│  ┌──────────────────────────────────────────────┐  │
 │  │  PR Environment (pr-123)                     │  │
-│  │  - Branch: feature/add-feature               │  │
-│  │  - URL: yoto-smart-stream-pr-123.up.railway.app          │  │
-│  │  - Services: web (inherits from production)  │  │
+│  │  - Branch: copilot/feature-name              │  │
+│  │  - URL: yoto-smart-stream-yoto-smart-stream-pr-123.up.railway.app │  │
+│  │  - Services: web (inherits from develop)     │  │
 │  │  - Auto-deploy: ✓ (on PR update)            │  │
 │  │  - Auto-destroy: ✓ (on merge/close)         │  │
 │  │  - Inherits: ${{shared.YOTO_CLIENT_ID}}      │  │
@@ -36,30 +54,33 @@ This guide outlines the simplified two-environment architecture used in this pro
 └─────────────────────────────────────────────────────┘
 ```
 
+**Workflow:**
+1. Feature branches (`copilot/TOPIC` or `copilot-worktree-TIMESTAMP`) branch from `develop`
+2. PRs from feature branches → `develop` (with automatic PR environments for `copilot/TOPIC` branches)
+3. `develop` → `staging` for integration testing
+4. `staging` → `production` after successful testing
+
 ### Previous Setup (Deprecated)
 
-The project previously used a three-environment model with staging and development environments. This has been simplified to:
-- Remove maintenance overhead
-- Leverage Railway's native PR Environments
-- Use Shared Variables for configuration management
-- Reduce costs by eliminating unused environments
+The project previously used a two-environment model with only Production and automatic PR Environments. This has been expanded to include proper staging and development environments for better testing and release management.
 
 ## Branch-to-Environment Mapping
 
-### Main Branch → Production
+### Production Branch → Production Environment
 
 **Configuration:**
 ```yaml
 Environment: production
-Branch: main
+Branch: production
 Auto-deploy: Yes
-Deployment: On push to main (via GitHub Actions)
+URL: https://yoto-smart-stream-production.up.railway.app
+Deployment: On push to production (via GitHub Actions)
 ```
 
 **Characteristics:**
 - Customer-facing
 - Stable, tested code only
-- Automatic deployments after merge
+- Automatic deployments after merge from `staging`
 - Full resource allocation
 - Comprehensive monitoring
 - Database backups enabled (if applicable)
@@ -71,20 +92,70 @@ Deployment: On push to main (via GitHub Actions)
 - Require status checks to pass
 - Admin-only force push
 
+### Staging Branch → Staging Environment
+
+**Configuration:**
+```yaml
+Environment: staging
+Branch: staging
+Auto-deploy: Yes
+URL: https://yoto-smart-stream-staging.up.railway.app
+Deployment: On push to staging (automatic)
+```
+
+**Characteristics:**
+- Pre-production testing
+- Integration testing before production
+- Receives merges from `develop`
+- Full feature parity with production
+- Used for final validation
+- Safe environment for QA testing
+
+**Access Control:**
+- Protected branch in GitHub
+- Require PR reviews from `develop`
+
+### Develop Branch → Develop Environment
+
+**Configuration:**
+```yaml
+Environment: develop
+Branch: develop
+Auto-deploy: Yes
+URL: https://yoto-smart-stream-develop.up.railway.app
+Deployment: On push to develop (automatic)
+```
+
+**Characteristics:**
+- Integration testing environment
+- Primary development branch
+- All feature work branches from here
+- Receives PRs from feature branches
+- Automatic deployments on merge
+- Used for continuous integration
+
+**Access Control:**
+- Protected branch in GitHub
+- Require PR reviews
+
 ### Feature Branches → PR Environments (Automatic)
 
 **Configuration:**
 ```yaml
 Environment: pr-{number}
-Branch: Any branch with PR to main
+Branch: copilot/TOPIC (Cloud Agents / @copilot issues)
+Base Branch: develop
 Auto-deploy: Yes (automatic via Railway)
-Base Environment: production
+Base Environment: develop
 Auto-destroy: Yes (on PR close/merge)
+URL: https://yoto-smart-stream-yoto-smart-stream-pr-${PR_ID}.up.railway.app
 ```
+
+**Note**: `copilot-worktree-TIMESTAMP` branches (VS Code Background Agents) do NOT create PR environments as they are worktree branches for local work that doesn't require deployment to test.
 
 **Characteristics:**
 - Ephemeral (temporary)
-- Created automatically on PR
+- Created automatically on PR to `develop`
 - Isolated testing environment
 - Destroyed after PR close/merge
 - Reduced resource allocation
@@ -116,10 +187,49 @@ CPU: 0.5 - 1 vCPU for web
 Storage: As needed for PostgreSQL (if used)
 ```
 
+### Staging Environment
+
+```bash
+# Core services (same as production)
+Services:
+  - web (FastAPI application)
+  - postgres (optional, if database needed)
+
+# Environment variables
+DEBUG=false
+LOG_LEVEL=info
+YOTO_CLIENT_ID=${{shared.YOTO_CLIENT_ID}}  # Inherits from production
+PORT=${{PORT}}  # Auto-set by Railway
+PUBLIC_URL=https://yoto-smart-stream-staging.up.railway.app
+
+# Resource allocation (similar to production)
+RAM: 512 MB - 1 GB for web
+CPU: 0.5 - 1 vCPU for web
+```
+
+### Develop Environment
+
+```bash
+# Core services
+Services:
+  - web (FastAPI application)
+
+# Environment variables
+DEBUG=true
+LOG_LEVEL=debug
+YOTO_CLIENT_ID=${{shared.YOTO_CLIENT_ID}}  # Inherits from production
+PORT=${{PORT}}  # Auto-set by Railway
+PUBLIC_URL=https://yoto-smart-stream-develop.up.railway.app
+
+# Resource allocation (can be smaller)
+RAM: 256-512 MB for web
+CPU: 0.25-0.5 vCPU for web
+```
+
 ### PR Environments
 
 ```bash
-# Minimal services for testing (inherited from production)
+# Minimal services for testing (inherited from develop)
 Services:
   - web (FastAPI application)
 
@@ -127,7 +237,7 @@ Services:
 RAILWAY_ENVIRONMENT_NAME=pr-{number}  # Auto-set by Railway
 YOTO_CLIENT_ID=${{shared.YOTO_CLIENT_ID}}  # Inherits from production
 PORT=${{PORT}}  # Auto-set by Railway
-PUBLIC_URL=https://yoto-smart-stream-pr-{number}.up.railway.app
+PUBLIC_URL=https://yoto-smart-stream-yoto-smart-stream-pr-{number}.up.railway.app
 
 # Debug settings (configured via GitHub Actions)
 DEBUG=true
@@ -156,18 +266,22 @@ railway init
 railway link
 ```
 
-### Step 2: Create Production Environment
+### Step 2: Create Environments
 
 ```bash
 # Via Railway Dashboard:
 # 1. Go to project settings
 # 2. Click "Environments"
-# 3. Click "New Environment"
-# 4. Name: "production"
-# 5. Connect to GitHub branch: "main"
+# 3. Create environments:
+#    - production (branch: production)
+#    - staging (branch: staging)
+#    - develop (branch: develop)
+# 4. Enable PR Environments (base: develop)
 
 # Via CLI (if supported):
 railway environment add production
+railway environment add staging
+railway environment add develop
 ```
 
 ### Step 3: Add Services to Production

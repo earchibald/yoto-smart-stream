@@ -81,9 +81,15 @@ railway environment --environment develop
 ### 2. Multi-Environment Setup
 
 Typical structure:
-- **Production** (main branch) - Customer-facing
-- **Staging** (develop branch) - Pre-production testing
-- **PR Environments** - Automatic ephemeral environments per PR
+- **Production** (`production` branch) - https://yoto-smart-stream-production.up.railway.app - Customer-facing
+- **Staging** (`staging` branch) - https://yoto-smart-stream-staging.up.railway.app - Pre-production testing
+- **Develop** (`develop` branch) - https://yoto-smart-stream-develop.up.railway.app - Integration testing
+- **PR Environments** (`copilot/TOPIC` branches) - https://yoto-smart-stream-yoto-smart-stream-pr-${PR_ID}.up.railway.app - Automatic ephemeral environments per PR
+
+**Workflow**:
+- Feature branches (`copilot/TOPIC` or `copilot-worktree-TIMESTAMP`) → `develop`
+- `develop` → `staging` for integration testing
+- `staging` → `production` after successful testing
 
 **For complete multi-environment architecture**: See [multi_environment_architecture.md](reference/multi_environment_architecture.md)
 
