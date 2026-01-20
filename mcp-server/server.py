@@ -313,10 +313,11 @@ async def activate_yoto_oauth(service_url: str) -> str:
     """Activate Yoto OAuth by automating the device code flow."""
     if not YOTO_USERNAME or not YOTO_PASSWORD:
         return (
-            "❌ Error: YOTO_USERNAME and YOTO_PASSWORD environment variables are required for OAuth automation.\n\n"
+            "ERROR: YOTO_USERNAME and YOTO_PASSWORD environment variables are required for OAuth automation.\n\n"
             "Please set these variables with your Yoto account credentials:\n"
             "  export YOTO_USERNAME='your-email@example.com'\n"
-            "  export YOTO_PASSWORD='your-yoto-password'\n"
+            "  export YOTO_PASSWORD='your-yoto-password'\n\n"
+            "Status: error"
         )
 
     try:
@@ -328,7 +329,7 @@ async def activate_yoto_oauth(service_url: str) -> str:
             if not cookies:
                 cookies = await authenticate_host(service_url)
                 if not cookies:
-                    return f"❌ Error: Failed to authenticate with {service_url}"
+                    return f"Error: Failed to authenticate with {service_url}\nStatus: error"
 
             # Start OAuth device code flow
             logger.info(f"Starting Yoto OAuth device code flow for {service_url}...")
@@ -338,7 +339,7 @@ async def activate_yoto_oauth(service_url: str) -> str:
             )
 
             if start_response.status_code != 200:
-                return f"❌ Error: Failed to start OAuth: {start_response.status_code}\n{start_response.text[:200]}"
+                return f"Error: Failed to start OAuth: {start_response.status_code}\n{start_response.text[:200]}\nStatus: error"
 
             flow_data = start_response.json()
             device_code = flow_data.get("device_code")
@@ -346,7 +347,7 @@ async def activate_yoto_oauth(service_url: str) -> str:
             verification_uri = flow_data.get("verification_uri")
 
             if not device_code:
-                return f"❌ Error: No device code returned from server"
+                return f"Error: No device code returned from server\nStatus: error"
 
             logger.info(f"Device code: {device_code}, User code: {user_code}")
 
@@ -407,14 +408,15 @@ async def activate_yoto_oauth(service_url: str) -> str:
 
             except ImportError:
                 return (
-                    "❌ Error: Playwright is not installed.\n\n"
+                    "Error: Playwright is not installed.\n\n"
                     "To use automated OAuth, install playwright:\n"
                     "  pip install playwright\n"
-                    "  playwright install chromium\n"
+                    "  playwright install chromium\n\n"
+                    "Status: error"
                 )
             except Exception as browser_error:
                 logger.error(f"Browser automation error: {browser_error}")
-                return f"⚠️ Browser automation failed: {browser_error}\n\nYou may need to manually complete the OAuth flow at:\n{verification_uri}\nUser code: {user_code}"
+                return f"Warning: Browser automation failed: {browser_error}\n\nYou may need to manually complete the OAuth flow at:\n{verification_uri}\nUser code: {user_code}\nStatus: pending"
 
             # Poll for OAuth completion
             logger.info("Polling for OAuth completion...")
@@ -429,26 +431,32 @@ async def activate_yoto_oauth(service_url: str) -> str:
 
                 if poll_response.status_code == 200:
                     poll_data = poll_response.json()
+                    status = poll_data.get("status", "unknown")
+                    
                     if poll_data.get("authenticated"):
                         return (
-                            f"✅ Yoto OAuth activated successfully for {service_url}!\n\n"
-                            f"Status: {poll_data.get('message', 'Authenticated')}\n"
+                            f"Success: Yoto OAuth activated successfully for {service_url}!\n"
+                            f"Message: {poll_data.get('message', 'Authenticated')}\n"
+                            f"Status: {status}"
                         )
-                    elif poll_data.get("status") == "pending":
+                    elif status == "pending":
                         continue
-                    elif poll_data.get("status") == "error":
-                        return f"❌ OAuth error: {poll_data.get('message')}"
+                    elif status == "error":
+                        return f"Error: OAuth error: {poll_data.get('message')}\nStatus: {status}"
+                    elif status == "expired":
+                        return f"Error: Authentication expired. Please start again.\nStatus: {status}"
 
             return (
-                f"⏱️ OAuth polling timed out. The authentication may still complete.\n\n"
+                f"Timeout: OAuth polling timed out. The authentication may still complete.\n\n"
                 f"If not completed, you can manually authorize at:\n"
                 f"{verification_uri}\n"
-                f"User code: {user_code}"
+                f"User code: {user_code}\n"
+                f"Status: pending"
             )
 
     except Exception as e:
         logger.error(f"Error activating OAuth for {service_url}: {e}")
-        return f"❌ Error activating OAuth: {str(e)}"
+        return f"Error: {str(e)}\nStatus: error"
 
 
 async def deactivate_yoto_oauth(service_url: str) -> str:
@@ -462,7 +470,7 @@ async def deactivate_yoto_oauth(service_url: str) -> str:
             if not cookies:
                 cookies = await authenticate_host(service_url)
                 if not cookies:
-                    return f"❌ Error: Failed to authenticate with {service_url}"
+                    return f"Error: Failed to authenticate with {service_url}\nStatus: error"
 
             # Call logout endpoint
             logger.info(f"Deactivating Yoto OAuth for {service_url}...")
@@ -474,15 +482,16 @@ async def deactivate_yoto_oauth(service_url: str) -> str:
             if logout_response.status_code == 200:
                 logout_data = logout_response.json()
                 return (
-                    f"✅ Yoto OAuth deactivated successfully for {service_url}\n\n"
+                    f"Success: Yoto OAuth deactivated successfully for {service_url}\n"
                     f"Message: {logout_data.get('message', 'Logged out')}\n"
+                    f"Status: success"
                 )
             else:
-                return f"❌ Error: Failed to deactivate OAuth: HTTP {logout_response.status_code}\n{logout_response.text}"
+                return f"Error: Failed to deactivate OAuth: HTTP {logout_response.status_code}\n{logout_response.text}\nStatus: error"
 
     except Exception as e:
         logger.error(f"Error deactivating OAuth for {service_url}: {e}")
-        return f"❌ Error deactivating OAuth: {str(e)}"
+        return f"Error: {str(e)}\nStatus: error"
 
 
 # FastMCP Tools
@@ -502,18 +511,24 @@ async def manage_oauth(params: OAuthInput) -> str:
     Activate or deactivate Yoto OAuth authentication for a yoto-smart-stream service.
     Use 'activate' to log in (requires YOTO_USERNAME and YOTO_PASSWORD env vars),
     or 'deactivate' to log out.
+    
+    Returns a response with Status field indicating the result:
+    - 'success': Operation completed successfully
+    - 'pending': Waiting for user action or still polling
+    - 'error': An error occurred
+    - 'expired': Token/code has expired
     """
     service_url = params.service_url or YOTO_SERVICE_URL
     
     if not service_url:
-        return "❌ Error: No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."
+        return "Error: No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable.\nStatus: error"
 
     if params.action.lower() == "activate":
         return await activate_yoto_oauth(service_url)
     elif params.action.lower() == "deactivate":
         return await deactivate_yoto_oauth(service_url)
     else:
-        return f"❌ Error: Unknown action '{params.action}'. Use 'activate' or 'deactivate'."
+        return f"Error: Unknown action '{params.action}'. Use 'activate' or 'deactivate'.\nStatus: error"
 
 
 @mcp.tool(
