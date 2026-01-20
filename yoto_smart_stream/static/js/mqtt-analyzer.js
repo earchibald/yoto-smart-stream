@@ -4,6 +4,7 @@
  */
 
 let mqttAutoRefreshInterval = null;
+let mqttRefreshIntervalMs = 2000; // Default 2 seconds
 let currentJsonData = null;
 
 async function openMQTTAnalyzer() {
@@ -208,15 +209,26 @@ function toggleAutoRefresh(enabled) {
         // Refresh immediately
         refreshMQTTData();
 
-        // Then refresh every 2 seconds
+        // Then refresh at the selected interval
         mqttAutoRefreshInterval = setInterval(() => {
             refreshMQTTData();
-        }, 2000);
+        }, mqttRefreshIntervalMs);
     } else {
         if (mqttAutoRefreshInterval) {
             clearInterval(mqttAutoRefreshInterval);
             mqttAutoRefreshInterval = null;
         }
+    }
+}
+
+function updateRefreshInterval(intervalMs) {
+    mqttRefreshIntervalMs = parseInt(intervalMs);
+
+    // If auto-refresh is currently enabled, restart it with the new interval
+    const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+    if (autoRefreshToggle && autoRefreshToggle.checked) {
+        toggleAutoRefresh(false);
+        toggleAutoRefresh(true);
     }
 }
 
