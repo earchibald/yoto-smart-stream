@@ -456,6 +456,73 @@ railway logs --tail 100 | grep -i mqtt
 
 ---
 
+# Part 3: MCP Server Integration
+
+The yoto-smart-stream repository includes an MCP (Model Context Protocol) server for querying the Yoto library using natural language.
+
+## Overview
+
+The MCP server (`mcp-server/` directory) provides:
+- Natural language queries of your Yoto library
+- Search cards by title, author, or metadata
+- List playlists and their contents
+- Explore metadata keys and values
+- Direct integration with VS Code and Claude Desktop
+
+## Quick Start
+
+### Installation
+
+```bash
+# Using uvx (recommended)
+uvx --from /path/to/yoto-smart-stream/mcp-server mcp-server
+
+# Or using Python directly
+cd mcp-server
+python server.py --url https://your-deployment.railway.app \
+                 --username admin \
+                 --password your-password
+```
+
+### VS Code Configuration
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "yoto-library": {
+      "command": "uvx",
+      "args": ["--from", "/path/to/yoto-smart-stream/mcp-server", "mcp-server"],
+      "env": {
+        "YOTO_SERVICE_URL": "https://your-deployment.railway.app",
+        "ADMIN_USERNAME": "admin",
+        "ADMIN_PASSWORD": "your-password"
+      }
+    }
+  }
+}
+```
+
+### Example Queries
+
+- `"find all cards with 'princess' in the title"`
+- `"what metadata keys are used across the library?"`
+- `"list all playlists"`
+- `"what authors are in the library?"`
+- `"how many cards are there?"`
+
+## Complete Documentation
+
+See `mcp-server/README.md` for:
+- Full VS Code configuration options
+- Claude Desktop integration
+- Authentication setup
+- Troubleshooting guide
+- Development instructions
+
+---
+
 ## Additional Resources
 
 - **Project Documentation**: See `docs/` folder for detailed guides
