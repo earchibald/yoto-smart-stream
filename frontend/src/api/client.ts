@@ -52,9 +52,9 @@ export const audioApi = {
     api.post('/cards/create-playlist-from-audio', data),
 };
 
-// Cards API
+// Cards API (Yoto Library)
 export const cardsApi = {
-  getAll: () => api.get<Card[]>('/cards'),
+  getAll: () => api.get<{ cards: Card[] }>('/library'),
   getById: (id: string) => api.get<Card>(`/cards/${id}`),
   create: (card: Partial<Card>) => api.post<Card>('/cards', card),
   update: (id: string, card: Partial<Card>) => api.put<Card>(`/cards/${id}`, card),

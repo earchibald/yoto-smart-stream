@@ -25,7 +25,8 @@ export const Library: React.FC = () => {
       setLoading(true);
       setError(null);
       const response = await cardsApi.getAll();
-      setCards(response.data || []);
+      // API returns { cards: [...] } format
+      setCards(response.data?.cards || []);
     } catch (err: any) {
       console.error('Failed to load library:', err);
       setError(err.response?.data?.detail || 'Failed to load your Yoto library');

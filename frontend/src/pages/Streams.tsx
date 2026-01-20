@@ -15,6 +15,7 @@ export const Streams: React.FC = () => {
   const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
   const [queues] = useState<StreamQueue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [publicUrl, setPublicUrl] = useState('');
 
   useEffect(() => {
@@ -26,10 +27,15 @@ export const Streams: React.FC = () => {
 
   const loadData = async () => {
     try {
+      setError(null);
       const response = await audioApi.getAll();
       setAudioFiles(response.data || []);
-    } catch (error) {
-      console.error('Failed to load audio files:', error);
+    } catch (err: any) {
+      console.error('Failed to load audio files:', err);
+      // Only set error if it's a real error (not authentication or empty data)
+      if (err.response?.status !== 404 && err.response?.status !== 401) {
+        setError(err.response?.data?.detail || 'Failed to load audio files');
+      }
     } finally {
       setLoading(false);
     }
@@ -107,6 +113,15 @@ export const Streams: React.FC = () => {
           {loading ? (
             <Card>
               <p className="text-center text-gray-600 py-8">Loading audio files...</p>
+            </Card>
+          ) : error ? (
+            <Card>
+              <div className="text-center py-8">
+                <div className="text-5xl mb-4">⚠️</div>
+                <h3 className="text-lg font-semibold mb-2">Error Loading Files</h3>
+                <p className="text-gray-600 mb-4">{error}</p>
+                <Button onClick={loadData}>Try Again</Button>
+              </div>
             </Card>
           ) : audioFiles.length === 0 ? (
             <Card>
