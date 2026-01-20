@@ -153,8 +153,8 @@ async def authenticate_host(service_url: str) -> Union[httpx.Cookies, None]:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             auth_response = await client.post(
-                f"{service_url}/api/auth/login",
-                data={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
+                f"{service_url}/api/user/login",
+                json={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
             )
 
             if auth_response.status_code != 200:
