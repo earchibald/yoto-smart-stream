@@ -25,10 +25,11 @@ Or add to VS Code mcp.json:
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, Union
 
 import httpx
 import mcp.server.stdio
@@ -41,14 +42,18 @@ from pydantic import AnyUrl, BaseModel, Field
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global configuration variables
-YOTO_SERVICE_URL = ""
+# Global configuration variables for default credentials
 ADMIN_USERNAME = ""
 ADMIN_PASSWORD = ""
+YOTO_USERNAME = ""  # For Yoto OAuth automation
+YOTO_PASSWORD = ""  # For Yoto OAuth automation
 
 # Constants for search results
 MAX_DESCRIPTION_LENGTH = 100
 MAX_CARDS_TO_DISPLAY = 20
+
+# Per-host authentication cache: {service_url: cookies}
+AUTH_CACHE: dict[str, httpx.Cookies] = {}
 
 
 def parse_args():
@@ -83,7 +88,7 @@ Examples:
 
 def configure_from_args():
     """Configure global variables from command line args or environment."""
-    global YOTO_SERVICE_URL, ADMIN_USERNAME, ADMIN_PASSWORD
+    global YOTO_SERVICE_URL, ADMIN_USERNAME, ADMIN_PASSWORD, YOTO_USERNAME, YOTO_PASSWORD
 
     args = parse_args()
 
@@ -93,6 +98,8 @@ def configure_from_args():
     )
     ADMIN_USERNAME = args.username or os.getenv("ADMIN_USERNAME") or "admin"
     ADMIN_PASSWORD = args.password or os.getenv("ADMIN_PASSWORD") or ""
+    YOTO_USERNAME = os.getenv("YOTO_USERNAME") or ""
+    YOTO_PASSWORD = os.getenv("YOTO_PASSWORD") or ""
 
     logger.info(f"Configured to connect to: {YOTO_SERVICE_URL}")
     logger.info(f"Using username: {ADMIN_USERNAME}")
@@ -103,44 +110,122 @@ def configure_from_args():
             "Set ADMIN_PASSWORD environment variable or use --password argument."
         )
 
+    if YOTO_USERNAME and YOTO_PASSWORD:
+        logger.info("Yoto OAuth credentials configured for automated login")
+
 
 # Create MCP server
 app = Server("yoto-library")
 
 
+class OAuthArgs(BaseModel):
+    """Arguments for OAuth operations."""
+
+    service_url: str = Field(
+        description="URL of the yoto-smart-stream service, e.g., 'https://yoto-smart-stream-production.up.railway.app'"
+    )
+    action: str = Field(
+        description="Action to perform: 'activate' to log in to Yoto OAuth, 'deactivate' to log out"
+    )
+
+
 class QueryLibraryArgs(BaseModel):
     """Arguments for querying the Yoto library."""
 
+    service_url: str = Field(
+        description="URL of the yoto-smart-stream service, e.g., 'https://yoto-smart-stream-production.up.railway.app'"
+    )
     query: str = Field(
         description="Natural language query about the library, e.g., 'find all cards with princess in the title' or 'what metadata keys are used?'"
     )
 
 
-async def get_library_data() -> dict[str, Any]:
-    """Fetch library data from the yoto-smart-stream service."""
+async def authenticate_host(service_url: str) -> Union[httpx.Cookies, None]:
+    """
+    Authenticate with a specific host and cache the session cookies.
+
+    Args:
+        service_url: URL of the yoto-smart-stream service
+
+    Returns:
+        Session cookies if authentication succeeds, None otherwise
+    """
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            # First, authenticate
             auth_response = await client.post(
-                f"{YOTO_SERVICE_URL}/api/auth/login",
+                f"{service_url}/api/auth/login",
                 data={"username": ADMIN_USERNAME, "password": ADMIN_PASSWORD},
             )
 
             if auth_response.status_code != 200:
-                logger.error(f"Authentication failed: {auth_response.status_code}")
-                return {"error": "Authentication failed", "cards": [], "playlists": []}
+                logger.error(
+                    f"Authentication failed for {service_url}: {auth_response.status_code}"
+                )
+                return None
 
-            # Get session cookie
-            cookies = auth_response.cookies
+            # Cache the session cookies for this host
+            AUTH_CACHE[service_url] = auth_response.cookies
+            logger.info(f"Successfully authenticated with {service_url}")
+            return auth_response.cookies
 
-            # Fetch library data
+    except Exception as e:
+        logger.error(f"Error authenticating with {service_url}: {e}")
+        return None
+
+
+async def get_library_data(service_url: str) -> dict[str, Any]:
+    """
+    Fetch library data from the yoto-smart-stream service.
+
+    Args:
+        service_url: URL of the yoto-smart-stream service
+
+    Returns:
+        Library data dictionary with cards and playlists
+    """
+    try:
+        # Check if we have cached authentication for this host
+        cookies = AUTH_CACHE.get(service_url)
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # If no cached auth, authenticate first
+            if not cookies:
+                cookies = await authenticate_host(service_url)
+                if not cookies:
+                    return {
+                        "error": "Authentication failed",
+                        "cards": [],
+                        "playlists": [],
+                    }
+
+            # Try to fetch library data with cached credentials
             library_response = await client.get(
-                f"{YOTO_SERVICE_URL}/api/library",
+                f"{service_url}/api/library",
                 cookies=cookies,
             )
 
+            # If authentication expired (401), re-authenticate and retry
+            if library_response.status_code == 401:
+                logger.info(
+                    f"Authentication expired for {service_url}, re-authenticating..."
+                )
+                cookies = await authenticate_host(service_url)
+                if not cookies:
+                    return {
+                        "error": "Re-authentication failed",
+                        "cards": [],
+                        "playlists": [],
+                    }
+
+                library_response = await client.get(
+                    f"{service_url}/api/library",
+                    cookies=cookies,
+                )
+
             if library_response.status_code != 200:
-                logger.error(f"Failed to fetch library: {library_response.status_code}")
+                logger.error(
+                    f"Failed to fetch library from {service_url}: {library_response.status_code}"
+                )
                 return {
                     "error": f"Failed to fetch library: {library_response.status_code}",
                     "cards": [],
@@ -151,7 +236,7 @@ async def get_library_data() -> dict[str, Any]:
             return library_data
 
     except Exception as e:
-        logger.error(f"Error fetching library data: {e}")
+        logger.error(f"Error fetching library data from {service_url}: {e}")
         return {"error": str(e), "cards": [], "playlists": []}
 
 
@@ -276,40 +361,258 @@ def search_library(library_data: dict[str, Any], query: str) -> str:
     )
 
 
+async def activate_yoto_oauth(service_url: str) -> str:
+    """
+    Activate Yoto OAuth by automating the device code flow with browser automation.
+
+    Args:
+        service_url: URL of the yoto-smart-stream service
+
+    Returns:
+        Status message
+    """
+    if not YOTO_USERNAME or not YOTO_PASSWORD:
+        return (
+            "❌ Error: YOTO_USERNAME and YOTO_PASSWORD environment variables are required for OAuth automation.\n\n"
+            "Please set these variables with your Yoto account credentials:\n"
+            "  export YOTO_USERNAME='your-email@example.com'\n"
+            "  export YOTO_PASSWORD='your-yoto-password'\n"
+        )
+
+    try:
+        # Get cached cookies for admin auth
+        cookies = AUTH_CACHE.get(service_url)
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # Authenticate with admin if needed
+            if not cookies:
+                cookies = await authenticate_host(service_url)
+                if not cookies:
+                    return f"❌ Error: Failed to authenticate with {service_url}"
+
+            # Start OAuth device code flow
+            logger.info(f"Starting Yoto OAuth device code flow for {service_url}...")
+            start_response = await client.post(
+                f"{service_url}/api/auth/start",
+                cookies=cookies,
+            )
+
+            if start_response.status_code != 200:
+                return f"❌ Error: Failed to start OAuth flow: HTTP {start_response.status_code}\n{start_response.text}"
+
+            device_data = start_response.json()
+            verification_uri = device_data.get(
+                "verification_uri_complete"
+            ) or device_data.get("verification_uri")
+            user_code = device_data.get("user_code")
+            device_code = device_data.get("device_code")
+
+            logger.info(
+                f"Device code flow started. Verification URI: {verification_uri}"
+            )
+            logger.info(f"User code: {user_code}")
+
+            # Use playwright to automate browser login
+            try:
+                from playwright.async_api import async_playwright
+
+                async with async_playwright() as p:
+                    browser = await p.chromium.launch(headless=True)
+                    context = await browser.new_context()
+                    page = await context.new_page()
+
+                    # Navigate to verification URI
+                    await page.goto(verification_uri)
+                    await page.wait_for_load_state("networkidle")
+
+                    # Fill in email
+                    email_input = page.locator(
+                        'input[type="email"], input[name="email"], input[id="email"]'
+                    ).first
+                    if await email_input.is_visible(timeout=5000):
+                        await email_input.fill(YOTO_USERNAME)
+
+                        # Look for continue/submit button
+                        continue_button = page.locator(
+                            'button:has-text("Continue"), button[type="submit"]'
+                        ).first
+                        await continue_button.click()
+                        await page.wait_for_load_state("networkidle")
+
+                    # Fill in password
+                    password_input = page.locator(
+                        'input[type="password"], input[name="password"], input[id="password"]'
+                    ).first
+                    if await password_input.is_visible(timeout=5000):
+                        await password_input.fill(YOTO_PASSWORD)
+
+                        # Look for sign in button
+                        signin_button = page.locator(
+                            'button:has-text("Sign in"), button:has-text("Log in"), button[type="submit"]'
+                        ).first
+                        await signin_button.click()
+                        await page.wait_for_load_state("networkidle")
+
+                    # Look for authorize/allow button
+                    authorize_button = page.locator(
+                        'button:has-text("Authorize"), button:has-text("Allow"), button:has-text("Accept")'
+                    ).first
+                    if await authorize_button.is_visible(timeout=5000):
+                        await authorize_button.click()
+                        await page.wait_for_load_state("networkidle")
+
+                    await browser.close()
+                    logger.info("Browser automation completed")
+
+            except ImportError:
+                return (
+                    "❌ Error: Playwright is not installed.\n\n"
+                    "To use automated OAuth, install playwright:\n"
+                    "  pip install playwright\n"
+                    "  playwright install chromium\n"
+                )
+            except Exception as browser_error:
+                logger.error(f"Browser automation error: {browser_error}")
+                return f"⚠️ Browser automation failed: {browser_error}\n\nYou may need to manually complete the OAuth flow at:\n{verification_uri}\nUser code: {user_code}"
+
+            # Poll for OAuth completion
+            logger.info("Polling for OAuth completion...")
+            for _ in range(12):  # Poll for up to 60 seconds
+                await asyncio.sleep(5)
+
+                poll_response = await client.post(
+                    f"{service_url}/api/auth/poll",
+                    json={"device_code": device_code},
+                    cookies=cookies,
+                )
+
+                if poll_response.status_code == 200:
+                    poll_data = poll_response.json()
+                    if poll_data.get("authenticated"):
+                        return (
+                            f"✅ Yoto OAuth activated successfully for {service_url}!\n\n"
+                            f"Status: {poll_data.get('message', 'Authenticated')}\n"
+                        )
+                    elif poll_data.get("status") == "pending":
+                        continue
+                    elif poll_data.get("status") == "error":
+                        return f"❌ OAuth error: {poll_data.get('message')}"
+
+            return (
+                f"⏱️ OAuth polling timed out. The authentication may still complete.\n\n"
+                f"If not completed, you can manually authorize at:\n"
+                f"{verification_uri}\n"
+                f"User code: {user_code}"
+            )
+
+    except Exception as e:
+        logger.error(f"Error activating OAuth for {service_url}: {e}")
+        return f"❌ Error activating OAuth: {str(e)}"
+
+
+async def deactivate_yoto_oauth(service_url: str) -> str:
+    """
+    Deactivate Yoto OAuth by logging out.
+
+    Args:
+        service_url: URL of the yoto-smart-stream service
+
+    Returns:
+        Status message
+    """
+    try:
+        # Get cached cookies for admin auth
+        cookies = AUTH_CACHE.get(service_url)
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Authenticate with admin if needed
+            if not cookies:
+                cookies = await authenticate_host(service_url)
+                if not cookies:
+                    return f"❌ Error: Failed to authenticate with {service_url}"
+
+            # Call logout endpoint
+            logger.info(f"Deactivating Yoto OAuth for {service_url}...")
+            logout_response = await client.post(
+                f"{service_url}/api/auth/logout",
+                cookies=cookies,
+            )
+
+            if logout_response.status_code == 200:
+                logout_data = logout_response.json()
+                return (
+                    f"✅ Yoto OAuth deactivated successfully for {service_url}\n\n"
+                    f"Message: {logout_data.get('message', 'Logged out')}\n"
+                )
+            else:
+                return f"❌ Error: Failed to deactivate OAuth: HTTP {logout_response.status_code}\n{logout_response.text}"
+
+    except Exception as e:
+        logger.error(f"Error deactivating OAuth for {service_url}: {e}")
+        return f"❌ Error deactivating OAuth: {str(e)}"
+
+
 @app.list_tools()
 async def list_tools() -> list[types.Tool]:
     """List available MCP tools."""
     return [
         types.Tool(
+            name="oauth",
+            description=(
+                "Activate or deactivate Yoto OAuth authentication for a yoto-smart-stream service. "
+                "Use 'activate' to log in (requires YOTO_USERNAME and YOTO_PASSWORD env vars), "
+                "or 'deactivate' to log out. "
+                "Example: action='activate' to enable Yoto API access."
+            ),
+            inputSchema=OAuthArgs.model_json_schema(),
+        ),
+        types.Tool(
             name="query_library",
             description=(
                 "Query the Yoto library using natural language. "
+                "Requires service_url parameter to specify which yoto-smart-stream deployment to query. "
                 "Examples: 'find all cards with princess in the title', "
                 "'what metadata keys are used?', 'list all playlists', "
                 "'what authors are in the library?'"
             ),
             inputSchema=QueryLibraryArgs.model_json_schema(),
-        )
+        ),
     ]
 
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
     """Handle tool calls."""
-    if name != "query_library":
+    if name == "oauth":
+        # Handle OAuth activation/deactivation
+        oauth_args = OAuthArgs(**arguments)
+
+        if oauth_args.action.lower() == "activate":
+            result = await activate_yoto_oauth(oauth_args.service_url)
+        elif oauth_args.action.lower() == "deactivate":
+            result = await deactivate_yoto_oauth(oauth_args.service_url)
+        else:
+            result = f"❌ Error: Unknown action '{oauth_args.action}'. Use 'activate' or 'deactivate'."
+
+        return [types.TextContent(type="text", text=result)]
+
+    elif name == "query_library":
+        # Validate arguments
+        query_args = QueryLibraryArgs(**arguments)
+
+        # Fetch library data from the specified service
+        logger.info(
+            f"Processing query for {query_args.service_url}: {query_args.query}"
+        )
+        library_data = await get_library_data(query_args.service_url)
+
+        # Search library
+        result = search_library(library_data, query_args.query)
+
+        return [types.TextContent(type="text", text=result)]
+
+    else:
         raise ValueError(f"Unknown tool: {name}")
-
-    # Validate arguments
-    args = QueryLibraryArgs(**arguments)
-
-    # Fetch library data
-    logger.info(f"Processing query: {args.query}")
-    library_data = await get_library_data()
-
-    # Search library
-    result = search_library(library_data, args.query)
-
-    return [types.TextContent(type="text", text=result)]
 
 
 @app.list_resources()
@@ -329,8 +632,14 @@ async def list_resources() -> list[types.Resource]:
 async def read_resource(uri: str) -> str:
     """Read a resource."""
     if uri == "yoto://library":
-        library_data = await get_library_data()
-        return json.dumps(library_data, indent=2)
+        # Note: This would need a service_url parameter to be useful
+        # For now, return an error message
+        return json.dumps(
+            {
+                "error": "Resource access requires service_url parameter. Use the query_library tool instead."
+            },
+            indent=2,
+        )
 
     raise ValueError(f"Unknown resource: {uri}")
 
@@ -359,6 +668,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    import asyncio
-
     asyncio.run(main())
