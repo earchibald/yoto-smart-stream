@@ -1517,10 +1517,10 @@ async function executeTranscription(filename) {
                     showConfirmModal(
                         '🎛️ Transcription Disabled',
                         'Transcription is currently disabled. Open Admin → System Settings to enable it.',
-                        () => { window.location.href = '/admin'; }
+                        () => { window.location.href = '/admin?focus=settings'; }
                     );
                 } else {
-                    window.location.href = '/admin';
+                    window.location.href = '/admin?focus=settings';
                 }
                 return; // Stop further handling
             }
@@ -1560,10 +1560,10 @@ async function executeTranscription(filename) {
                 showConfirmModal(
                     '🎛️ Transcription Disabled',
                     'Transcription is currently disabled. Open Admin → System Settings to enable it.',
-                    () => { window.location.href = '/admin'; }
+                    () => { window.location.href = '/admin?focus=settings'; }
                 );
             } else {
-                window.location.href = '/admin';
+                window.location.href = '/admin?focus=settings';
             }
             return;
         }
