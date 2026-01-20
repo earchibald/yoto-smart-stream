@@ -1,0 +1,291 @@
+/* PWA-specific styles */
+/* Mobile optimizations and install prompts */
+
+/* PWA Install Button */
+.pwa-install-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+}
+
+.pwa-install-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.pwa-install-btn:active {
+  transform: translateY(0);
+}
+
+/* PWA Notifications */
+.pwa-update-notification,
+.pwa-success-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  animation: slideInRight 0.3s ease;
+}
+
+.pwa-update-notification {
+  border-left: 4px solid #4A90E2;
+}
+
+.pwa-success-notification {
+  border-left: 4px solid #27ae60;
+}
+
+.pwa-notification-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pwa-notification-content span {
+  font-weight: 500;
+  color: #333;
+}
+
+.pwa-notification-content .btn-small {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.875rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pwa-notification-content .btn-small:first-of-type {
+  background: #4A90E2;
+  color: white;
+}
+
+.pwa-notification-content .btn-small:first-of-type:hover {
+  background: #357ABD;
+}
+
+.pwa-notification-content .btn-small:last-of-type {
+  background: #f1f3f5;
+  color: #495057;
+}
+
+.pwa-notification-content .btn-small:last-of-type:hover {
+  background: #e9ecef;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Offline indicator */
+.status-indicator.offline .dot {
+  background-color: #e74c3c;
+}
+
+.status-indicator.online .dot {
+  background-color: #27ae60;
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 768px) {
+  /* Larger touch targets for mobile */
+  .action-button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.75rem 1rem;
+  }
+
+  /* Better spacing on mobile */
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Sidebar adjustments for mobile */
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+  }
+
+  .content {
+    margin-left: 0;
+    padding: 1rem;
+  }
+
+  /* Modal improvements for mobile */
+  .modal-content {
+    width: 95%;
+    max-width: 95%;
+    margin: 1rem auto;
+  }
+
+  /* Player cards on mobile */
+  .player-card {
+    padding: 1rem;
+  }
+
+  /* Form inputs on mobile */
+  input, select, textarea, button {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+
+  /* Install prompt positioning on mobile */
+  .pwa-update-notification,
+  .pwa-success-notification {
+    top: auto;
+    bottom: 20px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+  }
+}
+
+/* Touch-friendly interactive elements */
+@media (hover: none) and (pointer: coarse) {
+  /* Remove hover effects on touch devices */
+  .action-button:hover,
+  .stat-card:hover,
+  .player-card:hover {
+    transform: none;
+  }
+
+  /* Add active states for touch feedback */
+  .action-button:active {
+    transform: scale(0.95);
+  }
+
+  .stat-card:active,
+  .player-card:active {
+    transform: scale(0.98);
+  }
+}
+
+/* iOS Safe Area support */
+@supports (padding: max(0px)) {
+  .content {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .sidebar {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Standalone mode (when installed as PWA) */
+@media (display-mode: standalone) {
+  /* Add padding for status bar on iOS */
+  .content {
+    padding-top: max(1.5rem, env(safe-area-inset-top));
+  }
+
+  /* Hide browser-specific elements */
+  .browser-only {
+    display: none;
+  }
+
+  /* Show PWA-only elements */
+  .pwa-only {
+    display: block;
+  }
+}
+
+/* Landscape mode on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .sidebar {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+  }
+
+  .nav-menu {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+  }
+
+  .sidebar-footer {
+    display: none;
+  }
+}
+
+/* Pull-to-refresh indicator (optional enhancement) */
+.pull-to-refresh-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to bottom, rgba(74, 144, 226, 0.1), transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+  z-index: 1000;
+}
+
+.pull-to-refresh-indicator.active {
+  transform: translateY(0);
+}
+
+.pull-to-refresh-indicator .spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #4A90E2;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode support (if device prefers dark mode) */
+@media (prefers-color-scheme: dark) {
+  .pwa-update-notification,
+  .pwa-success-notification {
+    background: #2c2c2c;
+    border-color: #4A90E2;
+  }
+
+  .pwa-notification-content span {
+    color: #e0e0e0;
+  }
+
+  .pwa-notification-content .btn-small:last-of-type {
+    background: #3a3a3a;
+    color: #e0e0e0;
+  }
+}
