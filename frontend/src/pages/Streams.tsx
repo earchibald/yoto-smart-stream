@@ -13,7 +13,7 @@ interface StreamQueue {
 
 export const Streams: React.FC = () => {
   const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
-  const [queues, setQueues] = useState<StreamQueue[]>([]);
+  const [queues] = useState<StreamQueue[]>([]);
   const [loading, setLoading] = useState(true);
   const [publicUrl, setPublicUrl] = useState('');
 
@@ -51,7 +51,7 @@ export const Streams: React.FC = () => {
             </p>
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between">
               <code className="text-sm font-mono text-gray-800">
-                {publicUrl}/streams/{{'{stream_name}'}}/stream.mp3
+                {publicUrl}/streams/&#123;stream_name&#125;/stream.mp3
               </code>
               <Button
                 variant="secondary"
@@ -65,7 +65,7 @@ export const Streams: React.FC = () => {
               </Button>
             </div>
             <p className="text-sm text-gray-500">
-              Replace {{'{stream_name}'}} with your stream name (e.g., "default", "bedtime", etc.)
+              Replace &#123;stream_name&#125; with your stream name (e.g., "default", "bedtime", etc.)
             </p>
           </div>
         </Card>
