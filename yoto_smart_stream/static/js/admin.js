@@ -70,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     loadSystemStatus();
+    loadSettings();
     loadUsers();
     
     // Setup create user form
@@ -424,3 +425,149 @@ function showEditUserError(message) {
     errorDiv.style.display = 'block';
     result.style.display = 'block';
 }
+
+// Load settings
+async function loadSettings() {
+    const settingsList = document.getElementById('settings-list');
+    
+    try {
+        const response = await fetch(`${API_BASE}/settings`, { credentials: 'include' });
+        if (!response.ok) {
+            throw new Error('Failed to fetch settings');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.settings || data.settings.length === 0) {
+            settingsList.innerHTML = '<p class="no-data">No settings available</p>';
+            return;
+        }
+        
+        // Build settings HTML
+        let html = '<div class="settings-list">';
+        
+        for (const setting of data.settings) {
+            const isBoolean = setting.value === 'true' || setting.value === 'false';
+            const effectiveValue = setting.value;  // This is the effective value (env var if overridden)
+            const displayValue = effectiveValue === 'true' ? 'On' : effectiveValue === 'false' ? 'Off' : effectiveValue;
+            
+            // Build tooltip for env override badge
+            let envTooltip = '';
+            if (setting.is_overridden) {
+                envTooltip = `Environment variable is set to: ${setting.env_var_override}`;
+            }
+            
+            const envOverrideBadge = setting.is_overridden 
+                ? `<span class="env-override-badge" title="${envTooltip}">🔒 ENV: ${displayValue}</span>`
+                : '';
+            
+            html += `
+                <div class="setting-item">
+                    <div class="setting-header">
+                        <div class="setting-title">
+                            <strong>${setting.key.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}</strong>
+                            ${envOverrideBadge}
+                        </div>
+                        <div class="setting-value">
+                            ${isBoolean ? `
+                                <label class="toggle-switch" ${setting.is_overridden ? 'title="This toggle updates the database value, but environment variable takes precedence"' : ''}>
+                                    <input 
+                                        type="checkbox" 
+                                        ${effectiveValue === 'true' ? 'checked' : ''}
+                                        onchange="updateSetting('${setting.key}', this.checked ? 'true' : 'false')"
+                                    />
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            ` : `
+                                <input 
+                                    type="text" 
+                                    value="${effectiveValue}" 
+                                    onblur="updateSetting('${setting.key}', this.value)"
+                                    class="setting-input"
+                                    ${setting.is_overridden ? 'title="This updates the database value, but environment variable takes precedence"' : ''}
+                                />
+                            `}
+                        </div>
+                    </div>
+                    ${setting.description ? `<p class="setting-description">${setting.description}</p>` : ''}
+                    ${setting.is_overridden ? `<p class="setting-override-note">⚠️ This setting is currently controlled by an environment variable (value: ${displayValue}). Changes to the toggle update the database but won't take effect until the environment variable is removed.</p>` : ''}
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+        settingsList.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        settingsList.innerHTML = `<p class="error-message">❌ Error loading settings: ${error.message}</p>`;
+    }
+}
+
+// Update a setting
+async function updateSetting(key, value) {
+    try {
+        const response = await fetch(`${API_BASE}/settings/${key}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ value: value })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Failed to update setting');
+        }
+        
+        const data = await response.json();
+        
+        // Format the value for display
+        const displayValue = value === 'true' ? 'On' : value === 'false' ? 'Off' : value;
+        const settingName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        
+        // Show success feedback with new state
+        let message = `${settingName}: ${displayValue}`;
+        if (data.is_overridden) {
+            message += ` (env var override active: ${data.env_var_override})`;
+        }
+        showNotification(message, 'success');
+        
+        // Reload settings to show updated state
+        await loadSettings();
+        
+    } catch (error) {
+        console.error('Error updating setting:', error);
+        showNotification(`Failed to update setting: ${error.message}`, 'error');
+        // Reload to revert the UI
+        await loadSettings();
+    }
+}
+
+// Show notification
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-in';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+

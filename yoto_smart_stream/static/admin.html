@@ -59,6 +59,17 @@
         <!-- Admin Content (shown if admin) -->
         <div id="admin-content" style="display: none;">
             <section class="section">
+                <h3>System Settings</h3>
+                <p class="section-description">
+                    Configure application settings. These settings persist across deployments and restarts.
+                    Settings can be overridden by environment variables (indicated by a badge).
+                </p>
+                <div id="settings-list" class="settings-container">
+                    <p class="loading">Loading settings...</p>
+                </div>
+            </section>
+
+            <section class="section">
                 <h3>System Administration</h3>
                 <div class="actions-grid">
                     <button class="action-button" onclick="refreshData(event)" title="Refresh all player and audio data from Yoto API">
