@@ -18,10 +18,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    },
-    "types": ["vitest/globals"]
+    }
   },
-  "include": ["src", "src/test/vitest.d.ts"],
-  "exclude": ["src/**/*.test.tsx", "src/**/*.test.ts", "node_modules"],
+  "include": ["src"],
+  "exclude": ["src/**/*.test.tsx", "src/**/*.test.ts", "src/test", "node_modules"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
