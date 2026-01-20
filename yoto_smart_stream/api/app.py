@@ -20,7 +20,7 @@ from ..core import YotoClient
 from ..database import init_db
 from ..utils import log_environment_variables
 from .dependencies import set_yoto_client
-from .routes import admin, auth, cards, health, library, media, players, streams, user_auth
+from .routes import admin, auth, cards, health, library, media, players, settings, streams, user_auth
 from .stream_manager import get_stream_manager
 
 logger = logging.getLogger(__name__)
@@ -274,6 +274,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router, prefix="/api", tags=["Health"])
     app.include_router(user_auth.router, prefix="/api", tags=["User Authentication"])
     app.include_router(admin.router, prefix="/api", tags=["Admin"])
+    app.include_router(settings.router, prefix="/api", tags=["Settings"])
     app.include_router(auth.router, prefix="/api", tags=["Yoto Authentication"])
     app.include_router(players.router, prefix="/api", tags=["Players"])
     app.include_router(cards.router, prefix="/api", tags=["Cards"])

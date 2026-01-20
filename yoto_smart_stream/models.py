@@ -59,3 +59,19 @@ class AudioFile(Base):
 
     def __repr__(self):
         return f"<AudioFile(id={self.id}, filename={self.filename}, transcript_status={self.transcript_status})>"
+
+
+class Setting(Base):
+    """Application settings model for persistent configuration."""
+
+    __tablename__ = "settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, index=True, nullable=False)
+    value = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<Setting(key={self.key}, value={self.value})>"
