@@ -6,7 +6,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Any, Optional
 
 import requests
 from elevenlabs.client import ElevenLabs
@@ -46,8 +46,8 @@ logger = logging.getLogger(__name__)
 #   'created_at': float,
 #   'output_filename': str|None
 # }
-STITCH_TASKS: Dict[str, Dict[str, Any]] = {}
-STITCH_TASK_MUTEX: Dict[int, str] = {}  # user_id -> active task_id
+STITCH_TASKS: dict[str, dict[str, Any]] = {}
+STITCH_TASK_MUTEX: dict[int, str] = {}  # user_id -> active task_id
 
 
 # Background task for transcription
@@ -78,7 +78,7 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
 
     try:
         settings = get_settings()
-        if not settings.transcription_enabled:
+        if not settings.get_transcription_enabled():
             logger.info(f"Transcription disabled; skipping background transcription for {filename}")
             update_transcript(
                 db,
@@ -152,18 +152,20 @@ class GenerateTTSRequest(BaseModel):
 class StitchAudioRequest(BaseModel):
     """Request model for stitching multiple audio files."""
 
-    files: List[str] = Field(..., description="List of audio filenames in order")
-    delays: List[float] = Field(
-        ..., description="Delay (seconds) after each corresponding file (0.1-10.0)")
+    files: list[str] = Field(..., description="List of audio filenames in order")
+    delays: list[float] = Field(
+        ..., description="Delay (seconds) after each corresponding file (0.1-10.0)"
+    )
     output_filename: str = Field(..., description="Output filename (without extension)")
 
 
 class PreviewStitchRequest(BaseModel):
     """Request model for generating a preview of stitched audio."""
 
-    files: List[str] = Field(..., description="List of audio filenames in order")
-    delays: List[float] = Field(
-        ..., description="Delay (seconds) after each corresponding file (0.1-10.0)")
+    files: list[str] = Field(..., description="List of audio filenames in order")
+    delays: list[float] = Field(
+        ..., description="Delay (seconds) after each corresponding file (0.1-10.0)"
+    )
     preview_duration_seconds: int = Field(
         default=5, ge=1, le=30, description="Per-file preview duration (1-30 seconds)"
     )
@@ -549,7 +551,7 @@ async def upload_audio(
 
         get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
 
-        if settings.transcription_enabled:
+        if settings.get_transcription_enabled():
             # Mark transcription as pending and schedule background task
             update_transcript(db, final_filename, None, "pending", None)
 
@@ -594,7 +596,7 @@ async def upload_audio(
             "description": description,
             "url": f"/api/audio/{final_filename}",
             "message": f"Successfully uploaded '{final_filename}'",
-            "transcript_status": "pending" if settings.transcription_enabled else "disabled",
+            "transcript_status": "pending" if settings.get_transcription_enabled() else "disabled",
         }
 
     except Exception as e:
@@ -613,16 +615,18 @@ async def upload_audio(
 # Audio Stitching APIs
 # =====================
 
+
 def _sanitize_output_filename(raw: str) -> str:
     name = raw.strip()
     if name.lower().endswith(".mp3"):
         name = name[:-4]
     sanitized = "".join(
-        c if c.isalnum() or c in ("-", "_") else "-" if c == " " else ""
-        for c in name
+        c if c.isalnum() or c in ("-", "_") else "-" if c == " " else "" for c in name
     )
     if not sanitized:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid output filename")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid output filename"
+        )
     return f"{sanitized}.mp3"
 
 
@@ -698,7 +702,9 @@ async def stitch_audio_files(
         )
 
     # Create task
-    import uuid, time
+    import time
+    import uuid
+
     task_id = str(uuid.uuid4())
     queue: asyncio.Queue = asyncio.Queue()
     STITCH_TASKS[task_id] = {
@@ -728,13 +734,17 @@ async def stitch_audio_files(
                 # Check cancel
                 if STITCH_TASKS[task_id]["cancel"]:
                     STITCH_TASKS[task_id]["status"] = "cancelled"
-                    STITCH_TASKS[task_id]["progress"] = max(STITCH_TASKS[task_id]["progress"], int((idx-1)/total_files*100))
+                    STITCH_TASKS[task_id]["progress"] = max(
+                        STITCH_TASKS[task_id]["progress"], int((idx - 1) / total_files * 100)
+                    )
                     await queue.put({"event": "cancelled", "task_id": task_id})
                     return
 
                 # Load audio
                 STITCH_TASKS[task_id]["current_file"] = fn
-                await queue.put({"event": "loading", "file": fn, "index": idx, "total": total_files})
+                await queue.put(
+                    {"event": "loading", "file": fn, "index": idx, "total": total_files}
+                )
 
                 # For S3, read bytes to temp; for local, use path
                 try:
@@ -760,11 +770,13 @@ async def stitch_audio_files(
 
                 # Update progress
                 STITCH_TASKS[task_id]["progress"] = int(idx / total_files * 100)
-                await queue.put({
-                    "event": "progress",
-                    "progress": STITCH_TASKS[task_id]["progress"],
-                    "current_file": fn
-                })
+                await queue.put(
+                    {
+                        "event": "progress",
+                        "progress": STITCH_TASKS[task_id]["progress"],
+                        "current_file": fn,
+                    }
+                )
 
             # Export
             await queue.put({"event": "finalizing"})
@@ -784,11 +796,13 @@ async def stitch_audio_files(
             # Success
             STITCH_TASKS[task_id]["status"] = "completed"
             STITCH_TASKS[task_id]["progress"] = 100
-            await queue.put({
-                "event": "completed",
-                "output_filename": output_filename,
-                "url": f"/api/audio/{output_filename}"
-            })
+            await queue.put(
+                {
+                    "event": "completed",
+                    "output_filename": output_filename,
+                    "url": f"/api/audio/{output_filename}",
+                }
+            )
         finally:
             # Schedule cleanup after 10 minutes
             async def cleanup():
@@ -798,6 +812,7 @@ async def stitch_audio_files(
                     STITCH_TASKS.pop(task_id, None)
                 except Exception:
                     pass
+
             asyncio.create_task(cleanup())
 
     asyncio.create_task(run_task())
@@ -825,13 +840,19 @@ async def preview_stitch_audio(request: PreviewStitchRequest, user: User = Depen
 
     # Validate lengths and delays
     if len(request.files) != len(request.delays):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'files' and 'delays' length mismatch")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="'files' and 'delays' length mismatch"
+        )
     for d in request.delays:
         if d < 0.1 or d > 10.0:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Delays must be 0.1-10.0s")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Delays must be 0.1-10.0s"
+            )
     for fn in request.files:
         if not await storage.exists(fn):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file not found: {fn}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file not found: {fn}"
+            )
 
     # Build preview audio
     combined = AudioSegment.empty()
@@ -858,16 +879,20 @@ async def preview_stitch_audio(request: PreviewStitchRequest, user: User = Depen
 
     # Export to temp and serve via dedicated endpoint
     import uuid
+
     preview_id = str(uuid.uuid4())
     try:
         combined = combined.set_channels(1).set_frame_rate(44100)
         # Use workspace tmp/ directory instead of /tmp
-        temp_dir = settings.audio_files_dir.parent / 'tmp'
+        temp_dir = settings.audio_files_dir.parent / "tmp"
         temp_dir.mkdir(parents=True, exist_ok=True)
         temp_path = temp_dir / f"preview_{preview_id}.mp3"
         combined.export(str(temp_path), format="mp3", bitrate="192k", parameters=["-ac", "1"])
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to export preview: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to export preview: {e}",
+        )
 
     # Return URL that serves from temp
     return {
@@ -880,7 +905,7 @@ async def preview_stitch_audio(request: PreviewStitchRequest, user: User = Depen
 async def delete_preview(preview_id: str, user: User = Depends(require_auth)):
     settings = get_settings()
     # Use workspace tmp/ directory instead of /tmp
-    temp_path = settings.audio_files_dir.parent / 'tmp' / f"preview_{preview_id}.mp3"
+    temp_path = settings.audio_files_dir.parent / "tmp" / f"preview_{preview_id}.mp3"
     if temp_path.exists():
         try:
             temp_path.unlink()
@@ -1377,9 +1402,10 @@ async def trigger_transcription(
         )
     logger.info(f"File exists: {filename}")
 
-    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
-    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
-    if not settings.transcription_enabled:
+    transcription_enabled = settings.get_transcription_enabled()
+    logger.info(f"Checking transcription_enabled: {transcription_enabled}")
+    logger.info(f"Checking transcription_enabled: {transcription_enabled}")
+    if not transcription_enabled:
         logger.warning(f"Transcription disabled for {filename}")
         from ...core.audio_db import get_or_create_audio_file, update_transcript
 

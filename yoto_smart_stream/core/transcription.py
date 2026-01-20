@@ -153,7 +153,7 @@ def get_transcription_service() -> TranscriptionService:
         settings = get_settings()
         _transcription_service = TranscriptionService(
             model_name=settings.transcription_model,
-            enabled=settings.transcription_enabled,
+            enabled=settings.get_transcription_enabled(),
             elevenlabs_api_key=settings.elevenlabs_api_key,
         )
     return _transcription_service

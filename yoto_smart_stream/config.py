@@ -330,6 +330,49 @@ class Settings(BaseSettings):
             logger.debug("Using yoto_client_id from initial Settings")
         return self.yoto_client_id
 
+    def get_transcription_enabled(self) -> bool:
+        """
+        Get transcription_enabled with proper precedence:
+        1. Environment variable (TRANSCRIPTION_ENABLED) - highest priority
+        2. Database setting (from Admin UI) - fallback
+        3. Initial value from Settings initialization - final fallback
+
+        This ensures environment variables always take precedence, even if set after app startup.
+        """
+        # Priority 1: Check current environment variable
+        env_value = os.environ.get("TRANSCRIPTION_ENABLED")
+        if env_value is not None:
+            # Convert string to boolean (handle "true"/"false", "1"/"0", etc.)
+            result = env_value.lower() in ("true", "1", "yes", "on")
+            logger.debug(f"Using TRANSCRIPTION_ENABLED from environment variable: {result}")
+            return result
+
+        # Priority 2: Check database setting (from Admin UI)
+        try:
+            from .database import SessionLocal
+            from .models import Setting
+
+            db = SessionLocal()
+            try:
+                setting = db.query(Setting).filter(Setting.key == "transcription_enabled").first()
+                if setting and setting.value:
+                    # Convert string to boolean
+                    result = setting.value.lower() in ("true", "1", "yes", "on")
+                    logger.debug(f"Using transcription_enabled from database setting: {result}")
+                    return result
+            finally:
+                db.close()
+        except Exception as e:
+            # Database might not be initialized yet or other error
+            # Fall through to initial value
+            logger.debug(f"Could not check database for transcription_enabled: {e}")
+
+        # Priority 3: Use initial value from Settings initialization
+        logger.debug(
+            f"Using transcription_enabled from initial Settings: {self.transcription_enabled}"
+        )
+        return self.transcription_enabled
+
 
 # Global settings instance
 _settings: Optional[Settings] = None
