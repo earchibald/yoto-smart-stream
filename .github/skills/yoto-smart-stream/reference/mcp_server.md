@@ -12,7 +12,9 @@ The Yoto Smart Stream project includes an MCP (Model Context Protocol) server th
 
 ## Available Tools
 
-The MCP server exposes two primary tools:
+The MCP server exposes seven specialized structured query tools:
+
+> **Migration Note (v0.1.4+)**: Previous versions used a single natural language `query_library` tool. This has been replaced with 7 specialized structured query tools for better LLM integration and reliability. See [Migration Guide](#migration-from-natural-language-queries) below.
 
 ### 1. `oauth()` - Yoto Authentication Management
 
@@ -22,96 +24,64 @@ Activate or deactivate Yoto OAuth authentication for automated login.
 - `service_url` (string): URL of the yoto-smart-stream deployment (e.g., `https://your-app.railway.app`)
 - `action` (string): Either `"activate"` to log in or `"deactivate"` to log out
 
-**Activate (Login)**:
-```json
-{
-  "service_url": "https://yoto-smart-stream-production.up.railway.app",
-  "action": "activate"
-}
-```
+### 2. `library_stats()` - Get Library Statistics
 
-**Requirements:**
-- `YOTO_USERNAME` environment variable with Yoto account email
-- `YOTO_PASSWORD` environment variable with Yoto password
-- Enables automatic OAuth device flow completion with browser automation
-
-**Response**: Status message with OAuth token persistence confirmation
-
-**Response Format**:
-```
-Action result description...
-Status: <status_value>
-```
-
-**Status Values**:
-- `success` - OAuth authentication successful
-- `pending` - Authentication in progress or waiting for user action
-- `error` - Authentication or communication error
-- `expired` - OAuth token has expired or session invalid
-
-**Deactivate (Logout)**:
-```json
-{
-  "service_url": "https://yoto-smart-stream-production.up.railway.app",
-  "action": "deactivate"
-}
-```
-
-**Response**: Confirmation message with logout status
-
-**Response Format**:
-```
-Logout confirmation message...
-Status: <status_value>
-```
-
-**Status Values**: Same as activate (success, error, etc.)
-
-### 2. `query_library()` - Natural Language Library Queries
-
-Query the Yoto library using natural language. Supports various query patterns for exploring card metadata and structure.
+Get total count of cards and playlists in the library.
 
 **Parameters:**
-- `service_url` (string): URL of the yoto-smart-stream deployment
-- `query` (string): Natural language question about the library
+- `service_url` (string, optional): URL of the yoto-smart-stream service (uses default if not provided)
 
-**Supported Query Patterns:**
+**Returns:** `{"total_cards": number, "total_playlists": number}`
 
-1. **Count cards**:
-   ```
-   "how many cards are there?"
-   ```
-   Returns: Total card count and playlist count
+### 3. `list_cards()` - List Cards
 
-2. **Metadata keys**:
-   ```
-   "what metadata keys are used across the library?"
-   ```
-   Returns: List of all field names used in card objects
+List all cards in the library with pagination support.
 
-3. **Authors/Sources**:
-   ```
-   "what sorts of things are in card author fields?"
-   ```
-   Returns: Unique values from author field
+**Parameters:**
+- `limit` (integer, 1-100): Maximum number of cards to return (default: 20)
+- `service_url` (string, optional): URL of the yoto-smart-stream service
 
-4. **Search by title**:
-   ```
-   "find all cards with 'princess' in the title"
-   ```
-   Returns: Matching cards with details
+**Returns:** Array of cards with id, title, author, type, and description
 
-5. **List playlists**:
-   ```
-   "list all playlists"
-   ```
-   Returns: All playlists with metadata
+### 4. `search_cards()` - Search Cards by Title
 
-6. **List all cards**:
-   ```
-   "list all cards"
-   ```
-   Returns: All cards in library (truncated at 20 per response)
+Search for cards where the title contains specified text.
+
+**Parameters:**
+- `title_contains` (string): Text to search for in card titles
+- `limit` (integer, 1-100): Maximum results to return (default: 20)
+- `service_url` (string, optional): URL of the yoto-smart-stream service
+
+**Returns:** Matching cards with search metadata
+
+### 5. `list_playlists()` - List Playlists
+
+List all playlists in the library.
+
+**Parameters:**
+- `service_url` (string, optional): URL of the yoto-smart-stream service
+
+**Returns:** Array of playlists with id, name, and item count
+
+### 6. `get_metadata_keys()` - Get Metadata Keys
+
+Get all unique metadata keys used across library cards.
+
+**Parameters:**
+- `service_url` (string, optional): URL of the yoto-smart-stream service
+
+**Returns:** Sorted list of field names used in card objects
+
+### 7. `get_field_values()` - Get Field Values
+
+Get all unique values for a specific card field.
+
+**Parameters:**
+- `field_name` (string): The card field to get values for (e.g., 'author', 'type', 'genre')
+- `limit` (integer, 1-500): Maximum values to return (default: 50)
+- `service_url` (string, optional): URL of the yoto-smart-stream service
+
+**Returns:** Sorted list of unique values for the field
 
 ## Installation & Setup
 
@@ -199,16 +169,7 @@ HTTP Client (async httpx)
 Yoto Smart Stream Service
 ```
 
-### Request Flow: query_library
-
-1. Receive natural language query + service_url
-2. Authenticate with admin credentials (or use cached cookies)
-3. Fetch library JSON from `/api/library` endpoint
-4. Parse and search library in-memory
-5. Format response based on query pattern
-6. Return results to LLM
-
-### Request Flow: oauth
+### Request Flow: OAuth Tool
 
 1. Receive service_url + action
 2. Call `/api/auth/start` to initiate device code flow
@@ -216,20 +177,26 @@ Yoto Smart Stream Service
 4. Poll `/api/auth/status` endpoint
 5. Return authorization result with Status field to LLM
 
-### Response Format: Status Field
+### Response Format: Structured JSON
 
-All oauth responses include a structured Status field for programmatic handling:
+All tools return structured JSON responses with:
 
+**Library Query Tools:**
+```json
+{
+  "total_cards": 150,        // or "cards": [...], "matches": [...], etc
+  "field_name": "author",    // context-specific fields
+  "values": [...],           // returned data
+  // ... other response-specific fields
+}
 ```
-Authentication result message...
+
+**OAuth Tool:**
+```
+Action result message...
 Status: <status_value>
 ```
-
-Example responses:
-- Success: `Successfully authenticated!\nStatus: success`
-- Error: `Failed to authenticate: Connection timeout\nStatus: error`
-- Expired: `Token has expired\nStatus: expired`
-- Pending: `Waiting for user action...\nStatus: pending`
+- Status values: `success`, `pending`, `error`, `expired`
 
 ## Testing
 
@@ -347,8 +314,95 @@ The MCP server depends on these yoto-smart-stream API endpoints:
 
 Potential improvements for future versions:
 
-- Additional query patterns for complex library searches
+- Tool for advanced filtering across multiple fields
 - Tool for creating/uploading cards via MCP
 - Streaming audio playback control
 - MQTT device monitoring integration
 - Card metadata editing capabilities
+- Batch operations for multiple cards
+
+## Migration from Natural Language Queries
+
+### Background: Why We Changed
+
+**Previous Approach (< v0.1.4):**
+- Single `query_library()` tool accepting free-form natural language queries
+- Tool tried to parse queries and route to appropriate functionality
+- Examples: "find all cards with 'math' in the title", "how many playlists do I have?"
+- **Problem**: Fragile regex parsing, inconsistent results, unclear tool interface
+
+**New Approach (v0.1.4+):**
+- Seven specialized structured query tools with explicit parameters
+- Each tool has clear purpose and typed input/output
+- LLMs can reliably understand capabilities without guessing
+- **Benefit**: Better integration, consistent results, clearer error messages
+
+### Migration Path
+
+If you were using the `query_library` tool before v0.1.4, here's how to migrate:
+
+**Old Query:**
+```
+"Find all cards with 'math' in the title"
+→ query_library(query="find all cards with 'math' in the title")
+```
+
+**New Query:**
+```
+→ search_cards(title_contains="math")
+```
+
+**Old Query:**
+```
+"How many cards and playlists do I have?"
+→ query_library(query="how many cards and playlists do I have?")
+```
+
+**New Query:**
+```
+→ library_stats()
+```
+
+**Old Query:**
+```
+"Show me all the cards"
+→ query_library(query="list all cards")
+```
+
+**New Query:**
+```
+→ list_cards(limit=50)  # or whatever limit you need
+```
+
+**Old Query:**
+```
+"What categories of cards do I have?"
+→ query_library(query="get metadata keys")
+```
+
+**New Query:**
+```
+→ get_metadata_keys()
+```
+
+### Why This is Better
+
+1. **Clear Contracts**: Each tool has documented parameters and return types
+2. **Better Error Messages**: If you pass invalid parameters, you get clear feedback
+3. **Type Safety**: Pydantic validation ensures parameters are valid before execution
+4. **LLM Integration**: LLMs understand tools better than parsing natural language
+5. **Performance**: No regex parsing overhead, direct execution
+6. **Testing**: Easier to write tests for each tool independently
+
+### Unsupported Query Patterns
+
+The following natural language patterns are no longer supported in v0.1.4+:
+
+| Old Pattern | Migration Strategy |
+|---|---|
+| "Find cards created by X" | Use `get_field_values(field_name="author")` then filter results |
+| "Show me X cards" | Use `list_cards(limit=X)` |
+| "Filter by X property" | Use `get_field_values(field_name="X")` to explore values |
+| "How many items in playlist Y" | Use `list_playlists()` to find playlist, check item_count |
+
+If you need a query pattern that's no longer available, consider opening an issue to request a new specialized tool.

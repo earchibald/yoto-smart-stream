@@ -464,14 +464,24 @@ The yoto-smart-stream repository includes an MCP (Model Context Protocol) server
 ## Overview
 
 The MCP server (`mcp-server/` directory) provides:
-- Natural language queries of your Yoto library
+- **7 specialized structured query tools** (no natural language parsing)
+- Explicit, discoverable tool interface for LLM agents
 - Multi-deployment support (query different environments)
 - Lazy initialization and lazy authentication
 - In-memory auth cookie caching per host
-- Search cards by title, author, or metadata
-- List playlists and their contents
+- Type-safe Pydantic models for all inputs/outputs
+- Structured JSON responses for all queries
 - Yoto OAuth activation/deactivation with structured Status responses
 - Direct integration with VS Code, Claude Desktop, and other MCP clients
+
+**Query Tools:**
+- `library_stats` - Get library statistics
+- `list_cards` - List all cards with pagination
+- `search_cards` - Search cards by title
+- `list_playlists` - List all playlists
+- `get_metadata_keys` - Get metadata keys used
+- `get_field_values` - Get unique field values
+- `oauth` - Manage Yoto authentication
 
 **Status Field** (v0.1.4+): All oauth responses include a Status field (success, pending, error, expired) for programmatic handling
 
