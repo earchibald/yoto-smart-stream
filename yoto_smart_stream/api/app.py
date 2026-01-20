@@ -281,6 +281,23 @@ def create_app() -> FastAPI:
     app.include_router(streams.router, prefix="/api", tags=["Streams"])
     app.include_router(media.router, prefix="/api", tags=["Media"])
 
+    # PWA Routes - Service Worker and Manifest
+    @app.get("/service-worker.js", tags=["PWA"])
+    async def service_worker():
+        """Serve the service worker for PWA functionality."""
+        sw_path = static_dir / "service-worker.js"
+        if sw_path.exists():
+            return FileResponse(sw_path, media_type="application/javascript")
+        raise HTTPException(status_code=404, detail="Service worker not found")
+
+    @app.get("/manifest.json", tags=["PWA"])
+    async def manifest():
+        """Serve the PWA manifest file."""
+        manifest_path = static_dir / "manifest.json"
+        if manifest_path.exists():
+            return FileResponse(manifest_path, media_type="application/json")
+        raise HTTPException(status_code=404, detail="Manifest not found")
+
     @app.get("/login", tags=["Web UI"])
     async def login_page():
         """Serve the login page."""
