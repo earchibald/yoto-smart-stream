@@ -50,6 +50,9 @@
         <section class="section">
             <h3>Audio Files</h3>
             <div class="section-actions">
+                <button id="open-audio-editor-btn" class="btn-secondary">
+                    🎛️ Audio Editor
+                </button>
                 <button id="create-playlist-btn" class="btn-secondary">
                     📋 Create Playlist
                 </button>
@@ -428,6 +431,70 @@
         </div>
     </div>
 
+    <!-- Audio Editor Modal -->
+    <div id="audioEditorModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>🎛️ Audio Editor</h3>
+                <span class="modal-close" onclick="closeAudioEditor()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-section">
+                    <h4>Search Audio Files</h4>
+                    <div class="form-group">
+                        <label for="editor-audio-search">Search:</label>
+                        <input type="text" id="editor-audio-search" placeholder="Search by filename or transcript...">
+                        <small>Type to search audio files. Click + Add to include in editor.</small>
+                    </div>
+                    <div id="editor-search-results" class="search-results">
+                        <p class="placeholder">Type to search audio files...</p>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>Selected Files (<span id="editor-file-count">0</span>)</h4>
+                    <div id="editor-selected-list" class="chapters-list">
+                        <p class="placeholder">No files added yet. Search and add above.</p>
+                    </div>
+                    <small>Drag and drop to reorder. Set delay after each file (0.1-10.0s).</small>
+                </div>
+
+                <div class="form-section">
+                    <h4>Preview Settings</h4>
+                    <div class="form-group">
+                        <label for="preview-duration">Per-file preview duration (seconds):</label>
+                        <input type="number" id="preview-duration" min="1" max="30" step="1" value="5">
+                    </div>
+                    <div id="editor-preview-player" style="display:none; margin-top:1rem;">
+                        <audio id="editor-preview-audio" controls style="width:100%;"></audio>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h4>Output</h4>
+                    <div class="form-group">
+                        <label for="editor-output-filename">Output filename (without extension):</label>
+                        <input type="text" id="editor-output-filename" placeholder="e.g., combined-story">
+                        <small>Will be saved as .mp3 (mono, 44.1kHz, 192k).</small>
+                    </div>
+                    <div id="editor-progress" class="upload-progress-items" style="display:none;">
+                        <div class="upload-progress-item">
+                            <span class="filename" id="editor-current-file">Preparing...</span>
+                            <div class="progress-bar"><div class="progress-fill" id="editor-progress-fill" style="width:0%"></div></div>
+                            <span class="status" id="editor-status">Pending</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeAudioEditor()">Cancel</button>
+                <button class="btn-secondary" id="editor-cancel-task-btn" onclick="cancelStitchTask()" style="display:none;">Cancel Task</button>
+                <button class="btn-secondary" id="editor-preview-btn" onclick="generatePreview()">▶ Preview</button>
+                <button class="btn-primary" id="editor-create-btn" onclick="submitStitch()" disabled>✓ Create</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Confirmation Modal -->
     <div id="deleteConfirmModal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
@@ -447,6 +514,23 @@
             <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end; padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0;">
                 <button class="btn-secondary" onclick="closeDeleteConfirmModal()">Cancel</button>
                 <button id="confirmDeleteBtn" class="btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal (generic) -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div id="confirmModalHeader" class="modal-header">
+                <h3 id="confirmModalTitle"></h3>
+                <span class="modal-close" onclick="closeConfirmModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="confirmModalMessage" style="margin: 0; font-size: 1rem;"></p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end; padding: 1rem 1.5rem; border-top: 1px solid #e2e8f0;">
+                <button class="btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+                <button id="confirmModalBtn" class="btn-primary">OK</button>
             </div>
         </div>
     </div>

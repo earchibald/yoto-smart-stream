@@ -10,9 +10,9 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings, log_configuration
@@ -373,6 +373,16 @@ def create_app() -> FastAPI:
             filename=safe_name,
         )
 
+    @app.get("/api/audio-preview/{preview_id}", tags=["Audio"])
+    async def get_audio_preview(preview_id: str):
+        """Serve temporary preview audio stored in workspace tmp/, auto-deleted via cleanup endpoint."""
+        from pathlib import Path
+        # Use workspace tmp/ directory instead of /tmp
+        temp_path = settings.audio_files_dir.parent / 'tmp' / f"preview_{preview_id}.mp3"
+        if not temp_path.exists():
+            return JSONResponse(status_code=404, content={"detail": "Preview not found"})
+        return FileResponse(str(temp_path), media_type="audio/mpeg")
+
     @app.get("/admin", tags=["Web UI"])
     async def admin_ui():
         """Serve the admin interface."""
@@ -403,3 +413,62 @@ def create_app() -> FastAPI:
 
 # Create application instance
 app = create_app()
+
+
+# WebSocket for stitch progress
+@app.websocket("/ws/stitch/{task_id}")
+async def stitch_progress_ws(websocket: WebSocket, task_id: str):
+    await websocket.accept()
+    try:
+        # Import here to avoid circular import issues during app creation
+        from .routes.cards import STITCH_TASKS
+
+        task = STITCH_TASKS.get(task_id)
+        if not task:
+            await websocket.send_json({"event": "error", "message": "Task not found"})
+            await websocket.close()
+            return
+
+        # Send initial snapshot
+        await websocket.send_json({
+            "event": "snapshot",
+            "status": task.get("status"),
+            "progress": task.get("progress"),
+            "current_file": task.get("current_file"),
+        })
+
+        queue = task.get("queue")
+        # Stream events until task finishes or client disconnects
+        while True:
+            try:
+                message = await asyncio.wait_for(queue.get(), timeout=5.0)
+                await websocket.send_json(message)
+                # Stop after completed/failed/cancelled
+                if message.get("event") in {"completed", "error", "cancelled"}:
+                    break
+            except asyncio.TimeoutError:
+                # Periodic heartbeat with latest state
+                current = STITCH_TASKS.get(task_id)
+                if not current:
+                    await websocket.send_json({"event": "error", "message": "Task missing"})
+                    break
+                await websocket.send_json({
+                    "event": "heartbeat",
+                    "status": current.get("status"),
+                    "progress": current.get("progress"),
+                    "current_file": current.get("current_file"),
+                })
+                if current.get("status") in {"completed", "failed", "cancelled"}:
+                    break
+    except WebSocketDisconnect:
+        # Client disconnected; just exit
+        return
+    except Exception as e:
+        try:
+            await websocket.send_json({"event": "error", "message": str(e)})
+        except Exception:
+            pass
+        try:
+            await websocket.close()
+        except Exception:
+            pass

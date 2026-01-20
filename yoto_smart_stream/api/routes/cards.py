@@ -6,7 +6,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 import requests
 from elevenlabs.client import ElevenLabs
@@ -33,6 +33,21 @@ from .user_auth import require_auth
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# In-memory stitch task tracker (single instance deployments)
+# task_id -> {
+#   'user_id': int,
+#   'status': 'pending'|'processing'|'completed'|'failed'|'cancelled',
+#   'progress': int,
+#   'current_file': str|None,
+#   'error': str|None,
+#   'queue': asyncio.Queue,
+#   'cancel': bool,
+#   'created_at': float,
+#   'output_filename': str|None
+# }
+STITCH_TASKS: Dict[str, Dict[str, Any]] = {}
+STITCH_TASK_MUTEX: Dict[int, str] = {}  # user_id -> active task_id
 
 
 # Background task for transcription
@@ -131,6 +146,29 @@ class GenerateTTSRequest(BaseModel):
     text: str = Field(..., description="Text to convert to speech", min_length=1)
     voice_id: Optional[str] = Field(
         None, description="ElevenLabs voice ID (if not provided, uses default)"
+    )
+
+
+class StitchAudioRequest(BaseModel):
+    """Request model for stitching multiple audio files."""
+
+    files: List[str] = Field(..., description="List of audio filenames in order")
+    delays: List[float] = Field(
+        ..., description="Delay (seconds) after each corresponding file (0.1-10.0)")
+    output_filename: str = Field(..., description="Output filename (without extension)")
+
+
+class PreviewStitchRequest(BaseModel):
+    """Request model for generating a preview of stitched audio."""
+
+    files: List[str] = Field(..., description="List of audio filenames in order")
+    delays: List[float] = Field(
+        ..., description="Delay (seconds) after each corresponding file (0.1-10.0)")
+    preview_duration_seconds: int = Field(
+        default=5, ge=1, le=30, description="Per-file preview duration (1-30 seconds)"
+    )
+    config_hash: Optional[str] = Field(
+        default=None, description="Hash of editor config to reuse cached preview"
     )
 
 
@@ -569,6 +607,286 @@ async def upload_audio(
         # Clean up temporary file
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+# =====================
+# Audio Stitching APIs
+# =====================
+
+def _sanitize_output_filename(raw: str) -> str:
+    name = raw.strip()
+    if name.lower().endswith(".mp3"):
+        name = name[:-4]
+    sanitized = "".join(
+        c if c.isalnum() or c in ("-", "_") else "-" if c == " " else ""
+        for c in name
+    )
+    if not sanitized:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid output filename")
+    return f"{sanitized}.mp3"
+
+
+@router.get("/audio/stitch/status")
+async def get_active_stitch_status(user: User = Depends(require_auth)):
+    """Return the active stitch task for the current user, if any."""
+    task_id = STITCH_TASK_MUTEX.get(user.id)
+    if not task_id:
+        return {"active": False}
+    task = STITCH_TASKS.get(task_id)
+    if not task:
+        return {"active": False}
+    return {
+        "active": True,
+        "task_id": task_id,
+        "status": task["status"],
+        "progress": task["progress"],
+        "current_file": task.get("current_file"),
+        "output_filename": task.get("output_filename"),
+        "error": task.get("error"),
+    }
+
+
+@router.post("/audio/stitch")
+async def stitch_audio_files(
+    request: StitchAudioRequest,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    """Start background task to stitch audio files with per-file delays."""
+    settings = get_settings()
+    storage = settings.get_storage()
+
+    # Enforce one active task per user
+    existing_task_id = STITCH_TASK_MUTEX.get(user.id)
+    if existing_task_id:
+        existing = STITCH_TASKS.get(existing_task_id)
+        if existing and existing.get("status") in {"pending", "processing"}:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A stitching task is already in progress for this user.",
+            )
+
+    # Validate input lengths
+    if len(request.files) != len(request.delays):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="'files' and 'delays' lists must be the same length",
+        )
+
+    # Validate delays range
+    for d in request.delays:
+        if d < 0.1 or d > 10.0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Delays must be between 0.1 and 10.0 seconds",
+            )
+
+    # Validate files exist
+    for fn in request.files:
+        if not await storage.exists(fn):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Audio file not found: {fn}",
+            )
+
+    # Sanitize output filename and check existence
+    output_filename = _sanitize_output_filename(request.output_filename)
+    if await storage.exists(output_filename):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Output file already exists: {output_filename}",
+        )
+
+    # Create task
+    import uuid, time
+    task_id = str(uuid.uuid4())
+    queue: asyncio.Queue = asyncio.Queue()
+    STITCH_TASKS[task_id] = {
+        "user_id": user.id,
+        "status": "pending",
+        "progress": 0,
+        "current_file": None,
+        "error": None,
+        "queue": queue,
+        "cancel": False,
+        "created_at": time.time(),
+        "output_filename": output_filename,
+    }
+    STITCH_TASK_MUTEX[user.id] = task_id
+
+    async def run_task():
+        settings_local = get_settings()
+        storage_local = settings_local.get_storage()
+        try:
+            STITCH_TASKS[task_id]["status"] = "processing"
+            await queue.put({"event": "started", "task_id": task_id})
+
+            combined = AudioSegment.empty()
+            total_files = len(request.files)
+
+            for idx, (fn, delay_sec) in enumerate(zip(request.files, request.delays), start=1):
+                # Check cancel
+                if STITCH_TASKS[task_id]["cancel"]:
+                    STITCH_TASKS[task_id]["status"] = "cancelled"
+                    STITCH_TASKS[task_id]["progress"] = max(STITCH_TASKS[task_id]["progress"], int((idx-1)/total_files*100))
+                    await queue.put({"event": "cancelled", "task_id": task_id})
+                    return
+
+                # Load audio
+                STITCH_TASKS[task_id]["current_file"] = fn
+                await queue.put({"event": "loading", "file": fn, "index": idx, "total": total_files})
+
+                # For S3, read bytes to temp; for local, use path
+                try:
+                    if settings_local.storage_backend == "s3":
+                        data = await storage_local.read(fn)
+                        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tf:
+                            tmp_path = tf.name
+                            tf.write(data)
+                        audio = AudioSegment.from_mp3(tmp_path)
+                        os.remove(tmp_path)
+                    else:
+                        path = settings_local.audio_files_dir / fn
+                        audio = AudioSegment.from_mp3(str(path))
+                except Exception as e:
+                    STITCH_TASKS[task_id]["status"] = "failed"
+                    STITCH_TASKS[task_id]["error"] = f"Failed to read {fn}: {e}"
+                    await queue.put({"event": "error", "message": STITCH_TASKS[task_id]["error"]})
+                    return
+
+                combined += audio
+                if delay_sec > 0:
+                    combined += AudioSegment.silent(duration=int(delay_sec * 1000))
+
+                # Update progress
+                STITCH_TASKS[task_id]["progress"] = int(idx / total_files * 100)
+                await queue.put({
+                    "event": "progress",
+                    "progress": STITCH_TASKS[task_id]["progress"],
+                    "current_file": fn
+                })
+
+            # Export
+            await queue.put({"event": "finalizing"})
+            try:
+                # Ensure mono + 44.1kHz
+                combined = combined.set_channels(1).set_frame_rate(44100)
+                buffer = io.BytesIO()
+                combined.export(buffer, format="mp3", bitrate="192k", parameters=["-ac", "1"])
+                data = buffer.getvalue()
+                await storage_local.save(output_filename, data)
+            except Exception as e:
+                STITCH_TASKS[task_id]["status"] = "failed"
+                STITCH_TASKS[task_id]["error"] = f"Failed to export: {e}"
+                await queue.put({"event": "error", "message": STITCH_TASKS[task_id]["error"]})
+                return
+
+            # Success
+            STITCH_TASKS[task_id]["status"] = "completed"
+            STITCH_TASKS[task_id]["progress"] = 100
+            await queue.put({
+                "event": "completed",
+                "output_filename": output_filename,
+                "url": f"/api/audio/{output_filename}"
+            })
+        finally:
+            # Schedule cleanup after 10 minutes
+            async def cleanup():
+                await asyncio.sleep(600)
+                try:
+                    STITCH_TASK_MUTEX.pop(user.id, None)
+                    STITCH_TASKS.pop(task_id, None)
+                except Exception:
+                    pass
+            asyncio.create_task(cleanup())
+
+    asyncio.create_task(run_task())
+
+    return {"task_id": task_id, "status": "pending", "output_filename": output_filename}
+
+
+@router.post("/audio/stitch/{task_id}/cancel")
+async def cancel_stitch_task(task_id: str, user: User = Depends(require_auth)):
+    task = STITCH_TASKS.get(task_id)
+    if not task or task.get("user_id") != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    if task.get("status") in {"completed", "failed", "cancelled"}:
+        return {"success": False, "message": f"Task already {task.get('status')}"}
+    task["cancel"] = True
+    await task["queue"].put({"event": "cancelling"})
+    return {"success": True, "message": "Cancellation requested"}
+
+
+@router.post("/audio/preview-stitch")
+async def preview_stitch_audio(request: PreviewStitchRequest, user: User = Depends(require_auth)):
+    """Generate a short preview of stitched audio. Stored temporarily and discarded."""
+    settings = get_settings()
+    storage = settings.get_storage()
+
+    # Validate lengths and delays
+    if len(request.files) != len(request.delays):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'files' and 'delays' length mismatch")
+    for d in request.delays:
+        if d < 0.1 or d > 10.0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Delays must be 0.1-10.0s")
+    for fn in request.files:
+        if not await storage.exists(fn):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file not found: {fn}")
+
+    # Build preview audio
+    combined = AudioSegment.empty()
+    for fn, delay_sec in zip(request.files, request.delays):
+        # Load
+        if settings.storage_backend == "s3":
+            data = await storage.read(fn)
+            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tf:
+                tmp_path = tf.name
+                tf.write(data)
+            audio = AudioSegment.from_mp3(tmp_path)
+            os.remove(tmp_path)
+        else:
+            path = settings.audio_files_dir / fn
+            audio = AudioSegment.from_mp3(str(path))
+
+        # Trim to preview duration
+        max_ms = int(request.preview_duration_seconds * 1000)
+        if len(audio) > max_ms:
+            audio = audio[:max_ms]
+        combined += audio
+        if delay_sec > 0:
+            combined += AudioSegment.silent(duration=int(delay_sec * 1000))
+
+    # Export to temp and serve via dedicated endpoint
+    import uuid
+    preview_id = str(uuid.uuid4())
+    try:
+        combined = combined.set_channels(1).set_frame_rate(44100)
+        # Use workspace tmp/ directory instead of /tmp
+        temp_dir = settings.audio_files_dir.parent / 'tmp'
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = temp_dir / f"preview_{preview_id}.mp3"
+        combined.export(str(temp_path), format="mp3", bitrate="192k", parameters=["-ac", "1"])
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to export preview: {e}")
+
+    # Return URL that serves from temp
+    return {
+        "preview_id": preview_id,
+        "url": f"/api/audio-preview/{preview_id}",
+    }
+
+
+@router.delete("/audio/preview-stitch/{preview_id}")
+async def delete_preview(preview_id: str, user: User = Depends(require_auth)):
+    settings = get_settings()
+    # Use workspace tmp/ directory instead of /tmp
+    temp_path = settings.audio_files_dir.parent / 'tmp' / f"preview_{preview_id}.mp3"
+    if temp_path.exists():
+        try:
+            temp_path.unlink()
+        except Exception:
+            pass
+    return {"deleted": True, "preview_id": preview_id}
 
 
 @router.get("/audio/search")
@@ -1047,15 +1365,22 @@ async def trigger_transcription(
     Returns:
         Success message with status
     """
+    logger.info(f"=== Transcription request received for: {filename} by user: {user.username} ===")
     settings = get_settings()
     storage = settings.get_storage()
 
+    logger.info(f"Checking if file exists: {filename}")
     if not await storage.exists(filename):
+        logger.error(f"File not found: {filename}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Audio file '{filename}' not found"
         )
+    logger.info(f"File exists: {filename}")
 
+    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
+    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
     if not settings.transcription_enabled:
+        logger.warning(f"Transcription disabled for {filename}")
         from ...core.audio_db import get_or_create_audio_file, update_transcript
 
         # Ensure record exists even when transcription is disabled
@@ -1070,9 +1395,10 @@ async def trigger_transcription(
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Transcription disabled in this environment. Set TRANSCRIPTION_ENABLED=true and install whisper dependencies to enable.",
+            detail="Transcription disabled in this environment. Set transcription_enabled=true and configure ELEVENLABS_API_KEY to enable.",
         )
 
+    logger.info(f"Transcription enabled, proceeding with transcription for {filename}")
     # Get or create audio file record
     from pydub import AudioSegment
 
@@ -1080,7 +1406,9 @@ async def trigger_transcription(
 
     try:
         # Get file info
+        logger.info(f"Getting file size for {filename}")
         file_size = await storage.get_file_size(filename)
+        logger.info(f"File size: {file_size} bytes")
 
         # For S3 storage, download file to temp location for transcription
         # For local storage, use the existing path
@@ -1088,38 +1416,61 @@ async def trigger_transcription(
             # Download file to temp location
             import tempfile
 
+            logger.info(f"S3 storage detected, downloading {filename} to temp file")
             with tempfile.NamedTemporaryFile(suffix=f"_{filename}", delete=False) as temp_file:
                 transcription_path = temp_file.name
                 file_data = await storage.read(filename)
                 temp_file.write(file_data)
             audio_path = transcription_path
+            logger.info(f"Downloaded to: {audio_path}")
         else:
             audio_path = str(settings.audio_files_dir / filename)
+            logger.info(f"Local storage, using path: {audio_path}")
 
         try:
+            logger.info(f"Loading audio file to get duration: {audio_path}")
             audio = AudioSegment.from_mp3(audio_path)
             duration_seconds = int(len(audio) / 1000)
-        except Exception:
+            logger.info(f"Audio duration: {duration_seconds} seconds")
+        except Exception as e:
+            logger.warning(f"Could not get audio duration: {e}")
             duration_seconds = None
 
         # Ensure database record exists
+        logger.info(f"Creating/updating database record for {filename}")
         get_or_create_audio_file(db, filename, file_size, duration_seconds)
 
         # Update status to processing
+        logger.info(f"Setting status to 'processing' for {filename}")
         update_transcript(db, filename, None, "processing", None)
 
         # Perform transcription
+        from pathlib import Path
+
         from ...core.transcription import get_transcription_service
 
+        logger.info("Getting transcription service...")
         transcription_service = get_transcription_service()
-        transcript_text, error_msg = transcription_service.transcribe_audio(audio_path)
+        logger.info(
+            f"Transcription service: enabled={transcription_service.enabled}, model={transcription_service.model_name}"
+        )
+
+        logger.info(f"Starting transcription for {filename} (path: {audio_path})")
+        transcript_text, error_msg = transcription_service.transcribe_audio(Path(audio_path))
+        logger.info(
+            f"Transcription completed. Success: {transcript_text is not None}, Error: {error_msg}"
+        )
 
         # Clean up temp file for S3
         if settings.storage_backend == "s3" and os.path.exists(audio_path):
+            logger.info(f"Cleaning up temp file: {audio_path}")
             os.remove(audio_path)
 
         if transcript_text:
             # Success
+            logger.info(
+                f"Transcription successful for {filename}, length: {len(transcript_text)} characters"
+            )
             update_transcript(db, filename, transcript_text, "completed", None)
             return {
                 "success": True,
@@ -1130,6 +1481,7 @@ async def trigger_transcription(
             }
         else:
             # Error
+            logger.error(f"Transcription failed for {filename}: {error_msg}")
             update_transcript(db, filename, None, "error", error_msg)
             return {
                 "success": False,
@@ -1140,7 +1492,7 @@ async def trigger_transcription(
             }
 
     except Exception as e:
-        logger.error(f"Error during transcription: {e}", exc_info=True)
+        logger.error(f"Exception during transcription for {filename}: {e}", exc_info=True)
         # Update record with error (import already done above)
         update_transcript(db, filename, None, "error", str(e))
 

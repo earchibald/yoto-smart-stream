@@ -52,6 +52,25 @@ Refresh and cache control:
 
 The automation script [scripts/delete_llm_test_cards.py](scripts/delete_llm_test_cards.py) consumes these endpoints to delete matched items without calling Yoto APIs directly.
 
+#### Audio Editing (Stitch + Preview)
+
+The Smart Stream service provides endpoints to stitch multiple audio files together with per-file delays, including a resumable background task with WebSocket progress and temporary previews.
+
+- `GET /api/audio/stitch/status`: Returns the current user's active stitch task if any. Response: `{ active, task_id?, status?, progress?, current_file?, output_filename?, error? }`.
+- `POST /api/audio/stitch`: Starts a stitching task.
+  - Body: `{ files: string[], delays: number[], output_filename: string }`
+  - Constraints: `len(files) == len(delays)`, each delay in `0.1–10.0` seconds. `output_filename` is sanitized and saved as `.mp3`.
+  - Response: `{ task_id, status: 'pending', output_filename }`
+- `POST /api/audio/stitch/{task_id}/cancel`: Requests cancellation of the active task. Response: `{ success, message }`.
+- `POST /api/audio/preview-stitch`: Generates a temporary preview combining the selected files with delays, trimming each segment to a configurable per-file duration.
+  - Body: `{ files: string[], delays: number[], preview_duration_seconds: number (1–30) }`
+  - Response: `{ preview_id, url }` where `url` serves from `/api/audio-preview/{preview_id}`.
+- `DELETE /api/audio/preview-stitch/{preview_id}`: Deletes the temporary preview.
+- `GET /api/audio-preview/{preview_id}`: Serves the preview MP3 stored in `/tmp`.
+- `WS /ws/stitch/{task_id}`: WebSocket streaming task progress. Emits events: `snapshot`, `heartbeat`, `loading`, `progress`, `finalizing`, `completed`, `cancelled`, `error`.
+
+Export parameters: MP3 mono, 44.1 kHz, 192 kbps. Single active task per user is enforced in single-instance deployments. Completed tasks auto-clean after 10 minutes.
+
 ## Authentication
 
 ### OAuth2 Device Flow
