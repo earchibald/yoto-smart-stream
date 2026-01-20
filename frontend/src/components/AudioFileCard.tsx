@@ -15,13 +15,15 @@ export const AudioFileCard: React.FC<AudioFileCardProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const formatDuration = (seconds: number) => {
+  const formatDuration = (seconds?: number) => {
+    if (!seconds || seconds <= 0) return '0:00';
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatFileSize = (bytes: number) => {
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes || bytes <= 0) return '0 MB';
     const mb = bytes / (1024 * 1024);
     return `${mb.toFixed(2)} MB`;
   };
@@ -44,8 +46,8 @@ export const AudioFileCard: React.FC<AudioFileCardProps> = ({
 
         {/* Metadata */}
         <div className="flex justify-between text-sm text-gray-600 border-t pt-3">
-          <span>{formatDuration(audio.duration)}</span>
-          <span>{formatFileSize(audio.fileSize)}</span>
+          <span>{audio.duration ? formatDuration(audio.duration) : 'Unknown'}</span>
+          <span>{audio.fileSize ? formatFileSize(audio.fileSize) : 'Unknown'}</span>
         </div>
 
         {/* Actions */}

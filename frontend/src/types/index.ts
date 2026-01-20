@@ -13,9 +13,9 @@ export interface AudioFile {
   id: string;
   title: string;
   filename: string;
-  duration: number;
-  fileSize: number;
-  uploadedAt: string;
+  duration?: number;
+  fileSize?: number;
+  uploadedAt?: string;
   transcription?: string;
 }
 
