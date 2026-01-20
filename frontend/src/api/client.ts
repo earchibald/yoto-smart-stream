@@ -26,16 +26,30 @@ export const playersApi = {
 
 // Audio Library API
 export const audioApi = {
-  getAll: () => api.get<AudioFile[]>('/media/audio'),
-  getById: (id: string) => api.get<AudioFile>(`/media/audio/${id}`),
-  upload: (file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return api.post<AudioFile>('/media/audio', formData, {
+  getAll: () => api.get<AudioFile[]>('/audio/list'),
+  getById: (filename: string) => api.get<AudioFile>(`/audio/${filename}`),
+  upload: (formData: FormData) => {
+    return api.post<AudioFile>('/audio/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  delete: (id: string) => api.delete(`/media/audio/${id}`),
+  delete: (filename: string) => api.delete(`/audio/${filename}`),
+  getTranscript: (filename: string) => api.get(`/audio/${filename}/transcript`),
+  transcribe: (filename: string) => api.post(`/audio/${filename}/transcribe`),
+
+  // TTS
+  getVoices: () => api.get<any>('/audio/tts/voices'),
+  generateTTS: (data: { filename: string; voice_id: string; text: string }) =>
+    api.post('/audio/generate-tts', data),
+
+  // Audio stitching/editing
+  stitchAudio: (data: any) => api.post('/audio/stitch', data),
+  getStitchStatus: () => api.get('/audio/stitch/status'),
+  cancelStitch: (taskId: string) => api.post(`/audio/stitch/${taskId}/cancel`),
+
+  // Playlists
+  createPlaylistFromAudio: (data: { audio_files: string[]; playlist_name: string }) =>
+    api.post('/cards/create-playlist-from-audio', data),
 };
 
 // Cards API
