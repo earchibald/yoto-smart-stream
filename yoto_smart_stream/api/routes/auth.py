@@ -19,36 +19,35 @@ router = APIRouter()
 
 
 def get_current_user_optional(
-    session_token: Optional[str] = Cookie(None, alias="session"),
-    db: Session = Depends(get_db)
+    session_token: Optional[str] = Cookie(None, alias="session"), db: Session = Depends(get_db)
 ) -> Optional[User]:
     """
     Get current user from session cookie (optional, doesn't raise error if not authenticated).
-    
+
     Args:
         session_token: Session token from cookie
         db: Database session
-        
+
     Returns:
         User object if authenticated, None otherwise
     """
     from ...auth import decode_access_token
-    
+
     if not session_token:
         return None
-    
+
     payload = decode_access_token(session_token)
     if not payload:
         return None
-    
+
     username = payload.get("sub")
     if not username:
         return None
-    
+
     user = db.query(User).filter(User.username == username).first()
     if not user or not user.is_active:
         return None
-    
+
     return user
 
 
@@ -116,24 +115,15 @@ async def get_auth_status():
     try:
         client = get_yoto_client()
         if client and client.is_authenticated():
-            return AuthStatus(
-                authenticated=True,
-                message="Authenticated with Yoto API"
-            )
+            return AuthStatus(authenticated=True, message="Authenticated with Yoto API")
         else:
-            return AuthStatus(
-                authenticated=False,
-                message="Not authenticated. Please log in."
-            )
+            return AuthStatus(authenticated=False, message="Not authenticated. Please log in.")
     except Exception:
-        return AuthStatus(
-            authenticated=False,
-            message="Not authenticated. Please log in."
-        )
+        return AuthStatus(authenticated=False, message="Not authenticated. Please log in.")
 
 
 @router.post("/auth/start", response_model=DeviceCodeResponse)
-async def start_auth_flow():
+async def start_auth_flow(db: Session = Depends(get_db)):
     """
     Start OAuth2 device code flow.
 
@@ -142,13 +132,27 @@ async def start_auth_flow():
     """
     settings = get_settings()
 
-    if not settings.yoto_client_id:
+    # Get effective client_id from settings database
+    try:
+        from .settings import get_effective_setting_value
+
+        effective_client_id = get_effective_setting_value("yoto_client_id", db)
+    except Exception as e:
+        logger.warning(
+            f"Could not get client_id from settings database: {e}, falling back to config"
+        )
+        effective_client_id = settings.yoto_client_id
+
+    if not effective_client_id:
         import os
-        env_value = os.environ.get('YOTO_CLIENT_ID', 'NOT SET')
-        logger.error(f"YOTO_CLIENT_ID not configured. Environment variable: {env_value}, Settings value: {settings.yoto_client_id}")
+
+        env_value = os.environ.get("YOTO_CLIENT_ID", "NOT SET")
+        logger.error(
+            f"YOTO_CLIENT_ID not configured. Environment variable: {env_value}, Settings value: {effective_client_id}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"YOTO_CLIENT_ID not configured. Environment check: {env_value}. Please ensure the environment variable is set correctly."
+            detail=f"YOTO_CLIENT_ID not configured. Environment check: {env_value}. Please ensure the environment variable or setting is configured.",
         )
 
     try:
@@ -167,20 +171,19 @@ async def start_auth_flow():
         return DeviceCodeResponse(
             verification_uri=device_info["verification_uri"],
             verification_uri_complete=device_info.get(
-                "verification_uri_complete",
-                device_info["verification_uri"]
+                "verification_uri_complete", device_info["verification_uri"]
             ),
             user_code=device_info["user_code"],
             device_code=device_info["device_code"],
             expires_in=device_info.get("expires_in", 300),
-            interval=device_info.get("interval", 5)
+            interval=device_info.get("interval", 5),
         )
 
     except Exception as e:
         logger.error(f"Failed to start auth flow: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to start authentication: {str(e)}"
+            detail=f"Failed to start authentication: {str(e)}",
         ) from e
 
 
@@ -188,7 +191,7 @@ async def start_auth_flow():
 async def poll_auth_status(
     poll_request: AuthPollRequest,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user_optional)
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """
     Poll for authentication completion.
@@ -206,9 +209,7 @@ async def poll_auth_status(
 
     if not client or not client.manager:
         return AuthPollResponse(
-            status="error",
-            message="Authentication not started",
-            authenticated=False
+            status="error", message="Authentication not started", authenticated=False
         )
 
     try:
@@ -225,13 +226,13 @@ async def poll_auth_status(
             token_file.parent.mkdir(parents=True, exist_ok=True)
             token_file.write_text(client.manager.token.refresh_token)
             logger.info(f"Refresh token saved to {token_file}")
-            
+
             # Save tokens to database for the current user
             if current_user:
                 try:
                     current_user.yoto_access_token = client.manager.token.access_token
                     current_user.yoto_refresh_token = client.manager.token.refresh_token
-                    if hasattr(client.manager.token, 'expires_at'):
+                    if hasattr(client.manager.token, "expires_at"):
                         current_user.yoto_token_expires_at = client.manager.token.expires_at
                     db.commit()
                     logger.info(f"Yoto tokens saved to database for user: {current_user.username}")
@@ -250,9 +251,7 @@ async def poll_auth_status(
         logger.info("Authentication successful!")
 
         return AuthPollResponse(
-            status="success",
-            message="Successfully authenticated with Yoto API",
-            authenticated=True
+            status="success", message="Successfully authenticated with Yoto API", authenticated=True
         )
 
     except Exception as e:
@@ -261,22 +260,22 @@ async def poll_auth_status(
         # Check for common error types
         if "authorization_pending" in error_msg or "pending" in error_msg:
             return AuthPollResponse(
-                status="pending",
-                message="Waiting for user to authorize...",
-                authenticated=False
+                status="pending", message="Waiting for user to authorize...", authenticated=False
             )
-        elif "expired_token" in error_msg or "token expired" in error_msg or "code expired" in error_msg:
+        elif (
+            "expired_token" in error_msg
+            or "token expired" in error_msg
+            or "code expired" in error_msg
+        ):
             return AuthPollResponse(
                 status="expired",
                 message="Authentication expired. Please start again.",
-                authenticated=False
+                authenticated=False,
             )
         else:
             logger.warning(f"Auth poll error: {e}")
             return AuthPollResponse(
-                status="pending",
-                message="Waiting for authorization...",
-                authenticated=False
+                status="pending", message="Waiting for authorization...", authenticated=False
             )
 
 
@@ -301,14 +300,10 @@ async def logout():
         if client:
             client.reset()
 
-        return {
-            "success": True,
-            "message": "Logged out successfully"
-        }
+        return {"success": True, "message": "Logged out successfully"}
 
     except Exception as e:
         logger.error(f"Logout error: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to logout: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to logout: {str(e)}"
         ) from e
