@@ -77,6 +77,10 @@ Examples:
         "--url", help="URL of yoto-smart-stream service (env: YOTO_SERVICE_URL)"
     )
     parser.add_argument(
+        "--yoto-service-url", dest="yoto_service_url",
+        help="Default Yoto service URL for all queries (overridable per query)"
+    )
+    parser.add_argument(
         "--username", help="Admin username for authentication (env: ADMIN_USERNAME)"
     )
     parser.add_argument(
@@ -94,7 +98,13 @@ def configure_from_args():
 
     # Priority: CLI args > environment variables > defaults
     # NOTE: YOTO_SERVICE_URL is optional - can be provided at startup or per-tool call
-    YOTO_SERVICE_URL = args.url or os.getenv("YOTO_SERVICE_URL") or ""
+    # Support both --url and --yoto-service-url for backwards compatibility
+    YOTO_SERVICE_URL = (
+        args.url 
+        or args.yoto_service_url 
+        or os.getenv("YOTO_SERVICE_URL") 
+        or ""
+    )
     ADMIN_USERNAME = args.username or os.getenv("ADMIN_USERNAME") or "admin"
     ADMIN_PASSWORD = args.password or os.getenv("ADMIN_PASSWORD") or ""
     YOTO_USERNAME = os.getenv("YOTO_USERNAME") or ""
@@ -126,7 +136,8 @@ class OAuthArgs(BaseModel):
     """Arguments for OAuth operations."""
 
     service_url: str = Field(
-        description="URL of the yoto-smart-stream service, e.g., 'https://yoto-smart-stream-production.up.railway.app'"
+        default="",
+        description="URL of the yoto-smart-stream service (uses default if not provided)"
     )
     action: str = Field(
         description="Action to perform: 'activate' to log in to Yoto OAuth, 'deactivate' to log out"
@@ -137,7 +148,8 @@ class QueryLibraryArgs(BaseModel):
     """Arguments for querying the Yoto library."""
 
     service_url: str = Field(
-        description="URL of the yoto-smart-stream service, e.g., 'https://yoto-smart-stream-production.up.railway.app'"
+        default="",
+        description="URL of the yoto-smart-stream service (uses default if not provided)"
     )
     query: str = Field(
         description="Natural language query about the library, e.g., 'find all cards with princess in the title' or 'what metadata keys are used?'"
@@ -590,11 +602,20 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
     if name == "oauth":
         # Handle OAuth activation/deactivation
         oauth_args = OAuthArgs(**arguments)
+        
+        # Use default YOTO_SERVICE_URL if not provided
+        service_url = oauth_args.service_url or YOTO_SERVICE_URL
+        
+        if not service_url:
+            return [types.TextContent(
+                type="text",
+                text="❌ Error: No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."
+            )]
 
         if oauth_args.action.lower() == "activate":
-            result = await activate_yoto_oauth(oauth_args.service_url)
+            result = await activate_yoto_oauth(service_url)
         elif oauth_args.action.lower() == "deactivate":
-            result = await deactivate_yoto_oauth(oauth_args.service_url)
+            result = await deactivate_yoto_oauth(service_url)
         else:
             result = f"❌ Error: Unknown action '{oauth_args.action}'. Use 'activate' or 'deactivate'."
 
@@ -603,12 +624,21 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextCont
     elif name == "query_library":
         # Validate arguments
         query_args = QueryLibraryArgs(**arguments)
+        
+        # Use default YOTO_SERVICE_URL if not provided
+        service_url = query_args.service_url or YOTO_SERVICE_URL
+        
+        if not service_url:
+            return [types.TextContent(
+                type="text",
+                text="❌ Error: No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."
+            )]
 
         # Fetch library data from the specified service
         logger.info(
-            f"Processing query for {query_args.service_url}: {query_args.query}"
+            f"Processing query for {service_url}: {query_args.query}"
         )
-        library_data = await get_library_data(query_args.service_url)
+        library_data = await get_library_data(service_url)
 
         # Search library
         result = search_library(library_data, query_args.query)
@@ -665,6 +695,7 @@ async def main():
             InitializationOptions(
                 server_name="yoto-library",
                 server_version="0.1.2",
+                capabilities={},
             ),
         )
 
