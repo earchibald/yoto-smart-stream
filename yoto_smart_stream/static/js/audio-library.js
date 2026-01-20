@@ -1510,6 +1510,21 @@ async function executeTranscription(filename) {
             const errorData = await response.json().catch(() => ({}));
             const errorMessage = errorData.detail || 'Failed to start transcription';
             console.error('Transcription request failed:', errorMessage, errorData);
+
+            // If transcription is disabled, guide user to Settings (/admin)
+            if (/(transcription\s+is\s+disabled|transcription\s+disabled)/i.test(errorMessage)) {
+                if (typeof showConfirmModal === 'function') {
+                    showConfirmModal(
+                        '🎛️ Transcription Disabled',
+                        'Transcription is currently disabled. Open Admin → System Settings to enable it.',
+                        () => { window.location.href = '/admin'; }
+                    );
+                } else {
+                    window.location.href = '/admin';
+                }
+                return; // Stop further handling
+            }
+
             throw new Error(errorMessage);
         }
 
@@ -1538,9 +1553,24 @@ async function executeTranscription(filename) {
 
     } catch (error) {
         console.error('Error in executeTranscription:', error);
+
+        // If transcription is disabled, guide user to Settings
+        if (error && /(?:transcription\s+is\s+disabled|transcription\s+disabled)/i.test(String(error.message || ''))) {
+            if (typeof showConfirmModal === 'function') {
+                showConfirmModal(
+                    '🎛️ Transcription Disabled',
+                    'Transcription is currently disabled. Open Admin → System Settings to enable it.',
+                    () => { window.location.href = '/admin'; }
+                );
+            } else {
+                window.location.href = '/admin';
+            }
+            return;
+        }
+
         if (typeof showResultMessage === 'function') {
             showResultMessage('error', '❌ Transcription Failed',
-                error.message || 'Failed to start transcription. Please try again.');
+                (error && error.message) ? error.message : 'Failed to start transcription. Please try again.');
         } else {
             alert('Failed to start transcription. Please try again.');
         }

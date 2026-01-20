@@ -78,14 +78,26 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
 
     try:
         settings = get_settings()
-        if not settings.transcription_enabled:
+        # Re-evaluate effective setting inside background task (env > DB)
+        import os
+        from ...models import Setting
+
+        env_override = os.getenv("TRANSCRIPTION_ENABLED") or os.getenv("transcription_enabled")
+        if env_override is not None:
+            effective_transcription_enabled = str(env_override).lower() in ["1", "true", "yes", "on"]
+        else:
+            setting_row = db.query(Setting).filter(Setting.key == "transcription_enabled").first()
+            db_value = (setting_row.value if setting_row else "false").lower()
+            effective_transcription_enabled = db_value in ["1", "true", "yes", "on"]
+
+        if not effective_transcription_enabled:
             logger.info(f"Transcription disabled; skipping background transcription for {filename}")
             update_transcript(
                 db,
                 filename,
                 None,
                 "disabled",
-                "Transcription disabled in this environment",
+                "Transcription disabled in settings",
             )
             return
 
@@ -297,8 +309,8 @@ async def generate_tts_audio(
     request: GenerateTTSRequest, user: User = Depends(require_auth), db: Session = Depends(get_db)
 ):
     """
-    Generate text-to-speech audio and save to storage.
-
+    settings = get_settings()
+    storage = settings.get_storage()
     This endpoint creates an MP3 file from the provided text using ElevenLabs Text-to-Speech.
     The generated file is saved to storage (local filesystem or S3) and can be used
     in MYO cards or accessed via the audio streaming endpoint.
@@ -308,8 +320,8 @@ async def generate_tts_audio(
     TTS metadata (provider, voice_id, model) is also stored.
 
     Args:
-        request: GenerateTTSRequest with filename, text, and optional voice_id
-
+    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
+    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
     Returns:
         Success message with filename and file information
     """
@@ -322,11 +334,11 @@ async def generate_tts_audio(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="ElevenLabs API key not configured. Please contact the administrator.",
         )
-
+            "Transcription disabled in settings",
     # Sanitize filename - remove any path separators and special chars
     filename = request.filename.strip()
     # Remove file extension if provided
-    if filename.lower().endswith(".mp3"):
+            detail="Transcription is disabled in Settings. Open Admin → System Settings to enable.",
         filename = filename[:-4]
 
     # Only allow alphanumeric, hyphens, underscores, and spaces
@@ -549,7 +561,19 @@ async def upload_audio(
 
         get_or_create_audio_file(db, final_filename, file_size, duration_seconds)
 
-        if settings.transcription_enabled:
+        # Determine effective transcription_enabled for post-upload behavior (env > DB)
+        import os
+        from ...models import Setting
+
+        env_override = os.getenv("TRANSCRIPTION_ENABLED") or os.getenv("transcription_enabled")
+        if env_override is not None:
+            effective_transcription_enabled = str(env_override).lower() in ["1", "true", "yes", "on"]
+        else:
+            setting_row = db.query(Setting).filter(Setting.key == "transcription_enabled").first()
+            db_value = (setting_row.value if setting_row else "false").lower()
+            effective_transcription_enabled = db_value in ["1", "true", "yes", "on"]
+
+        if effective_transcription_enabled:
             # Mark transcription as pending and schedule background task
             update_transcript(db, final_filename, None, "pending", None)
 
@@ -580,7 +604,7 @@ async def upload_audio(
                 final_filename,
                 None,
                 "disabled",
-                "Transcription disabled in this environment",
+                "Transcription disabled in settings",
             )
             logger.info(
                 f"Transcription disabled; skipping background transcription for {final_filename}"
@@ -594,7 +618,7 @@ async def upload_audio(
             "description": description,
             "url": f"/api/audio/{final_filename}",
             "message": f"Successfully uploaded '{final_filename}'",
-            "transcript_status": "pending" if settings.transcription_enabled else "disabled",
+            "transcript_status": "pending" if effective_transcription_enabled else "disabled",
         }
 
     except Exception as e:
@@ -1377,9 +1401,20 @@ async def trigger_transcription(
         )
     logger.info(f"File exists: {filename}")
 
-    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
-    logger.info(f"Checking transcription_enabled: {settings.transcription_enabled}")
-    if not settings.transcription_enabled:
+    # Determine effective transcription_enabled (env override > DB > default)
+    import os
+    from ...models import Setting
+
+    env_override = os.getenv("TRANSCRIPTION_ENABLED") or os.getenv("transcription_enabled")
+    if env_override is not None:
+        effective_transcription_enabled = str(env_override).lower() in ["1", "true", "yes", "on"]
+    else:
+        setting_row = db.query(Setting).filter(Setting.key == "transcription_enabled").first()
+        db_value = (setting_row.value if setting_row else "false").lower()
+        effective_transcription_enabled = db_value in ["1", "true", "yes", "on"]
+
+    logger.info(f"Effective transcription_enabled: {effective_transcription_enabled}")
+    if not effective_transcription_enabled:
         logger.warning(f"Transcription disabled for {filename}")
         from ...core.audio_db import get_or_create_audio_file, update_transcript
 
@@ -1391,11 +1426,11 @@ async def trigger_transcription(
             filename,
             None,
             "disabled",
-            "Transcription disabled in this environment",
+            "Transcription disabled in settings",
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Transcription disabled in this environment. Set transcription_enabled=true and configure ELEVENLABS_API_KEY to enable.",
+            detail="Transcription is disabled in Settings. Open Admin → System Settings to enable.",
         )
 
     logger.info(f"Transcription enabled, proceeding with transcription for {filename}")

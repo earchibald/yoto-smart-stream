@@ -137,8 +137,9 @@ class TranscriptionService:
             return None, error_msg
 
 
-# Global instance (lazy-loaded)
+# Global instance (lazy-loaded) and last-known config to support live updates
 _transcription_service: Optional[TranscriptionService] = None
+_last_transcription_config: Optional[tuple[bool, str, Optional[str]]] = None
 
 
 def get_transcription_service() -> TranscriptionService:
@@ -148,12 +149,22 @@ def get_transcription_service() -> TranscriptionService:
     Returns:
         TranscriptionService instance
     """
-    global _transcription_service
-    if _transcription_service is None:
-        settings = get_settings()
+    global _transcription_service, _last_transcription_config
+
+    settings = get_settings()
+    current_config: tuple[bool, str, Optional[str]] = (
+        settings.transcription_enabled,
+        settings.transcription_model,
+        settings.elevenlabs_api_key,
+    )
+
+    # (Re)initialize service if it doesn't exist yet or config changed
+    if _transcription_service is None or _last_transcription_config != current_config:
         _transcription_service = TranscriptionService(
             model_name=settings.transcription_model,
             enabled=settings.transcription_enabled,
             elevenlabs_api_key=settings.elevenlabs_api_key,
         )
+        _last_transcription_config = current_config
+
     return _transcription_service
