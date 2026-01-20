@@ -271,6 +271,12 @@ https://yoto-smart-stream-{environment}.up.railway.app
 - **Username:** `admin`
 - **Password:** `yoto`
 
+**Web Interface Features:**
+- 🌓 **Dark Mode**: Toggle available in bottom-right corner of all pages
+  - Respects system theme preference
+  - Choice persists across sessions
+  - Available on all pages
+
 ### 3. Complete Yoto OAuth (One-Time)
 
 1. Navigate to Dashboard

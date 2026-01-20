@@ -151,6 +151,66 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ---
 
+## User Interface Features
+
+### Dark Mode
+
+The web interface includes a dark mode toggle for improved viewing comfort in different lighting conditions.
+
+**Features:**
+- 🌓 **Toggle Widget**: Floating button in bottom-right corner of all pages
+- 🎨 **Auto Detection**: Respects system theme preference (`prefers-color-scheme`)
+- 💾 **Persistence**: User choice saved in cookies across sessions
+- ⚡ **Smooth Transitions**: 0.3s transition effects between themes
+- 📱 **Universal**: Available on all pages (dashboard, library, streams, admin, login)
+
+**How to Use:**
+
+1. **Toggle Dark Mode:**
+   - Click the 🌓 button in bottom-right corner
+   - Theme switches immediately with smooth transition
+   - Preference saved automatically
+
+2. **Automatic Theme:**
+   - On first visit, matches your system theme
+   - macOS: Follows "Dark Mode" in System Preferences
+   - Windows: Follows "Choose your color" in Settings
+   - Linux: Follows desktop environment theme
+
+3. **Theme Persistence:**
+   - Choice saved in browser cookies
+   - Persists across page navigation
+   - Survives browser restarts
+   - Independent per browser/device
+
+**Implementation:**
+- Uses [DarkMode.js](https://darkmodejs.learn.uno/) v1.5.7
+- CSS filters for automatic color inversion
+- Configures with cyan theme colors (#0891b2, #06b6d4)
+- Zero-configuration for users
+
+**Troubleshooting:**
+
+If dark mode toggle doesn't appear:
+```bash
+# Check if DarkMode.js loaded
+# Browser console:
+console.log(typeof Darkmode !== 'undefined' ? 'Loaded' : 'Not loaded');
+
+# Clear cookies to reset preference
+document.cookie.split(";").forEach(c => {
+  document.cookie = c.replace(/^ +/, "").replace(/=.*/, 
+    "=;expires=" + new Date().toUTCString() + ";path=/");
+});
+```
+
+If theme doesn't persist:
+- Check browser allows cookies
+- Verify cookies not blocked for the domain
+- Try incognito/private mode to test
+
+---
+
 ## Yoto OAuth Authorization
 
 OAuth authorization connects the Yoto Smart Stream service to your Yoto account, enabling device access and control.
