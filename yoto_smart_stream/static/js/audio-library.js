@@ -6,6 +6,9 @@ const API_BASE = '/api';
 // Default filename for TTS generator
 const DEFAULT_TTS_FILENAME = 'my-story';
 
+// Animation durations (must match CSS transition times)
+const ITEM_REMOVAL_ANIMATION_MS = 300;
+
 // Audio Recorder State
 let mediaRecorder = null;
 let audioChunks = [];
@@ -572,7 +575,7 @@ async function performBatchDelete(filenames) {
                         container.innerHTML = '<p class="loading">No audio files found. Add MP3 files to the audio_files directory or generate TTS audio below.</p>';
                         hideMultiSelectToolbar();
                     }
-                }, 300);
+                }, ITEM_REMOVAL_ANIMATION_MS);
             }
 
         } catch (error) {
@@ -791,7 +794,7 @@ async function performDelete(filename) {
                 if (remainingItems.length === 0) {
                     container.innerHTML = '<p class="loading">No audio files found. Add MP3 files to the audio_files directory or generate TTS audio below.</p>';
                 }
-            }, 300);
+            }, ITEM_REMOVAL_ANIMATION_MS);
         }
 
         // Show success message

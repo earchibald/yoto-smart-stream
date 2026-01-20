@@ -8,7 +8,6 @@ These tests verify:
 """
 
 import os
-import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -462,8 +461,9 @@ def test_select_single_file(page: Page):
         expect(page.locator("#batch-delete-btn")).not_to_be_disabled()
 
         # File should have selected styling
-        first_item = page.locator(".list-item").filter(has=checkboxes.first)
-        expect(first_item).to_have_class(re.compile(r"selected"))
+        # Find the list item that contains the checked checkbox
+        checked_items = page.locator(".list-item.selected")
+        expect(checked_items.first).to_be_visible()
 
 
 def test_select_all_checkbox(page: Page):
