@@ -313,6 +313,24 @@
         </div>
     </div>
 
+    <!-- Error Dialog Modal -->
+    <div id="errorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⚠️ Error</h3>
+                <span class="modal-close" onclick="closeErrorModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="errorModalMessage" style="padding: 1rem 0; line-height: 1.6;">
+                    <!-- Error message will be inserted here -->
+                </div>
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button class="btn-primary" onclick="closeErrorModal()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MQTT Analyzer Modal -->
     <div id="mqttAnalyzerModal" class="modal">
         <div class="modal-content mqtt-modal-content">

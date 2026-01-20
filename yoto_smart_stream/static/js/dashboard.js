@@ -180,7 +180,7 @@ async function startAuth() {
 
     } catch (error) {
         console.error('Error starting auth:', error);
-        alert('Failed to start authentication: ' + error.message);
+        showErrorModal('Failed to start authentication: ' + error.message);
         loginButton.disabled = false;
         loginButton.textContent = '🔑 Connect Yoto Account';
     }
@@ -1067,6 +1067,25 @@ function closePlayerModal() {
 }
 
 /**
+ * Show error modal with a message
+ */
+function showErrorModal(message) {
+    const modal = document.getElementById('errorModal');
+    const messageEl = document.getElementById('errorModalMessage');
+    messageEl.textContent = message;
+    modal.style.display = 'flex';
+}
+
+/**
+ * Close the error modal
+ */
+function closeErrorModal() {
+    const modal = document.getElementById('errorModal');
+    modal.style.display = 'none';
+}
+
+
+/**
  * Populate modal with player data
  */
 function populatePlayerModal(player) {
@@ -1286,6 +1305,7 @@ document.addEventListener('keydown', (e) => {
         const playerModal = document.getElementById('playerModal');
         const libraryModal = document.getElementById('libraryModal');
         const chapterModal = document.getElementById('chapterModal');
+        const errorModal = document.getElementById('errorModal');
 
         // Close whichever modal is currently open
         if (playerModal && playerModal.style.display === 'flex') {
@@ -1296,6 +1316,9 @@ document.addEventListener('keydown', (e) => {
         }
         if (chapterModal && chapterModal.style.display === 'flex') {
             closeChapterBrowser();
+        }
+        if (errorModal && errorModal.style.display === 'flex') {
+            closeErrorModal();
         }
     }
 });
