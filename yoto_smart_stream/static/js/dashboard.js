@@ -1283,20 +1283,34 @@ window.addEventListener('click', function(event) {
 // Add Escape key listener to close modals
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        const playerModal = document.getElementById('playerModal');
-        const libraryModal = document.getElementById('libraryModal');
-        const chapterModal = document.getElementById('chapterModal');
+        // Find all visible modals and their z-indices
+        const modals = [
+            { id: 'playerModal', element: document.getElementById('playerModal'), close: closePlayerModal },
+            { id: 'libraryModal', element: document.getElementById('libraryModal'), close: closeLibraryBrowser },
+            { id: 'chapterModal', element: document.getElementById('chapterModal'), close: closeChapterBrowser }
+        ];
 
-        // Close whichever modal is currently open
-        if (playerModal && playerModal.style.display === 'flex') {
-            closePlayerModal();
+        // Filter to only visible modals
+        const visibleModals = modals.filter(m =>
+            m.element && m.element.style.display === 'flex'
+        );
+
+        if (visibleModals.length === 0) return;
+
+        // Find the modal with the highest z-index
+        let topmostModal = visibleModals[0];
+        let highestZIndex = parseInt(window.getComputedStyle(topmostModal.element).zIndex) || 0;
+
+        for (const modal of visibleModals) {
+            const zIndex = parseInt(window.getComputedStyle(modal.element).zIndex) || 0;
+            if (zIndex > highestZIndex) {
+                highestZIndex = zIndex;
+                topmostModal = modal;
+            }
         }
-        if (libraryModal && libraryModal.style.display === 'flex') {
-            closeLibraryBrowser();
-        }
-        if (chapterModal && chapterModal.style.display === 'flex') {
-            closeChapterBrowser();
-        }
+
+        // Close only the topmost modal
+        topmostModal.close();
     }
 });
 

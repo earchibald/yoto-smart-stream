@@ -23,28 +23,39 @@ document.addEventListener('DOMContentLoaded', () => {
     loadAudioFiles();
     loadManagedStreams();
     setupFormHandler();
-    
+
     // Add Escape key listener to close modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            const audioPlayerModal = document.getElementById('audio-player-modal');
-            const playlistModal = document.getElementById('create-playlist-modal');
-            const scripterModal = document.getElementById('stream-scripter-modal');
-            const deletePlaylistModal = document.getElementById('delete-playlist-modal');
-            
-            // Close whichever modal is currently open
-            if (audioPlayerModal && audioPlayerModal.style.display === 'flex') {
-                closeAudioPlayer();
+            // Find all visible modals and their z-indices
+            const modals = [
+                { id: 'audio-player-modal', element: document.getElementById('audio-player-modal'), close: closeAudioPlayer },
+                { id: 'create-playlist-modal', element: document.getElementById('create-playlist-modal'), close: closePlaylistModal },
+                { id: 'stream-scripter-modal', element: document.getElementById('stream-scripter-modal'), close: closeStreamScripter },
+                { id: 'delete-playlist-modal', element: document.getElementById('delete-playlist-modal'), close: closeDeletePlaylistModal }
+            ];
+
+            // Filter to only visible modals
+            const visibleModals = modals.filter(m =>
+                m.element && (m.element.style.display === 'flex' || m.element.style.display === 'block')
+            );
+
+            if (visibleModals.length === 0) return;
+
+            // Find the modal with the highest z-index
+            let topmostModal = visibleModals[0];
+            let highestZIndex = parseInt(window.getComputedStyle(topmostModal.element).zIndex) || 0;
+
+            for (const modal of visibleModals) {
+                const zIndex = parseInt(window.getComputedStyle(modal.element).zIndex) || 0;
+                if (zIndex > highestZIndex) {
+                    highestZIndex = zIndex;
+                    topmostModal = modal;
+                }
             }
-            if (playlistModal && playlistModal.style.display === 'flex') {
-                closePlaylistModal();
-            }
-            if (scripterModal && scripterModal.style.display === 'flex') {
-                closeStreamScripter();
-            }
-            if (deletePlaylistModal && deletePlaylistModal.style.display === 'flex') {
-                closeDeletePlaylistModal();
-            }
+
+            // Close only the topmost modal
+            topmostModal.close();
         }
     });
 });
@@ -54,16 +65,16 @@ async function loadSystemInfo() {
     try {
         const response = await fetch(`${API_BASE}/status`);
         if (!response.ok) throw new Error('Failed to fetch status');
-        
+
         const data = await response.json();
-        
+
         // Update version
         document.getElementById('app-version').textContent = `v${data.version}`;
-        
+
         // Update public URL (if available from settings)
         const urlDisplay = document.getElementById('url-display');
         urlDisplay.textContent = window.location.origin;
-        
+
     } catch (error) {
         console.error('Error loading system info:', error);
     }
@@ -73,24 +84,24 @@ async function loadSystemInfo() {
 async function loadAudioFiles() {
     const container = document.getElementById('audio-streams');
     const selectEl = document.getElementById('audio-file');
-    
+
     try {
         const response = await fetch(`${API_BASE}/audio/list`);
         if (!response.ok) throw new Error('Failed to fetch audio files');
-        
+
         const data = await response.json();
         const files = data.files || [];
-        
+
         if (files.length === 0) {
             container.innerHTML = '<p class="loading">No audio files found. Add MP3 files to the audio_files directory.</p>';
             selectEl.innerHTML = '<option value="">No audio files available</option>';
             return;
         }
-        
+
         // Populate select dropdown
         selectEl.innerHTML = '<option value="">Select an audio file...</option>' +
             files.map(file => `<option value="${escapeHtml(file.filename)}">${escapeHtml(file.filename)}</option>`).join('');
-        
+
         // Display audio files as cards
         container.innerHTML = files.map(file => `
             <div class="stream-card">
@@ -106,7 +117,7 @@ async function loadAudioFiles() {
                 </div>
             </div>
         `).join('');
-        
+
         // Add event listeners to all action buttons
         container.querySelectorAll('[data-action]').forEach(button => {
             button.addEventListener('click', (e) => {
@@ -119,7 +130,7 @@ async function loadAudioFiles() {
                 }
             });
         });
-        
+
     } catch (error) {
         console.error('Error loading audio files:', error);
         container.innerHTML = '<p class="error-message">Failed to load audio files.</p>';
@@ -129,19 +140,19 @@ async function loadAudioFiles() {
 // Load managed streams (queues)
 async function loadManagedStreams() {
     const container = document.getElementById('managed-streams');
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/queues`);
         if (!response.ok) throw new Error('Failed to fetch managed streams');
-        
+
         const data = await response.json();
         const queues = data.queues || [];
-        
+
         if (queues.length === 0) {
             container.innerHTML = '<p class="loading">No managed streams available.</p>';
             return;
         }
-        
+
         // Fetch details for each queue
         const queueDetails = await Promise.all(
             queues.map(async (queueName) => {
@@ -157,7 +168,7 @@ async function loadManagedStreams() {
                 }
             })
         );
-        
+
         // Display queue cards
         container.innerHTML = queueDetails
             .filter(queue => queue !== null)
@@ -201,7 +212,7 @@ async function loadManagedStreams() {
                     </div>
                 </div>
             `).join('');
-        
+
         // Add event listeners to action buttons
         container.querySelectorAll('[data-action]').forEach(button => {
             button.addEventListener('click', (e) => {
@@ -225,7 +236,7 @@ async function loadManagedStreams() {
                 }
             });
         });
-        
+
     } catch (error) {
         console.error('Error loading managed streams:', error);
         container.innerHTML = '<p class="error-message">Failed to load managed streams.</p>';
@@ -241,24 +252,24 @@ function setupFormHandler() {
     }
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const submitBtn = form.querySelector('button[type="submit"]');
         const resultEl = document.getElementById('card-result');
-        
+
         // Get form values
         const title = document.getElementById('card-title').value;
         const description = document.getElementById('card-description').value;
         const audioFilename = document.getElementById('audio-file').value;
-        
+
         if (!audioFilename) {
             showResult('Please select an audio file', 'error');
             return;
         }
-        
+
         // Disable submit button
         submitBtn.disabled = true;
         submitBtn.textContent = 'Creating...';
-        
+
         try {
             const response = await fetch(`${API_BASE}/cards/create-streaming`, {
                 method: 'POST',
@@ -271,16 +282,16 @@ function setupFormHandler() {
                     audio_filename: audioFilename,
                 }),
             });
-            
+
             const result = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(result.detail || 'Failed to create card');
             }
-            
+
             showResult(`✅ Card created successfully! Card ID: ${result.card_id}`, 'success');
             form.reset();
-            
+
         } catch (error) {
             console.error('Error creating card:', error);
             showResult(`❌ ${error.message}`, 'error');
@@ -297,7 +308,7 @@ function showResult(message, type) {
     resultEl.textContent = message;
     resultEl.className = `result-message ${type}`;
     resultEl.style.display = 'block';
-    
+
     // Auto-hide after 5 seconds for success messages
     if (type === 'success') {
         setTimeout(() => {
@@ -334,30 +345,30 @@ function playAudio(url, queueName = null) {
         const separator = url.includes('?') ? '&' : '?';
         fullUrl = window.location.origin + url + separator + 'play_mode=' + encodeURIComponent(mode);
     }
-    
+
     // Get modal and audio elements
     const modal = document.getElementById('audio-player-modal');
     const audio = document.getElementById('audio-element');
     const source = document.getElementById('audio-source');
     const urlDisplay = document.getElementById('player-url');
     const title = document.getElementById('player-title');
-    
+
     // Stop any currently playing audio
     audio.pause();
     audio.currentTime = 0;
-    
+
     // Set new source
     source.src = fullUrl;
     audio.load();
-    
+
     // Update display
     urlDisplay.textContent = url;
     const mode = playModePreferences[queueName] ? ` (${playModePreferences[queueName]})` : '';
     title.textContent = 'Audio Preview: ' + url.split('/').pop() + mode;
-    
+
     // Show modal
     modal.style.display = 'flex';
-    
+
     // Play audio
     audio.play().catch(error => {
         console.error('Error playing audio:', error);
@@ -370,11 +381,11 @@ function playAudio(url, queueName = null) {
 function closeAudioPlayer() {
     const modal = document.getElementById('audio-player-modal');
     const audio = document.getElementById('audio-element');
-    
+
     // Stop audio
     audio.pause();
     audio.currentTime = 0;
-    
+
     // Hide modal
     modal.style.display = 'none';
 }
@@ -422,20 +433,20 @@ async function deleteStreamFromCard(queueName) {
     if (!confirm(`Are you sure you want to delete the queue "${queueName}"? This action cannot be undone.`)) {
         return;
     }
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/${queueName}`, {
             method: 'DELETE'
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to delete queue');
         }
-        
+
         // Reload managed streams to reflect the deletion
         await loadManagedStreams();
-        
+
         // Show success message briefly
         const container = document.getElementById('managed-streams');
         const message = document.createElement('div');
@@ -443,11 +454,11 @@ async function deleteStreamFromCard(queueName) {
         message.textContent = `Queue "${queueName}" deleted successfully!`;
         message.style.marginBottom = '1rem';
         container.insertBefore(message, container.firstChild);
-        
+
         setTimeout(() => {
             message.remove();
         }, 3000);
-        
+
     } catch (error) {
         console.error('Failed to delete queue:', error);
         alert('Failed to delete queue: ' + error.message);
@@ -457,11 +468,11 @@ async function deleteStreamFromCard(queueName) {
 async function openStreamScripter() {
     const modal = document.getElementById('stream-scripter-modal');
     modal.style.display = 'flex';
-    
+
     // Load available queues and files
     await loadStreamQueues();
     await loadAvailableFilesForScripter();
-    
+
     // Start with new queue
     startNewQueue();
 }
@@ -487,17 +498,17 @@ async function loadStreamQueues() {
         const data = await response.json();
 
         const editableQueues = (data.queues || []).filter(name => !RESERVED_QUEUES.includes(name));
-        
+
         const selector = document.getElementById('queue-selector');
         selector.innerHTML = '<option value="">-- Select Queue --</option>';
-        
+
         editableQueues.forEach(queueName => {
             const option = document.createElement('option');
             option.value = queueName;
             option.textContent = queueName;
             selector.appendChild(option);
         });
-        
+
         // Add change listener
         selector.onchange = async (e) => {
             if (e.target.value) {
@@ -516,10 +527,10 @@ async function loadAvailableFilesForScripter() {
         const response = await fetch(`${API_BASE}/audio/list`);
         const data = await response.json();
         availableFiles = data.files;
-        
+
         const container = document.getElementById('file-selector');
         container.innerHTML = '';
-        
+
         data.files.forEach(file => {
             const fileDiv = document.createElement('div');
             fileDiv.className = 'file-checkbox-item';
@@ -547,15 +558,15 @@ async function startNewQueue() {
         author: 'Yoto Smart Stream',
         coverImageId: null
     };
-    
+
     // Refresh queue list to ensure it's up to date
     await loadStreamQueues();
-    
+
     const queueNameValue = `stream-${crypto.randomUUID().split('-')[0]}`;
     document.getElementById('queue-selector').value = '';
     document.getElementById('queue-name').value = queueNameValue;
     document.getElementById('delete-queue-btn').style.display = 'none';
-    
+
     // Reset metadata fields
     document.getElementById('card-title').value = '';
     document.getElementById('card-description').value = '';
@@ -563,7 +574,7 @@ async function startNewQueue() {
     document.getElementById('card-cover-image').value = '';
     document.getElementById('cover-image-preview').style.display = 'none';
     document.getElementById('cover-image-status').style.display = 'none';
-    
+
     updateQueueDisplay();
     clearFileCheckboxes();
 }
@@ -578,14 +589,14 @@ async function loadQueueForEditing(queueName) {
     try {
         const response = await fetch(`${API_BASE}/streams/${queueName}/queue`);
         if (!response.ok) throw new Error('Failed to load queue');
-        
+
         const data = await response.json();
         currentQueueName = queueName;
         currentQueueFiles = [...data.files];
-        
+
         document.getElementById('queue-name').value = queueName;
         document.getElementById('delete-queue-btn').style.display = 'inline-block';
-        
+
         // Try to load metadata from session storage (from library import)
         if (typeof sessionStorage !== 'undefined') {
             const storedMetadata = sessionStorage.getItem(`stream_metadata_${queueName}`);
@@ -600,7 +611,7 @@ async function loadQueueForEditing(queueName) {
                 }
             }
         }
-        
+
         updateQueueDisplay();
         clearFileCheckboxes();
     } catch (error) {
@@ -612,9 +623,9 @@ async function loadQueueForEditing(queueName) {
 // Populate metadata fields from imported library card
 function populateMetadataFromImport(streamName, metadataParam = null) {
     console.log('[POPULATE METADATA] Starting for stream:', streamName);
-    
+
     let metadata = metadataParam;
-    
+
     // If no metadata provided, try to load from session storage
     if (!metadata && typeof sessionStorage !== 'undefined') {
         const storedMetadata = sessionStorage.getItem(`stream_metadata_${streamName}`);
@@ -628,38 +639,38 @@ function populateMetadataFromImport(streamName, metadataParam = null) {
             }
         }
     }
-    
+
     if (!metadata) {
         console.log('[POPULATE METADATA] No metadata found');
         return;
     }
-    
+
     // Populate form fields
     if (metadata.title) {
         document.getElementById('card-title').value = metadata.title;
         console.log('[POPULATE METADATA] ✓ Title:', metadata.title);
     }
-    
+
     if (metadata.description) {
         document.getElementById('card-description').value = metadata.description;
         console.log('[POPULATE METADATA] ✓ Description:', metadata.description);
     }
-    
+
     if (metadata.author) {
         document.getElementById('card-author').value = metadata.author;
         console.log('[POPULATE METADATA] ✓ Author:', metadata.author);
     }
-    
+
     if (metadata.coverImageId) {
         cardMetadata.coverImageId = metadata.coverImageId;
         console.log('[POPULATE METADATA] ✓ Cover image ID stored:', metadata.coverImageId);
         // Note: Cover image display requires fetching from Yoto API (future enhancement)
     }
-    
+
     // If we have chapter structure with titles, apply them
     if (metadata.chapters && metadata.chapters.length > 0) {
         console.log('[POPULATE METADATA] Applying chapter titles...');
-        
+
         // Wait a bit for the queue display to render
         setTimeout(() => {
             metadata.chapters.forEach((chapter, index) => {
@@ -671,7 +682,7 @@ function populateMetadataFromImport(streamName, metadataParam = null) {
             });
         }, 100);
     }
-    
+
     console.log('[POPULATE METADATA] ✓✓✓ Metadata population complete! ✓✓✓');
 }
 
@@ -704,31 +715,31 @@ function moveFileInQueue(fromIndex, toIndex) {
 function updateQueueDisplay() {
     const container = document.getElementById('queue-list');
     const countSpan = document.getElementById('queue-count');
-    
+
     // Use chapter structure if available, otherwise fall back to flat file list
     const itemCount = useChapterStructure ? currentChapters.length : currentQueueFiles.length;
     countSpan.textContent = itemCount;
-    
+
     if (itemCount === 0) {
         container.innerHTML = '<p style="color: #999; text-align: center; padding: 2rem;">No files added yet. Select files above to add them.</p>';
         return;
     }
-    
+
     container.innerHTML = '';
-    
+
     if (useChapterStructure) {
         // Display chapter structure with tracks
         currentChapters.forEach((chapter, chapterIndex) => {
             const chapterDiv = document.createElement('div');
             chapterDiv.className = 'chapter-item';
             chapterDiv.style.cssText = 'border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.75rem; padding: 0.75rem; background: #f9f9f9;';
-            
+
             chapterDiv.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
                     <span style="font-weight: 600; color: #666; font-size: 0.85rem;">Chapter ${chapterIndex + 1}</span>
-                    <input 
-                        type="text" 
-                        value="${escapeHtml(chapter.title)}" 
+                    <input
+                        type="text"
+                        value="${escapeHtml(chapter.title)}"
                         onchange="updateChapterTitle(${chapterIndex}, this.value)"
                         onclick="this.select()"
                         style="flex: 1; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 3px; font-size: 0.9rem;"
@@ -741,9 +752,9 @@ function updateQueueDisplay() {
                     ${chapter.tracks.map((track, trackIndex) => `
                         <div class="track-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem; background: white; border-radius: 3px; margin-bottom: 0.25rem;">
                             <span style="color: #999; font-size: 0.85rem; width: 60px;">Track ${trackIndex + 1}</span>
-                            <input 
-                                type="text" 
-                                value="${escapeHtml(track.title)}" 
+                            <input
+                                type="text"
+                                value="${escapeHtml(track.title)}"
                                 onchange="updateTrackTitle(${chapterIndex}, ${trackIndex}, this.value)"
                                 onclick="this.select()"
                                 style="flex: 1; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 3px; font-size: 0.85rem;"
@@ -764,18 +775,18 @@ function updateQueueDisplay() {
             item.className = 'queue-file-item';
             item.draggable = true;
             item.dataset.index = index;
-            
+
             // Extract clean filename without extension for default title
             const defaultTitle = file.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-            
+
             item.innerHTML = `
                 <span class="drag-handle">☰</span>
                 <div style="flex: 1; display: flex; flex-direction: column; gap: 0.25rem;">
-                    <input 
-                        type="text" 
-                        class="chapter-title-input" 
+                    <input
+                        type="text"
+                        class="chapter-title-input"
                         data-index="${index}"
-                        value="${escapeHtml(defaultTitle)}" 
+                        value="${escapeHtml(defaultTitle)}"
                         onchange="updateFileChapterTitle(${index}, this.value)"
                         onclick="this.select()"
                         style="padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 3px; font-size: 0.9rem; font-weight: 500;"
@@ -789,14 +800,14 @@ function updateQueueDisplay() {
                     <button class="btn-icon btn-remove" onclick="removeFileFromQueue(${index})">✕</button>
                 </div>
             `;
-            
+
             // Drag and drop handlers
             item.addEventListener('dragstart', handleDragStart);
             item.addEventListener('dragover', handleDragOver);
             item.addEventListener('drop', handleDrop);
             item.addEventListener('dragend', handleDragEnd);
             item.addEventListener('dragleave', handleDragLeave);
-            
+
             container.appendChild(item);
         });
     }
@@ -895,7 +906,7 @@ function handleDragOver(e) {
         e.preventDefault();
     }
     e.dataTransfer.dropEffect = 'move';
-    
+
     if (this !== draggedElement) {
         this.classList.add('drag-over');
     }
@@ -906,13 +917,13 @@ function handleDrop(e) {
     if (e.stopPropagation) {
         e.stopPropagation();
     }
-    
+
     if (draggedElement !== this) {
         const fromIndex = parseInt(draggedElement.dataset.index);
         const toIndex = parseInt(this.dataset.index);
         moveFileInQueue(fromIndex, toIndex);
     }
-    
+
     return false;
 }
 
@@ -942,13 +953,13 @@ function clearQueueSelection() {
 async function saveQueue() {
     const queueNameInput = document.getElementById('queue-name');
     const queueName = queueNameInput.value.trim();
-    
+
     // Validation
     if (!queueName) {
         showScripterResult('Please enter a queue name', 'error');
         return;
     }
-    
+
     if (!/^[a-zA-Z0-9-]+$/.test(queueName)) {
         showScripterResult('Queue name must contain only alphanumeric characters and hyphens', 'error');
         return;
@@ -958,12 +969,12 @@ async function saveQueue() {
         showScripterResult('This queue is reserved and cannot be edited', 'error');
         return;
     }
-    
+
     if (currentQueueFiles.length === 0) {
         showScripterResult('Please add at least one file to the queue', 'error');
         return;
     }
-    
+
     // Check for duplicate name (only if creating new or renaming)
     if (queueName !== currentQueueName) {
         try {
@@ -977,41 +988,41 @@ async function saveQueue() {
             console.error('Failed to check for duplicates:', error);
         }
     }
-    
+
     try {
         // If editing existing queue with different name, delete old one first
         if (currentQueueName && currentQueueName !== queueName) {
             await fetch(`${API_BASE}/streams/${currentQueueName}`, { method: 'DELETE' });
         }
-        
+
         // Clear the queue first (in case it exists)
         if (currentQueueName === queueName) {
             await fetch(`${API_BASE}/streams/${queueName}/queue`, { method: 'DELETE' });
         }
-        
+
         // Add files to queue
         const response = await fetch(`${API_BASE}/streams/${queueName}/queue`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ files: currentQueueFiles })
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to save queue');
         }
-        
+
         showScripterResult(`Queue "${queueName}" saved successfully!`, 'success');
         currentQueueName = queueName;
-        
+
         // Reload queues list and managed streams
         await loadStreamQueues();
         await loadManagedStreams();
-        
+
         // Update selector to show current queue
         document.getElementById('queue-selector').value = queueName;
         document.getElementById('delete-queue-btn').style.display = 'inline-block';
-        
+
     } catch (error) {
         console.error('Failed to save queue:', error);
         showScripterResult('Failed to save queue: ' + error.message, 'error');
@@ -1028,28 +1039,28 @@ async function confirmDeleteQueue() {
         showScripterResult('This queue is reserved and cannot be deleted', 'error');
         return;
     }
-    
+
     if (!confirm(`Are you sure you want to delete the queue "${currentQueueName}"? This action cannot be undone.`)) {
         return;
     }
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/${currentQueueName}`, {
             method: 'DELETE'
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to delete queue');
         }
-        
+
         showScripterResult(`Queue "${currentQueueName}" deleted successfully!`, 'success');
-        
+
         // Reload and reset
         await loadStreamQueues();
         await loadManagedStreams();
         startNewQueue();
-        
+
     } catch (error) {
         console.error('Failed to delete queue:', error);
         showScripterResult('Failed to delete queue: ' + error.message, 'error');
@@ -1061,10 +1072,10 @@ function previewCoverImage(input) {
     const preview = document.getElementById('cover-image-preview');
     const previewImg = document.getElementById('cover-image-preview-img');
     const statusDiv = document.getElementById('cover-image-status');
-    
+
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        
+
         // Validate file type
         if (!file.type.startsWith('image/')) {
             statusDiv.textContent = '⚠️ Please select an image file';
@@ -1073,7 +1084,7 @@ function previewCoverImage(input) {
             statusDiv.style.color = '#856404';
             return;
         }
-        
+
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
             statusDiv.textContent = '⚠️ Image must be smaller than 5MB';
@@ -1083,7 +1094,7 @@ function previewCoverImage(input) {
             input.value = '';
             return;
         }
-        
+
         const reader = new FileReader();
         reader.onload = function(e) {
             previewImg.src = e.target.result;
@@ -1105,22 +1116,22 @@ async function uploadCoverImage() {
     if (!fileInput.files || !fileInput.files[0]) {
         return null;
     }
-    
+
     const formData = new FormData();
     formData.append('image', fileInput.files[0]);
-    
+
     try {
         const response = await fetch(`${API_BASE}/media/cover-image`, {
             method: 'POST',
             body: formData,
             credentials: 'include'
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to upload cover image');
         }
-        
+
         const data = await response.json();
         return data.image_id;
     } catch (error) {
@@ -1133,26 +1144,26 @@ async function uploadCoverImage() {
 async function createCardFromQueue() {
     const queueNameInput = document.getElementById('queue-name');
     const queueName = queueNameInput.value.trim();
-    
+
     // Validation
     if (!queueName) {
         showScripterResult('Please enter a queue name', 'error');
         return;
     }
-    
+
     if (currentQueueFiles.length === 0 && currentChapters.length === 0) {
         showScripterResult('Please add at least one file to the queue', 'error');
         return;
     }
-    
+
     // Get metadata from form
     const title = document.getElementById('card-title').value.trim() || queueName;
     const description = document.getElementById('card-description').value.trim();
     const author = document.getElementById('card-author').value.trim() || 'Yoto Smart Stream';
-    
+
     try {
         showScripterResult('Creating card... Please wait', 'info');
-        
+
         // Upload cover image if provided
         let coverImageId = null;
         const fileInput = document.getElementById('card-cover-image');
@@ -1164,10 +1175,10 @@ async function createCardFromQueue() {
                 showScripterResult(`⚠️ Cover image upload failed: ${error.message}. Creating card without cover...`, 'warning');
             }
         }
-        
+
         // Build chapters array with custom titles
         const chapters = [];
-        
+
         if (useChapterStructure) {
             // Use structured chapter data
             currentChapters.forEach(chapter => {
@@ -1186,14 +1197,14 @@ async function createCardFromQueue() {
                 const titleInput = document.querySelector(`.chapter-title-input[data-index="${index}"]`);
                 const customTitle = titleInput ? titleInput.value.trim() : '';
                 const defaultTitle = filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-                
+
                 chapters.push({
                     filename: filename,
                     chapter_title: customTitle || defaultTitle
                 });
             });
         }
-        
+
         // Call playlist creation API
         const response = await fetch(`${API_BASE}/cards/create-playlist-from-audio`, {
             method: 'POST',
@@ -1210,18 +1221,18 @@ async function createCardFromQueue() {
                 cover_image_id: coverImageId
             }),
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Failed to create card');
         }
-        
+
         const result = await response.json();
         showScripterResult(`✓ Card "${title}" created successfully! Card ID: ${result.card_id}`, 'success');
-        
+
         // Refresh managed streams
         await loadManagedStreams();
-        
+
     } catch (error) {
         console.error('Failed to create card:', error);
         showScripterResult('Failed to create card: ' + error.message, 'error');
@@ -1249,7 +1260,7 @@ function selectPlayMode(queue, mode, button) {
             btn.style.color = btn.dataset.mode === mode ? 'white' : '';
         });
     }
-    
+
     // Persist preference locally for preview
     if (queue) {
         playModePreferences[queue] = mode;
@@ -1259,7 +1270,7 @@ function selectPlayMode(queue, mode, button) {
             // ignore storage errors
         }
     }
-    
+
     // Show mode description
     const modeDescriptions = {
         'sequential': 'Playing in order, once through',
@@ -1267,14 +1278,14 @@ function selectPlayMode(queue, mode, button) {
         'shuffle': 'Playing in random order, once through',
         'endless-shuffle': 'Shuffling forever (endless random play)'
     };
-    
+
     console.log(`📻 Smart Stream "${queue}" set to: ${modeDescriptions[mode] || mode}`);
 }
 
 function showScripterResult(message, type) {
     const resultDiv = document.getElementById('scripter-result');
     resultDiv.textContent = message;
-    
+
     // Support info, warning, error, and success types
     let className = 'result-message';
     if (type === 'error') {
@@ -1286,10 +1297,10 @@ function showScripterResult(message, type) {
     } else if (type === 'info') {
         className += ' info-message';
     }
-    
+
     resultDiv.className = className;
     resultDiv.style.display = 'block';
-    
+
     // Auto-hide after 5 seconds for non-error messages
     if (type !== 'info') {
         setTimeout(() => {
@@ -1305,17 +1316,17 @@ function openPlaylistModal(selectedStream = null) {
     const modal = document.getElementById('create-playlist-modal');
     const selector = document.getElementById('playlist-stream-selector');
     const resultDiv = document.getElementById('playlist-result');
-    
+
     // Clear previous results
     resultDiv.style.display = 'none';
     resultDiv.textContent = '';
-    
+
     // Clear form
     document.getElementById('playlist-name').value = '';
-    
+
     // Load available streams
     loadPlaylistStreamSelector(selectedStream);
-    
+
     // Show modal
     modal.style.display = 'flex';
 }
@@ -1327,25 +1338,25 @@ function closePlaylistModal() {
 
 async function loadPlaylistStreamSelector(selectedStream = null) {
     const selector = document.getElementById('playlist-stream-selector');
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/queues`);
         if (!response.ok) throw new Error('Failed to fetch streams');
-        
+
         const data = await response.json();
         const queues = data.queues || [];
-        
+
         // Filter out test-stream
         const availableStreams = queues.filter(q => q !== 'test-stream');
-        
+
         if (availableStreams.length === 0) {
             selector.innerHTML = '<option value="">No streams available. Create a stream first.</option>';
             return;
         }
-        
+
         selector.innerHTML = '<option value="">-- Select a stream --</option>' +
             availableStreams.map(q => `<option value="${escapeHtml(q)}">${escapeHtml(q)}</option>`).join('');
-        
+
         // Select the provided stream if available
         if (selectedStream && availableStreams.includes(selectedStream)) {
             selector.value = selectedStream;
@@ -1361,20 +1372,20 @@ async function createPlaylist() {
     const playlistName = document.getElementById('playlist-name').value.trim();
     const resultDiv = document.getElementById('playlist-result');
     const createBtn = document.querySelector('#create-playlist-modal .btn-primary');
-    
+
     if (!streamName) {
         showPlaylistResult('Please select a stream', 'error');
         return;
     }
-    
+
     if (!playlistName) {
         showPlaylistResult('Please enter a playlist name', 'error');
         return;
     }
-    
+
     createBtn.disabled = true;
     createBtn.textContent = 'Creating...';
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/${encodeURIComponent(streamName)}/create-playlist`, {
             method: 'POST',
@@ -1387,25 +1398,25 @@ async function createPlaylist() {
                 stream_name: streamName,
             }),
         });
-        
+
         const result = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(result.detail || 'Failed to create playlist');
         }
-        
+
         showPlaylistResult(
             `✅ Playlist "${playlistName}" created successfully! Playlist ID: ${result.playlist_id}`,
             'success'
         );
-        
+
         // Clear form and close modal after a delay
         setTimeout(() => {
             closePlaylistModal();
             // Reload managed streams to show any updates
             loadManagedStreams();
         }, 2000);
-        
+
     } catch (error) {
         console.error('Failed to create playlist:', error);
         showPlaylistResult('Failed to create playlist: ' + error.message, 'error');
@@ -1419,7 +1430,7 @@ async function deletePlaylist(playlistId) {
     if (!confirm('Are you sure you want to delete this playlist? This action cannot be undone.')) {
         return;
     }
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/playlists/${encodeURIComponent(playlistId)}`, {
             method: 'DELETE',
@@ -1428,17 +1439,17 @@ async function deletePlaylist(playlistId) {
             },
             credentials: 'include',
         });
-        
+
         const result = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(result.detail || 'Failed to delete playlist');
         }
-        
+
         // Show success message and reload
         alert('Playlist deleted successfully!');
         loadManagedStreams();
-        
+
     } catch (error) {
         console.error('Failed to delete playlist:', error);
         alert('Failed to delete playlist: ' + error.message);
@@ -1450,7 +1461,7 @@ function showPlaylistResult(message, type) {
     resultDiv.textContent = message;
     resultDiv.className = `result-message ${type === 'error' ? 'error-message' : 'success-message'}`;
     resultDiv.style.display = 'block';
-    
+
     if (type === 'error') {
         setTimeout(() => {
             resultDiv.style.display = 'none';
@@ -1482,20 +1493,20 @@ function closeDeletePlaylistModal() {
 async function searchPlaylistsForDelete() {
     const searchInput = document.getElementById('delete-playlist-search');
     const playlistName = searchInput.value.trim();
-    
+
     if (!playlistName) {
         alert('Please enter a playlist name to search for');
         return;
     }
-    
+
     const loadingDiv = document.getElementById('delete-playlist-loading');
     const resultsDiv = document.getElementById('delete-playlist-search-results');
     const resultMessageDiv = document.getElementById('delete-playlist-result');
-    
+
     loadingDiv.style.display = 'block';
     resultsDiv.style.display = 'none';
     resultMessageDiv.style.display = 'none';
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/playlists/search/${encodeURIComponent(playlistName)}`, {
             method: 'GET',
@@ -1504,26 +1515,26 @@ async function searchPlaylistsForDelete() {
             },
             credentials: 'include',
         });
-        
+
         const result = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(result.detail || 'Failed to search playlists');
         }
-        
+
         loadingDiv.style.display = 'none';
-        
+
         if (result.count === 0) {
             resultMessageDiv.textContent = `No playlists found matching "${playlistName}"`;
             resultMessageDiv.className = 'result-message info-message';
             resultMessageDiv.style.display = 'block';
             return;
         }
-        
+
         // Display results
         displayPlaylistSearchResults(result.playlists);
         resultsDiv.style.display = 'block';
-        
+
     } catch (error) {
         console.error('Failed to search playlists:', error);
         loadingDiv.style.display = 'none';
@@ -1537,16 +1548,16 @@ function displayPlaylistSearchResults(playlists) {
     const listDiv = document.getElementById('delete-playlist-list');
     const countSpan = document.getElementById('delete-playlist-count');
     const selectAllBtn = document.getElementById('select-all-delete-btn');
-    
+
     countSpan.textContent = playlists.length;
     selectAllBtn.style.display = playlists.length > 1 ? 'block' : 'none';
-    
+
     listDiv.innerHTML = playlists.map((playlist, index) => `
         <div class="playlist-item" style="padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem;">
             <div style="display: flex; align-items: flex-start; gap: 1rem;">
-                <input 
-                    type="checkbox" 
-                    id="playlist-${index}" 
+                <input
+                    type="checkbox"
+                    id="playlist-${index}"
                     data-playlist-id="${escapeHtml(playlist.id)}"
                     data-playlist-title="${escapeHtml(playlist.title)}"
                     onchange="updateDeleteSelection()"
@@ -1570,9 +1581,9 @@ function updateDeleteSelection() {
     const selectedCount = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]:checked').length;
     const selectedCountSpan = document.getElementById('delete-selected-count');
     const deleteBtn = document.getElementById('delete-confirm-btn');
-    
+
     selectedCountSpan.textContent = selectedCount;
-    
+
     if (selectedCount > 0) {
         deleteBtn.disabled = false;
         deleteBtn.style.opacity = '1';
@@ -1587,39 +1598,39 @@ function updateDeleteSelection() {
 function toggleSelectAllDelete() {
     const checkboxes = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]');
     const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-    
+
     checkboxes.forEach(cb => {
         cb.checked = !allChecked;
     });
-    
+
     updateDeleteSelection();
 }
 
 async function deleteSelectedPlaylists() {
     const checkboxes = document.querySelectorAll('#delete-playlist-list input[type="checkbox"]:checked');
-    
+
     if (checkboxes.length === 0) {
         alert('Please select at least one playlist to delete');
         return;
     }
-    
+
     const playlistIds = Array.from(checkboxes).map(cb => cb.dataset.playlistId);
     const playlistTitles = Array.from(checkboxes).map(cb => cb.dataset.playlistTitle);
-    
+
     const confirmMessage = `Are you sure you want to delete ${playlistIds.length} playlist(s)?\n\n` +
         playlistTitles.slice(0, 5).map(t => `• ${t}`).join('\n') +
         (playlistTitles.length > 5 ? `\n... and ${playlistTitles.length - 5} more` : '') +
         '\n\nThis action cannot be undone.';
-    
+
     if (!confirm(confirmMessage)) {
         return;
     }
-    
+
     const deleteBtn = document.getElementById('delete-confirm-btn');
     const originalText = deleteBtn.textContent;
     deleteBtn.disabled = true;
     deleteBtn.textContent = '⏳ Deleting...';
-    
+
     try {
         const response = await fetch(`${API_BASE}/streams/playlists/delete-multiple`, {
             method: 'POST',
@@ -1631,18 +1642,18 @@ async function deleteSelectedPlaylists() {
                 playlist_ids: playlistIds,
             }),
         });
-        
+
         const result = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(result.detail || 'Failed to delete playlists');
         }
-        
+
         // Show results
         const resultDiv = document.getElementById('delete-playlist-result');
         const successCount = result.success.length;
         const failedCount = result.failed.length;
-        
+
         let message = `✓ Successfully deleted ${successCount} playlist(s)`;
         if (failedCount > 0) {
             message += `\n\n✗ Failed to delete ${failedCount} playlist(s):\n`;
@@ -1650,11 +1661,11 @@ async function deleteSelectedPlaylists() {
                 message += `• ${f.playlist_id}: ${f.error}\n`;
             });
         }
-        
+
         resultDiv.textContent = message;
         resultDiv.className = 'result-message ' + (failedCount > 0 ? 'error-message' : 'success-message');
         resultDiv.style.display = 'block';
-        
+
         // Reset search after successful deletion
         if (successCount > 0) {
             setTimeout(() => {
@@ -1663,7 +1674,7 @@ async function deleteSelectedPlaylists() {
                 searchPlaylistsForDelete();
             }, 2000);
         }
-        
+
     } catch (error) {
         console.error('Failed to delete playlists:', error);
         const resultDiv = document.getElementById('delete-playlist-result');

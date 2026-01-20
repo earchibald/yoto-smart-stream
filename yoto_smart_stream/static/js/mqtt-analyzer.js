@@ -226,7 +226,7 @@ window.addEventListener('click', function (event) {
     if (event.target === jsonModal) {
         closeJsonViewer();
     }
-    
+
     const mqttModal = document.getElementById('mqttAnalyzerModal');
     if (event.target === mqttModal) {
         closeMQTTAnalyzer();
@@ -236,21 +236,40 @@ window.addEventListener('click', function (event) {
 // Close modals with Escape key
 window.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') {
-        const jsonModal = document.getElementById('jsonViewerModal');
-        if (jsonModal.style.display === 'block') {
-            closeJsonViewer();
+        // Find all visible modals and their z-indices
+        const modals = [
+            { id: 'jsonViewerModal', element: document.getElementById('jsonViewerModal'), close: closeJsonViewer },
+            { id: 'mqttAnalyzerModal', element: document.getElementById('mqttAnalyzerModal'), close: closeMQTTAnalyzer }
+        ];
+
+        // Filter to only visible modals
+        const visibleModals = modals.filter(m =>
+            m.element && m.element.style.display === 'block'
+        );
+
+        if (visibleModals.length === 0) return;
+
+        // Find the modal with the highest z-index
+        let topmostModal = visibleModals[0];
+        let highestZIndex = parseInt(window.getComputedStyle(topmostModal.element).zIndex) || 0;
+
+        for (const modal of visibleModals) {
+            const zIndex = parseInt(window.getComputedStyle(modal.element).zIndex) || 0;
+            if (zIndex > highestZIndex) {
+                highestZIndex = zIndex;
+                topmostModal = modal;
+            }
         }
-        const mqttModal = document.getElementById('mqttAnalyzerModal');
-        if (mqttModal.style.display === 'block') {
-            closeMQTTAnalyzer();
-        }
+
+        // Close only the topmost modal
+        topmostModal.close();
     }
 });
 
 function showJsonViewerFromElement(element) {
     const jsonStr = element.getAttribute('data-json');
     if (!jsonStr) return;
-    
+
     try {
         currentJsonData = JSON.parse(jsonStr.replace(/&quot;/g, '"'));
         const jsonViewerContent = document.getElementById('jsonViewerContent');
@@ -289,5 +308,3 @@ function copyJsonContent() {
         alert('Failed to copy JSON');
     });
 }
-
-
