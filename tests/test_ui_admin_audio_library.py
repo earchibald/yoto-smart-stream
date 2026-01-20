@@ -8,6 +8,7 @@ These tests verify:
 """
 
 import os
+import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -394,6 +395,196 @@ def test_escape_key_dashboard_modals(page: Page):
 
         # Modal should be closed
         expect(player_modal).not_to_be_visible()
+
+
+def test_audio_multiselect_toolbar(page: Page):
+    """Test that multi-select toolbar is present and functional."""
+    login(page)
+    page.goto(f"{BASE_URL}/audio-library")
+
+    # Wait for audio list to load
+    page.wait_for_selector("#audio-list", timeout=10000)
+
+    # Check for multi-select toolbar
+    toolbar = page.locator("#multi-select-toolbar")
+    expect(toolbar).to_be_visible()
+
+    # Check toolbar components
+    expect(page.locator("#select-all-checkbox")).to_be_visible()
+    expect(page.locator("#selected-count")).to_be_visible()
+    expect(page.locator("#batch-delete-btn")).to_be_visible()
+
+    # Initially, delete button should be disabled
+    expect(page.locator("#batch-delete-btn")).to_be_disabled()
+
+    # Check selected count shows 0
+    expect(page.locator("#selected-count")).to_contain_text("0 selected")
+
+
+def test_audio_file_checkboxes(page: Page):
+    """Test that audio files have checkboxes (except static files)."""
+    login(page)
+    page.goto(f"{BASE_URL}/audio-library")
+
+    # Wait for audio list to load
+    page.wait_for_selector("#audio-list .list-item", timeout=10000)
+
+    # Check that checkboxes exist
+    checkboxes = page.locator(".audio-checkbox")
+    expect(checkboxes.first).to_be_visible()
+
+    # Static files should not have checkboxes
+    static_files = page.locator(".list-item").filter(has_text="Static")
+    if static_files.count() > 0:
+        # Check that static file doesn't have checkbox
+        static_item = static_files.first
+        checkbox_in_static = static_item.locator(".audio-checkbox")
+        expect(checkbox_in_static).not_to_be_visible()
+
+
+def test_select_single_file(page: Page):
+    """Test selecting a single audio file."""
+    login(page)
+    page.goto(f"{BASE_URL}/audio-library")
+
+    # Wait for audio list to load
+    page.wait_for_selector("#audio-list .list-item", timeout=10000)
+
+    checkboxes = page.locator(".audio-checkbox")
+    if checkboxes.count() > 0:
+        # Select first file
+        checkboxes.first.check()
+
+        # Check selected count updates
+        expect(page.locator("#selected-count")).to_contain_text("1 selected")
+
+        # Delete button should be enabled
+        expect(page.locator("#batch-delete-btn")).not_to_be_disabled()
+
+        # File should have selected styling
+        first_item = page.locator(".list-item").filter(has=checkboxes.first)
+        expect(first_item).to_have_class(re.compile(r"selected"))
+
+
+def test_select_all_checkbox(page: Page):
+    """Test select all checkbox functionality."""
+    login(page)
+    page.goto(f"{BASE_URL}/audio-library")
+
+    # Wait for audio list to load
+    page.wait_for_selector("#audio-list .list-item", timeout=10000)
+
+    checkboxes = page.locator(".audio-checkbox")
+    checkbox_count = checkboxes.count()
+
+    if checkbox_count > 1:
+        # Click select all
+        select_all = page.locator("#select-all-checkbox")
+        select_all.check()
+
+        # Wait for selection
+        page.wait_for_timeout(500)
+
+        # All checkboxes should be checked
+        for i in range(checkbox_count):
+            expect(checkboxes.nth(i)).to_be_checked()
+
+        # Selected count should show all files
+        expect(page.locator("#selected-count")).to_contain_text(f"{checkbox_count} selected")
+
+        # Uncheck select all
+        select_all.uncheck()
+        page.wait_for_timeout(500)
+
+        # All checkboxes should be unchecked
+        for i in range(checkbox_count):
+            expect(checkboxes.nth(i)).not_to_be_checked()
+
+        # Selected count should be 0
+        expect(page.locator("#selected-count")).to_contain_text("0 selected")
+
+
+def test_select_all_indeterminate_state(page: Page):
+    """Test select all checkbox indeterminate state."""
+    login(page)
+    page.goto(f"{BASE_URL}/audio-library")
+
+    # Wait for audio list to load
+    page.wait_for_selector("#audio-list .list-item", timeout=10000)
+
+    checkboxes = page.locator(".audio-checkbox")
+    checkbox_count = checkboxes.count()
+
+    if checkbox_count > 1:
+        # Select only the first checkbox
+        checkboxes.first.check()
+        page.wait_for_timeout(500)
+
+        # Select all should be in indeterminate state
+        select_all = page.locator("#select-all-checkbox")
+        # In Playwright, we can check if indeterminate via JavaScript
+        is_indeterminate = select_all.evaluate("el => el.indeterminate")
+        assert is_indeterminate, "Select all checkbox should be indeterminate"
+
+
+def test_batch_delete_confirmation(page: Page):
+    """Test that batch delete shows confirmation modal."""
+    login(page)
+    page.goto(f"{BASE_URL}/audio-library")
+
+    # Wait for audio list to load
+    page.wait_for_selector("#audio-list .list-item", timeout=10000)
+
+    checkboxes = page.locator(".audio-checkbox")
+    if checkboxes.count() > 0:
+        # Select first file
+        checkboxes.first.check()
+        page.wait_for_timeout(500)
+
+        # Click batch delete button
+        page.locator("#batch-delete-btn").click()
+
+        # Confirmation modal should appear
+        modal = page.locator("#deleteConfirmModal")
+        expect(modal).to_be_visible()
+
+        # Check modal message
+        expect(page.locator("#deleteConfirmMessage")).to_contain_text("delete")
+
+        # Close modal with cancel button
+        page.locator("#deleteConfirmModal .btn-secondary").click()
+
+        # Modal should be closed
+        expect(modal).not_to_be_visible()
+
+
+def test_escape_closes_delete_modal(page: Page):
+    """Test that Escape key closes the batch delete confirmation modal."""
+    login(page)
+    page.goto(f"{BASE_URL}/audio-library")
+
+    # Wait for audio list to load
+    page.wait_for_selector("#audio-list .list-item", timeout=10000)
+
+    checkboxes = page.locator(".audio-checkbox")
+    if checkboxes.count() > 0:
+        # Select first file
+        checkboxes.first.check()
+        page.wait_for_timeout(500)
+
+        # Click batch delete button
+        page.locator("#batch-delete-btn").click()
+
+        # Confirmation modal should appear
+        modal = page.locator("#deleteConfirmModal")
+        expect(modal).to_be_visible()
+
+        # Press Escape key
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+
+        # Modal should be closed
+        expect(modal).not_to_be_visible()
 
 
 if __name__ == "__main__":
