@@ -15,7 +15,7 @@ from pathlib import Path
 # Add mcp-server to path
 sys.path.insert(0, str(Path(__file__).parent / "mcp-server"))
 
-from server import app, main, ADMIN_USERNAME, ADMIN_PASSWORD
+from server import mcp
 import mcp.types as types
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -33,8 +33,8 @@ async def test_server_startup():
     """Test that the MCP server starts without requiring YOTO_SERVICE_URL."""
     logger.info("Testing server startup (lazy initialization)...")
     try:
-        # Just verify the server app exists and has tools
-        tools = await app.list_tools()
+        # Just verify the server mcp exists and has tools
+        tools = await mcp.list_tools()
         logger.info(f"✅ Server has {len(tools)} tools available")
         
         tool_names = [tool.name for tool in tools]
@@ -144,15 +144,17 @@ async def test_query_library_tool():
             return False
         
         # Call the query_library tool
-        result = await app.call_tool(
+        result = await mcp.call_tool(
             "query_library",
             {
-                "service_url": SERVICE_URL,
-                "query": "how many cards are in the library?"
+                "params": {
+                    "service_url": SERVICE_URL,
+                    "query": "how many cards are in the library?"
+                }
             }
         )
         
-        logger.info(f"✅ query_library tool returned: {result[0].text[:100]}...")
+        logger.info(f"✅ query_library tool returned: {result[0][:100] if result else 'empty'}...")
         return True
         
     except Exception as e:
@@ -165,16 +167,33 @@ async def test_oauth_tool():
     logger.info("Testing oauth tool...")
     try:
         # Test deactivate first (safer)
-        result = await app.call_tool(
+        result = await mcp.call_tool(
             "oauth",
             {
-                "service_url": SERVICE_URL,
-                "action": "deactivate"
+                "params": {
+                    "service_url": SERVICE_URL,
+                    "action": "deactivate"
+                }
             }
         )
         
-        logger.info(f"✅ oauth tool (deactivate) returned: {result[0].text[:100]}...")
-        return True
+        # Result is a list of TextContent objects or strings
+        result_text = str(result[0]) if result else ""
+        
+        # Check if Status field is present in response
+        if "Status:" in result_text:
+            logger.info(f"✅ oauth tool returned structured response with Status field")
+            # Extract and verify status value
+            lines = result_text.split('\n')
+            for line in lines:
+                if line.startswith("Status:"):
+                    status_value = line.split(":", 1)[1].strip()
+                    logger.info(f"   Status value: {status_value}")
+                    return True
+            return True
+        else:
+            logger.warning(f"⚠️  oauth tool response missing Status field: {result_text[:100]}")
+            return False
         
     except Exception as e:
         logger.error(f"❌ oauth tool test failed: {e}")
