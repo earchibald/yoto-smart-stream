@@ -48,13 +48,13 @@ Yoto is an audio player system for children that uses physical cards to control 
 
 **Load these reference documents as needed:**
 
-- [📋 Yoto API Reference](../yoto-api-development/reference/yoto_api_reference.md) - Complete REST API specification with all endpoints, authentication flows, data structures, and code examples
-- [🔌 MQTT Deep Dive](../yoto-api-development/reference/yoto_mqtt_reference.md) - Real-time communication details including AWS IoT Core setup, topic structure, message formats, and event handling patterns
-- [🏗️ Architecture Guide](../yoto-api-development/reference/architecture.md) - Implementation recommendations, technology stack suggestions, system design patterns, and project structure
-- [❓ Planning Questions](../yoto-api-development/reference/planning_questions.md) - Strategic decisions and considerations for building Yoto applications
-- [🎨 Icon Management](../yoto-api-development/reference/icon_management.md) - Display icon management for Yoto Mini, including public icon repository access and custom icon uploads
-- [📝 Implementation Summary](../yoto-api-development/reference/implementation_summary.md) - Summary of recent implementation work including device capabilities and icon management features
-- [✅ Testing Guide](../yoto-api-development/reference/testing_guide.md) - Comprehensive automated functional testing approach with test-and-fix loop, patterns, and guardrails
+- [📋 Yoto API Reference](reference/yoto_api_reference.md) - Complete REST API specification with all endpoints, authentication flows, data structures, and code examples
+- [🔌 MQTT Deep Dive](reference/yoto_mqtt_reference.md) - Real-time communication details including AWS IoT Core setup, topic structure, message formats, and event handling patterns
+- [🏗️ Architecture Guide](reference/architecture.md) - Implementation recommendations, technology stack suggestions, system design patterns, and project structure
+- [⚛️ React Frontend](reference/react_frontend.md) - Modern React SPA architecture, components, API integration, and build process for the web UI
+- [🎨 Icon Management](reference/icon_management.md) - Display icon management for Yoto Mini, including public icon repository access and custom icon uploads
+- [🎵 Dynamic Streaming](reference/dynamic_streaming.md) - Audio streaming patterns, queue management, and CYOA implementation
+- [🔧 Service Operations](reference/service_operations.md) - Deployment, configuration, monitoring, and troubleshooting the running service
 
 ## Quick Start: Developer Implementation
 
