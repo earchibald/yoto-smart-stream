@@ -61,7 +61,17 @@ export const streamsApi = {
 // Health API
 export const healthApi = {
   check: () => api.get('/health'),
-  getMqttStatus: () => api.get('/health/mqtt'),
+  getMqttStatus: () => api.get<{ status: string; connected: boolean }>('/mqtt/status'),
+};
+
+// MQTT Events API
+export const mqttApi = {
+  getRecentEvents: (limit: number = 50) => api.get(`/mqtt/events?limit=${limit}`),
+};
+
+// System API
+export const systemApi = {
+  getVersion: () => api.get<{ version: string }>('/health'),
 };
 
 export default api;

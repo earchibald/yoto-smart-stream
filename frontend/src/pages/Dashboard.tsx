@@ -3,30 +3,50 @@ import { Header } from '@/components/Header';
 import { DeviceCard } from '@/components/DeviceCard';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
+import { MQTTEventLog } from '@/components/MQTTEventLog';
 import { useAuth } from '@/contexts/AuthContext';
-import { playersApi, healthApi } from '@/api/client';
-import type { Player } from '@/types';
+import { playersApi, healthApi, mqttApi, systemApi } from '@/api/client';
+import type { Player, MQTTEvent } from '@/types';
 
 export const Dashboard: React.FC = () => {
   const { authStatus, deviceFlow, startAuth } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [mqttStatus, setMqttStatus] = useState<string>('Unknown');
+  const [mqttConnected, setMqttConnected] = useState(false);
+  const [mqttEvents, setMqttEvents] = useState<MQTTEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [environment, setEnvironment] = useState('Live');
+  const [showMqttLog, setShowMqttLog] = useState(false);
+
+  useEffect(() => {
+    loadEnvironment();
+  }, []);
 
   useEffect(() => {
     if (authStatus?.authenticated) {
       loadPlayers();
       checkMqttStatus();
+      loadMqttEvents();
 
       // Poll for updates every 10 seconds
       const interval = setInterval(() => {
         loadPlayers();
         checkMqttStatus();
+        loadMqttEvents();
       }, 10000);
 
       return () => clearInterval(interval);
     }
   }, [authStatus?.authenticated]);
+
+  const loadEnvironment = async () => {
+    try {
+      const envName = import.meta.env.VITE_ENVIRONMENT || 'Live';
+      setEnvironment(envName);
+    } catch (error) {
+      console.error('Failed to load environment:', error);
+    }
+  };
 
   const loadPlayers = async () => {
     try {
@@ -42,9 +62,20 @@ export const Dashboard: React.FC = () => {
   const checkMqttStatus = async () => {
     try {
       const response = await healthApi.getMqttStatus();
-      setMqttStatus(response.data.status || 'Connected');
+      setMqttConnected(response.data.connected || false);
+      setMqttStatus(response.data.connected ? 'Connected' : 'Disconnected');
     } catch (error) {
       setMqttStatus('Disconnected');
+      setMqttConnected(false);
+    }
+  };
+
+  const loadMqttEvents = async () => {
+    try {
+      const response = await mqttApi.getRecentEvents(50);
+      setMqttEvents(response.data);
+    } catch (error) {
+      console.error('Failed to load MQTT events:', error);
     }
   };
 
@@ -125,9 +156,13 @@ export const Dashboard: React.FC = () => {
 
           <Card>
             <div className="flex items-center gap-4">
-              <div className="text-4xl">🔌</div>
+              <div className={`text-4xl ${mqttConnected ? 'animate-pulse' : 'opacity-50'}`}>
+                🔌
+              </div>
               <div>
-                <h3 className="text-3xl font-bold text-gray-900">{mqttStatus}</h3>
+                <h3 className={`text-3xl font-bold ${mqttConnected ? 'text-green-600' : 'text-red-600'}`}>
+                  {mqttStatus}
+                </h3>
                 <p className="text-gray-600">MQTT Status</p>
               </div>
             </div>
@@ -137,7 +172,7 @@ export const Dashboard: React.FC = () => {
             <div className="flex items-center gap-4">
               <div className="text-4xl">🌍</div>
               <div>
-                <h3 className="text-3xl font-bold text-gray-900">Live</h3>
+                <h3 className="text-3xl font-bold text-gray-900">{environment}</h3>
                 <p className="text-gray-600">Environment</p>
               </div>
             </div>
@@ -167,6 +202,68 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Quick Actions */}
+        {authStatus?.authenticated && (
+          <div>
+            <h3 className="text-xl font-semibold mb-4">Quick Actions</h3>
+            <Card>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => window.location.href = '/streams'}
+                  className="flex flex-col items-center justify-center p-4 h-auto"
+                >
+                  <span className="text-3xl mb-2">✨</span>
+                  <span className="text-sm">Manage Streams</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => window.location.href = '/audio-library'}
+                  className="flex flex-col items-center justify-center p-4 h-auto"
+                >
+                  <span className="text-3xl mb-2">🎙️</span>
+                  <span className="text-sm">Audio Library</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => window.location.href = '/library'}
+                  className="flex flex-col items-center justify-center p-4 h-auto"
+                >
+                  <span className="text-3xl mb-2">📚</span>
+                  <span className="text-sm">Yoto Library</span>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowMqttLog(!showMqttLog)}
+                  className="flex flex-col items-center justify-center p-4 h-auto"
+                >
+                  <span className="text-3xl mb-2">📡</span>
+                  <span className="text-sm">{showMqttLog ? 'Hide' : 'Show'} Events</span>
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* MQTT Event Log */}
+        {showMqttLog && authStatus?.authenticated && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold">Recent MQTT Events</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadMqttEvents}
+              >
+                🔄 Refresh
+              </Button>
+            </div>
+            <Card>
+              <MQTTEventLog events={mqttEvents} />
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );
