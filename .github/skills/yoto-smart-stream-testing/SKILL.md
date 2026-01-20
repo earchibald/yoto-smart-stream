@@ -786,7 +786,7 @@ def test_get_player_volume_invalid_id(client, auth_token):
 
 - **Project Docs**: See `/docs` folder for additional guides
 - **Service Operations**: See [yoto-smart-stream-service skill](../yoto-smart-stream-service/SKILL.md)
-- **API Development**: See [yoto-api-development skill](../yoto-api-development/SKILL.md)
+- **API Development**: See [yoto-smart-stream skill](../yoto-smart-stream/SKILL.md)
 - **Example Tests**: See `/tests` folder for test examples
 - **Playwright Docs**: https://playwright.dev/python/docs/intro
 - **pytest Docs**: https://docs.pytest.org/

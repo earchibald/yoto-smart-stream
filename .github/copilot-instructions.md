@@ -70,7 +70,7 @@ This workspace contains locally-maintained custom skills in `.github/skills/`. T
 
 **How to Update Skills:**
 
-1. **Identify the relevant skill** - Determine which skill (`railway-service-management` or `yoto-api-development`) the new information relates to
+1. **Identify the relevant skill** - Determine which skill (`railway-service-management` or `yoto-smart-stream`) the new information relates to
 2. **Locate the appropriate file** - Skills have a main `SKILL.md` and reference docs in `reference/` subdirectories
 3. **Update the documentation** - Add or correct information in the relevant file(s)
 4. **Be specific** - Include examples, code snippets, or command syntax where applicable

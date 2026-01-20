@@ -938,6 +938,6 @@ railway variables delete TRANSCRIPTION_ENABLED
 - **Project Documentation:** See `/docs` folder for detailed guides
 - **Testing Guide:** See [yoto-smart-stream-testing skill](../../yoto-smart-stream-testing/SKILL.md)
 - **Railway Management:** See [railway-service-management skill](../../railway-service-management/SKILL.md)
-- **API Development:** See [yoto-api-development skill](../../yoto-api-development/SKILL.md)
+- **API Development:** See [yoto-smart-stream skill](../SKILL.md)
 - **Example Code:** See `/examples` folder for working implementations
 - **Test Suite:** See `/tests` folder for test examples

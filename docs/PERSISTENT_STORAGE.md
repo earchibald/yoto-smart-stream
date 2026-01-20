@@ -147,4 +147,4 @@ Then restart the application and log in again.
 
 - [Railway Platform Fundamentals](../.github/skills/railway-service-management/reference/platform_fundamentals.md) - Volume concepts and best practices
 - [Railway Deployment Guide](RAILWAY_DEPLOYMENT.md) - Full deployment setup
-- [Yoto API Development](../.github/skills/yoto-api-development/SKILL.md) - OAuth and authentication details
+- [Yoto API Development](../.github/skills/yoto-smart-stream/SKILL.md) - OAuth and authentication details

@@ -470,14 +470,17 @@ The MCP server (`mcp-server/` directory) provides:
 - In-memory auth cookie caching per host
 - Search cards by title, author, or metadata
 - List playlists and their contents
-- Yoto OAuth activation/deactivation
+- Yoto OAuth activation/deactivation with structured Status responses
 - Direct integration with VS Code, Claude Desktop, and other MCP clients
+
+**Status Field** (v0.1.4+): All oauth responses include a Status field (success, pending, error, expired) for programmatic handling
 
 ## Quick Reference
 
-**Version**: 0.1.2 (Stable)  
+**Version**: 0.1.4 (Stable)  
 **Package**: `yoto-library-mcp`  
 **Location**: `mcp-server/` directory  
+**Framework**: FastMCP (mcp.server.fastmcp)
 **Entry Point**: `server:sync_main`
 
 ### Available Tools
