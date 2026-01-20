@@ -4,6 +4,9 @@
 
 This is the Yoto Smart Stream project - a service to stream audio to Yoto devices, monitor events via MQTT, and manage interactive audio experiences. The project includes Python/FastAPI backend, web UI components, and Railway deployment infrastructure.
 
+## Guardrails
+- **NEVER** write outside of the workspace. use tmp/ in the workspace for temporary files.
+
 ## Code Style and Conventions
 
 - **Language**: Python 3.9+

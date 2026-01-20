@@ -334,12 +334,11 @@ async def generate_tts_audio(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="ElevenLabs API key not configured. Please contact the administrator.",
         )
-            "Transcription disabled in settings",
     # Sanitize filename - remove any path separators and special chars
     filename = request.filename.strip()
     # Remove file extension if provided
-            detail="Transcription is disabled in Settings. Open Admin → System Settings to enable.",
-        filename = filename[:-4]
+    if filename.lower().endswith((".mp3", ".webm", ".wav", ".ogg", ".m4a")):
+        filename = os.path.splitext(filename)[0]
 
     # Only allow alphanumeric, hyphens, underscores, and spaces
     # Replace spaces with hyphens for better shell/URL compatibility

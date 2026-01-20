@@ -71,6 +71,72 @@ The Smart Stream service provides endpoints to stitch multiple audio files toget
 
 Export parameters: MP3 mono, 44.1 kHz, 192 kbps. Single active task per user is enforced in single-instance deployments. Completed tasks auto-clean after 10 minutes.
 
+#### Audio Transcription
+
+The Smart Stream service provides speech-to-text transcription for uploaded audio files using OpenAI's Whisper or ElevenLabs models (configurable). Transcription is **disabled by default** and can be enabled via Admin UI or environment variable.
+
+**Transcription Endpoints:**
+
+- `POST /api/audio/{filename}/transcribe`: Request transcription of an uploaded audio file
+  - **Status**: Async operation returns immediately with task status
+  - **Response**: `{ task_id, status: "processing", filename, estimated_time_seconds? }`
+  - **Error Responses**:
+    - `400 Bad Request` if transcription is disabled: `{ detail: "Transcription is disabled in Settings. Open Admin → System Settings to enable." }`
+    - `404 Not Found` if audio file doesn't exist
+  - **Background**: Transcription runs asynchronously; UI polls for completion via WebSocket or status endpoint
+
+- `GET /api/audio/{filename}`: Retrieve audio file metadata including transcription status and text
+  - **Response**: `{ filename, duration_seconds, transcription: { status, text?, error? }, ... }`
+  - **Status Values**: `"pending"` (queued), `"processing"` (in progress), `"completed"` (with text), `"disabled"` (feature off), `"error"` (failure reason in error field)
+
+**Settings-Based Configuration:**
+
+Transcription enablement follows this priority:
+
+1. **Environment Variable** (highest priority): `TRANSCRIPTION_ENABLED=true/false`
+2. **Database Setting** (Admin UI toggle): Stored in app config
+3. **Default**: Disabled to minimize container size
+
+All transcription endpoints compute the effective setting at request time:
+
+```python
+# Effective setting (env override > DB setting)
+effective_enabled = (
+    env.TRANSCRIPTION_ENABLED 
+    if env.TRANSCRIPTION_ENABLED is not None
+    else db_config.transcription_enabled
+)
+
+if not effective_enabled:
+    raise HTTPException(
+        status_code=400,
+        detail="Transcription is disabled in Settings. Open Admin → System Settings to enable."
+    )
+```
+
+**User Experience Flow (Settings-Based):**
+
+1. User attempts transcription via Audio Library UI
+2. If transcription disabled:
+   - Audio Library displays error message with deep-link
+   - Link routes to `/admin?focus=settings` (Admin UI with Settings section auto-focused)
+3. User navigates to Admin → System Settings
+   - Settings section scrolls into view and focuses transcription toggle
+   - User enables transcription via toggle
+   - Settings auto-save to database
+4. User returns to Audio Library and retries transcription
+5. First transcription downloads the selected model (~200MB-1GB)
+6. Subsequent transcriptions use cached model for faster processing
+
+**Model Selection:**
+
+Available transcription models (set via Admin UI or `TRANSCRIPTION_MODEL` env var):
+- `tiny` (~39MB, ~1 min per 10min audio)
+- `base` (default, ~140MB, ~10-30 sec per 10min audio)
+- `small` (~461MB, ~5-10 sec per 10min audio)
+- `medium` (~1.5GB, ~2-5 sec per 10min audio)
+- `large` (~2.9GB, ~1-2 sec per 10min audio)
+
 ## Authentication
 
 ### OAuth2 Device Flow

@@ -671,10 +671,32 @@ railway logs --tail 100 | grep -i mqtt
 
 Transcription is **disabled by default** to keep container builds fast and small. Whisper models and dependencies are large (~1-2GB).
 
-**To Enable:**
+**User Experience (Settings-Based):**
+
+When a user attempts to transcribe an audio file with transcription disabled:
+1. Audio Library displays error: "Transcription is disabled in Settings. Open Admin → System Settings to enable."
+2. User can click the link or manually navigate to Admin UI
+3. Admin UI loads with deep-link to Settings section (`?focus=settings` query param)
+4. Settings section automatically scrolls into view and focuses the transcription toggle
+5. User enables transcription via toggle
+6. User returns to Audio Library and retries transcription
+7. First transcription downloads the Whisper model (~200MB-1GB depending on choice)
+8. Subsequent transcriptions use cached model
+
+**To Enable (Admin UI):**
+
+1. Go to Admin UI: **System Settings** section
+2. Toggle **Enable Transcription** to **On**
+3. (Optional) Choose model from dropdown: tiny, base (default), small, medium, large
+4. Settings auto-save to database
+5. **Note:** If environment variable `TRANSCRIPTION_ENABLED=false`, it overrides the setting
+
+**To Enable (Environment Override):**
+
+For deployments where transcription must always be enabled (overrides Settings UI):
 
 ```bash
-# 1. Set environment variable
+# Set environment variable (highest priority)
 railway variables set TRANSCRIPTION_ENABLED=true
 
 # 2. (Optional) Choose model
@@ -688,7 +710,32 @@ railway up
 railway logs --tail 50 | grep -i transcription
 ```
 
-**Note:** First transcription will download model (~200MB-1GB depending on choice). Subsequent transcriptions use cached model.
+**Priority Order (Effective Setting):**
+
+1. Environment variable `TRANSCRIPTION_ENABLED` (if set)
+2. Database setting (Admin UI toggle)
+3. Default: disabled
+
+**Backend Implementation:**
+
+All transcription endpoints compute the effective `transcription_enabled` value:
+
+```python
+# Effective setting computation (env override > DB setting)
+transcription_enabled = (
+    settings.transcription_enabled 
+    if settings.transcription_enabled is not None
+    else config.transcription_enabled_db
+)
+
+if not transcription_enabled:
+    raise HTTPException(
+        status_code=400,
+        detail="Transcription is disabled in Settings. Open Admin → System Settings to enable."
+    )
+```
+
+The `TranscriptionService` reinitializes whenever the effective setting changes (enabled/disabled state, model choice, or API key), ensuring config changes take effect immediately without restarting the service.
 
 ### Slow Performance
 
