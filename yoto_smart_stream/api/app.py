@@ -10,9 +10,9 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings, log_configuration
@@ -283,7 +283,13 @@ def create_app() -> FastAPI:
 
     @app.get("/login", tags=["Web UI"])
     async def login_page():
-        """Serve the login page."""
+        """Serve the login page (fallback to React app)."""
+        # Check for React build first
+        react_index = static_dir / "dist" / "index.html"
+        if react_index.exists():
+            return FileResponse(react_index)
+
+        # Fallback to old login page
         login_path = static_dir / "login.html"
         if login_path.exists():
             return FileResponse(login_path)
@@ -291,7 +297,12 @@ def create_app() -> FastAPI:
 
     @app.get("/", tags=["Web UI"])
     async def root():
-        """Serve the admin dashboard web UI."""
+        """Serve the React app."""
+        react_index = static_dir / "dist" / "index.html"
+        if react_index.exists():
+            return FileResponse(react_index)
+
+        # Fallback to old index.html
         index_path = static_dir / "index.html"
         if index_path.exists():
             return FileResponse(index_path)
@@ -304,7 +315,10 @@ def create_app() -> FastAPI:
 
     @app.get("/streams", tags=["Web UI"])
     async def streams_ui():
-        """Serve the music streams interface."""
+        """Serve the React app for streams page."""
+        react_index = static_dir / "dist" / "index.html"
+        if react_index.exists():
+            return FileResponse(react_index)
         streams_path = static_dir / "streams.html"
         if streams_path.exists():
             return FileResponse(streams_path)
@@ -312,11 +326,36 @@ def create_app() -> FastAPI:
 
     @app.get("/library", tags=["Web UI"])
     async def library_ui():
-        """Serve the library viewer interface."""
+        """Serve the React app for library page."""
+        react_index = static_dir / "dist" / "index.html"
+        if react_index.exists():
+            return FileResponse(react_index)
         library_path = static_dir / "library.html"
         if library_path.exists():
             return FileResponse(library_path)
         return {"message": "Library UI not available", "docs": "/docs"}
+
+    @app.get("/audio", tags=["Web UI"])
+    async def audio_ui():
+        """Serve the React app for audio library page."""
+        react_index = static_dir / "dist" / "index.html"
+        if react_index.exists():
+            return FileResponse(react_index)
+        audio_path = static_dir / "audio-library.html"
+        if audio_path.exists():
+            return FileResponse(audio_path)
+        return {"message": "Audio Library UI not available", "docs": "/docs"}
+
+    @app.get("/admin", tags=["Web UI"])
+    async def admin_ui():
+        """Serve the React app for admin page."""
+        react_index = static_dir / "dist" / "index.html"
+        if react_index.exists():
+            return FileResponse(react_index)
+        admin_path = static_dir / "admin.html"
+        if admin_path.exists():
+            return FileResponse(admin_path)
+        return {"message": "Admin UI not available", "docs": "/docs"}
 
     @app.get("/audio-library", tags=["Web UI"])
     async def audio_library_ui():
@@ -360,18 +399,11 @@ def create_app() -> FastAPI:
     async def get_audio_preview(preview_id: str):
         """Serve temporary preview audio stored in /tmp, auto-deleted via cleanup endpoint."""
         from pathlib import Path
+
         temp_path = Path("/tmp") / f"preview_{preview_id}.mp3"
         if not temp_path.exists():
             return JSONResponse(status_code=404, content={"detail": "Preview not found"})
         return FileResponse(str(temp_path), media_type="audio/mpeg")
-
-    @app.get("/admin", tags=["Web UI"])
-    async def admin_ui():
-        """Serve the admin interface."""
-        admin_path = static_dir / "admin.html"
-        if admin_path.exists():
-            return FileResponse(admin_path)
-        return {"message": "Admin UI not available", "docs": "/docs"}
 
     @app.get("/api/status", tags=["General"])
     async def api_status():
@@ -412,12 +444,14 @@ async def stitch_progress_ws(websocket: WebSocket, task_id: str):
             return
 
         # Send initial snapshot
-        await websocket.send_json({
-            "event": "snapshot",
-            "status": task.get("status"),
-            "progress": task.get("progress"),
-            "current_file": task.get("current_file"),
-        })
+        await websocket.send_json(
+            {
+                "event": "snapshot",
+                "status": task.get("status"),
+                "progress": task.get("progress"),
+                "current_file": task.get("current_file"),
+            }
+        )
 
         queue = task.get("queue")
         # Stream events until task finishes or client disconnects
@@ -434,12 +468,14 @@ async def stitch_progress_ws(websocket: WebSocket, task_id: str):
                 if not current:
                     await websocket.send_json({"event": "error", "message": "Task missing"})
                     break
-                await websocket.send_json({
-                    "event": "heartbeat",
-                    "status": current.get("status"),
-                    "progress": current.get("progress"),
-                    "current_file": current.get("current_file"),
-                })
+                await websocket.send_json(
+                    {
+                        "event": "heartbeat",
+                        "status": current.get("status"),
+                        "progress": current.get("progress"),
+                        "current_file": current.get("current_file"),
+                    }
+                )
                 if current.get("status") in {"completed", "failed", "cancelled"}:
                     break
     except WebSocketDisconnect:

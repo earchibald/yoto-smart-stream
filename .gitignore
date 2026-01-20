@@ -89,3 +89,12 @@ user_data/
 recordings/
 .playwright-mcp/
 .yoto_refresh_token
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+
+# Build artifacts
+yoto_smart_stream/static/dist/
