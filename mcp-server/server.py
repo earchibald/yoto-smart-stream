@@ -93,25 +93,29 @@ def configure_from_args():
     args = parse_args()
 
     # Priority: CLI args > environment variables > defaults
-    YOTO_SERVICE_URL = (
-        args.url or os.getenv("YOTO_SERVICE_URL") or "http://localhost:8000"
-    )
+    # NOTE: YOTO_SERVICE_URL is optional - can be provided at startup or per-tool call
+    YOTO_SERVICE_URL = args.url or os.getenv("YOTO_SERVICE_URL") or ""
     ADMIN_USERNAME = args.username or os.getenv("ADMIN_USERNAME") or "admin"
     ADMIN_PASSWORD = args.password or os.getenv("ADMIN_PASSWORD") or ""
     YOTO_USERNAME = os.getenv("YOTO_USERNAME") or ""
     YOTO_PASSWORD = os.getenv("YOTO_PASSWORD") or ""
 
-    logger.info(f"Configured to connect to: {YOTO_SERVICE_URL}")
-    logger.info(f"Using username: {ADMIN_USERNAME}")
+    # Only log if YOTO_SERVICE_URL was provided
+    if YOTO_SERVICE_URL:
+        logger.info(f"Default service URL: {YOTO_SERVICE_URL}")
+    else:
+        logger.info("No default service URL provided - service_url required in tool calls")
+    
+    logger.info(f"Using admin username: {ADMIN_USERNAME}")
 
     if not ADMIN_PASSWORD:
-        logger.warning("No password provided! Authentication may fail.")
+        logger.warning("No admin password provided! Tool calls may fail.")
         logger.warning(
             "Set ADMIN_PASSWORD environment variable or use --password argument."
         )
 
     if YOTO_USERNAME and YOTO_PASSWORD:
-        logger.info("Yoto OAuth credentials configured for automated login")
+        logger.info("Yoto OAuth credentials available for automated login")
 
 
 # Create MCP server
@@ -650,7 +654,9 @@ async def main():
     configure_from_args()
 
     logger.info("Yoto Library MCP Server starting...")
-    logger.info(f"Connecting to: {YOTO_SERVICE_URL}")
+    if YOTO_SERVICE_URL:
+        logger.info(f"Default service URL: {YOTO_SERVICE_URL}")
+    logger.info("Waiting for tool calls on stdio transport...")
 
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await app.run(
