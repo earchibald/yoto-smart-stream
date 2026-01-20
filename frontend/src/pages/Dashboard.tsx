@@ -3,17 +3,15 @@ import { Header } from '@/components/Header';
 import { DeviceCard } from '@/components/DeviceCard';
 import { Card } from '@/components/Card';
 import { Button } from '@/components/Button';
-import { MQTTEventLog } from '@/components/MQTTEventLog';
 import { useAuth } from '@/contexts/AuthContext';
 import { playersApi, healthApi, authApi } from '@/api/client';
-import type { Player, MQTTEvent } from '@/types';
+import type { Player } from '@/types';
 
 export const Dashboard: React.FC = () => {
   const { authStatus, deviceFlow, startAuth } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
   const [mqttStatus, setMqttStatus] = useState<string>('Unknown');
   const [mqttConnected, setMqttConnected] = useState(false);
-  const [mqttEvents, setMqttEvents] = useState<MQTTEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [environment, setEnvironment] = useState('Live');
   const [showMqttLog, setShowMqttLog] = useState(false);
@@ -79,7 +77,7 @@ export const Dashboard: React.FC = () => {
   const loadMqttEvents = async () => {
     // MQTT events endpoint not yet implemented in backend
     // Placeholder for future implementation
-    setMqttEvents([]);
+    // Will be used when MQTT events API is available
   };
 
   const handleLogout = async () => {

@@ -3,7 +3,8 @@
 
 [build]
 # Build the React frontend before deploying
-buildCommand = "cd frontend && npm install && npm run build && cd .."
+# Use --include=dev to ensure devDependencies (including @types/react) are installed
+buildCommand = "cd frontend && npm install --include=dev && npm run build && cd .."
 
 [deploy]
 # Health check endpoint

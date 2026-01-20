@@ -13,7 +13,7 @@ interface SystemInfo {
 }
 
 export const Admin: React.FC = () => {
-  const { authStatus, logout } = useAuth();
+  const { authStatus } = useAuth();
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
