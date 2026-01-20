@@ -20,6 +20,11 @@ router = APIRouter()
 _volume_cache: dict[str, tuple[int, float]] = {}
 VOLUME_CACHE_TTL = 5.0  # seconds
 
+# Library cache: timestamp of last library update
+# This prevents slow library fetches from blocking player list requests
+_library_last_updated: float = 0
+LIBRARY_CACHE_TTL = 300.0  # 5 minutes
+
 
 # Request/Response models
 class PlayerInfo(BaseModel):
@@ -442,11 +447,18 @@ async def list_players(user: User = Depends(require_auth)):
         # Refresh player status
         client.update_player_status()
 
-        # Update library to get card metadata
-        try:
-            client.update_library()
-        except Exception as e:
-            logger.warning(f"Failed to update library: {e}")
+        # Update library to get card metadata (only if cache is stale)
+        global _library_last_updated
+        current_time = time.time()
+        if current_time - _library_last_updated > LIBRARY_CACHE_TTL:
+            try:
+                logger.debug("Library cache stale, refreshing...")
+                client.update_library()
+                _library_last_updated = current_time
+            except Exception as e:
+                logger.warning(f"Failed to update library: {e}")
+        else:
+            logger.debug(f"Using cached library (age: {current_time - _library_last_updated:.1f}s)")
 
         manager = client.get_manager()
 

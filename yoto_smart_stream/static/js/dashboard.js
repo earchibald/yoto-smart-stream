@@ -315,7 +315,15 @@ async function loadPlayers() {
     isLoadingPlayers = true;
 
     try {
-        const response = await fetch(`${API_BASE}/players`);
+        // Add 8-second timeout to prevent indefinite hangs
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const response = await fetch(`${API_BASE}/players`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
         if (!response.ok) throw new Error('Failed to fetch players');
 
         const players = await response.json();
@@ -433,8 +441,19 @@ async function loadPlayers() {
         });
     } catch (error) {
         console.error('Error loading players:', error);
-        document.getElementById('players-list').innerHTML =
-            `<p class="error">Failed to load players: ${error.message}</p>`;
+        const statusEl = document.getElementById('status');
+        const statusTextEl = document.getElementById('status-text');
+        statusEl.classList.add('error');
+
+        if (error.name === 'AbortError') {
+            statusTextEl.textContent = 'Timeout (retrying...)';
+            // Retry after a short delay
+            setTimeout(() => loadPlayers(), 2000);
+        } else {
+            statusTextEl.textContent = 'Error';
+            document.getElementById('players-list').innerHTML =
+                `<p class="error">Failed to load players: ${error.message}</p>`;
+        }
     } finally {
         isLoadingPlayers = false;
     }
