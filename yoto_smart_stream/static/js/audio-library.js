@@ -284,42 +284,60 @@ async function loadAudioFiles() {
 
         if (files.length === 0) {
             container.innerHTML = '<p class="loading">No audio files found. Add MP3 files to the audio_files directory or generate TTS audio below.</p>';
+            hideMultiSelectToolbar();
             return;
         }
 
         container.innerHTML = files.map(file => {
             const transcriptBadge = getTranscriptBadge(file);
+            const canDelete = !file.is_static;
 
             return `
-                <div class="list-item" data-filename="${escapeHtml(file.filename)}">
-                    <div class="list-item-header">
-                        <span class="list-item-title">
-                            🎵 ${escapeHtml(file.filename)}
-                            ${file.is_static ? '<span class="badge badge-static">Static</span>' : ''}
-                            ${transcriptBadge}
-                        </span>
-                    </div>
-                    <div class="list-item-details">
-                        <span>Duration: ${file.duration}s | Size: ${file.size} bytes (${formatFileSize(file.size)})</span>
-                        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
-                            <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
-                                📋
-                            </button>
-                            <button class="control-btn" onclick="viewMetadata('${escapeHtml(file.filename)}', event)" title="View Metadata">
-                                📊
-                            </button>
-                            ${!file.is_static ? `<button class="control-btn control-btn-danger" onclick="deleteAudioFile('${escapeHtml(file.filename)}', event)" title="Delete Audio File">
-                                🗑️
-                            </button>` : ''}
+                <div class="list-item" data-filename="${escapeHtml(file.filename)}" data-can-delete="${canDelete}">
+                    <div class="list-item-with-checkbox">
+                        ${canDelete ? `<input type="checkbox" class="audio-checkbox" onchange="handleFileSelection()" data-filename="${escapeHtml(file.filename)}">` : '<div style="width: 20px;"></div>'}
+                        <div class="list-item-content">
+                            <div class="list-item-header">
+                                <span class="list-item-title">
+                                    🎵 ${escapeHtml(file.filename)}
+                                    ${file.is_static ? '<span class="badge badge-static">Static</span>' : ''}
+                                    ${transcriptBadge}
+                                </span>
+                            </div>
+                            <div class="list-item-details">
+                                <span>Duration: ${file.duration}s | Size: ${file.size} bytes (${formatFileSize(file.size)})</span>
+                                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                                    <button class="control-btn" onclick="copyAudioUrl('${escapeHtml(file.url)}', event)" title="Copy Full URL">
+                                        📋
+                                    </button>
+                                    <button class="control-btn" onclick="viewMetadata('${escapeHtml(file.filename)}', event)" title="View Metadata">
+                                        📊
+                                    </button>
+                                    ${canDelete ? `<button class="control-btn control-btn-danger" onclick="deleteAudioFile('${escapeHtml(file.filename)}', event)" title="Delete Audio File">
+                                        🗑️
+                                    </button>` : ''}
+                                </div>
+                                <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
+                                    <source src="${escapeHtml(file.url)}" type="audio/mpeg">
+                                    Your browser does not support the audio element.
+                                </audio>
+                            </div>
                         </div>
-                        <audio controls preload="none" style="width: 100%; max-width: 300px; margin-top: 8px;">
-                            <source src="${escapeHtml(file.url)}" type="audio/mpeg">
-                            Your browser does not support the audio element.
-                        </audio>
                     </div>
                 </div>
             `;
         }).join('');
+
+        // Show multi-select toolbar if there are deletable files
+        const hasDeleteableFiles = files.some(f => !f.is_static);
+        if (hasDeleteableFiles) {
+            showMultiSelectToolbar();
+        } else {
+            hideMultiSelectToolbar();
+        }
+
+        // Reset selections
+        updateSelectionUI();
 
         // Start auto-refresh if any files are processing
         checkAndStartAutoRefresh();
@@ -327,6 +345,7 @@ async function loadAudioFiles() {
     } catch (error) {
         console.error('Error loading audio files:', error);
         container.innerHTML = '<p class="error-message">Failed to load audio files.</p>';
+        hideMultiSelectToolbar();
     }
 }
 
@@ -378,6 +397,210 @@ function getTranscriptBadge(file) {
                   title="Click to start transcription">
                 No Transcript
             </span>`;
+}
+
+// Multi-select functionality
+function showMultiSelectToolbar() {
+    const toolbar = document.getElementById('multi-select-toolbar');
+    if (toolbar) {
+        toolbar.style.display = 'flex';
+    }
+}
+
+function hideMultiSelectToolbar() {
+    const toolbar = document.getElementById('multi-select-toolbar');
+    if (toolbar) {
+        toolbar.style.display = 'none';
+    }
+}
+
+function handleFileSelection() {
+    updateSelectionUI();
+}
+
+function updateSelectionUI() {
+    const checkboxes = document.querySelectorAll('.audio-checkbox');
+    const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+    const selectedCount = checkedBoxes.length;
+
+    // Update selected count display
+    const countElement = document.getElementById('selected-count');
+    if (countElement) {
+        countElement.textContent = `${selectedCount} selected`;
+    }
+
+    // Update select all checkbox state
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+    if (selectAllCheckbox) {
+        if (selectedCount === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        } else if (selectedCount === checkboxes.length) {
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
+        } else {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = true;
+        }
+    }
+
+    // Update delete button state
+    const deleteBtn = document.getElementById('batch-delete-btn');
+    if (deleteBtn) {
+        deleteBtn.disabled = selectedCount === 0;
+    }
+
+    // Update list item styling
+    checkboxes.forEach(cb => {
+        const listItem = cb.closest('.list-item');
+        if (listItem) {
+            if (cb.checked) {
+                listItem.classList.add('selected');
+            } else {
+                listItem.classList.remove('selected');
+            }
+        }
+    });
+}
+
+function handleSelectAll(checked) {
+    const checkboxes = document.querySelectorAll('.audio-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checked;
+    });
+    updateSelectionUI();
+}
+
+async function handleBatchDelete() {
+    const checkboxes = document.querySelectorAll('.audio-checkbox:checked');
+    const filenames = Array.from(checkboxes).map(cb => cb.dataset.filename);
+
+    if (filenames.length === 0) {
+        return;
+    }
+
+    // Show confirmation modal
+    showBatchDeleteConfirmModal(filenames);
+}
+
+function showBatchDeleteConfirmModal(filenames) {
+    const modal = document.getElementById('deleteConfirmModal');
+    const message = document.getElementById('deleteConfirmMessage');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+
+    const count = filenames.length;
+    message.textContent = `Are you sure you want to delete ${count} audio file${count > 1 ? 's' : ''}?`;
+
+    // Remove any existing event listeners
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    // Add click handler for confirm button
+    newConfirmBtn.onclick = async () => {
+        closeDeleteConfirmModal();
+        await performBatchDelete(filenames);
+    };
+
+    // Remove previous keyboard handler if exists
+    if (deleteConfirmKeyHandler) {
+        document.removeEventListener('keydown', deleteConfirmKeyHandler);
+    }
+
+    // Setup keyboard handler
+    deleteConfirmKeyHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeDeleteConfirmModal();
+        }
+    };
+    document.addEventListener('keydown', deleteConfirmKeyHandler);
+
+    // Show modal
+    modal.style.display = 'flex';
+
+    // Focus the confirm button
+    setTimeout(() => newConfirmBtn.focus(), 100);
+}
+
+async function performBatchDelete(filenames) {
+    const totalFiles = filenames.length;
+    let successCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    // Show progress indicator
+    const deleteBtn = document.getElementById('batch-delete-btn');
+    const originalText = deleteBtn ? deleteBtn.textContent : '';
+    if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = `⏳ Deleting... (0/${totalFiles})`;
+    }
+
+    // Delete files one by one
+    for (let i = 0; i < filenames.length; i++) {
+        const filename = filenames[i];
+
+        try {
+            const response = await fetch(`${API_BASE}/audio/${encodeURIComponent(filename)}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `Failed to delete file: ${response.statusText}`);
+            }
+
+            successCount++;
+
+            // Update progress
+            if (deleteBtn) {
+                deleteBtn.textContent = `⏳ Deleting... (${i + 1}/${totalFiles})`;
+            }
+
+            // Remove the file item from the UI with animation
+            const fileItem = document.querySelector(`[data-filename="${CSS.escape(filename)}"]`);
+            if (fileItem) {
+                fileItem.style.opacity = '0.5';
+                fileItem.style.transition = 'opacity 0.3s ease-out';
+                setTimeout(() => {
+                    fileItem.remove();
+
+                    // Check if list is empty
+                    const container = document.getElementById('audio-list');
+                    const remainingItems = container.querySelectorAll('.list-item');
+                    if (remainingItems.length === 0) {
+                        container.innerHTML = '<p class="loading">No audio files found. Add MP3 files to the audio_files directory or generate TTS audio below.</p>';
+                        hideMultiSelectToolbar();
+                    }
+                }, 300);
+            }
+
+        } catch (error) {
+            console.error(`Error deleting audio file ${filename}:`, error);
+            errorCount++;
+            errors.push({ filename, error: error.message });
+        }
+    }
+
+    // Reset button
+    if (deleteBtn) {
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = originalText;
+    }
+
+    // Update selection UI
+    updateSelectionUI();
+
+    // Show result message
+    if (errorCount === 0) {
+        showResultMessage('success', '✓ Batch Delete Complete', `Successfully deleted ${successCount} file${successCount > 1 ? 's' : ''}`);
+    } else if (successCount === 0) {
+        showResultMessage('error', '❌ Batch Delete Failed', `Failed to delete all ${totalFiles} files`);
+    } else {
+        const errorList = errors.map(e => `• ${e.filename}: ${e.error}`).join('\n');
+        showResultMessage('warning', '⚠️ Partial Success',
+            `Deleted ${successCount} of ${totalFiles} files.\n\nFailed:\n${errorList}`);
+    }
 }
 
 // Handle transcript badge clicks

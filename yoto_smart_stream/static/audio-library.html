@@ -60,6 +60,20 @@
                     🎙️ Record Audio
                 </button>
             </div>
+            <div id="multi-select-toolbar" class="multi-select-toolbar" style="display: none;">
+                <div class="multi-select-info">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="select-all-checkbox" onchange="handleSelectAll(this.checked)">
+                        <span>Select All</span>
+                    </label>
+                    <span id="selected-count" class="selected-count">0 selected</span>
+                </div>
+                <div class="multi-select-actions">
+                    <button id="batch-delete-btn" class="btn-danger" onclick="handleBatchDelete()">
+                        🗑️ Delete Selected
+                    </button>
+                </div>
+            </div>
             <div id="audio-list" class="list-container">
                 <p class="loading">Loading audio files...</p>
             </div>
@@ -586,7 +600,7 @@
         }
         checkAdminStatus();
     </script>
-    
+
     <!-- Dark Mode Support -->
     <script src="https://cdn.jsdelivr.net/npm/darkmode-js@1.5.7/lib/darkmode-js.min.js"></script>
     <script>
