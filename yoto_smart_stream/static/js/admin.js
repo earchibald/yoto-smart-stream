@@ -448,8 +448,17 @@ async function loadSettings() {
         
         for (const setting of data.settings) {
             const isBoolean = setting.value === 'true' || setting.value === 'false';
+            const effectiveValue = setting.value;  // This is the effective value (env var if overridden)
+            const displayValue = effectiveValue === 'true' ? 'On' : effectiveValue === 'false' ? 'Off' : effectiveValue;
+            
+            // Build tooltip for env override badge
+            let envTooltip = '';
+            if (setting.is_overridden) {
+                envTooltip = `Environment variable is set to: ${setting.env_var_override}`;
+            }
+            
             const envOverrideBadge = setting.is_overridden 
-                ? `<span class="env-override-badge" title="Overridden by environment variable ${setting.env_var_override}">🔒 ENV</span>`
+                ? `<span class="env-override-badge" title="${envTooltip}">🔒 ENV: ${displayValue}</span>`
                 : '';
             
             html += `
@@ -461,11 +470,10 @@ async function loadSettings() {
                         </div>
                         <div class="setting-value">
                             ${isBoolean ? `
-                                <label class="toggle-switch">
+                                <label class="toggle-switch" ${setting.is_overridden ? 'title="This toggle updates the database value, but environment variable takes precedence"' : ''}>
                                     <input 
                                         type="checkbox" 
-                                        ${setting.value === 'true' ? 'checked' : ''}
-                                        ${setting.is_overridden ? 'disabled' : ''}
+                                        ${effectiveValue === 'true' ? 'checked' : ''}
                                         onchange="updateSetting('${setting.key}', this.checked ? 'true' : 'false')"
                                     />
                                     <span class="toggle-slider"></span>
@@ -473,16 +481,16 @@ async function loadSettings() {
                             ` : `
                                 <input 
                                     type="text" 
-                                    value="${setting.value}" 
-                                    ${setting.is_overridden ? 'disabled' : ''}
+                                    value="${effectiveValue}" 
                                     onblur="updateSetting('${setting.key}', this.value)"
                                     class="setting-input"
+                                    ${setting.is_overridden ? 'title="This updates the database value, but environment variable takes precedence"' : ''}
                                 />
                             `}
                         </div>
                     </div>
                     ${setting.description ? `<p class="setting-description">${setting.description}</p>` : ''}
-                    ${setting.is_overridden ? `<p class="setting-override-note">⚠️ This setting is overridden by environment variable. Database value will be used when environment variable is not set.</p>` : ''}
+                    ${setting.is_overridden ? `<p class="setting-override-note">⚠️ This setting is currently controlled by an environment variable (value: ${displayValue}). Changes to the toggle update the database but won't take effect until the environment variable is removed.</p>` : ''}
                 </div>
             `;
         }
@@ -513,8 +521,18 @@ async function updateSetting(key, value) {
             throw new Error(error.detail || 'Failed to update setting');
         }
         
-        // Show success feedback
-        showNotification(`Setting "${key}" updated successfully`, 'success');
+        const data = await response.json();
+        
+        // Format the value for display
+        const displayValue = value === 'true' ? 'On' : value === 'false' ? 'Off' : value;
+        const settingName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        
+        // Show success feedback with new state
+        let message = `${settingName}: ${displayValue}`;
+        if (data.is_overridden) {
+            message += ` (env var override active: ${data.env_var_override})`;
+        }
+        showNotification(message, 'success');
         
         // Reload settings to show updated state
         await loadSettings();

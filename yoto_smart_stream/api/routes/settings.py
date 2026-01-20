@@ -44,7 +44,7 @@ class SettingsListResponse(BaseModel):
 # Define available settings with their environment variable names
 AVAILABLE_SETTINGS = {
     "transcription_enabled": {
-        "env_var": "TRANSCRIPTION_ENABLED",
+        "env_var": "transcription_enabled",  # Pydantic reads both upper and lowercase
         "description": "Enable or disable automatic transcription of uploaded audio files",
         "default": "false",
     },
@@ -52,8 +52,12 @@ AVAILABLE_SETTINGS = {
 
 
 def get_env_var_value(env_var_name: str) -> Optional[str]:
-    """Get environment variable value if set."""
-    return os.getenv(env_var_name)
+    """Get environment variable value if set (checks both cases)."""
+    # Check both uppercase and lowercase versions
+    value = os.getenv(env_var_name.upper()) or os.getenv(env_var_name.lower())
+    if value is not None:
+        return str(value).lower()  # Normalize to lowercase for boolean comparison
+    return None
 
 
 def get_setting_value(key: str, db: Session) -> tuple[str, Optional[str], bool]:
@@ -61,7 +65,7 @@ def get_setting_value(key: str, db: Session) -> tuple[str, Optional[str], bool]:
     Get setting value, checking both database and environment variables.
     
     Returns:
-        tuple: (value, env_var_override, is_overridden)
+        tuple: (effective_value, env_var_value, is_overridden)
     """
     config = AVAILABLE_SETTINGS.get(key)
     if not config:
