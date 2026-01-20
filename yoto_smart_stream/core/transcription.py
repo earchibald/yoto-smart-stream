@@ -149,11 +149,45 @@ def get_transcription_service() -> TranscriptionService:
     Returns:
         TranscriptionService instance
     """
+    import os
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from ..models import Setting
+
     global _transcription_service, _last_transcription_config
 
     settings = get_settings()
+    
+    # Determine effective transcription_enabled (env override > DB > Pydantic default)
+    env_override = os.getenv("TRANSCRIPTION_ENABLED") or os.getenv("transcription_enabled")
+    if env_override is not None:
+        effective_transcription_enabled = str(env_override).lower() in ["1", "true", "yes", "on"]
+    else:
+        # Get value from database if available
+        try:
+            engine = create_engine(
+                settings.database_url, 
+                connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {}
+            )
+            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+            db = SessionLocal()
+            try:
+                setting_row = db.query(Setting).filter(Setting.key == "transcription_enabled").first()
+                if setting_row:
+                    db_value = str(setting_row.value).lower()
+                    effective_transcription_enabled = db_value in ["1", "true", "yes", "on"]
+                else:
+                    # Fall back to Pydantic settings if not in database
+                    effective_transcription_enabled = settings.transcription_enabled
+            finally:
+                db.close()
+                engine.dispose()
+        except Exception as e:
+            logger.warning(f"Could not read transcription setting from database: {e}. Using Pydantic setting.")
+            effective_transcription_enabled = settings.transcription_enabled
+    
     current_config: tuple[bool, str, Optional[str]] = (
-        settings.transcription_enabled,
+        effective_transcription_enabled,
         settings.transcription_model,
         settings.elevenlabs_api_key,
     )
@@ -162,7 +196,7 @@ def get_transcription_service() -> TranscriptionService:
     if _transcription_service is None or _last_transcription_config != current_config:
         _transcription_service = TranscriptionService(
             model_name=settings.transcription_model,
-            enabled=settings.transcription_enabled,
+            enabled=effective_transcription_enabled,
             elevenlabs_api_key=settings.elevenlabs_api_key,
         )
         _last_transcription_config = current_config
