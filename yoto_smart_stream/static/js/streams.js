@@ -27,24 +27,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add Escape key listener to close modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            const audioPlayerModal = document.getElementById('audio-player-modal');
-            const playlistModal = document.getElementById('create-playlist-modal');
-            const scripterModal = document.getElementById('stream-scripter-modal');
-            const deletePlaylistModal = document.getElementById('delete-playlist-modal');
+            // Find all visible modals and their z-indices
+            const modals = [
+                { id: 'audio-player-modal', element: document.getElementById('audio-player-modal'), close: closeAudioPlayer },
+                { id: 'create-playlist-modal', element: document.getElementById('create-playlist-modal'), close: closePlaylistModal },
+                { id: 'stream-scripter-modal', element: document.getElementById('stream-scripter-modal'), close: closeStreamScripter },
+                { id: 'delete-playlist-modal', element: document.getElementById('delete-playlist-modal'), close: closeDeletePlaylistModal }
+            ];
 
-            // Close whichever modal is currently open
-            if (audioPlayerModal && audioPlayerModal.style.display === 'flex') {
-                closeAudioPlayer();
+            // Filter to only visible modals
+            const visibleModals = modals.filter(m =>
+                m.element && (m.element.classList.contains('show') || m.element.style.display === 'flex' || m.element.style.display === 'block')
+            );
+
+            if (visibleModals.length === 0) return;
+
+            // Find the modal with the highest z-index
+            let topmostModal = visibleModals[0];
+            let highestZIndex = parseInt(window.getComputedStyle(topmostModal.element).zIndex) || 0;
+
+            for (const modal of visibleModals) {
+                const zIndex = parseInt(window.getComputedStyle(modal.element).zIndex) || 0;
+                if (zIndex > highestZIndex) {
+                    highestZIndex = zIndex;
+                    topmostModal = modal;
+                }
             }
-            if (playlistModal && playlistModal.style.display === 'flex') {
-                closePlaylistModal();
-            }
-            if (scripterModal && scripterModal.style.display === 'flex') {
-                closeStreamScripter();
-            }
-            if (deletePlaylistModal && deletePlaylistModal.style.display === 'flex') {
-                closeDeletePlaylistModal();
-            }
+
+            // Close only the topmost modal
+            topmostModal.close();
         }
     });
 });

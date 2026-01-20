@@ -353,6 +353,26 @@
                 <span class="modal-close" onclick="closeMQTTAnalyzer()">&times;</span>
             </div>
             <div class="modal-body">
+                <!-- Auto-Refresh Control - Moved to Top -->
+                <div class="analyzer-section" style="background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)">
+                            <span>Auto-refresh</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <span>Interval:</span>
+                            <select id="refreshIntervalSelect" onchange="updateRefreshInterval(this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc;">
+                                <option value="1000">1 second</option>
+                                <option value="2000" selected>2 seconds</option>
+                                <option value="5000">5 seconds</option>
+                                <option value="10000">10 seconds</option>
+                                <option value="30000">30 seconds</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Device State Section -->
                 <div class="analyzer-section">
                     <h4>Current Device State</h4>
@@ -384,14 +404,6 @@
                         <button class="btn-secondary" onclick="sendTrackNavigation('previous')">⏮️ Previous Track</button>
                         <button class="btn-secondary" onclick="sendTrackNavigation('next')">⏭️ Next Track</button>
                     </div>
-                </div>
-
-                <!-- Auto-Refresh Control -->
-                <div class="analyzer-section">
-                    <label>
-                        <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh(this.checked)">
-                        Auto-refresh (2 seconds)
-                    </label>
                 </div>
             </div>
         </div>

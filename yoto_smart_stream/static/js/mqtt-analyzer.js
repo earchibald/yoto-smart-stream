@@ -4,6 +4,7 @@
  */
 
 let mqttAutoRefreshInterval = null;
+let mqttRefreshIntervalMs = 2000; // Default 2 seconds
 let currentJsonData = null;
 
 async function openMQTTAnalyzer() {
@@ -208,15 +209,26 @@ function toggleAutoRefresh(enabled) {
         // Refresh immediately
         refreshMQTTData();
 
-        // Then refresh every 2 seconds
+        // Then refresh at the selected interval
         mqttAutoRefreshInterval = setInterval(() => {
             refreshMQTTData();
-        }, 2000);
+        }, mqttRefreshIntervalMs);
     } else {
         if (mqttAutoRefreshInterval) {
             clearInterval(mqttAutoRefreshInterval);
             mqttAutoRefreshInterval = null;
         }
+    }
+}
+
+function updateRefreshInterval(intervalMs) {
+    mqttRefreshIntervalMs = parseInt(intervalMs);
+
+    // If auto-refresh is currently enabled, restart it with the new interval
+    const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+    if (autoRefreshToggle && autoRefreshToggle.checked) {
+        toggleAutoRefresh(false);
+        toggleAutoRefresh(true);
     }
 }
 
@@ -226,7 +238,7 @@ window.addEventListener('click', function (event) {
     if (event.target === jsonModal) {
         closeJsonViewer();
     }
-    
+
     const mqttModal = document.getElementById('mqttAnalyzerModal');
     if (event.target === mqttModal) {
         closeMQTTAnalyzer();
@@ -250,7 +262,7 @@ window.addEventListener('keydown', function (event) {
 function showJsonViewerFromElement(element) {
     const jsonStr = element.getAttribute('data-json');
     if (!jsonStr) return;
-    
+
     try {
         currentJsonData = JSON.parse(jsonStr.replace(/&quot;/g, '"'));
         const jsonViewerContent = document.getElementById('jsonViewerContent');
@@ -289,5 +301,3 @@ function copyJsonContent() {
         alert('Failed to copy JSON');
     });
 }
-
-

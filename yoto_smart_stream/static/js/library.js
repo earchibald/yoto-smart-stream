@@ -137,16 +137,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add Escape key listener to close modals
         if (event.key === 'Escape') {
-            const contentModal = document.getElementById('content-modal');
-            const rawDataModal = document.getElementById('raw-data-modal');
+            // Find all visible modals and their z-indices
+            const modals = [
+                { id: 'content-modal', element: document.getElementById('content-modal'), close: closeContentModal },
+                { id: 'raw-data-modal', element: document.getElementById('raw-data-modal'), close: closeRawDataModal }
+            ];
 
-            // Close whichever modal is currently open
-            if (contentModal && contentModal.style.display === 'flex') {
-                closeContentModal();
+            // Filter to only visible modals
+            const visibleModals = modals.filter(m =>
+                m.element && (m.element.classList.contains('show') || m.element.style.display === 'flex' || m.element.style.display === 'block')
+            );
+
+            if (visibleModals.length === 0) return;
+
+            // Find the modal with the highest z-index
+            let topmostModal = visibleModals[0];
+            let highestZIndex = parseInt(window.getComputedStyle(topmostModal.element).zIndex) || 0;
+
+            for (const modal of visibleModals) {
+                const zIndex = parseInt(window.getComputedStyle(modal.element).zIndex) || 0;
+                if (zIndex > highestZIndex) {
+                    highestZIndex = zIndex;
+                    topmostModal = modal;
+                }
             }
-            if (rawDataModal && rawDataModal.style.display === 'flex') {
-                closeRawDataModal();
-            }
+
+            // Close only the topmost modal
+            topmostModal.close();
         }
     });
 });
@@ -813,7 +830,7 @@ async function editCard(cardId, cardTitle) {
         }
 
         console.log('[EDIT CARD] ✓ Managed stream created/updated:', streamName);
-        
+
         // Step 5: Extract metadata from card for Stream Scripter
         console.log('[EDIT CARD] Extracting card metadata...');
         const cardMetadata = {
@@ -823,7 +840,7 @@ async function editCard(cardId, cardTitle) {
             coverImageId: cardData.metadata?.cover?.imageId || null,
             chapters: []
         };
-        
+
         // Extract chapter titles and structure
         for (const chapter of chapters) {
             cardMetadata.chapters.push({
@@ -834,15 +851,15 @@ async function editCard(cardId, cardTitle) {
                 }))
             });
         }
-        
+
         console.log('[EDIT CARD] Metadata extracted:', cardMetadata);
-        
+
         // Store metadata for Stream Scripter to retrieve
         if (typeof sessionStorage !== 'undefined') {
             sessionStorage.setItem(`stream_metadata_${streamName}`, JSON.stringify(cardMetadata));
             console.log('[EDIT CARD] ✓ Metadata stored for Stream Scripter');
         }
-        
+
         // Step 6: Navigate to Stream Scripter with this stream selected
         console.log('[EDIT CARD] Navigating to Stream Scripter...');
 
@@ -861,7 +878,7 @@ async function editCard(cardId, cardTitle) {
             if (typeof openStreamScripter === 'function') {
                 openStreamScripter();
                 console.log('[EDIT CARD] ✓ Stream Scripter opened');
-                
+
                 // Wait for the scripter to load, then select our stream and populate metadata
                 setTimeout(() => {
                     const queueSelector = document.getElementById('queue-selector');
@@ -869,7 +886,7 @@ async function editCard(cardId, cardTitle) {
                         queueSelector.value = streamName;
                         queueSelector.dispatchEvent(new Event('change'));
                         console.log('[EDIT CARD] ✓ Stream selected in scripter:', streamName);
-                        
+
                         // Populate metadata fields from extracted card data
                         setTimeout(() => {
                             if (typeof populateMetadataFromImport === 'function') {
