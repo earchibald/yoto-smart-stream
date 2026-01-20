@@ -48,13 +48,14 @@ Yoto is an audio player system for children that uses physical cards to control 
 
 **Load these reference documents as needed:**
 
-- [📋 Yoto API Reference](../yoto-api-development/reference/yoto_api_reference.md) - Complete REST API specification with all endpoints, authentication flows, data structures, and code examples
-- [🔌 MQTT Deep Dive](../yoto-api-development/reference/yoto_mqtt_reference.md) - Real-time communication details including AWS IoT Core setup, topic structure, message formats, and event handling patterns
-- [🏗️ Architecture Guide](../yoto-api-development/reference/architecture.md) - Implementation recommendations, technology stack suggestions, system design patterns, and project structure
-- [❓ Planning Questions](../yoto-api-development/reference/planning_questions.md) - Strategic decisions and considerations for building Yoto applications
-- [🎨 Icon Management](../yoto-api-development/reference/icon_management.md) - Display icon management for Yoto Mini, including public icon repository access and custom icon uploads
-- [📝 Implementation Summary](../yoto-api-development/reference/implementation_summary.md) - Summary of recent implementation work including device capabilities and icon management features
-- [✅ Testing Guide](../yoto-api-development/reference/testing_guide.md) - Comprehensive automated functional testing approach with test-and-fix loop, patterns, and guardrails
+- [📋 Yoto API Reference](../yoto-smart-stream/reference/yoto_api_reference.md) - Complete REST API specification with all endpoints, authentication flows, data structures, and code examples
+- [🔌 MQTT Deep Dive](../yoto-smart-stream/reference/yoto_mqtt_reference.md) - Real-time communication details including AWS IoT Core setup, topic structure, message formats, and event handling patterns
+- [🏗️ Architecture Guide](../yoto-smart-stream/reference/architecture.md) - Implementation recommendations, technology stack suggestions, system design patterns, and project structure
+- [🤖 MCP Server Integration](../yoto-smart-stream/reference/mcp_server.md) - Model Context Protocol server for AI agent integration, library queries, and OAuth automation
+- [❓ Planning Questions](../yoto-smart-stream/reference/planning_questions.md) - Strategic decisions and considerations for building Yoto applications
+- [🎨 Icon Management](../yoto-smart-stream/reference/icon_management.md) - Display icon management for Yoto Mini, including public icon repository access and custom icon uploads
+- [📝 Implementation Summary](../yoto-smart-stream/reference/implementation_summary.md) - Summary of recent implementation work including device capabilities and icon management features
+- [✅ Testing Guide](../yoto-smart-stream/reference/testing_guide.md) - Comprehensive automated functional testing approach with test-and-fix loop, patterns, and guardrails
 
 ## Quick Start: Developer Implementation
 
@@ -523,6 +524,53 @@ See `mcp-server/README.md` for:
 
 ---
 
+# Part 3: MCP Server Integration
+
+The Yoto Smart Stream project includes an MCP (Model Context Protocol) server for AI agent integration.
+
+## Quick Reference: MCP Server
+
+**Version**: 0.1.1 (Stable)  
+**Package**: `yoto-library-mcp`  
+**Location**: `mcp-server/` directory
+
+### Available Tools
+
+1. **`oauth(service_url, action)`** - Manage Yoto authentication
+   - `action = "activate"` to log in with Yoto credentials
+   - `action = "deactivate"` to log out
+   - Requires `YOTO_USERNAME` and `YOTO_PASSWORD` for activation
+
+2. **`query_library(service_url, query)`** - Natural language library queries
+   - Examples: "how many cards?", "find cards with princess", "what metadata keys?"
+   - Returns library statistics, search results, or metadata information
+
+### Setup for VS Code
+
+```json
+{
+  "mcpServers": {
+    "yoto-library": {
+      "command": "uvx",
+      "args": ["--from", "/path/to/yoto-smart-stream/mcp-server", "mcp-server"],
+      "env": {
+        "YOTO_SERVICE_URL": "https://your-deployment.railway.app",
+        "ADMIN_USERNAME": "admin",
+        "ADMIN_PASSWORD": "$ADMIN_PASSWORD",
+        "YOTO_USERNAME": "$YOTO_USERNAME",
+        "YOTO_PASSWORD": "$YOTO_PASSWORD"
+      }
+    }
+  }
+}
+```
+
+### Detailed Documentation
+
+See: [🤖 MCP Server Integration Guide](./reference/mcp_server.md)
+
+---
+
 ## Additional Resources
 
 - **Project Documentation**: See `docs/` folder for detailed guides
@@ -530,3 +578,4 @@ See `mcp-server/README.md` for:
 - **Railway Management**: See [railway-service-management skill](../railway-service-management/SKILL.md)
 - **Example Code**: See `examples/` folder for working implementations
 - **API Tests**: See `tests/` folder for test examples
+- **MCP Server**: See `mcp-server/` folder for Model Context Protocol server implementation
