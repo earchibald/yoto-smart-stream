@@ -2,7 +2,11 @@
   "$schema": "https://schema.railpack.com",
   "provider": "python",
   "packages": {
-    "python": "3.11"
+    "python": "3.11",
+    "nodejs": "20"
+  },
+  "build": {
+    "buildCommand": "cd frontend && npm install && npm run build && cd .."
   },
   "deploy": {
     "startCommand": "uvicorn yoto_smart_stream.api:app --host 0.0.0.0 --port $PORT"
