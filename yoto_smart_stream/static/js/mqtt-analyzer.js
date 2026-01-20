@@ -244,7 +244,7 @@ window.addEventListener('keydown', function (event) {
 
         // Filter to only visible modals
         const visibleModals = modals.filter(m =>
-            m.element && m.element.style.display === 'block'
+            m.element && (m.element.classList.contains('show') || m.element.style.display === 'flex' || m.element.style.display === 'block')
         );
 
         if (visibleModals.length === 0) return;
