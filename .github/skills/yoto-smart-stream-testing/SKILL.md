@@ -24,6 +24,16 @@ Testing strategy for Yoto Smart Stream focuses on:
 - **Automated**: All tests should run in CI/CD without manual intervention
 - **Maintainable**: Tests should be easy to understand and update
 
+### v0.3.0 Release Validation ✅
+
+**Playwright UI Testing Results**:
+- **Dashboard Page**: PWA registered, 2 players loaded, MQTT enabled, zero console errors
+- **Admin Page**: Dark Mode widget visible and functional, all controls responsive, zero errors
+- **Login Page**: Authentication form renders correctly, Dark Mode widget operational, zero errors
+- **Dark Mode Widget**: "🌓 Activate dark mode" control verified on all pages
+- **Browser Console**: No errors, warnings, or issues on any tested page
+- **Deployment**: v0.3.0 stable on Railway, health checks passing, service running
+
 ## Quick Start
 
 ### Prerequisites

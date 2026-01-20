@@ -12,6 +12,15 @@ This unified skill provides comprehensive guidance for both developing Yoto API 
 - **API Development**: Implementing Yoto API integration, MQTT event handling, audio streaming
 - **Service Operations**: Accessing, configuring, and managing deployed Yoto Smart Stream instances
 - **Testing & Troubleshooting**: Diagnosing issues, running tests, validating functionality
+- **UI Features**: Dark Mode integration, PWA support with service workers, responsive dashboards
+- **Deployment**: Multi-environment Railway deployments with health checks and service configuration
+
+### Latest Release: v0.3.0 ✅
+- **UI Enhancements**: Dark Mode widget (🌓) integrated with darkmode-js library
+- **PWA Features**: Service Worker registration, manifest.json support, install prompts
+- **Dashboard**: Real-time MQTT monitoring, dual-mode playlists, multi-device support
+- **Verification**: Playwright testing on dashboard, admin, and login pages - all passing with zero console errors
+- **Deployment**: Stable Railway deployment with health checks, automatic scaling configured
 
 ---
 

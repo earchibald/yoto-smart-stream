@@ -1,6 +1,12 @@
 ---
 name: railway-service-management
 description: Specialized knowledge for managing multi-environment Railway deployments. Use when: (1) Setting up Railway projects/environments/services, (2) Configuring deployments and builds (NIXPACKS/Railpack/Dockerfile), (3) Managing Railway CLI operations and logs, (4) Implementing PR environments or branch-based workflows, (5) Troubleshooting deployment failures or health checks, (6) Managing secrets/variables across environments, (7) Optimizing Railway costs and resources, (8) Configuring databases/volumes/networking, (9) Setting up CI/CD with GitHub Actions, (10) Cloud Agent sessions needing Railway CLI access with RAILWAY_API_TOKEN-based authentication.
+
+## Recent Release: v0.3.0 ✅ Stable
+- **Features**: Dark Mode UI, PWA support with service worker, enhanced dashboard
+- **Deployment Pattern**: Successful multi-environment deploy (develop branch)
+- **Build System**: Railpack with Python 3.11, health checks configured
+- **Status**: All tests passed, zero deployment errors, service running healthy
 ---
 
 ## Contents
