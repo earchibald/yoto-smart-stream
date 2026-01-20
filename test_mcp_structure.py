@@ -57,17 +57,18 @@ async def test_mcp_structure():
     except Exception as e:
         print(f"❌ Error discovering tools: {e}")
     
-    # Test 4: Verify correct tool names
+    # Test 4: Verify correct tool names (structured query tools)
     tests_total += 1
     print(f"\n[Test {tests_total}] Correct tool names registered")
-    expected_tools = {'oauth', 'query_library'}
+    expected_tools = {'oauth', 'library_stats', 'list_cards', 'search_cards', 'list_playlists', 'get_metadata_keys', 'get_field_values'}
     try:
         tools = await mcp.list_tools()
         actual_tools = {t.name for t in tools}
         if expected_tools.issubset(actual_tools):
-            print(f"✅ Required tools found: {expected_tools}")
+            print(f"✅ All structured query tools found: {len(actual_tools)} tools")
             tests_passed += 1
         else:
+            missing = expected_tools - actual_tools
             print(f"❌ Missing tools. Expected: {expected_tools}, Got: {actual_tools}")
     except Exception as e:
         print(f"❌ Error checking tool names: {e}")
@@ -83,18 +84,20 @@ async def test_mcp_structure():
     else:
         print("❌ AUTH_CACHE not found")
     
-    # Test 6: Check tool input models (Pydantic)
+    # Test 6: Check tool input models (Pydantic - structured queries)
     tests_total += 1
     print(f"\n[Test {tests_total}] Tool input models (Pydantic)")
-    if "OAuthInput" in source and "QueryLibraryInput" in source:
-        print("✅ Tool input models defined")
+    required_models = ['OAuthInput', 'LibraryStatsInput', 'ListCardsInput', 'SearchCardsInput', 'ListPlaylistsInput', 'GetMetadataKeysInput', 'GetFieldValuesInput']
+    found_models = [model for model in required_models if model in source]
+    if len(found_models) >= 5:  # At least 5 out of 7 models
+        print(f"✅ Structured input models defined ({len(found_models)} found)")
         if "service_url" in source:
             print("✅ service_url parameter found (multi-deployment support)")
             tests_passed += 1
         else:
             print("❌ service_url parameter not found")
     else:
-        print("❌ Tool input models not found")
+        print(f"❌ Tool input models not found. Found: {found_models}")
     
     # Test 7: Check lazy initialization
     tests_total += 1

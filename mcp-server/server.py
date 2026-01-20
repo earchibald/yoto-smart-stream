@@ -66,18 +66,111 @@ class OAuthInput(BaseModel):
     )
 
 
-class QueryLibraryInput(BaseModel):
-    """Input model for querying the Yoto library."""
+class LibraryStatsInput(BaseModel):
+    """Get library statistics."""
     model_config = ConfigDict(
         str_strip_whitespace=True,
         validate_assignment=True,
         extra='forbid'
     )
 
-    query: str = Field(
+    service_url: Optional[str] = Field(
+        default=None,
+        description="URL of the yoto-smart-stream service (uses default if not provided)"
+    )
+
+
+class ListCardsInput(BaseModel):
+    """List cards in the library with optional filtering."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra='forbid'
+    )
+
+    limit: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum number of cards to return (1-100)"
+    )
+    service_url: Optional[str] = Field(
+        default=None,
+        description="URL of the yoto-smart-stream service (uses default if not provided)"
+    )
+
+
+class SearchCardsInput(BaseModel):
+    """Search for cards by title."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra='forbid'
+    )
+
+    title_contains: str = Field(
         ...,
-        description="Natural language query about the library, e.g., 'find all cards with princess in the title' or 'what metadata keys are used?'",
+        description="Search for cards with this text in the title",
         min_length=1
+    )
+    limit: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum number of results to return (1-100)"
+    )
+    service_url: Optional[str] = Field(
+        default=None,
+        description="URL of the yoto-smart-stream service (uses default if not provided)"
+    )
+
+
+class ListPlaylistsInput(BaseModel):
+    """List playlists in the library."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra='forbid'
+    )
+
+    service_url: Optional[str] = Field(
+        default=None,
+        description="URL of the yoto-smart-stream service (uses default if not provided)"
+    )
+
+
+class GetMetadataKeysInput(BaseModel):
+    """Get all metadata keys used in the library."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra='forbid'
+    )
+
+    service_url: Optional[str] = Field(
+        default=None,
+        description="URL of the yoto-smart-stream service (uses default if not provided)"
+    )
+
+
+class GetFieldValuesInput(BaseModel):
+    """Get all unique values for a specific card field."""
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra='forbid'
+    )
+
+    field_name: str = Field(
+        ...,
+        description="The card field to get values for (e.g., 'author', 'type', 'genre')",
+        min_length=1
+    )
+    limit: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        description="Maximum number of values to return (1-500)"
     )
     service_url: Optional[str] = Field(
         default=None,
@@ -217,96 +310,85 @@ async def get_library_data(service_url: str) -> dict[str, Any]:
         return {"error": str(e), "cards": [], "playlists": []}
 
 
-def search_library(library_data: dict, query: str) -> str:
-    """Search library using natural language query."""
+def search_library(library_data: dict, title_contains: str, limit: int = 20) -> list[dict]:
+    """Search library for cards by title."""
+    cards = library_data.get("cards", [])
+    
+    if library_data.get("error"):
+        return []
+    
+    matching = [c for c in cards if title_contains.lower() in c.get("title", "").lower()]
+    return matching[:limit]
+
+
+def get_library_stats(library_data: dict) -> dict[str, Any]:
+    """Get library statistics."""
+    if library_data.get("error"):
+        return {"error": library_data.get("error"), "total_cards": 0, "total_playlists": 0}
+    
     cards = library_data.get("cards", [])
     playlists = library_data.get("playlists", [])
+    
+    return {
+        "total_cards": len(cards),
+        "total_playlists": len(playlists)
+    }
 
+
+def get_all_cards(library_data: dict, limit: int = 20) -> list[dict]:
+    """Get all cards from library."""
+    cards = library_data.get("cards", [])
+    
     if library_data.get("error"):
-        return f"❌ Error accessing library: {library_data.get('error')}"
+        return []
+    
+    return cards[:limit]
 
-    query_lower = query.lower()
 
-    # Query: find cards with text in title
-    if "find" in query_lower and "title" in query_lower and "with" in query_lower:
-        # Extract search term from query like "find all cards with 'term' in the title"
-        if '"' in query or "'" in query:
-            try:
-                start = query.find('"') if '"' in query else query.find("'")
-                end = query.rfind('"') if '"' in query else query.rfind("'")
-                search_term = query[start + 1 : end]
-                
-                matching = [c for c in cards if search_term.lower() in c.get("title", "").lower()]
-                if matching:
-                    result = f"Found {len(matching)} card(s) with '{search_term}' in title:\n\n"
-                    for card in matching[:MAX_CARDS_TO_DISPLAY]:
-                        result += f"- {card.get('title', 'Unknown')} by {card.get('author', 'Unknown')}\n"
-                        result += f"  Type: {card.get('type', 'unknown')}\n"
-                        result += f"  ID: {card.get('id', 'Unknown')}\n"
-                        if card.get("description"):
-                            desc = card["description"]
-                            if len(desc) > MAX_DESCRIPTION_LENGTH:
-                                result += (
-                                    f"  Description: {desc[:MAX_DESCRIPTION_LENGTH]}...\n"
-                                )
-                            else:
-                                result += f"  Description: {desc}\n"
-                        result += "\n"
-                    return result
-                else:
-                    return f"No cards found with '{search_term}' in title."
-            except Exception as e:
-                logger.error(f"Error parsing search term: {e}")
-                return "Could not extract search term from query. Please use format: 'find all cards with \"search term\" in the title'"
-        else:
-            return "Could not extract search term from query. Please use format: 'find all cards with \"search term\" in the title'"
+def get_all_playlists(library_data: dict) -> list[dict]:
+    """Get all playlists from library."""
+    playlists = library_data.get("playlists", [])
+    
+    if library_data.get("error"):
+        return []
+    
+    return playlists
 
-    # Query: list playlists
-    if "playlist" in query_lower and (
-        "list" in query_lower or "show" in query_lower or "all" in query_lower
-    ):
-        if playlists:
-            result = f"Found {len(playlists)} playlist(s):\n\n"
-            for playlist in playlists:
-                result += f"- {playlist.get('name', 'Unknown')}\n"
-                result += f"  ID: {playlist.get('id', 'Unknown')}\n"
-                result += f"  Items: {playlist.get('itemCount', 0)}\n\n"
-            return result
-        else:
-            return "No playlists found in library."
 
-    # Query: count cards
-    if "how many" in query_lower and "card" in query_lower:
-        return (
-            f"Total cards in library: {len(cards)}\nTotal playlists: {len(playlists)}"
-        )
+def get_metadata_keys(library_data: dict) -> list[str]:
+    """Get all unique metadata keys used in cards."""
+    cards = library_data.get("cards", [])
+    
+    if library_data.get("error"):
+        return []
+    
+    # Collect all keys from all cards
+    keys_set = set()
+    for card in cards:
+        keys_set.update(card.keys())
+    
+    return sorted(list(keys_set))
 
-    # Query: list all cards
-    if "list" in query_lower and "card" in query_lower:
-        if cards:
-            result = f"Found {len(cards)} card(s) in library:\n\n"
-            for card in cards[:MAX_CARDS_TO_DISPLAY]:
-                result += f"- {card.get('title', 'Unknown')} by {card.get('author', 'Unknown')}\n"
-                result += f"  Type: {card.get('type', 'unknown')}\n"
-            if len(cards) > MAX_CARDS_TO_DISPLAY:
-                result += f"\n... and {len(cards) - MAX_CARDS_TO_DISPLAY} more cards"
-            return result
-        else:
-            return "No cards found in library."
 
-    # Default: provide summary
-    return (
-        f"Library Summary:\n"
-        f"- Total cards: {len(cards)}\n"
-        f"- Total playlists: {len(playlists)}\n\n"
-        f"Supported queries:\n"
-        f"- 'what metadata keys are used across the library?'\n"
-        f"- 'what sorts of things are in card author fields?'\n"
-        f"- 'find all cards with \"princess\" in the title'\n"
-        f"- 'list all playlists'\n"
-        f"- 'how many cards are there?'\n"
-        f"- 'list all cards'\n"
-    )
+def get_field_values(library_data: dict, field_name: str, limit: int = 50) -> list[str]:
+    """Get all unique values for a specific field."""
+    cards = library_data.get("cards", [])
+    
+    if library_data.get("error"):
+        return []
+    
+    # Collect unique values for the field
+    values_set = set()
+    for card in cards:
+        value = card.get(field_name)
+        if value is not None:
+            # Handle both strings and lists
+            if isinstance(value, list):
+                values_set.update(str(v) for v in value)
+            else:
+                values_set.add(str(value))
+    
+    return sorted(list(values_set))[:limit]
 
 
 async def activate_yoto_oauth(service_url: str) -> str:
@@ -531,33 +613,206 @@ async def manage_oauth(params: OAuthInput) -> str:
         return f"Error: Unknown action '{params.action}'. Use 'activate' or 'deactivate'.\nStatus: error"
 
 
+# FastMCP Library Query Tools
+
 @mcp.tool(
-    name="query_library",
+    name="library_stats",
     annotations={
-        "title": "Query Yoto Library",
+        "title": "Get Library Statistics",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
         "openWorldHint": False
     }
 )
-async def query_library_tool(params: QueryLibraryInput) -> str:
-    """Query the Yoto library using natural language.
-    
-    Search and explore the Yoto card library with natural language queries.
-    Examples: 'find all cards with princess in the title', 'how many cards?',
-    'list all playlists', 'what metadata keys are used?'
-    """
+async def library_stats_tool(params: LibraryStatsInput) -> dict[str, Any]:
+    """Get library statistics (total cards and playlists)."""
     service_url = params.service_url or YOTO_SERVICE_URL
     
     if not service_url:
-        return "❌ Error: No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."
-
-    logger.info(f"Processing query for {service_url}: {params.query}")
-    library_data = await get_library_data(service_url)
-    result = search_library(library_data, params.query)
+        return {"error": "No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."}
     
-    return result
+    logger.info(f"Getting library stats for {service_url}")
+    library_data = await get_library_data(service_url)
+    return get_library_stats(library_data)
+
+
+@mcp.tool(
+    name="list_cards",
+    annotations={
+        "title": "List All Cards",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False
+    }
+)
+async def list_cards_tool(params: ListCardsInput) -> dict[str, Any]:
+    """List cards in the library."""
+    service_url = params.service_url or YOTO_SERVICE_URL
+    
+    if not service_url:
+        return {"error": "No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."}
+    
+    logger.info(f"Listing cards for {service_url} (limit: {params.limit})")
+    library_data = await get_library_data(service_url)
+    
+    if library_data.get("error"):
+        return {"error": library_data.get("error"), "cards": []}
+    
+    cards = get_all_cards(library_data, params.limit)
+    return {
+        "total_cards": len(library_data.get("cards", [])),
+        "returned_count": len(cards),
+        "cards": [
+            {
+                "id": card.get("id"),
+                "title": card.get("title"),
+                "author": card.get("author"),
+                "type": card.get("type"),
+                "description": card.get("description", "")[:MAX_DESCRIPTION_LENGTH],
+            }
+            for card in cards
+        ]
+    }
+
+
+@mcp.tool(
+    name="search_cards",
+    annotations={
+        "title": "Search Cards by Title",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False
+    }
+)
+async def search_cards_tool(params: SearchCardsInput) -> dict[str, Any]:
+    """Search for cards where title contains the specified text."""
+    service_url = params.service_url or YOTO_SERVICE_URL
+    
+    if not service_url:
+        return {"error": "No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."}
+    
+    logger.info(f"Searching cards for '{params.title_contains}' on {service_url} (limit: {params.limit})")
+    library_data = await get_library_data(service_url)
+    
+    if library_data.get("error"):
+        return {"error": library_data.get("error"), "matches": []}
+    
+    cards = search_library(library_data, params.title_contains, params.limit)
+    return {
+        "search_term": params.title_contains,
+        "matched_count": len(cards),
+        "matches": [
+            {
+                "id": card.get("id"),
+                "title": card.get("title"),
+                "author": card.get("author"),
+                "type": card.get("type"),
+                "description": card.get("description", "")[:MAX_DESCRIPTION_LENGTH],
+            }
+            for card in cards
+        ]
+    }
+
+
+@mcp.tool(
+    name="list_playlists",
+    annotations={
+        "title": "List All Playlists",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False
+    }
+)
+async def list_playlists_tool(params: ListPlaylistsInput) -> dict[str, Any]:
+    """List all playlists in the library."""
+    service_url = params.service_url or YOTO_SERVICE_URL
+    
+    if not service_url:
+        return {"error": "No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."}
+    
+    logger.info(f"Listing playlists for {service_url}")
+    library_data = await get_library_data(service_url)
+    
+    if library_data.get("error"):
+        return {"error": library_data.get("error"), "playlists": []}
+    
+    playlists = get_all_playlists(library_data)
+    return {
+        "total_playlists": len(playlists),
+        "playlists": [
+            {
+                "id": pl.get("id"),
+                "name": pl.get("name"),
+                "item_count": pl.get("itemCount", 0),
+            }
+            for pl in playlists
+        ]
+    }
+
+
+@mcp.tool(
+    name="get_metadata_keys",
+    annotations={
+        "title": "Get Metadata Keys",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False
+    }
+)
+async def get_metadata_keys_tool(params: GetMetadataKeysInput) -> dict[str, Any]:
+    """Get all unique metadata keys used across library cards."""
+    service_url = params.service_url or YOTO_SERVICE_URL
+    
+    if not service_url:
+        return {"error": "No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."}
+    
+    logger.info(f"Getting metadata keys for {service_url}")
+    library_data = await get_library_data(service_url)
+    
+    if library_data.get("error"):
+        return {"error": library_data.get("error"), "keys": []}
+    
+    keys = get_metadata_keys(library_data)
+    return {
+        "total_keys": len(keys),
+        "keys": keys
+    }
+
+
+@mcp.tool(
+    name="get_field_values",
+    annotations={
+        "title": "Get Field Values",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False
+    }
+)
+async def get_field_values_tool(params: GetFieldValuesInput) -> dict[str, Any]:
+    """Get all unique values for a specific card field."""
+    service_url = params.service_url or YOTO_SERVICE_URL
+    
+    if not service_url:
+        return {"error": "No service URL provided. Either pass service_url parameter or set YOTO_SERVICE_URL environment variable."}
+    
+    logger.info(f"Getting values for field '{params.field_name}' on {service_url} (limit: {params.limit})")
+    library_data = await get_library_data(service_url)
+    
+    if library_data.get("error"):
+        return {"error": library_data.get("error"), "values": []}
+    
+    values = get_field_values(library_data, params.field_name, params.limit)
+    return {
+        "field_name": params.field_name,
+        "total_unique_values": len(values),
+        "values": values
+    }
 
 
 async def main():
