@@ -111,8 +111,8 @@ async def test_mcp_structure():
     with open(Path(__file__).parent / "mcp-server" / "pyproject.toml", 'r') as f:
         toml = f.read()
     
-    if 'mcp-server = "server:sync_main"' in toml:
-        print("✅ Entry point correctly configured to sync_main")
+    if 'mcp-server = "server:main_sync"' in toml:
+        print("✅ Entry point correctly configured to main_sync")
         tests_passed += 1
     else:
         print("❌ Entry point not correctly configured")

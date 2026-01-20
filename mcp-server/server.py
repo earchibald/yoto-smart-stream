@@ -546,7 +546,7 @@ async def query_library_tool(params: QueryLibraryInput) -> str:
 
 
 async def main():
-    """Run the MCP server."""
+    """Run the MCP server (async version)."""
     # Configure from args/env first
     configure_from_args()
 
@@ -555,14 +555,16 @@ async def main():
         logger.info(f"Default service URL: {YOTO_SERVICE_URL}")
     logger.info("Waiting for tool calls on stdio transport...")
 
-    # Run the FastMCP server
-    await mcp.run()
+    # Run the FastMCP server on stdio transport
+    await mcp.run_stdio_async()
 
 
-def sync_main():
-    """Synchronous entry point that runs the async main function."""
-    asyncio.run(main())
+def main_sync():
+    """Synchronous entry point that runs the FastMCP server."""
+    # FastMCP.run_stdio_async() needs to be wrapped in anyio.run()
+    import anyio
+    anyio.run(main)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main_sync()

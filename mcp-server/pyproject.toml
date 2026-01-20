@@ -41,7 +41,7 @@ Homepage = "https://github.com/earchibald/yoto-smart-stream"
 Repository = "https://github.com/earchibald/yoto-smart-stream"
 
 [project.scripts]
-mcp-server = "server:sync_main"
+mcp-server = "server:main_sync"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
