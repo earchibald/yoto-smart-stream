@@ -33,7 +33,7 @@ class MQTTEvent:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            "timestamp": self.timestamp.isoformat(),
+            "timestamp": self.timestamp.isoformat() + "Z",  # Add Z to indicate UTC
             "device_id": self.device_id,
             "volume": self.volume,
             "volume_max": self.volume_max,
@@ -61,7 +61,7 @@ class StreamRequestEvent:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            "timestamp": self.timestamp.isoformat(),
+            "timestamp": self.timestamp.isoformat() + "Z",  # Add Z to indicate UTC
             "stream_name": self.stream_name,
             "device_ip": self.device_ip,
             "user_agent": self.user_agent,
