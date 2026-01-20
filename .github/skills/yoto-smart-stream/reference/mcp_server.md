@@ -6,8 +6,9 @@ The Yoto Smart Stream project includes an MCP (Model Context Protocol) server th
 
 **Package**: `yoto-library-mcp`  
 **Location**: `mcp-server/` directory  
-**Current Version**: 0.1.1 (stable)  
-**Status**: Production-ready
+**Current Version**: 0.1.4 (stable)  
+**Status**: Production-ready  
+**Framework**: FastMCP (mcp.server.fastmcp)
 
 ## Available Tools
 
@@ -36,6 +37,18 @@ Activate or deactivate Yoto OAuth authentication for automated login.
 
 **Response**: Status message with OAuth token persistence confirmation
 
+**Response Format**:
+```
+Action result description...
+Status: <status_value>
+```
+
+**Status Values**:
+- `success` - OAuth authentication successful
+- `pending` - Authentication in progress or waiting for user action
+- `error` - Authentication or communication error
+- `expired` - OAuth token has expired or session invalid
+
 **Deactivate (Logout)**:
 ```json
 {
@@ -45,6 +58,14 @@ Activate or deactivate Yoto OAuth authentication for automated login.
 ```
 
 **Response**: Confirmation message with logout status
+
+**Response Format**:
+```
+Logout confirmation message...
+Status: <status_value>
+```
+
+**Status Values**: Same as activate (success, error, etc.)
 
 ### 2. `query_library()` - Natural Language Library Queries
 
@@ -193,7 +214,22 @@ Yoto Smart Stream Service
 2. Call `/api/auth/start` to initiate device code flow
 3. Display verification URL and user code to user
 4. Poll `/api/auth/status` endpoint
-5. Return authorization result to LLM
+5. Return authorization result with Status field to LLM
+
+### Response Format: Status Field
+
+All oauth responses include a structured Status field for programmatic handling:
+
+```
+Authentication result message...
+Status: <status_value>
+```
+
+Example responses:
+- Success: `Successfully authenticated!\nStatus: success`
+- Error: `Failed to authenticate: Connection timeout\nStatus: error`
+- Expired: `Token has expired\nStatus: expired`
+- Pending: `Waiting for user action...\nStatus: pending`
 
 ## Testing
 
@@ -211,6 +247,7 @@ python test_with_auth.py    # Test actual functionality with authentication
 - Input schema validation
 - Authentication flows
 - Library queries (all patterns)
+- OAuth Status field format validation
 - Error handling
 - Response formatting
 
@@ -230,7 +267,13 @@ mcp-server/
 
 ### Version History
 
-- **0.1.1** (Current): Stable, fully tested
+- **0.1.4** (Current): Stable, production-ready
+  - Added Status field to oauth tool responses (success, pending, error, expired)
+  - Comprehensive test coverage with status field verification
+  - FastMCP framework migration complete
+  - All tools fully tested and documented
+
+- **0.1.1**: Stable version
   - Both `oauth()` and `query_library()` fully functional
   - Comprehensive test suite
   - Production-ready
