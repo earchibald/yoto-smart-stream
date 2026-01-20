@@ -459,115 +459,119 @@ railway logs --tail 100 | grep -i mqtt
 
 # Part 3: MCP Server Integration
 
-The yoto-smart-stream repository includes an MCP (Model Context Protocol) server for querying the Yoto library using natural language.
+The yoto-smart-stream repository includes an MCP (Model Context Protocol) server for AI agents to query the Yoto library using natural language and manage OAuth authentication.
 
 ## Overview
 
 The MCP server (`mcp-server/` directory) provides:
 - Natural language queries of your Yoto library
+- Multi-deployment support (query different environments)
+- Lazy initialization and lazy authentication
+- In-memory auth cookie caching per host
 - Search cards by title, author, or metadata
 - List playlists and their contents
-- Explore metadata keys and values
-- Direct integration with VS Code and Claude Desktop
+- Yoto OAuth activation/deactivation
+- Direct integration with VS Code, Claude Desktop, and other MCP clients
 
-## Quick Start
+## Quick Reference
 
-### Installation
-
-```bash
-# Using uvx (recommended)
-uvx --from /path/to/yoto-smart-stream/mcp-server mcp-server
-
-# Or using Python directly
-cd mcp-server
-python server.py --url https://your-deployment.railway.app \
-                 --username admin \
-                 --password your-password
-```
-
-### VS Code Configuration
-
-Add to `.vscode/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "yoto-library": {
-      "command": "uvx",
-      "args": ["--from", "/path/to/yoto-smart-stream/mcp-server", "mcp-server"],
-      "env": {
-        "YOTO_SERVICE_URL": "https://your-deployment.railway.app",
-        "ADMIN_USERNAME": "admin",
-        "ADMIN_PASSWORD": "your-password"
-      }
-    }
-  }
-}
-```
-
-### Example Queries
-
-- `"find all cards with 'princess' in the title"`
-- `"what metadata keys are used across the library?"`
-- `"list all playlists"`
-- `"what authors are in the library?"`
-- `"how many cards are there?"`
-
-## Complete Documentation
-
-See `mcp-server/README.md` for:
-- Full VS Code configuration options
-- Claude Desktop integration
-- Authentication setup
-- Troubleshooting guide
-- Development instructions
-
----
-
-# Part 3: MCP Server Integration
-
-The Yoto Smart Stream project includes an MCP (Model Context Protocol) server for AI agent integration.
-
-## Quick Reference: MCP Server
-
-**Version**: 0.1.1 (Stable)  
+**Version**: 0.1.2 (Stable)  
 **Package**: `yoto-library-mcp`  
-**Location**: `mcp-server/` directory
+**Location**: `mcp-server/` directory  
+**Entry Point**: `server:sync_main`
 
 ### Available Tools
 
 1. **`oauth(service_url, action)`** - Manage Yoto authentication
    - `action = "activate"` to log in with Yoto credentials
    - `action = "deactivate"` to log out
-   - Requires `YOTO_USERNAME` and `YOTO_PASSWORD` for activation
+   - Requires `YOTO_USERNAME` and `YOTO_PASSWORD` environment variables
+   - Supports automated browser-based OAuth with Playwright
 
 2. **`query_library(service_url, query)`** - Natural language library queries
    - Examples: "how many cards?", "find cards with princess", "what metadata keys?"
    - Returns library statistics, search results, or metadata information
+   - Multi-deployment support via `service_url` parameter
 
-### Setup for VS Code
+## Key Features
+
+- **Lazy Initialization**: No startup requirements for YOTO_SERVICE_URL
+- **Per-Tool Deployment**: Each tool call can target different yoto-smart-stream deployments
+- **Single Auth per Host**: First query authenticates, subsequent queries reuse cached cookies
+- **Environment Variables**:
+  - `ADMIN_USERNAME` (required): Admin account username
+  - `ADMIN_PASSWORD` (required): Admin account password
+  - `YOTO_USERNAME` (optional): Yoto account email for OAuth activation
+  - `YOTO_PASSWORD` (optional): Yoto account password for OAuth activation
+  - `YOTO_SERVICE_URL` (optional): Default service URL for CLI invocation
+
+## Setup for VS Code
 
 ```json
 {
   "mcpServers": {
     "yoto-library": {
-      "command": "uvx",
-      "args": ["--from", "/path/to/yoto-smart-stream/mcp-server", "mcp-server"],
+      "command": "python",
+      "args": ["/path/to/yoto-smart-stream/mcp-server/server.py"],
       "env": {
-        "YOTO_SERVICE_URL": "https://your-deployment.railway.app",
         "ADMIN_USERNAME": "admin",
-        "ADMIN_PASSWORD": "$ADMIN_PASSWORD",
-        "YOTO_USERNAME": "$YOTO_USERNAME",
-        "YOTO_PASSWORD": "$YOTO_PASSWORD"
+        "ADMIN_PASSWORD": "your-admin-password",
+        "YOTO_USERNAME": "your-email@example.com",
+        "YOTO_PASSWORD": "your-yoto-password"
       }
     }
   }
 }
 ```
 
-### Detailed Documentation
+## Usage Examples
 
-See: [🤖 MCP Server Integration Guide](./reference/mcp_server.md)
+### Query Production Library
+```
+User: "Query the production library - how many cards are there?"
+→ Tool call: query_library(
+    service_url="https://yoto-smart-stream-production.up.railway.app",
+    query="how many cards are there?"
+  )
+```
+
+### Compare Across Deployments
+```
+User: "Compare card counts between production and staging"
+→ Two tool calls:
+  1. query_library(prod_url, "how many cards?")
+  2. query_library(staging_url, "how many cards?")
+```
+
+### Activate Yoto OAuth
+```
+User: "Activate Yoto OAuth on production"
+→ Tool call: oauth(
+    service_url="https://yoto-smart-stream-production.up.railway.app",
+    action="activate"
+  )
+```
+
+## Installation & Testing
+
+### Run Tests
+```bash
+# Test MCP server structure and tools
+python test_mcp_structure.py
+
+# Test API integration
+python test_api_integration.py
+```
+
+### Direct Python Execution
+```bash
+cd mcp-server
+python server.py --username admin --password secret
+```
+
+## Detailed Documentation
+
+See: [🤖 MCP Server Reference](./reference/mcp_server.md)
 
 ---
 
@@ -578,4 +582,4 @@ See: [🤖 MCP Server Integration Guide](./reference/mcp_server.md)
 - **Railway Management**: See [railway-service-management skill](../railway-service-management/SKILL.md)
 - **Example Code**: See `examples/` folder for working implementations
 - **API Tests**: See `tests/` folder for test examples
-- **MCP Server**: See `mcp-server/` folder for Model Context Protocol server implementation
+- **MCP Server**: See `mcp-server/` folder for server implementation
