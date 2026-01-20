@@ -132,39 +132,38 @@ async def start_auth_flow(db: Session = Depends(get_db)):
     """
     settings = get_settings()
 
-    # Get effective client_id from settings database
-    try:
-        from .settings import get_effective_setting_value
+    # Get CLIENT_ID with proper precedence (env var, database, initial value)
+    client_id = settings.get_yoto_client_id()
 
-        effective_client_id = get_effective_setting_value("yoto_client_id", db)
-    except Exception as e:
-        logger.warning(
-            f"Could not get client_id from settings database: {e}, falling back to config"
-        )
-        effective_client_id = settings.yoto_client_id
-
-    if not effective_client_id:
+    if not client_id:
         import os
 
         env_value = os.environ.get("YOTO_CLIENT_ID", "NOT SET")
         logger.error(
-            f"YOTO_CLIENT_ID not configured. Environment variable: {env_value}, Settings value: {effective_client_id}"
+            "YOTO_CLIENT_ID not configured. "
+            f"Environment variable: {env_value}, Settings value: {client_id}"
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"YOTO_CLIENT_ID not configured. Environment check: {env_value}. Please ensure the environment variable or setting is configured.",
+            detail=(
+                "YOTO_CLIENT_ID not configured. Please set it via environment variable or Admin Settings. "
+                f"Environment check: {env_value}."
+            ),
         )
 
     try:
-        # Get or create client
+        # Create a new YotoClient with the CLIENT_ID from settings
+        from yoto_api import YotoManager
+
         client = _get_or_create_client()
 
-        # Initialize manager if needed
-        client.initialize()
-        manager = client.manager
+        # Initialize/reinitialize the manager with the CLIENT_ID from settings
+        # This ensures we use the correct value with proper precedence
+        client.manager = YotoManager(client_id=client_id)
+        logger.info("YotoManager initialized with CLIENT_ID from settings")
 
         # Start device code flow
-        device_info = manager.device_code_flow_start()
+        device_info = client.manager.device_code_flow_start()
 
         logger.info(f"Device code flow started: {device_info.get('user_code')}")
 

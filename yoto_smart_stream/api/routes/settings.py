@@ -48,8 +48,8 @@ AVAILABLE_SETTINGS = {
         "default": "false",
     },
     "yoto_client_id": {
-        "env_var": "yoto_client_id",  # Pydantic reads both upper and lowercase
-        "description": "Yoto API client ID for OAuth authentication",
+        "env_var": "YOTO_CLIENT_ID",
+        "description": "Yoto API Client ID for OAuth authentication",
         "default": "",
     },
 }
