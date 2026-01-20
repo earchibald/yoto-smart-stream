@@ -46,6 +46,10 @@ YOTO_SERVICE_URL = ""
 ADMIN_USERNAME = ""
 ADMIN_PASSWORD = ""
 
+# Constants for search results
+MAX_DESCRIPTION_LENGTH = 100
+MAX_CARDS_TO_DISPLAY = 20
+
 
 def parse_args():
     """Parse command line arguments."""
@@ -210,11 +214,13 @@ def search_library(library_data: dict[str, Any], query: str) -> str:
                     result += f"- {card.get('title', 'Unknown')} by {card.get('author', 'Unknown')}\n"
                     result += f"  ID: {card.get('id', 'Unknown')}\n"
                     if card.get("description"):
-                        result += (
-                            f"  Description: {card['description'][:100]}...\n"
-                            if len(card["description"]) > 100
-                            else f"  Description: {card['description']}\n"
-                        )
+                        desc = card["description"]
+                        if len(desc) > MAX_DESCRIPTION_LENGTH:
+                            result += (
+                                f"  Description: {desc[:MAX_DESCRIPTION_LENGTH]}...\n"
+                            )
+                        else:
+                            result += f"  Description: {desc}\n"
                     result += "\n"
                 return result
             else:
@@ -246,11 +252,11 @@ def search_library(library_data: dict[str, Any], query: str) -> str:
     if "list" in query_lower and "card" in query_lower:
         if cards:
             result = f"Found {len(cards)} card(s) in library:\n\n"
-            for card in cards[:20]:  # Limit to first 20
+            for card in cards[:MAX_CARDS_TO_DISPLAY]:
                 result += f"- {card.get('title', 'Unknown')} by {card.get('author', 'Unknown')}\n"
                 result += f"  Type: {card.get('type', 'unknown')}\n"
-            if len(cards) > 20:
-                result += f"\n... and {len(cards) - 20} more cards"
+            if len(cards) > MAX_CARDS_TO_DISPLAY:
+                result += f"\n... and {len(cards) - MAX_CARDS_TO_DISPLAY} more cards"
             return result
         else:
             return "No cards found in library."

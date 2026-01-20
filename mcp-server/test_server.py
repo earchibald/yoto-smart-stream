@@ -6,8 +6,11 @@ a live yoto-smart-stream deployment.
 """
 
 import sys
+from pathlib import Path
 
-sys.path.insert(0, "/home/runner/work/yoto-smart-stream/yoto-smart-stream/mcp-server")
+# Add mcp-server directory to path
+mcp_server_dir = Path(__file__).parent
+sys.path.insert(0, str(mcp_server_dir))
 
 from server import search_library  # noqa: E402
 
