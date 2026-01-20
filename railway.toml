@@ -1,7 +1,9 @@
 # Railway.app Configuration for Yoto Smart Stream
 # https://docs.railway.app/reference/config-as-code
-# Build configuration is handled by railpack.json
-# This file handles volumes and healthcheck configuration
+
+[build]
+# Build the React frontend before deploying
+buildCommand = "cd frontend && npm install && npm run build && cd .."
 
 [deploy]
 # Health check endpoint
