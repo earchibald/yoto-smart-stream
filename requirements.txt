@@ -1,3 +1,4 @@
+# Python dependencies for Yoto Smart Stream v0.2.2
 yoto_api>=2.1.0
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
