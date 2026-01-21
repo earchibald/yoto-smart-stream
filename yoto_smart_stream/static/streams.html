@@ -42,23 +42,11 @@
         <header>
             <h2>Smart Streams</h2>
             <div style="display: flex; gap: 0.5rem;">
-                <button class="refresh-btn" onclick="loadAudioFiles()">🔄 Refresh</button>
+                <button class="refresh-btn" onclick="loadManagedStreams()">🔄 Refresh</button>
             </div>
         </header>
 
-        <section class="section">
-            <div class="stream-info">
-                <p>Available audio streams from this server. These URLs can be used in Yoto MYO cards.</p>
-                <p class="public-url" id="public-url">Server URL: <span id="url-display">Loading...</span></p>
-            </div>
-        </section>
-
-        <section class="section">
-            <h3>Available Audio Files</h3>
-            <div id="audio-streams" class="streams-grid">
-                <p class="loading">Loading audio files...</p>
-            </div>
-        </section>
+        
 
         <section class="section">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
