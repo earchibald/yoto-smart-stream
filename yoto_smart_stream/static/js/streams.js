@@ -57,11 +57,16 @@ async function loadSystemInfo() {
         const data = await response.json();
 
         // Update version
-        document.getElementById('app-version').textContent = `v${data.version}`;
+        const versionEl = document.getElementById('app-version');
+        if (versionEl) {
+            versionEl.textContent = `v${data.version}`;
+        }
 
         // Update public URL (if available from settings)
         const urlDisplay = document.getElementById('url-display');
-        urlDisplay.textContent = window.location.origin;
+        if (urlDisplay) {
+            urlDisplay.textContent = window.location.origin;
+        }
 
     } catch (error) {
         console.error('Error loading system info:', error);
