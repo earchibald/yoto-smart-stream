@@ -5,6 +5,7 @@ Provides SQLAlchemy database setup and session management for the application.
 """
 
 import logging
+from typing import Any
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -16,11 +17,34 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
+
+def _is_sqlite(db_url: str) -> bool:
+    return db_url.startswith("sqlite")
+
+
+def _is_mysql(db_url: str) -> bool:
+    return db_url.startswith(
+        ("mysql://", "mysql+pymysql://", "mariadb://", "mariadb+pymysql://")
+    )
+
+
+def get_engine_options(db_url: str) -> dict[str, Any]:
+    """Return engine options tailored to the driver."""
+    options: dict[str, Any] = {}
+
+    if _is_sqlite(db_url):
+        options["connect_args"] = {"check_same_thread": False}
+
+    if _is_mysql(db_url):
+        options["pool_pre_ping"] = True
+        # Avoid stale connections in Railway's managed MySQL
+        options["pool_recycle"] = 1800
+
+    return options
+
+
 # Create engine
-engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
-)
+engine = create_engine(settings.database_url, **get_engine_options(settings.database_url))
 
 # Create SessionLocal class
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..config import get_settings
+from ..database import get_engine_options
 
 try:
     from elevenlabs.client import ElevenLabs  # type: ignore
@@ -166,8 +167,7 @@ def get_transcription_service() -> TranscriptionService:
         # Get value from database if available
         try:
             engine = create_engine(
-                settings.database_url, 
-                connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {}
+                settings.database_url, **get_engine_options(settings.database_url)
             )
             SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
             db = SessionLocal()

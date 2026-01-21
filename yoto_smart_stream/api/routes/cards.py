@@ -26,7 +26,7 @@ from pydub import AudioSegment
 from sqlalchemy.orm import Session
 
 from ...config import get_settings
-from ...database import get_db
+from ...database import get_db, get_engine_options
 from ...models import User
 from ..dependencies import get_yoto_client
 from .user_auth import require_auth
@@ -70,9 +70,7 @@ def transcribe_audio_background(filename: str, audio_path: str, db_url: str):
     from ...core.transcription import get_transcription_service
 
     # Create a new database session for this background task
-    engine = create_engine(
-        db_url, connect_args={"check_same_thread": False} if "sqlite" in db_url else {}
-    )
+    engine = create_engine(db_url, **get_engine_options(db_url))
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
 

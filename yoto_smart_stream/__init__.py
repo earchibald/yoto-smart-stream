@@ -11,7 +11,7 @@ Device Compatibility:
 Note: Voice control features are not supported as Yoto devices do not have microphones.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1+mysql"
 
 from .api import app, create_app
 from .config import Settings, get_settings

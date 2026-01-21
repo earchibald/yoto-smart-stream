@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote_plus
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,7 +28,7 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = "Yoto Smart Stream"
-    app_version: str = "0.2.1"
+    app_version: str = "0.2.1+mysql"
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
     log_full_streams_requests: bool = Field(
@@ -171,6 +172,15 @@ class Settings(BaseSettings):
         default="sqlite:///./yoto_smart_stream.db", description="Database connection URL"
     )
 
+    @staticmethod
+    def _normalize_mysql_url(url: str) -> str:
+        """Ensure MySQL URLs use the PyMySQL driver."""
+        if url.startswith("mysql://"):
+            return url.replace("mysql://", "mysql+pymysql://", 1)
+        if url.startswith("mariadb://"):
+            return url.replace("mariadb://", "mariadb+pymysql://", 1)
+        return url
+
     @field_validator("database_url", mode="before")
     @classmethod
     def get_database_url(cls, v):
@@ -181,6 +191,25 @@ class Settings(BaseSettings):
         environment-specific database names to avoid conflicts between environments.
         Falls back to local path for development.
         """
+
+        # Prefer MySQL if Railway-provided credentials are available
+        mysql_url = os.environ.get("MYSQL_URL")
+        if mysql_url:
+            return cls._normalize_mysql_url(mysql_url)
+
+        mysql_host = os.environ.get("MYSQLHOST")
+        mysql_user = os.environ.get("MYSQLUSER")
+        mysql_password = os.environ.get("MYSQLPASSWORD")
+        mysql_db = os.environ.get("MYSQLDATABASE")
+        mysql_port = os.environ.get("MYSQLPORT", "3306")
+
+        if all([mysql_host, mysql_user, mysql_password, mysql_db]):
+            safe_user = quote_plus(mysql_user)
+            safe_password = quote_plus(mysql_password)
+            return cls._normalize_mysql_url(
+                f"mysql+pymysql://{safe_user}:{safe_password}@{mysql_host}:{mysql_port}/{mysql_db}"
+            )
+
         # Check if running on Railway (has RAILWAY_ENVIRONMENT_NAME set)
         railway_env = os.environ.get("RAILWAY_ENVIRONMENT_NAME")
 

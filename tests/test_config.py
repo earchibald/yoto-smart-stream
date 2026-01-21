@@ -237,3 +237,53 @@ class TestTokenFilePath:
 
         settings = Settings()
         assert settings.yoto_refresh_token_file == custom_path
+
+
+class TestDatabaseUrlSelection:
+    """Test database URL selection for MySQL and SQLite."""
+
+    def _clear_database_env(self, monkeypatch):
+        for var in [
+            "MYSQL_URL",
+            "MYSQLHOST",
+            "MYSQLPORT",
+            "MYSQLUSER",
+            "MYSQLPASSWORD",
+            "MYSQLDATABASE",
+            "RAILWAY_ENVIRONMENT_NAME",
+            "ENVIRONMENT",
+        ]:
+            monkeypatch.delenv(var, raising=False)
+
+    def test_mysql_url_normalized_from_env(self, monkeypatch):
+        """MYSQL_URL should be preferred and normalized to pymysql driver."""
+        self._clear_database_env(monkeypatch)
+        monkeypatch.setenv("MYSQL_URL", "mysql://user:pass@railway-host:3306/appdb")
+
+        settings = Settings()
+
+        assert settings.database_url == "mysql+pymysql://user:pass@railway-host:3306/appdb"
+
+    def test_mysql_url_built_from_components(self, monkeypatch):
+        """Build MySQL URL from Railway component variables when MYSQL_URL is absent."""
+        self._clear_database_env(monkeypatch)
+        monkeypatch.setenv("MYSQLHOST", "railway-db")
+        monkeypatch.setenv("MYSQLPORT", "3307")
+        monkeypatch.setenv("MYSQLUSER", "db-user")
+        monkeypatch.setenv("MYSQLPASSWORD", "p@ss word")
+        monkeypatch.setenv("MYSQLDATABASE", "dbname")
+
+        settings = Settings()
+
+        assert (
+            settings.database_url
+            == "mysql+pymysql://db-user:p%40ss+word@railway-db:3307/dbname"
+        )
+
+    def test_sqlite_default_without_mysql(self, monkeypatch):
+        """Fallback to SQLite when no MySQL variables are set."""
+        self._clear_database_env(monkeypatch)
+
+        settings = Settings()
+
+        assert settings.database_url == "sqlite:///./yoto_smart_stream.db"
