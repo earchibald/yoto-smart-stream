@@ -13,6 +13,8 @@ from urllib.parse import quote_plus
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from . import __version__
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = "Yoto Smart Stream"
-    app_version: str = "0.2.1+mysql"
+    app_version: str = __version__
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
     log_full_streams_requests: bool = Field(
