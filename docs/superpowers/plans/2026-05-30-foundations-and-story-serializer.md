@@ -90,13 +90,13 @@ Bumps Python to 3.11, adds Alembic, and creates the empty packages the rest of t
 - Modify: `pyproject.toml`
 - Create: `yoto_smart_stream/db/__init__.py`, `yoto_smart_stream/schemas/__init__.py`, `yoto_smart_stream/stories/__init__.py`, `tests/stories/__init__.py`
 
-- [ ] **Step 1: Add Alembic and bump Python in `pyproject.toml`**
+- [ ] **Step 1: Bump Python and ruff target in `pyproject.toml`**
 
-In `pyproject.toml`, change `requires-python = ">=3.9"` to:
+`alembic>=1.12.0` is already in `[project].dependencies` — no need to add it. In `pyproject.toml`, change `requires-python = ">=3.9"` to:
 ```toml
 requires-python = ">=3.11"
 ```
-Add `"alembic>=1.13.0",` to the `[project].dependencies` list (after the `SQLAlchemy` line). In `[tool.ruff]` change `target-version = "py39"` to `target-version = "py311"`.
+In `[tool.ruff]` change `target-version = "py39"` to `target-version = "py311"`. (Optionally also update `[tool.black].target-version` and `[tool.mypy].python_version` to match, but that is not required for this plan.)
 
 - [ ] **Step 2: Create the empty package markers**
 
