@@ -356,6 +356,7 @@ Expected: a new file under `alembic/versions/` whose `upgrade()` calls `op.creat
 
 Create `tests/stories/test_migrations.py`:
 ```python
+import os
 import subprocess
 import sys
 from sqlalchemy import create_engine, inspect
@@ -364,11 +365,12 @@ from sqlalchemy import create_engine, inspect
 def test_migrations_create_stories_table(tmp_path):
     db = tmp_path / "m.db"
     url = f"sqlite:///{db}"
+    env = {**os.environ, "ALEMBIC_SQLALCHEMY_URL": url}
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "-x", f"url={url}", "upgrade", "head"],
         capture_output=True,
         text=True,
-        env={"ALEMBIC_SQLALCHEMY_URL": url, "PATH": __import__("os").environ["PATH"]},
+        env=env,
     )
     assert result.returncode == 0, result.stderr
 
