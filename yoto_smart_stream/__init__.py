@@ -13,8 +13,12 @@ Note: Voice control features are not supported as Yoto devices do not have micro
 
 __version__ = "0.2.2"
 
-from .api import app, create_app
-from .config import Settings, get_settings
-from .core import YotoClient
+try:
+    from .api import app, create_app
+    from .config import Settings, get_settings
+    from .core import YotoClient
 
-__all__ = ["app", "create_app", "get_settings", "Settings", "YotoClient", "__version__"]
+    __all__ = ["app", "create_app", "get_settings", "Settings", "YotoClient", "__version__"]
+except ImportError:
+    # v1 dependencies may be missing in the redesign environment.
+    __all__ = ["__version__"]
