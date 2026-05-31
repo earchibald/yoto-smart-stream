@@ -46,10 +46,30 @@ def _terminates(node: StoryNode) -> bool:
 
 
 def _reachable_ids(graph: StoryGraph) -> set[str]:
-    """Node ids reachable from the start node via directed edges (any handle)."""
+    """Node ids reachable from the start node via *device-traversable* edges.
+
+    The device only emits a goto for the edges the serializer actually walks:
+    choice/ending nodes follow their ``left`` and ``right`` button edges; a
+    ``segment`` node follows its ``next`` edge only when ``on_end is OnEnd.next``
+    (segments with on_end stop/repeat emit no goto). Reachability must mirror
+    that exactly, or a node reachable only via an ignored edge passes validation
+    yet is silently unreachable on-device.
+    """
+    nodes_by_id = {node.id: node for node in graph.nodes}
+
     adjacency: dict[str, list[str]] = {}
     for edge in graph.edges:
-        adjacency.setdefault(edge.source, []).append(edge.target)
+        source = nodes_by_id.get(edge.source)
+        if source is None:
+            continue
+        if source.type in (NodeType.choice, NodeType.ending):
+            traversable = edge.handle in (EdgeHandle.left, EdgeHandle.right)
+        elif source.type is NodeType.segment and source.on_end is OnEnd.next:
+            traversable = edge.handle is EdgeHandle.next
+        else:
+            traversable = False
+        if traversable:
+            adjacency.setdefault(edge.source, []).append(edge.target)
 
     seen: set[str] = set()
     queue: deque[str] = deque([graph.start_node_id])
@@ -113,13 +133,17 @@ def validate_graph(graph: StoryGraph) -> list[str]:
                 )
 
         if node.type is NodeType.choice:
-            if not _outgoing(graph, node.id, EdgeHandle.left):
+            left_edges = _outgoing(graph, node.id, EdgeHandle.left)
+            if len(left_edges) != 1:
                 errors.append(
-                    f"Choice node '{node.id}' is missing a left-button edge."
+                    f"Choice node '{node.id}' must have exactly one left-button "
+                    f"edge (found {len(left_edges)})."
                 )
-            if not _outgoing(graph, node.id, EdgeHandle.right):
+            right_edges = _outgoing(graph, node.id, EdgeHandle.right)
+            if len(right_edges) != 1:
                 errors.append(
-                    f"Choice node '{node.id}' is missing a right-button edge."
+                    f"Choice node '{node.id}' must have exactly one right-button "
+                    f"edge (found {len(right_edges)})."
                 )
 
         if node.type is NodeType.segment and node.on_end is OnEnd.next:

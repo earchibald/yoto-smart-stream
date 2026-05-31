@@ -95,3 +95,20 @@ def test_dangling_goto_target_raises_valueerror():
     )
     with pytest.raises(ValueError, match="ghost"):
         serialize_story(graph, story_id=1, base_url="https://s", title="T")
+
+
+def test_serialize_rejects_invalid_graph():
+    # Choice node missing its right-button edge -> would emit a dead button.
+    # serialize_story must refuse rather than silently produce a broken card.
+    graph = StoryGraph(
+        start_node_id="intro",
+        nodes=[
+            StoryNode(id="intro", type=NodeType.choice, title="Intro",
+                      tracks=[Track(key="a", title="A")]),
+            StoryNode(id="end", type=NodeType.ending, title="End",
+                      tracks=[Track(key="a", title="A")]),
+        ],
+        edges=[StoryEdge(id="e1", source="intro", target="end", handle=EdgeHandle.left)],
+    )
+    with pytest.raises(ValueError):
+        serialize_story(graph, story_id=1, base_url="https://s", title="T")

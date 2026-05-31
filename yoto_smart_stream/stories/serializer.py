@@ -22,6 +22,7 @@ from yoto_smart_stream.schemas.story import (
     StoryNode,
 )
 from yoto_smart_stream.stories.keys import build_chapter_keys
+from yoto_smart_stream.stories.validator import validate_graph
 
 
 def serialize_story(
@@ -33,6 +34,12 @@ def serialize_story(
     description: str | None = None,
     author: str | None = None,
 ) -> YotoCard:
+    errors = validate_graph(graph)
+    if errors:
+        raise ValueError(
+            "Cannot serialize an invalid story graph:\n  - " + "\n  - ".join(errors)
+        )
+
     chapter_keys = build_chapter_keys(graph.nodes)
     nodes_by_id = {n.id: n for n in graph.nodes}
 
