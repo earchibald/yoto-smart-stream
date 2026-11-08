@@ -12,7 +12,8 @@ non-book chapters (e.g. ``intro``), and publishes a NEW interactive card:
     choose-book8 --right--> choose-book4   (loops)
 
 Finishing a book flows straight into the next book (no prompt); the last book
-stops. Prompts are TTS'd locally with ollama, uploaded to Yoto, and the book
+stops. While a book plays, left/right clicks step to the previous/next track
+(and the dial's native skipping is left enabled). Prompts are TTS'd locally with ollama, uploaded to Yoto, and the book
 audio/icons are reused by reference (``yoto:#...``) — nothing is re-uploaded.
 
 The graph goes through the redesign's ``validate_graph`` / ``serialize_story``
@@ -25,6 +26,7 @@ Usage:
     export YOTO_CLIENT_SECRET=...   # only if your app has one
     python scripts/build_book_selector_card.py dK3N1 --dry-run
     python scripts/build_book_selector_card.py dK3N1
+    python scripts/build_book_selector_card.py dK3N1 --update hR8cb   # rebuild in place
 """
 
 from __future__ import annotations
@@ -162,7 +164,7 @@ def parse_books(card: dict) -> dict[int, list[Asset]]:
             books.setdefault(int(m.group(1)), []).append(
                 Asset(
                     title=re.sub(r"\.mp3$", "", t["title"]),
-                    track_url=yoto_ref(t["trackUrl"]),
+                    track_url=yoto_ref(t["trackUrl"]) or "",
                     format=t.get("format", "mp3"),
                     duration=t.get("duration"),
                     file_size=t.get("fileSize"),
@@ -295,8 +297,32 @@ def build_graph(books: dict[int, list[Asset]]) -> StoryGraph:
     return StoryGraph(start_node_id=choice_id(order[0]), nodes=nodes, edges=edges)
 
 
+def skip_targets(books: dict[int, list[Asset]]) -> dict[str, tuple[str, str]]:
+    """Manual (prev, next) targets for every book track.
+
+    Previous from a book's first track returns to that book's prompt; next from a
+    book's last track starts the next book, and from the final book's last track
+    returns to the first prompt.
+    """
+    order = list(books)
+    targets: dict[str, tuple[str, str]] = {}
+    for idx, b in enumerate(order):
+        n = len(books[b])
+        for i in range(1, n + 1):
+            prev = segment_id(b, i - 1) if i > 1 else choice_id(b)
+            if i < n:
+                nxt = segment_id(b, i + 1)
+            elif idx < len(order) - 1:
+                nxt = segment_id(order[idx + 1], 1)
+            else:
+                nxt = choice_id(order[0])
+            targets[segment_id(b, i)] = (prev, nxt)
+    return targets
+
+
 def build_payload(
-    graph: StoryGraph, assets: dict[str, Asset], source: dict, title: str
+    graph: StoryGraph, assets: dict[str, Asset], source: dict, title: str,
+    books: dict[int, list[Asset]],
 ) -> dict:
     card = serialize_story(
         graph,
@@ -326,8 +352,31 @@ def build_payload(
         if asset.duration is not None:
             chapter["duration"] = asset.duration
 
+    # Manual track changes while a book plays. The serializer only gives choice
+    # nodes button events, so add them here: left click = previous, right = next.
+    keys = build_chapter_keys(graph.nodes)
+
+    def goto(node_id: str) -> dict:
+        return {"cmd": "goto", "params": {"chapterKey": keys[node_id], "trackKey": node_id}}
+
+    targets = skip_targets(books)
+    for chapter in payload["content"]["chapters"]:
+        node_id = by_chapter_key[chapter["key"]]
+        if node_id in targets:
+            prev, nxt = targets[node_id]
+            events = chapter["tracks"][-1].setdefault("events", {})
+            events["onLhb"] = goto(prev)
+            events["onRhb"] = goto(nxt)
+
+    config = payload["content"]["config"]
+    # Let the dial skip chapters/tracks natively too (chapter order == play order).
+    config["disableTrackNav"] = False
+    config["disableChapterNav"] = False
     # All audio is Yoto-hosted, so the card can play offline.
-    payload["content"]["config"]["onlineOnly"] = False
+    config["onlineOnly"] = False
+    # Always start at the first prompt: forget the play position after 1s. (Yoto
+    # documents the default, 30 days, but not what 0 means, so avoid it.)
+    config["resumeTimeout"] = 1
     cover = source.get("metadata", {}).get("cover") or source.get("content", {}).get("cover")
     if cover:
         payload["metadata"]["cover"] = cover
@@ -377,8 +426,15 @@ def check_payload(payload: dict, books: dict[int, list[Asset]]) -> None:
         expected = [segment_id(bb, i) for bb in order[order.index(b):]
                     for i in range(1, len(books[bb]) + 1)]
         assert played == expected, f"Book {b} play-through mismatch"
+
+    # Left/right clicks during a book step to the previous/next track.
+    for node_id, (prev, nxt) in skip_targets(books).items():
+        ev = chapters[node_id]["tracks"][-1]["events"]
+        assert resolve(ev["onLhb"]) == prev, f"{node_id} left -> {ev['onLhb']}"
+        assert resolve(ev["onRhb"]) == nxt, f"{node_id} right -> {ev['onRhb']}"
     print(f"✓ Device walk OK: {len(chapters)} chapters, every goto resolves, "
-          f"prompts cycle {' -> '.join(map(str, order))} -> {order[0]}, books play through")
+          f"prompts cycle {' -> '.join(map(str, order))} -> {order[0]}, books play through, "
+          "left/right skip tracks")
 
 
 # ------------------------------------------------------------------------ main
@@ -392,6 +448,7 @@ def main() -> None:
     ap.add_argument("--title", help="New card title (default: '<source title> (Choose a Book)')")
     ap.add_argument("--audio-dir", type=Path, default=Path("book_selector_audio"))
     ap.add_argument("--dry-run", action="store_true", help="Build + check, write payload JSON, don't upload/POST")
+    ap.add_argument("--update", metavar="CARD_ID", help="Update this previously built card instead of creating a new one")
     args = ap.parse_args()
 
     client_id = os.environ.get("YOTO_CLIENT_ID")
@@ -422,7 +479,7 @@ def main() -> None:
             assets[choice_id(b)] = prompt_asset(upload_audio(token, mp3), title, tracks[0].icon)
 
     title = args.title or f"{source['title']} (Choose a Book)"
-    payload = build_payload(graph, assets, source, title)
+    payload = build_payload(graph, assets, source, title, books)
     check_payload(payload, books)
 
     out = args.audio_dir / "payload.json"
@@ -432,12 +489,20 @@ def main() -> None:
         print("Dry run: nothing uploaded or created.")
         return
 
+    if args.update:
+        existing = fetch_card(token, args.update)
+        if existing["title"] != title:
+            sys.exit(f"Refusing to overwrite {args.update}: its title is {existing['title']!r}, "
+                     f"expected {title!r}")
+        payload["cardId"] = args.update
+
     resp = requests.post(f"{API}/content", headers={"Authorization": f"Bearer {token}"},
                          json=payload, timeout=60)
     if resp.status_code >= 400:
-        sys.exit(f"Create failed: HTTP {resp.status_code}: {resp.text}")
+        sys.exit(f"{'Update' if args.update else 'Create'} failed: HTTP {resp.status_code}: {resp.text}")
     created = resp.json().get("card", resp.json())
-    print(f"✓ Created interactive card {created.get('cardId')!r}: {created.get('title')!r}")
+    verb = "Updated" if args.update else "Created"
+    print(f"✓ {verb} interactive card {created.get('cardId')!r}: {created.get('title')!r}")
 
 
 if __name__ == "__main__":
