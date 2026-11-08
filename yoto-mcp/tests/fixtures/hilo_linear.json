@@ -1,0 +1,236 @@
+{
+ "content": {
+  "chapters": [
+   {
+    "display": {
+     "icon16x16": "yoto:#_7CzVIVcBy2D_K-A0Sn4MHlaykP1sd0y7NmGdPTccl0"
+    },
+    "key": "c0shJUS5T4",
+    "overlayLabel": "1",
+    "title": "intro",
+    "tracks": [
+     {
+      "channels": "mono",
+      "display": {
+       "icon16x16": "yoto:#_7CzVIVcBy2D_K-A0Sn4MHlaykP1sd0y7NmGdPTccl0"
+      },
+      "duration": 13,
+      "fileSize": 130779,
+      "format": "opus",
+      "key": "Nnv2y3iBHE",
+      "overlayLabel": "1",
+      "title": "intro.mp3",
+      "trackUrl": "yoto:#hhxQbxl-9R4-esRs4EIm0xPKI5av0B6tzXGRh-qC__k",
+      "type": "audio",
+      "ambient": null
+     }
+    ],
+    "availableFrom": null,
+    "ambient": null,
+    "duration": 13,
+    "fileSize": 130779
+   },
+   {
+    "display": {
+     "icon16x16": "yoto:#BE5oF01mxKamJzEon-rs5fED8tjcr2v9Jx46JsySenY"
+    },
+    "key": "0k--mTniN1",
+    "overlayLabel": "2",
+    "title": "Book 4 Chapter 1- Whoa.mp3",
+    "tracks": [
+     {
+      "channels": "stereo",
+      "display": {
+       "icon16x16": "yoto:#BE5oF01mxKamJzEon-rs5fED8tjcr2v9Jx46JsySenY"
+      },
+      "duration": 87,
+      "fileSize": 915100,
+      "format": "opus",
+      "key": "UjGSNbmvSN",
+      "overlayLabel": "2",
+      "title": "Book 4 Chapter 1- Whoa.mp3",
+      "trackUrl": "yoto:#3otzKd_rxPVj4Luwo6w9vNEJkvuP3br5iZxV8TFwRqM",
+      "type": "audio",
+      "ambient": null
+     }
+    ],
+    "availableFrom": null,
+    "ambient": null,
+    "duration": 87,
+    "fileSize": 915100
+   },
+   {
+    "display": {
+     "icon16x16": "yoto:#Qe62frECYgJ60jbTnyJU5Whpl9-OBa3rFPwLXAEVxKM"
+    },
+    "key": "VQ2I1Wbgxs",
+    "overlayLabel": "3",
+    "title": "Book 4 Chapter 2- Here to Help.mp3",
+    "tracks": [
+     {
+      "channels": "stereo",
+      "display": {
+       "icon16x16": "yoto:#Qe62frECYgJ60jbTnyJU5Whpl9-OBa3rFPwLXAEVxKM"
+      },
+      "duration": 537,
+      "fileSize": 5729468,
+      "format": "opus",
+      "key": "eKLKue-YBT",
+      "overlayLabel": "3",
+      "title": "Book 4 Chapter 2- Here to Help.mp3",
+      "trackUrl": "yoto:#P46TKsYe615VoViohjfqymberJcoUQ-Ob4ObyYGXC_Q",
+      "type": "audio",
+      "ambient": null
+     }
+    ],
+    "availableFrom": null,
+    "ambient": null,
+    "duration": 537,
+    "fileSize": 5729468
+   },
+   {
+    "display": {
+     "icon16x16": "yoto:#dGuJx_btx78GfcjBY7FPL1vguEx9IeCTfipEEdp1FOo"
+    },
+    "key": "8nDZOHWDwh",
+    "overlayLabel": "4",
+    "title": "Book 4 Chapter 3- A Lot to Do.mp3",
+    "tracks": [
+     {
+      "channels": "stereo",
+      "display": {
+       "icon16x16": "yoto:#dGuJx_btx78GfcjBY7FPL1vguEx9IeCTfipEEdp1FOo"
+      },
+      "duration": 1110,
+      "fileSize": 11356105,
+      "format": "opus",
+      "key": "GTraAV9plO",
+      "overlayLabel": "4",
+      "title": "Book 4 Chapter 3- A Lot to Do.mp3",
+      "trackUrl": "yoto:#bY7FwmjskSec_LbEtz4K0Fe_N7ISAJD1s-vbZUmnd-g",
+      "type": "audio",
+      "ambient": null
+     }
+    ],
+    "availableFrom": null,
+    "ambient": null,
+    "duration": 1110,
+    "fileSize": 11356105
+   },
+   {
+    "display": {
+     "icon16x16": "yoto:#tsiZpqPiivb7977sXySqRLDkT42igMdsaK44rV2zHOs"
+    },
+    "key": "QrNpNWcXNk",
+    "overlayLabel": "13",
+    "title": "Book 5 Chapter 1- Going to Be Hard.mp3",
+    "tracks": [
+     {
+      "channels": "stereo",
+      "display": {
+       "icon16x16": "yoto:#tsiZpqPiivb7977sXySqRLDkT42igMdsaK44rV2zHOs"
+      },
+      "duration": 42,
+      "fileSize": 485809,
+      "format": "opus",
+      "key": "sa2HkNbMVM",
+      "overlayLabel": "13",
+      "title": "Book 5 Chapter 1- Going to Be Hard.mp3",
+      "trackUrl": "yoto:#Z6mlAUVVANGwfJv994T6FwlFa1q-Xwi_WoohrxbHzu8",
+      "type": "audio",
+      "ambient": null
+     }
+    ],
+    "availableFrom": null,
+    "ambient": null,
+    "duration": 42,
+    "fileSize": 485809
+   },
+   {
+    "display": {
+     "icon16x16": "yoto:#RLewHgwMYcPXobAeYFKO8fsL2HyzDDxhmToZQdb1TzQ"
+    },
+    "key": "j-kzMaJ7tC",
+    "overlayLabel": "14",
+    "title": "Book 5 Chapter 2- Here.mp3",
+    "tracks": [
+     {
+      "channels": "stereo",
+      "display": {
+       "icon16x16": "yoto:#RLewHgwMYcPXobAeYFKO8fsL2HyzDDxhmToZQdb1TzQ"
+      },
+      "duration": 327,
+      "fileSize": 3515816,
+      "format": "opus",
+      "key": "t1iM-DcgWb",
+      "overlayLabel": "14",
+      "title": "Book 5 Chapter 2- Here.mp3",
+      "trackUrl": "yoto:#RC4yBrDFPSVFXlnqmzPUmzNsOF_W6A40940NCS2gUP0",
+      "type": "audio",
+      "ambient": null
+     }
+    ],
+    "availableFrom": null,
+    "ambient": null,
+    "duration": 327,
+    "fileSize": 3515816
+   },
+   {
+    "display": {
+     "icon16x16": "yoto:#HnlqSWbz9GrNUfp7t9bt0EvQobA3OW4Yuehj4sdKlFI"
+    },
+    "key": "F3Ta24sXqn",
+    "overlayLabel": "15",
+    "title": "Book 5 Chapter 3- Whack-a-Do.mp3",
+    "tracks": [
+     {
+      "channels": "stereo",
+      "display": {
+       "icon16x16": "yoto:#HnlqSWbz9GrNUfp7t9bt0EvQobA3OW4Yuehj4sdKlFI"
+      },
+      "duration": 543,
+      "fileSize": 5650404,
+      "format": "opus",
+      "key": "Nnh1Gihlp3",
+      "overlayLabel": "15",
+      "title": "Book 5 Chapter 3- Whack-a-Do.mp3",
+      "trackUrl": "yoto:#hNSr8NOFRizZ_AgyBshRx-kPHx1vTNX6TYqxd6j5wZA",
+      "type": "audio",
+      "ambient": null
+     }
+    ],
+    "availableFrom": null,
+    "ambient": null,
+    "duration": 543,
+    "fileSize": 5650404
+   }
+  ],
+  "config": {
+   "resumeTimeout": 2592000,
+   "onlineOnly": false
+  },
+  "playbackType": "linear"
+ },
+ "metadata": {
+  "copyrights": [
+   "\u00a9"
+  ],
+  "cover": {
+   "imageL": "https://card-content.yotoplay.com/1GpwydcZe7RtCEDwcfcZahMQNQjOWS7bq6SHTgiOwM6k~/pub/PqfANBaYqvn0rbXubpGx_SwGg7J9NHOE1W1Lzy0mh3U"
+  },
+  "media": {
+   "duration": 25922,
+   "fileSize": 268886522
+  },
+  "narrators": [],
+  "abridged": false,
+  "authors": [],
+  "accents": []
+ },
+ "slug": "2m3qRiMRvNTyyvYxMUwwK",
+ "title": "Hilo Books 4-8",
+ "cardId": "LIN01",
+ "userId": "auth0|owner-a",
+ "createdAt": "2026-11-08T00:32:23.790Z",
+ "updatedAt": "2026-11-08T01:03:22.687Z"
+}
