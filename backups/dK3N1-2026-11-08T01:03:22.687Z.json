@@ -1,0 +1,1659 @@
+{
+ "card": {
+  "content": {
+   "chapters": [
+    {
+     "display": {
+      "icon16x16": "yoto:#_7CzVIVcBy2D_K-A0Sn4MHlaykP1sd0y7NmGdPTccl0"
+     },
+     "key": "c0shJUS5T4",
+     "overlayLabel": "1",
+     "title": "intro",
+     "tracks": [
+      {
+       "channels": "mono",
+       "display": {
+        "icon16x16": "yoto:#_7CzVIVcBy2D_K-A0Sn4MHlaykP1sd0y7NmGdPTccl0"
+       },
+       "duration": 13,
+       "fileSize": 130779,
+       "format": "opus",
+       "key": "Nnv2y3iBHE",
+       "overlayLabel": "1",
+       "title": "intro.mp3",
+       "trackUrl": "yoto:#hhxQbxl-9R4-esRs4EIm0xPKI5av0B6tzXGRh-qC__k",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 13,
+     "fileSize": 130779
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#BE5oF01mxKamJzEon-rs5fED8tjcr2v9Jx46JsySenY"
+     },
+     "key": "0k--mTniN1",
+     "overlayLabel": "2",
+     "title": "Book 4 Chapter 1- Whoa.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#BE5oF01mxKamJzEon-rs5fED8tjcr2v9Jx46JsySenY"
+       },
+       "duration": 87,
+       "fileSize": 915100,
+       "format": "opus",
+       "key": "UjGSNbmvSN",
+       "overlayLabel": "2",
+       "title": "Book 4 Chapter 1- Whoa.mp3",
+       "trackUrl": "yoto:#3otzKd_rxPVj4Luwo6w9vNEJkvuP3br5iZxV8TFwRqM",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 87,
+     "fileSize": 915100
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#Qe62frECYgJ60jbTnyJU5Whpl9-OBa3rFPwLXAEVxKM"
+     },
+     "key": "VQ2I1Wbgxs",
+     "overlayLabel": "3",
+     "title": "Book 4 Chapter 2- Here to Help.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#Qe62frECYgJ60jbTnyJU5Whpl9-OBa3rFPwLXAEVxKM"
+       },
+       "duration": 537,
+       "fileSize": 5729468,
+       "format": "opus",
+       "key": "eKLKue-YBT",
+       "overlayLabel": "3",
+       "title": "Book 4 Chapter 2- Here to Help.mp3",
+       "trackUrl": "yoto:#P46TKsYe615VoViohjfqymberJcoUQ-Ob4ObyYGXC_Q",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 537,
+     "fileSize": 5729468
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#dGuJx_btx78GfcjBY7FPL1vguEx9IeCTfipEEdp1FOo"
+     },
+     "key": "8nDZOHWDwh",
+     "overlayLabel": "4",
+     "title": "Book 4 Chapter 3- A Lot to Do.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#dGuJx_btx78GfcjBY7FPL1vguEx9IeCTfipEEdp1FOo"
+       },
+       "duration": 1110,
+       "fileSize": 11356105,
+       "format": "opus",
+       "key": "GTraAV9plO",
+       "overlayLabel": "4",
+       "title": "Book 4 Chapter 3- A Lot to Do.mp3",
+       "trackUrl": "yoto:#bY7FwmjskSec_LbEtz4K0Fe_N7ISAJD1s-vbZUmnd-g",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 1110,
+     "fileSize": 11356105
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#hRT7cjdQ8n_9zOab_DJv2fpj6MMfPUb0xH-9ICxdUeI"
+     },
+     "key": "9Uax0_Vjwg",
+     "overlayLabel": "5",
+     "title": "Book 4 Chapter 4- News.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#hRT7cjdQ8n_9zOab_DJv2fpj6MMfPUb0xH-9ICxdUeI"
+       },
+       "duration": 738,
+       "fileSize": 7612860,
+       "format": "opus",
+       "key": "dwe3voKre6",
+       "overlayLabel": "5",
+       "title": "Book 4 Chapter 4- News.mp3",
+       "trackUrl": "yoto:#FIoeB-Wv62iMxR_v4qOMLF6CQHYEBBOpR1gV2j5Oztw",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 738,
+     "fileSize": 7612860
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#HdBbrVyFKGbf4Cor2zaAU-jUM-YgG3BzIZNhoblr9Q4"
+     },
+     "key": "1qZujD15I_",
+     "overlayLabel": "6",
+     "title": "Book 4 Chapter 5- Hazzah.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#HdBbrVyFKGbf4Cor2zaAU-jUM-YgG3BzIZNhoblr9Q4"
+       },
+       "duration": 591,
+       "fileSize": 5892194,
+       "format": "opus",
+       "key": "i7d37zaQIP",
+       "overlayLabel": "6",
+       "title": "Book 4 Chapter 5- Hazzah.mp3",
+       "trackUrl": "yoto:#zRrP6Kpkg9m0Ri8-OSrVXjq62ZwvxqsnIuU8RLRKw3U",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 591,
+     "fileSize": 5892194
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#ybZdRZ1FOLeQcCKC2J4sKm-rmWXl9ZPyWdf99fzQoR0"
+     },
+     "key": "9LU6R0wym6",
+     "overlayLabel": "7",
+     "title": "Book 4 Chapter 6- We Can Be Heroes.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#ybZdRZ1FOLeQcCKC2J4sKm-rmWXl9ZPyWdf99fzQoR0"
+       },
+       "duration": 672,
+       "fileSize": 6903022,
+       "format": "opus",
+       "key": "Qz75Lm4By7",
+       "overlayLabel": "7",
+       "title": "Book 4 Chapter 6- We Can Be Heroes.mp3",
+       "trackUrl": "yoto:#O814mm9QqtDM2zEh6G_r_Vd7YPkSajQuGhJ8-JUjGT4",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 672,
+     "fileSize": 6903022
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#m3CNjBdSPOevsXrPVytlpyNGuv0rwjDwtUw9iMhgIgo"
+     },
+     "key": "OrWN8XPMtz",
+     "overlayLabel": "8",
+     "title": "Book 4 Chapter 7- Sector E.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#m3CNjBdSPOevsXrPVytlpyNGuv0rwjDwtUw9iMhgIgo"
+       },
+       "duration": 682,
+       "fileSize": 7038463,
+       "format": "opus",
+       "key": "aR9hahUD7j",
+       "overlayLabel": "8",
+       "title": "Book 4 Chapter 7- Sector E.mp3",
+       "trackUrl": "yoto:#GiQPdHJ3nzCEdb0iKmb8MY_VBhrj56St13UQqHfDvfw",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 682,
+     "fileSize": 7038463
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#VZnl7sosFSlla9VDQl2oIsnl7O2DYGqfh7Pzik2tC6k"
+     },
+     "key": "5HtQXV8L8n",
+     "overlayLabel": "9",
+     "title": "Book 4 Chapter 8- Bananas.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#VZnl7sosFSlla9VDQl2oIsnl7O2DYGqfh7Pzik2tC6k"
+       },
+       "duration": 455,
+       "fileSize": 4629030,
+       "format": "opus",
+       "key": "rdVcZqgfX1",
+       "overlayLabel": "9",
+       "title": "Book 4 Chapter 8- Bananas.mp3",
+       "trackUrl": "yoto:#PXx9krgjxZI-y7o5Ment5wCsZw7B6c1OoL6lpnxr9oc",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 455,
+     "fileSize": 4629030
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#DJ5WuZY13NRrgzZ0rbITvbZCrXZwtczHxEM-T-un6Cc"
+     },
+     "key": "jDdZASpMO1",
+     "overlayLabel": "10",
+     "title": "Book 4 Chapter 9- Like You. Like Me.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#DJ5WuZY13NRrgzZ0rbITvbZCrXZwtczHxEM-T-un6Cc"
+       },
+       "duration": 507,
+       "fileSize": 5136613,
+       "format": "opus",
+       "key": "aFw-p5hjdT",
+       "overlayLabel": "10",
+       "title": "Book 4 Chapter 9- Like You. Like Me.mp3",
+       "trackUrl": "yoto:#kU_iOVcgahxll2lHkVkvhm2F_Eb9ycSO4FEGe1yj70I",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 507,
+     "fileSize": 5136613
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#M-Pqjkb-WJHDa7hA4mXWyqIucSHKmzdeJA_54RxEdIA"
+     },
+     "key": "bPThGiJwCy",
+     "overlayLabel": "11",
+     "title": "Book 4 Chapter 10- The Last Dance.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#M-Pqjkb-WJHDa7hA4mXWyqIucSHKmzdeJA_54RxEdIA"
+       },
+       "duration": 414,
+       "fileSize": 4193939,
+       "format": "opus",
+       "key": "ch6N_V0Tfq",
+       "overlayLabel": "11",
+       "title": "Book 4 Chapter 10- The Last Dance.mp3",
+       "trackUrl": "yoto:#-tQjeHtMjayK7SWWxXS5jmK7l_J6GSMxSvitD642Fhk",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 414,
+     "fileSize": 4193939
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#mHdhqXfwausYzzVPOOHUbjIXm4j0eoe-a8B4DFKYeGE"
+     },
+     "key": "fqE7PbEBqH",
+     "overlayLabel": "12",
+     "title": "Book 4 End Credits.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#mHdhqXfwausYzzVPOOHUbjIXm4j0eoe-a8B4DFKYeGE"
+       },
+       "duration": 83,
+       "fileSize": 860479,
+       "format": "opus",
+       "key": "-JaQD4xJ79",
+       "overlayLabel": "12",
+       "title": "Book 4 End Credits.mp3",
+       "trackUrl": "yoto:#KYRalhj3anNeSWTY7RoKEJJNbYbDOtgpuJnYy6vJTyI",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 83,
+     "fileSize": 860479
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#tsiZpqPiivb7977sXySqRLDkT42igMdsaK44rV2zHOs"
+     },
+     "key": "QrNpNWcXNk",
+     "overlayLabel": "13",
+     "title": "Book 5 Chapter 1- Going to Be Hard.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#tsiZpqPiivb7977sXySqRLDkT42igMdsaK44rV2zHOs"
+       },
+       "duration": 42,
+       "fileSize": 485809,
+       "format": "opus",
+       "key": "sa2HkNbMVM",
+       "overlayLabel": "13",
+       "title": "Book 5 Chapter 1- Going to Be Hard.mp3",
+       "trackUrl": "yoto:#Z6mlAUVVANGwfJv994T6FwlFa1q-Xwi_WoohrxbHzu8",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 42,
+     "fileSize": 485809
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#RLewHgwMYcPXobAeYFKO8fsL2HyzDDxhmToZQdb1TzQ"
+     },
+     "key": "j-kzMaJ7tC",
+     "overlayLabel": "14",
+     "title": "Book 5 Chapter 2- Here.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#RLewHgwMYcPXobAeYFKO8fsL2HyzDDxhmToZQdb1TzQ"
+       },
+       "duration": 327,
+       "fileSize": 3515816,
+       "format": "opus",
+       "key": "t1iM-DcgWb",
+       "overlayLabel": "14",
+       "title": "Book 5 Chapter 2- Here.mp3",
+       "trackUrl": "yoto:#RC4yBrDFPSVFXlnqmzPUmzNsOF_W6A40940NCS2gUP0",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 327,
+     "fileSize": 3515816
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#HnlqSWbz9GrNUfp7t9bt0EvQobA3OW4Yuehj4sdKlFI"
+     },
+     "key": "F3Ta24sXqn",
+     "overlayLabel": "15",
+     "title": "Book 5 Chapter 3- Whack-a-Do.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#HnlqSWbz9GrNUfp7t9bt0EvQobA3OW4Yuehj4sdKlFI"
+       },
+       "duration": 543,
+       "fileSize": 5650404,
+       "format": "opus",
+       "key": "Nnh1Gihlp3",
+       "overlayLabel": "15",
+       "title": "Book 5 Chapter 3- Whack-a-Do.mp3",
+       "trackUrl": "yoto:#hNSr8NOFRizZ_AgyBshRx-kPHx1vTNX6TYqxd6j5wZA",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 543,
+     "fileSize": 5650404
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#eblkGtZTQkGDdSbzZcA-S-8RMExmuvJ44N5v8SyjSSI"
+     },
+     "key": "H4ldHwwmbr",
+     "overlayLabel": "16",
+     "title": "Book 5 Chapter 4- Bada Boom Ba!.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#eblkGtZTQkGDdSbzZcA-S-8RMExmuvJ44N5v8SyjSSI"
+       },
+       "duration": 405,
+       "fileSize": 4251755,
+       "format": "opus",
+       "key": "gsMA5M7a6B",
+       "overlayLabel": "16",
+       "title": "Book 5 Chapter 4- Bada Boom Ba!.mp3",
+       "trackUrl": "yoto:#3YwY2r5rmZs8-tOVQqCin3cxGVV0tjvZ92c7T-dukUk",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 405,
+     "fileSize": 4251755
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#CZ_YFdB_nqEnA0C6IhUhMsJWURf6dv4tBaObXCY8ayM"
+     },
+     "key": "utlVq9xVMr",
+     "overlayLabel": "17",
+     "title": "Book 5 Chapter 5- Dogs and Cats.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#CZ_YFdB_nqEnA0C6IhUhMsJWURf6dv4tBaObXCY8ayM"
+       },
+       "duration": 476,
+       "fileSize": 4918882,
+       "format": "opus",
+       "key": "WhwQhItOZW",
+       "overlayLabel": "17",
+       "title": "Book 5 Chapter 5- Dogs and Cats.mp3",
+       "trackUrl": "yoto:#okwhu_beEQDRMuUIbeqI9ERmgcizSww-2_EPa_wQG5Y",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 476,
+     "fileSize": 4918882
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#R4tab7rhNOwDWmO4TDZO8fJmtX_9b1xbB_8GwXvOMHk"
+     },
+     "key": "VDv9hltD3v",
+     "overlayLabel": "18",
+     "title": "Book 5 Chapter 6- In the Dark.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#R4tab7rhNOwDWmO4TDZO8fJmtX_9b1xbB_8GwXvOMHk"
+       },
+       "duration": 1022,
+       "fileSize": 10772488,
+       "format": "opus",
+       "key": "4Gr5wP6FyX",
+       "overlayLabel": "18",
+       "title": "Book 5 Chapter 6- In the Dark.mp3",
+       "trackUrl": "yoto:#5rTZbcTVd_LNLFF8tc6NPTM3Zy97VuAkIM0zMr1Ye4A",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 1022,
+     "fileSize": 10772488
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#-3dDhG1kzThl7y-4WSWBnBLyFl7DLwyocnHSMuhWnbQ"
+     },
+     "key": "LJrUdYxaiO",
+     "overlayLabel": "19",
+     "title": "Book 5 Chapter 7- Dandy.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#-3dDhG1kzThl7y-4WSWBnBLyFl7DLwyocnHSMuhWnbQ"
+       },
+       "duration": 333,
+       "fileSize": 3557219,
+       "format": "opus",
+       "key": "DDQsG02Ov4",
+       "overlayLabel": "19",
+       "title": "Book 5 Chapter 7- Dandy.mp3",
+       "trackUrl": "yoto:#KHbNCwVRWpYx866HZ9f1n0tXLWtZ3A_ahVFMnOnMMes",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 333,
+     "fileSize": 3557219
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#0eIW9Oa8oTg44YO7Oc79QUMFBYt1rj0bD_r7XeqFNbs"
+     },
+     "key": "pz3-2D-Ivy",
+     "overlayLabel": "20",
+     "title": "Book 5 Chapter 8- Permanent Record.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#0eIW9Oa8oTg44YO7Oc79QUMFBYt1rj0bD_r7XeqFNbs"
+       },
+       "duration": 470,
+       "fileSize": 4991329,
+       "format": "opus",
+       "key": "c1eCNfScaV",
+       "overlayLabel": "20",
+       "title": "Book 5 Chapter 8- Permanent Record.mp3",
+       "trackUrl": "yoto:#kJirRpyJXN86aTga0bsFb4j3cPq3NzF8kOk8z3vbsd8",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 470,
+     "fileSize": 4991329
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#DVv7L1SntoDVDDDsgbJq9TRIhvC_2hCUU6bKPAf6dQI"
+     },
+     "key": "TaephxWXBo",
+     "overlayLabel": "21",
+     "title": "Book 5 Chapter 9- Bloodmoon and Light.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#DVv7L1SntoDVDDDsgbJq9TRIhvC_2hCUU6bKPAf6dQI"
+       },
+       "duration": 649,
+       "fileSize": 6560871,
+       "format": "opus",
+       "key": "B8wkh0pIQ9",
+       "overlayLabel": "21",
+       "title": "Book 5 Chapter 9- Bloodmoon and Light.mp3",
+       "trackUrl": "yoto:#Ku5aRJdNcwv68SUvRhkSmITnNUtcI6NHXdumwMV2CMY",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 649,
+     "fileSize": 6560871
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#_UK-UQTqUFOqHDIdhyLQ5xgoONent-Mzcu54EgOFBPE"
+     },
+     "key": "aGfmjtvwjB",
+     "overlayLabel": "22",
+     "title": "Book 5 Chapter 10- Then Everything Went Wrong.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#_UK-UQTqUFOqHDIdhyLQ5xgoONent-Mzcu54EgOFBPE"
+       },
+       "duration": 726,
+       "fileSize": 7293009,
+       "format": "opus",
+       "key": "b2JV_JSxSv",
+       "overlayLabel": "22",
+       "title": "Book 5 Chapter 10- Then Everything Went Wrong.mp3",
+       "trackUrl": "yoto:#sxuWdXx0RePLOGI0fF_VakRmZM0knpVd5RRy7sk5lac",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 726,
+     "fileSize": 7293009
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#2hcN39HXdzh6P0ra3XBVXTTIDz4YQvldn_XzvxZ272s"
+     },
+     "key": "KfN6bCnJM8",
+     "overlayLabel": "23",
+     "title": "Book 5 Chapter 11- H.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#2hcN39HXdzh6P0ra3XBVXTTIDz4YQvldn_XzvxZ272s"
+       },
+       "duration": 477,
+       "fileSize": 4877454,
+       "format": "opus",
+       "key": "mZpUgsKGZ5",
+       "overlayLabel": "23",
+       "title": "Book 5 Chapter 11- H.mp3",
+       "trackUrl": "yoto:#ACWJivnBvHcJQeHH8NsLATzbdEasp0n2YCo0eLLWLl0",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 477,
+     "fileSize": 4877454
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#VHdqB-sq2s09kSPE4ahqy4TPZ6XI6ZDL1Lqzpxmwgk0"
+     },
+     "key": "qo8rVMmY52",
+     "overlayLabel": "24",
+     "title": "Book 5 End Credits.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#VHdqB-sq2s09kSPE4ahqy4TPZ6XI6ZDL1Lqzpxmwgk0"
+       },
+       "duration": 100,
+       "fileSize": 1055899,
+       "format": "opus",
+       "key": "lios2QGtLa",
+       "overlayLabel": "24",
+       "title": "Book 5 End Credits.mp3",
+       "trackUrl": "yoto:#6uUJ0XU3FMdmXpOEGr5gu3LWpQ1EZ4bdnZX2ArGrgn0",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 100,
+     "fileSize": 1055899
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#RV-cb9aaCLj9f0EWaIpByoeD4ClHOWlHIDloIxd9jns"
+     },
+     "key": "1xzKNuaFg_",
+     "overlayLabel": "25",
+     "title": "Book 6 Chapter 1- Everyone Calls Me D.J.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#RV-cb9aaCLj9f0EWaIpByoeD4ClHOWlHIDloIxd9jns"
+       },
+       "duration": 65,
+       "fileSize": 706427,
+       "format": "opus",
+       "key": "Q6AdOwNR5c",
+       "overlayLabel": "25",
+       "title": "Book 6 Chapter 1- Everyone Calls Me D.J.mp3",
+       "trackUrl": "yoto:#CJk27KXto3JJZhHPEd8eU81tVo2u8a5c0c1z5TjMA58",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 65,
+     "fileSize": 706427
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#mJFpFdigltRNxNDjLXp9M2ocJ6lWY-mVleAIZn5YMKQ"
+     },
+     "key": "EHQhWmiAq9",
+     "overlayLabel": "26",
+     "title": "Book 6 Chapter 2- Stay Calm.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#mJFpFdigltRNxNDjLXp9M2ocJ6lWY-mVleAIZn5YMKQ"
+       },
+       "duration": 394,
+       "fileSize": 4123510,
+       "format": "opus",
+       "key": "4YE8izG8p0",
+       "overlayLabel": "26",
+       "title": "Book 6 Chapter 2- Stay Calm.mp3",
+       "trackUrl": "yoto:#jX0qG6CrSRWJAYJf07NgnxXK3drIRClxyeEAtKd0Dvk",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 394,
+     "fileSize": 4123510
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#dCzC5UXyrunXHUl7jXGPsTqk6QG2_Z1Y1xpGYw_0yYU"
+     },
+     "key": "ioiPyDI7Es",
+     "overlayLabel": "27",
+     "title": "Book 6 Chapter 3- Hard but True.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#dCzC5UXyrunXHUl7jXGPsTqk6QG2_Z1Y1xpGYw_0yYU"
+       },
+       "duration": 462,
+       "fileSize": 4728831,
+       "format": "opus",
+       "key": "l-awoEZn6U",
+       "overlayLabel": "27",
+       "title": "Book 6 Chapter 3- Hard but True.mp3",
+       "trackUrl": "yoto:#I289bzlmNpMjoOKL1p4nedSD0MSh5J0jtdlq7LOwduA",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 462,
+     "fileSize": 4728831
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#xIas1cHs6MZUL3o0jnJtw3NGSuDWhLH0x4sm9AYqsGM"
+     },
+     "key": "peYWW83IGC",
+     "overlayLabel": "28",
+     "title": "Book 6 Chapter 4- You Fear. You Love. You Feel.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#xIas1cHs6MZUL3o0jnJtw3NGSuDWhLH0x4sm9AYqsGM"
+       },
+       "duration": 339,
+       "fileSize": 3519293,
+       "format": "opus",
+       "key": "A8rsz07f2N",
+       "overlayLabel": "28",
+       "title": "Book 6 Chapter 4- You Fear. You Love. You Feel.mp3",
+       "trackUrl": "yoto:#20JrZgxk4OItMVJxZYePpys73QYwn0jYTuQyzHZ8z78",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 339,
+     "fileSize": 3519293
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#FD0YwcP0BgpIEo1WQEZlO0umiQFreop3pq4sI_DogLw"
+     },
+     "key": "F1xv3sKYxD",
+     "overlayLabel": "29",
+     "title": "Book 6 Chapter 5- Strike Up the Band.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#FD0YwcP0BgpIEo1WQEZlO0umiQFreop3pq4sI_DogLw"
+       },
+       "duration": 492,
+       "fileSize": 4949876,
+       "format": "opus",
+       "key": "cMP-lpc8Ze",
+       "overlayLabel": "29",
+       "title": "Book 6 Chapter 5- Strike Up the Band.mp3",
+       "trackUrl": "yoto:#u1jNHUKrU2OKgMuWqTN3Cq_dJLUPSiBMdhrw9tNTikI",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 492,
+     "fileSize": 4949876
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#yno8obqomVDBgpV-3SmCv8zHUQDn_x1rAuEO_wRvkPY"
+     },
+     "key": "h5S2vr8jdG",
+     "overlayLabel": "30",
+     "title": "Book 6 Chapter 6- Tell Me How.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#yno8obqomVDBgpV-3SmCv8zHUQDn_x1rAuEO_wRvkPY"
+       },
+       "duration": 163,
+       "fileSize": 1676293,
+       "format": "opus",
+       "key": "5OdBFmUVE-",
+       "overlayLabel": "30",
+       "title": "Book 6 Chapter 6- Tell Me How.mp3",
+       "trackUrl": "yoto:#vfHfXnGQAkExOElqiRlIxzuW0vbhA893y2ivth0tPo0",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 163,
+     "fileSize": 1676293
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#cfGZseGKTQoEOY7PB3XJQ241zSW1XZoxzf82zxYLqCc"
+     },
+     "key": "1XT_l828a-",
+     "overlayLabel": "31",
+     "title": "Book 6 Chapter 7- That's What I Do.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#cfGZseGKTQoEOY7PB3XJQ241zSW1XZoxzf82zxYLqCc"
+       },
+       "duration": 548,
+       "fileSize": 5507675,
+       "format": "opus",
+       "key": "j5h-Aju99L",
+       "overlayLabel": "31",
+       "title": "Book 6 Chapter 7- That's What I Do.mp3",
+       "trackUrl": "yoto:#-mpvdQOpQ3rM2PZhIQzdCWhziegUvjxow-ZQ5efHjs8",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 548,
+     "fileSize": 5507675
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#-g4fTK83qt6OevGCiJllNgRi4VS13ZG06O75iv46ofw"
+     },
+     "key": "wEpak604fv",
+     "overlayLabel": "32",
+     "title": "Book 6 Chapter 8- No Holding Back.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#-g4fTK83qt6OevGCiJllNgRi4VS13ZG06O75iv46ofw"
+       },
+       "duration": 540,
+       "fileSize": 5353093,
+       "format": "opus",
+       "key": "KszxLZXlHU",
+       "overlayLabel": "32",
+       "title": "Book 6 Chapter 8- No Holding Back.mp3",
+       "trackUrl": "yoto:#HrLsbF2Hd83w9zzVkEFPksLhfKfMHt0EHzjDenKAOVs",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 540,
+     "fileSize": 5353093
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#Li8fYcRJfMUjq97tBnD8szlv1qMSzXu5_98ZHTcuuc8"
+     },
+     "key": "bGpMKej3ac",
+     "overlayLabel": "33",
+     "title": "Book 6 Chapter 9- All the Pieces Fit.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#Li8fYcRJfMUjq97tBnD8szlv1qMSzXu5_98ZHTcuuc8"
+       },
+       "duration": 917,
+       "fileSize": 9075545,
+       "format": "opus",
+       "key": "HD96u2fxb1",
+       "overlayLabel": "33",
+       "title": "Book 6 Chapter 9- All the Pieces Fit.mp3",
+       "trackUrl": "yoto:#pYUXwX4UrcY18eWkPP4m2AAlzoa1-bVgoehOgYV8fXo",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 917,
+     "fileSize": 9075545
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#5--qzATAMWklulrzdiL-zaZ5YFaql43wb4uwNUQTLOk"
+     },
+     "key": "ztqIkIBXwY",
+     "overlayLabel": "34",
+     "title": "Book 6 Chapter 10- Outstanding.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#5--qzATAMWklulrzdiL-zaZ5YFaql43wb4uwNUQTLOk"
+       },
+       "duration": 236,
+       "fileSize": 2543350,
+       "format": "opus",
+       "key": "um0arMOMDC",
+       "overlayLabel": "34",
+       "title": "Book 6 Chapter 10- Outstanding.mp3",
+       "trackUrl": "yoto:#RTfQK-FJEXkRyoeH-cga0LwVAAzdt0u1pkLmkN9HGco",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 236,
+     "fileSize": 2543350
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#_w9wke-THZLMIyUhsfpSSM0si75w3k2rOqiOAJZPPAo"
+     },
+     "key": "0B6r_HnmZR",
+     "overlayLabel": "35",
+     "title": "Book 6 End Credits.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#_w9wke-THZLMIyUhsfpSSM0si75w3k2rOqiOAJZPPAo"
+       },
+       "duration": 83,
+       "fileSize": 877881,
+       "format": "opus",
+       "key": "KzmCJDPVks",
+       "overlayLabel": "35",
+       "title": "Book 6 End Credits.mp3",
+       "trackUrl": "yoto:#smIwM5JVewA0yxr0U5_7IEb9iC85mxp3NnSu7MUDYdQ",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 83,
+     "fileSize": 877881
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#O_gRFMXqtkc4JW7GKj3NOIbqxW35fWsLPhpqY5N8Cq0"
+     },
+     "key": "h4qUwidJZt",
+     "overlayLabel": "36",
+     "title": "Book 7 Chapter 1- I Got This.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#O_gRFMXqtkc4JW7GKj3NOIbqxW35fWsLPhpqY5N8Cq0"
+       },
+       "duration": 141,
+       "fileSize": 1467514,
+       "format": "opus",
+       "key": "ztIMHFefrV",
+       "overlayLabel": "36",
+       "title": "Book 7 Chapter 1- I Got This.mp3",
+       "trackUrl": "yoto:#8s_-PX9EZR_AMPPFG3FzU7ujtNErA_UHcNFReQC0qgc",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 141,
+     "fileSize": 1467514
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#g6zYEu6ob0ZFi00EaXxv77VR6gFLnwEXAK9ukgUwPTA"
+     },
+     "key": "-rSDBKDpiU",
+     "overlayLabel": "37",
+     "title": "Book 7 Chapter 2- Four Days Earlier.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#g6zYEu6ob0ZFi00EaXxv77VR6gFLnwEXAK9ukgUwPTA"
+       },
+       "duration": 506,
+       "fileSize": 5426351,
+       "format": "opus",
+       "key": "clCPUCrIB6",
+       "overlayLabel": "37",
+       "title": "Book 7 Chapter 2- Four Days Earlier.mp3",
+       "trackUrl": "yoto:#bJHh-bV_qpIwn6VAf95MsjwyNkrKhfnNuuiekVhVLYE",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 506,
+     "fileSize": 5426351
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#OFqVRXNQ13iAHBnP8wa-JJEZsRS9ngcLTRI_87z5qLI"
+     },
+     "key": "zJsGTfJOry",
+     "overlayLabel": "38",
+     "title": "Book 7 Chapter 3- See That.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#OFqVRXNQ13iAHBnP8wa-JJEZsRS9ngcLTRI_87z5qLI"
+       },
+       "duration": 488,
+       "fileSize": 4940146,
+       "format": "opus",
+       "key": "hqgUA1bdP7",
+       "overlayLabel": "38",
+       "title": "Book 7 Chapter 3- See That.mp3",
+       "trackUrl": "yoto:#CjCLB8lc-VwtT68nJEV-PO2Z_a1Kz_UG4gIxwCI_gmo",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 488,
+     "fileSize": 4940146
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#mCc2zmTLQLVbZ358H2XexR-XeTNBgR14ORBl0PLAczg"
+     },
+     "key": "5nGYvGbCWR",
+     "overlayLabel": "39",
+     "title": "Book 7 Chapter 4- Rah.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#mCc2zmTLQLVbZ358H2XexR-XeTNBgR14ORBl0PLAczg"
+       },
+       "duration": 676,
+       "fileSize": 7188877,
+       "format": "opus",
+       "key": "bnBCOQU16A",
+       "overlayLabel": "39",
+       "title": "Book 7 Chapter 4- Rah.mp3",
+       "trackUrl": "yoto:#gw2OD9fKi0_bDnBZxwr3wW_bIrt2TeoleKWDGj1Qh-4",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 676,
+     "fileSize": 7188877
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#IhYE-hoXktGOWSQn8mwsI5gc4WKNqvh4O1lgy7ZLgL8"
+     },
+     "key": "-qkqNBvOCb",
+     "overlayLabel": "40",
+     "title": "Book 7 Chapter 5- Help.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#IhYE-hoXktGOWSQn8mwsI5gc4WKNqvh4O1lgy7ZLgL8"
+       },
+       "duration": 678,
+       "fileSize": 6984003,
+       "format": "opus",
+       "key": "eMtFX8nOOn",
+       "overlayLabel": "40",
+       "title": "Book 7 Chapter 5- Help.mp3",
+       "trackUrl": "yoto:#UZaHG6NAdMKYAuyzJBPKdBBqfDs812mmO_xbpI90ghs",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 678,
+     "fileSize": 6984003
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#K0YlepF34jvuncMs62K8V7OMoVCDAdgdkg6Ym8yUYcA"
+     },
+     "key": "TlEw42nNSw",
+     "overlayLabel": "41",
+     "title": "Book 7 Chapter 6- We Carry Who They Were.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#K0YlepF34jvuncMs62K8V7OMoVCDAdgdkg6Ym8yUYcA"
+       },
+       "duration": 383,
+       "fileSize": 4127026,
+       "format": "opus",
+       "key": "1NbQEOSl1i",
+       "overlayLabel": "41",
+       "title": "Book 7 Chapter 6- We Carry Who They Were.mp3",
+       "trackUrl": "yoto:#Tw_c4FPUmhFl01VYrBFqnxPzAWcHCKhnXZyH1IuYZZE",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 383,
+     "fileSize": 4127026
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#8sSaG16_QN0kxgO6_YOOD-e014ROpyADT7RqFU6J0G0"
+     },
+     "key": "dz_R4HGb14",
+     "overlayLabel": "42",
+     "title": "Book 7 Chapter 7- Rare and Special.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#8sSaG16_QN0kxgO6_YOOD-e014ROpyADT7RqFU6J0G0"
+       },
+       "duration": 420,
+       "fileSize": 4548514,
+       "format": "opus",
+       "key": "BBJZN1KQGM",
+       "overlayLabel": "42",
+       "title": "Book 7 Chapter 7- Rare and Special.mp3",
+       "trackUrl": "yoto:#8rwG9nhc_BP7AcoxiLtnZRL0GjZXncu7zJPHpAzPbvM",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 420,
+     "fileSize": 4548514
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#KkmiUEmGAXIXOSNsnXvyCaQroB45Lf-K_eWwxM458dg"
+     },
+     "key": "3ZxOcXYFaq",
+     "overlayLabel": "43",
+     "title": "Book 7 Chapter 8- Adventures in Babysitting.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#KkmiUEmGAXIXOSNsnXvyCaQroB45Lf-K_eWwxM458dg"
+       },
+       "duration": 543,
+       "fileSize": 5736998,
+       "format": "opus",
+       "key": "476fCY2Fdh",
+       "overlayLabel": "43",
+       "title": "Book 7 Chapter 8- Adventures in Babysitting.mp3",
+       "trackUrl": "yoto:#cFwHA3nvOAu3jues6EgjOZiraAAqgrHxSyzDz2dFHyg",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 543,
+     "fileSize": 5736998
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#UhgaNlbyvMcJXyTWwIR_obJIFoTGEcZUuxNg3thD_Tg"
+     },
+     "key": "-F--040cd_",
+     "overlayLabel": "44",
+     "title": "Book 7 Chapter 9- Something Else Goes Horribly Wrong.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#UhgaNlbyvMcJXyTWwIR_obJIFoTGEcZUuxNg3thD_Tg"
+       },
+       "duration": 374,
+       "fileSize": 3905760,
+       "format": "opus",
+       "key": "A2nZQtm7_F",
+       "overlayLabel": "44",
+       "title": "Book 7 Chapter 9- Something Else Goes Horribly Wrong.mp3",
+       "trackUrl": "yoto:#lg_RzLIhhD7LqFWyg2LIRJF7aXqaBnN7dUrB0N9by_4",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 374,
+     "fileSize": 3905760
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#M4AKY4Qi8W_09g8HvQWLewYgh0h448IpFi4jcpcQSgQ"
+     },
+     "key": "8kkDl6lI3x",
+     "overlayLabel": "45",
+     "title": "Book 7 Chapter 10- The Girl Who Broke the World.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#M4AKY4Qi8W_09g8HvQWLewYgh0h448IpFi4jcpcQSgQ"
+       },
+       "duration": 580,
+       "fileSize": 5866720,
+       "format": "opus",
+       "key": "SwEknUvIpI",
+       "overlayLabel": "45",
+       "title": "Book 7 Chapter 10- The Girl Who Broke the World.mp3",
+       "trackUrl": "yoto:#BZySV0gQFD3aQGzRaSpMfjcAbx54cw0F8ap4YUkYo1M",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 580,
+     "fileSize": 5866720
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#YpStX6GTSy-bi0ys_lffh9Ql-xMWg6dDvWylApkxZpc"
+     },
+     "key": "VMQJOhQgtk",
+     "overlayLabel": "46",
+     "title": "Book 7 End Credits.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#YpStX6GTSy-bi0ys_lffh9Ql-xMWg6dDvWylApkxZpc"
+       },
+       "duration": 97,
+       "fileSize": 1013759,
+       "format": "opus",
+       "key": "GORWh6kPvm",
+       "overlayLabel": "46",
+       "title": "Book 7 End Credits.mp3",
+       "trackUrl": "yoto:#6fML0SlTcKJVW6NQUQOgjDUzh2dQhAZmP0sE41zF4NA",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 97,
+     "fileSize": 1013759
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#uN303B92y9mFn5PlPdmLv6epf3fnY70dQnN44Y-Efow"
+     },
+     "key": "OWkC_2kDpZ",
+     "overlayLabel": "47",
+     "title": "Book 8 Chapter 1- Hang On.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#uN303B92y9mFn5PlPdmLv6epf3fnY70dQnN44Y-Efow"
+       },
+       "duration": 77,
+       "fileSize": 828081,
+       "format": "opus",
+       "key": "ywoYzJUzq4",
+       "overlayLabel": "47",
+       "title": "Book 8 Chapter 1- Hang On.mp3",
+       "trackUrl": "yoto:#IHk1fvy3zpUOwSC8uKiKkmiBzjb57LjS45s7sYloRGw",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 77,
+     "fileSize": 828081
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#xPaFkZkiVCHh3NVyESHlsMTgD2WcXYJw5PmCo8-EE7Y"
+     },
+     "key": "SwI8gr11yx",
+     "overlayLabel": "48",
+     "title": "Book 8 Chapter 2- Howdy Do, Buckaroos!.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#xPaFkZkiVCHh3NVyESHlsMTgD2WcXYJw5PmCo8-EE7Y"
+       },
+       "duration": 814,
+       "fileSize": 8719655,
+       "format": "opus",
+       "key": "tlIorn1FSw",
+       "overlayLabel": "48",
+       "title": "Book 8 Chapter 2- Howdy Do, Buckaroos!.mp3",
+       "trackUrl": "yoto:#bt0zAh_R6lEBLKAW1GfEeYYRvIzJyyZD3CqiHclOPBE",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 814,
+     "fileSize": 8719655
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#yZeHv9avRG4-6gbPaVzVBAxVVFLtCXN46y_10nvKpks"
+     },
+     "key": "nvVf20m5nk",
+     "overlayLabel": "49",
+     "title": "Book 8 Chapter 3- Royal Pains.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#yZeHv9avRG4-6gbPaVzVBAxVVFLtCXN46y_10nvKpks"
+       },
+       "duration": 385,
+       "fileSize": 4063568,
+       "format": "opus",
+       "key": "pJ6fpG0ETS",
+       "overlayLabel": "49",
+       "title": "Book 8 Chapter 3- Royal Pains.mp3",
+       "trackUrl": "yoto:#DoUn3mnFdOolBrBZev8dUJ2b0annRntnVzeDafTnbBY",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 385,
+     "fileSize": 4063568
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#CnMIFI_tadfQ0VEW0Ar8XTfzKW5E8bzq0mT_0YPumHk"
+     },
+     "key": "HNj8M1I-bI",
+     "overlayLabel": "50",
+     "title": "Book 8 Chapter 4- Go.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#CnMIFI_tadfQ0VEW0Ar8XTfzKW5E8bzq0mT_0YPumHk"
+       },
+       "duration": 313,
+       "fileSize": 3311224,
+       "format": "opus",
+       "key": "bE0EYjcA-w",
+       "overlayLabel": "50",
+       "title": "Book 8 Chapter 4- Go.mp3",
+       "trackUrl": "yoto:#E3dH_aI7g53U9RdNdsuMbicqcD8fVinxGQ1pAVS4uy4",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 313,
+     "fileSize": 3311224
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#VZabFgrEuFVPm6at4kmXbYi3Emw0MApGbY5QysbwkJo"
+     },
+     "key": "eDNO3EkrdK",
+     "overlayLabel": "51",
+     "title": "Book 8 Chapter 5- Phillip Ignatius Sebastian Korimako.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#VZabFgrEuFVPm6at4kmXbYi3Emw0MApGbY5QysbwkJo"
+       },
+       "duration": 1179,
+       "fileSize": 12520237,
+       "format": "opus",
+       "key": "0ocuZj5NlK",
+       "overlayLabel": "51",
+       "title": "Book 8 Chapter 5- Phillip Ignatius Sebastian Korimako.mp3",
+       "trackUrl": "yoto:#6d--SdT63sbF_tGNADF7PdLUWLgp99t1pr_K36wJVKA",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 1179,
+     "fileSize": 12520237
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#fi7Gj09tK5ICAaNRDtjfSrCcjVicqyVow6nfeNb0GMI"
+     },
+     "key": "NPLI1BPSFg",
+     "overlayLabel": "52",
+     "title": "Book 8 Chapter 6- An Actual Thing.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#fi7Gj09tK5ICAaNRDtjfSrCcjVicqyVow6nfeNb0GMI"
+       },
+       "duration": 1036,
+       "fileSize": 10814272,
+       "format": "opus",
+       "key": "LSZefT2-ng",
+       "overlayLabel": "52",
+       "title": "Book 8 Chapter 6- An Actual Thing.mp3",
+       "trackUrl": "yoto:#HZ6WeN5UqH5YnB6Q3HCPgZqJcjdIIGBeZ5rvkTkUA6E",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 1036,
+     "fileSize": 10814272
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#Tn4vaZFjEMi1C9q8W14DerRa5IxudwxtBKq_Vq3U-Cw"
+     },
+     "key": "ltLaHTMk4S",
+     "overlayLabel": "53",
+     "title": "Book 8 Chapter 7- Regina Lee Cooper.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#Tn4vaZFjEMi1C9q8W14DerRa5IxudwxtBKq_Vq3U-Cw"
+       },
+       "duration": 232,
+       "fileSize": 2619764,
+       "format": "opus",
+       "key": "p7ummwzUPS",
+       "overlayLabel": "53",
+       "title": "Book 8 Chapter 7- Regina Lee Cooper.mp3",
+       "trackUrl": "yoto:#QOhSMZbp4_PFplgJyZt47jPaAt2mSzUTiERIQDn-xqU",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 232,
+     "fileSize": 2619764
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#3T9M0dzmrQL_jpRxSDd-KT90S9khYnAHON4DkVCXWUo"
+     },
+     "key": "VxNq7URhfo",
+     "overlayLabel": "54",
+     "title": "Book 8 Chapter 8- Oh, for Pity's Sake.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#3T9M0dzmrQL_jpRxSDd-KT90S9khYnAHON4DkVCXWUo"
+       },
+       "duration": 843,
+       "fileSize": 8594853,
+       "format": "opus",
+       "key": "U1Ih2nXXn8",
+       "overlayLabel": "54",
+       "title": "Book 8 Chapter 8- Oh, for Pity's Sake.mp3",
+       "trackUrl": "yoto:#2ZT_rGzmZxjI1KxftrTl8A5g4wSEtggnrCWYWjQekn4",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 843,
+     "fileSize": 8594853
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#a8_denw0ekMxAtLBg86z1Xmi4EDDzkIFYcWmFfqT1mg"
+     },
+     "key": "VPaLIIbyTx",
+     "overlayLabel": "55",
+     "title": "Book 8 Chapter 9- A Tale of Mrs. Peebles.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#a8_denw0ekMxAtLBg86z1Xmi4EDDzkIFYcWmFfqT1mg"
+       },
+       "duration": 359,
+       "fileSize": 3761793,
+       "format": "opus",
+       "key": "syyo0OnluZ",
+       "overlayLabel": "55",
+       "title": "Book 8 Chapter 9- A Tale of Mrs. Peebles.mp3",
+       "trackUrl": "yoto:#KXhTLA3W3MB76gZIbv43PIZSZ28gXb6AfCjsZZv5zj4",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 359,
+     "fileSize": 3761793
+    },
+    {
+     "display": {
+      "icon16x16": "yoto:#VrHn0lKckTVlCjaGiIL_9DnIG4CbkKN3v9Ayhf-Hg4w"
+     },
+     "key": "Xoam4CSs8u",
+     "overlayLabel": "56",
+     "title": "Book 8 End Credits.mp3",
+     "tracks": [
+      {
+       "channels": "stereo",
+       "display": {
+        "icon16x16": "yoto:#VrHn0lKckTVlCjaGiIL_9DnIG4CbkKN3v9Ayhf-Hg4w"
+       },
+       "duration": 100,
+       "fileSize": 1056646,
+       "format": "opus",
+       "key": "m9ymn0R1BO",
+       "overlayLabel": "56",
+       "title": "Book 8 End Credits.mp3",
+       "trackUrl": "yoto:#N0RukEp0KVRdpyJPQK-kzULo1FashW0CmYtEQbhMhhQ",
+       "type": "audio",
+       "ambient": null
+      }
+     ],
+     "availableFrom": null,
+     "ambient": null,
+     "duration": 100,
+     "fileSize": 1056646
+    }
+   ],
+   "config": {
+    "resumeTimeout": 2592000,
+    "onlineOnly": false
+   },
+   "playbackType": "linear"
+  },
+  "metadata": {
+   "copyrights": [
+    "\u00a9"
+   ],
+   "cover": {
+    "imageL": "https://card-content.yotoplay.com/1GpwydcZe7RtCEDwcfcZahMQNQjOWS7bq6SHTgiOwM6k~/pub/PqfANBaYqvn0rbXubpGx_SwGg7J9NHOE1W1Lzy0mh3U"
+   },
+   "media": {
+    "duration": 25922,
+    "fileSize": 268886522
+   },
+   "narrators": [],
+   "abridged": false,
+   "authors": [],
+   "accents": []
+  },
+  "slug": "2m3qRiMRvNTyyvYxMUwwK",
+  "title": "Hilo Books 4-8",
+  "cardId": "dK3N1",
+  "userId": "auth0|629da79896f39c00690ef2b5",
+  "createdAt": "2026-11-08T00:32:23.790Z",
+  "updatedAt": "2026-11-08T01:03:22.687Z"
+ }
+}
