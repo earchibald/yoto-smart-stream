@@ -22,6 +22,7 @@ anything is POSTed.
 
 Usage:
     export YOTO_CLIENT_ID=...
+    export YOTO_CLIENT_SECRET=...   # only if your app has one
     python scripts/build_book_selector_card.py dK3N1 --dry-run
     python scripts/build_book_selector_card.py dK3N1
 """
@@ -36,6 +37,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -70,7 +72,9 @@ PLACEHOLDER_BASE = "placeholder://unused"
 
 
 def _token_request(data: dict) -> dict:
-    resp = requests.post(f"{LOGIN}/oauth/token", data=data, timeout=30)
+    resp = requests.post(
+        f"{LOGIN}/oauth/token", data={**data, **yoto_login.client_secret_param()}, timeout=30
+    )
     body = resp.json() if resp.content else {}
     if resp.status_code != 200:
         raise RuntimeError(body.get("error") or f"HTTP {resp.status_code}: {resp.text}")
@@ -118,13 +122,28 @@ class Asset:
 
 
 def fetch_card(token: str, card_id: str) -> dict:
-    resp = requests.get(
-        f"{API}/content/{card_id}",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=30,
-    )
+    """Own MYO cards come from /content; family-library cards (403 there) from /card."""
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(f"{API}/content/{card_id}", headers=headers, timeout=30)
+    if resp.status_code == 403:
+        print(f"Card {card_id} isn't owned by this account; reading it from the family library")
+        resp = requests.get(f"{API}/card/{card_id}", headers=headers, timeout=30)
     resp.raise_for_status()
     return resp.json()["card"]
+
+
+def yoto_ref(url: str | None) -> str | None:
+    """Normalise a media URL to a reusable ``yoto:#<id>`` ref.
+
+    Signed playback/display URLs end in the same id the ``yoto:#`` ref uses, e.g.
+    ``https://secure-media.yotoplay.com/<owner>~/<id>?Expires=...`` -> ``yoto:#<id>``.
+    """
+    if not url or url.startswith("yoto:#"):
+        return url
+    parsed = urllib.parse.urlparse(url)
+    if parsed.hostname not in ("secure-media.yotoplay.com", "card-content.yotoplay.com"):
+        raise ValueError(f"Not a Yoto-hosted media URL: {url[:60]}")
+    return "yoto:#" + parsed.path.rsplit("/", 1)[-1]
 
 
 def parse_books(card: dict) -> dict[int, list[Asset]]:
@@ -137,18 +156,13 @@ def parse_books(card: dict) -> dict[int, list[Asset]]:
             skipped.append(chapter["title"])
             continue
         for t in chapter["tracks"]:
-            if not t["trackUrl"].startswith("yoto:#"):
-                raise ValueError(
-                    f"Track {t['title']!r} has a non-reusable URL ({t['trackUrl'][:40]}...); "
-                    "fetch the card authenticated without playable=true."
-                )
-            icon = (t.get("display") or {}).get("icon16x16") or (
+            icon = yoto_ref((t.get("display") or {}).get("icon16x16") or (
                 chapter.get("display") or {}
-            ).get("icon16x16")
+            ).get("icon16x16"))
             books.setdefault(int(m.group(1)), []).append(
                 Asset(
                     title=re.sub(r"\.mp3$", "", t["title"]),
-                    track_url=t["trackUrl"],
+                    track_url=yoto_ref(t["trackUrl"]),
                     format=t.get("format", "mp3"),
                     duration=t.get("duration"),
                     file_size=t.get("fileSize"),
@@ -289,7 +303,7 @@ def build_payload(
         story_id=0,
         base_url=PLACEHOLDER_BASE,
         title=title,
-        description=f"Interactive book chooser built from card {source['cardId']}.",
+        description=f"Interactive book chooser built from card {source.get('cardId')}.",
         author=source.get("metadata", {}).get("author"),
     )
     payload = card.model_dump(exclude_none=True)
@@ -314,7 +328,7 @@ def build_payload(
 
     # All audio is Yoto-hosted, so the card can play offline.
     payload["content"]["config"]["onlineOnly"] = False
-    cover = source.get("metadata", {}).get("cover")
+    cover = source.get("metadata", {}).get("cover") or source.get("content", {}).get("cover")
     if cover:
         payload["metadata"]["cover"] = cover
     return payload
