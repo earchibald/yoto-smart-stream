@@ -4,7 +4,7 @@
 Takes a linear multi-book playlist (chapters titled ``Book N ...``), drops its
 non-book chapters (e.g. ``intro``), and publishes a NEW interactive card:
 
-    choose-book4 --left--> Book 4 ch1 -> ... -> Book 4 end -> Book 5 ch1 -> ...
+    choose-book4 --left--> "Hilo Book 4: ..." -> Book 4 ch1 -> ... -> Book 4 end -> Book 5 ch1 -> ...
          |right
     choose-book5 --left--> Book 5 ch1 -> ...
          |right
@@ -67,6 +67,18 @@ LOGIN = yoto_login.LOGIN
 TOKEN_FILE = yoto_login.TOKEN_FILE
 BOOK_RE = re.compile(r"^Book (\d+)\b")
 PROMPT_TEXT = "For book {n}, click left dial. For other books, click right dial."
+# Played once a book is picked. "Hilo" is pronounced "high-low", so the TTS text
+# spells it that way; the display title keeps the real spelling.
+ANNOUNCE_TITLE = "Hilo Book {n}: {subtitle}"
+ANNOUNCE_TEXT = "High-low book {n}: {subtitle}."
+# Subtitles as titled on the family's per-book Hilo cards.
+SUBTITLES = {
+    4: "Waking the Monsters",
+    5: "Then Everything Went Wrong",
+    6: "All the Pieces Fit",
+    7: "Gina—The Girl Who Broke the World",
+    8: "Gina and the Big Secret",
+}
 PLACEHOLDER_BASE = "placeholder://unused"
 
 
@@ -253,11 +265,15 @@ def choice_id(book: int) -> str:
     return f"choose-book{book}"
 
 
+def announce_id(book: int) -> str:
+    return f"announce-book{book}"
+
+
 def segment_id(book: int, i: int) -> str:
     return f"book{book}-{i:02d}"
 
 
-def build_graph(books: dict[int, list[Asset]]) -> StoryGraph:
+def build_graph(books: dict[int, list[Asset]], announce_titles: dict[int, str]) -> StoryGraph:
     order = list(books)
     nodes: list[StoryNode] = []
     edges: list[StoryEdge] = []
@@ -271,10 +287,17 @@ def build_graph(books: dict[int, list[Asset]]) -> StoryGraph:
             StoryNode(id=cid, type=NodeType.choice, title=f"Book {book}?",
                       tracks=[Track(key=cid, title=f"Book {book}?")])
         )
-        edge(cid, segment_id(book, 1), EdgeHandle.left)
+        edge(cid, announce_id(book), EdgeHandle.left)
         edge(cid, choice_id(order[(idx + 1) % len(order)]), EdgeHandle.right)
 
     for idx, book in enumerate(order):
+        # Chapter order == dial order, so the announcement sits just before its book.
+        aid = announce_id(book)
+        nodes.append(
+            StoryNode(id=aid, type=NodeType.segment, title=announce_titles[book],
+                      tracks=[Track(key=aid, title=announce_titles[book])])
+        )
+        edge(aid, segment_id(book, 1), EdgeHandle.next)
         tracks = books[book]
         for i, asset in enumerate(tracks, start=1):
             sid = segment_id(book, i)
@@ -298,8 +321,9 @@ def build_graph(books: dict[int, list[Asset]]) -> StoryGraph:
 
 
 def skip_targets(books: dict[int, list[Asset]]) -> dict[str, tuple[str, str]]:
-    """Manual (prev, next) targets for every book track.
+    """Manual (prev, next) targets for every announcement and book track.
 
+    An announcement goes back to its prompt or skips ahead to chapter 1.
     Previous from a book's first track returns to that book's prompt; next from a
     book's last track starts the next book, and from the final book's last track
     returns to the first prompt.
@@ -307,6 +331,7 @@ def skip_targets(books: dict[int, list[Asset]]) -> dict[str, tuple[str, str]]:
     order = list(books)
     targets: dict[str, tuple[str, str]] = {}
     for idx, b in enumerate(order):
+        targets[announce_id(b)] = (choice_id(b), segment_id(b, 1))
         n = len(books[b])
         for i in range(1, n + 1):
             prev = segment_id(b, i - 1) if i > 1 else choice_id(b)
@@ -414,17 +439,18 @@ def check_payload(payload: dict, books: dict[int, list[Asset]]) -> None:
         key = resolve(ev["onRhb"])
     assert key == first and seen == [choice_id(b) for b in order], seen
 
-    # Left on each prompt starts that book; onEnd then plays straight through to the end.
+    # Left on each prompt announces that book, then plays straight through to the
+    # end (later books follow on directly, without their announcements).
     for b in order:
         key = resolve(chapters[choice_id(b)]["tracks"][-1]["events"]["onLhb"])
-        assert key == segment_id(b, 1), key
+        assert key == announce_id(b), key
         played = [key]
         while (ev := chapters[key]["tracks"][-1].get("events", {}).get("onEnd"))["cmd"] == "goto":
             key = resolve(ev)
             played.append(key)
         assert ev["cmd"] == "stop"
-        expected = [segment_id(bb, i) for bb in order[order.index(b):]
-                    for i in range(1, len(books[bb]) + 1)]
+        expected = [announce_id(b)] + [segment_id(bb, i) for bb in order[order.index(b):]
+                                       for i in range(1, len(books[bb]) + 1)]
         assert played == expected, f"Book {b} play-through mismatch"
 
     # Left/right clicks during a book step to the previous/next track.
@@ -433,7 +459,7 @@ def check_payload(payload: dict, books: dict[int, list[Asset]]) -> None:
         assert resolve(ev["onLhb"]) == prev, f"{node_id} left -> {ev['onLhb']}"
         assert resolve(ev["onRhb"]) == nxt, f"{node_id} right -> {ev['onRhb']}"
     print(f"✓ Device walk OK: {len(chapters)} chapters, every goto resolves, "
-          f"prompts cycle {' -> '.join(map(str, order))} -> {order[0]}, books play through, "
+          f"prompts cycle {' -> '.join(map(str, order))} -> {order[0]}, picks announce then play through, "
           "left/right skip tracks")
 
 
@@ -459,7 +485,8 @@ def main() -> None:
     source = fetch_card(token, args.card_id)
     print(f"Source card: {source['title']!r} ({args.card_id})")
     books = parse_books(source)
-    graph = build_graph(books)
+    announce_titles = {b: ANNOUNCE_TITLE.format(n=b, subtitle=SUBTITLES[b]) for b in books}
+    graph = build_graph(books, announce_titles)
 
     assets: dict[str, Asset] = {}
     for b, tracks in books.items():
@@ -470,13 +497,16 @@ def main() -> None:
     for b, tracks in books.items():
         mp3 = generate_prompt(PROMPT_TEXT.format(n=b), args.audio_dir / f"choose-book{b}.mp3",
                               args.model, args.voice)
-        title = f"Book {b}?"
-        if args.dry_run:
-            fake = hashlib.sha256(mp3.read_bytes()).hexdigest()
-            assets[choice_id(b)] = Asset(title=title, track_url=f"yoto:#{fake}", format="mp3",
-                                         icon=tracks[0].icon)
-        else:
-            assets[choice_id(b)] = prompt_asset(upload_audio(token, mp3), title, tracks[0].icon)
+        ann = generate_prompt(ANNOUNCE_TEXT.format(n=b, subtitle=SUBTITLES[b].replace("—", ", ")),
+                              args.audio_dir / f"announce-book{b}.mp3", args.model, args.voice)
+        for node_id, path, title in ((choice_id(b), mp3, f"Book {b}?"),
+                                     (announce_id(b), ann, announce_titles[b])):
+            if args.dry_run:
+                fake = hashlib.sha256(path.read_bytes()).hexdigest()
+                assets[node_id] = Asset(title=title, track_url=f"yoto:#{fake}", format="mp3",
+                                        icon=tracks[0].icon)
+            else:
+                assets[node_id] = prompt_asset(upload_audio(token, path), title, tracks[0].icon)
 
     title = args.title or f"{source['title']} (Choose a Book)"
     payload = build_payload(graph, assets, source, title, books)
